@@ -1,0 +1,699 @@
+{
+  "project_id": "piev-airwasher-abc",
+  "aspect_ratio": "9:16",
+  "resolution": "720p",
+  "references": [
+    {
+      "id": "R_A1",
+      "file": "refs/R_A1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Bright natural sunlight photograph inside a warm Seoul cafe with completely dry clean oak wood tabletop: a young Korean man in his late twenties wearing a clean beige knit sweater freezes mid-reaction with wide-eyed disbelief staring down after accidentally tipping a matte-white cylindrical cup sideways at 90 degrees onto the spotless DRY oak wood; amazingly NOT A SINGLE DROP spills onto the clean dry wood because vivid deep emerald-green glossy matcha-like solid gel stays frozen firmly inside the horizontal white rim. Spotless dry tabletop, zero puddles, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A2",
+      "file": "refs/R_A2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_A1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same bright sunlit oak cafe tabletop and matte-white cylindrical cup from the attached reference image, tight horizontal macro close-up: the matte-white cylindrical cup lies sideways at 90 degrees on completely dry clean oak wood, looking straight into its open white rim filled with smooth glossy vivid deep emerald-green solid gel frozen vertically without dripping or spilling a single drop onto the dry wood, a cautious human fingertip hovering inches outside the rim. Crisp photorealistic macro, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B1",
+      "file": "refs/R_B1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Moody quiet late-night 1st-person POV photograph entering a minimalist modern Korean apartment foyer and wooden hallway on a rainy night: a hand opens the front door stepping into calm still apartment air lit gently by soft warm 3000K hidden wall lighting against dark wood flooring and rain-streaked balcony glass bokeh in the background. Serene nocturnal cinema realism, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B2",
+      "file": "refs/R_B2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_B1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same quiet 3000K late-night Korean apartment ambiance from the attached reference image, low-key tactile close-up beside a dimly lit wooden shelf: two unbranded cluttered glass spray bottles with unlabeled paper wrap sit on the wood, while a young Korean woman's hand reaches halfway toward the spray bottle then pauses softly in mild hesitation without grabbing it. Moody calm cinema look, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no bottle labels, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_C1",
+      "file": "refs/R_C1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Crisp bright daylight 1st-person POV photograph at a warm light-oak wooden home table: a completely blank unbranded clear glass reed-diffuser bottle with wooden sticks has tipped sideways, spilling a shiny wet oily liquid puddle and scattered damp sticks across the oak wood tabletop as a hand holding crumpled white tissues dabs urgently at the sticky mess. Authentic handheld smartphone vlog realism, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_C2",
+      "file": "refs/R_C2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_C1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same bright daylight light-oak wooden home table from the attached reference image, clean overhead angle: a hand gathers and lifts the tipped messy unbranded glass bottle and reed sticks cleanly out of frame, wiping the light-oak wood surface completely dry and uncluttered. Crisp natural daylight realism, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A1_v2",
+      "file": "refs/R_A1_v2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Cold desaturated slate-blue B-grade Korean disaster documentary still frame in a modern Seoul apartment living room: unseen 90-degree tilted gravity causes ordinary open clear water glasses and glass liquid bottles on a tilted-horizon oak dining table to slide dramatically sideways pouring splashing liquid torrents across the wood edge in chaos. Dramatic cold lighting, shallow depth of field, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no icons, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A2_v2",
+      "file": "refs/R_A2_v2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_A1_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Dramatic cold overcast blue night exterior photograph of a towering Korean apartment building facade: most apartment windows glow cool flickering blue with blurred panicked silhouettes furiously wiping floors with towels, while ONE single center apartment window glows calm serene emerald-gold forest light in total peaceful stillness. Cinematic B-grade sci-fi documentary contrast, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B1_v2",
+      "file": "refs/R_B1_v2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "BBC Earth botanical nature documentary macro photograph inside an ancient misty Korean cypress pine forest at dawn: shimmering translucent pale emerald-green aromatic forest vapor gently breathes out from deep mossy cypress bark crevices into soft golden morning sunbeams filtering through evergreen needles. Lush natural documentary realism, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B2_v2",
+      "file": "refs/R_B2_v2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_B1_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same serene sunlit emerald cypress forest palette from the attached reference image, crisp botanical macro still: clean luminescent emerald mist swirls softly through crisp sunlit forest needles and hovers calmly above deep damp forest moss in quiet stillness. Pure daylight nature documentary beauty, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A1_v3",
+      "file": "refs/R_A1_v3.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Cinematic rainy-day Korean melodrama cafe scene beside a rain-streaked glass window, warm moody K-drama lighting: an emotional young Korean woman in a camel trench coat stands up dramatically gripping the edge of a warm oak cafe table beginning to tilt it in a breakup confrontation, iced glass cups sliding toward the edge, 9:16 vertical cinema frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A2_v3",
+      "file": "refs/R_A2_v3.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_A1_v3"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same rainy Korean cafe oak table and camel-coat woman from the attached reference image, over-the-shoulder K-drama comedy reaction shot: the calm young Korean man across the table casually tilts an unbranded matte-white cylindrical cup sideways at 90 degrees showing smooth vivid emerald-green solid gel staying completely frozen inside without spilling a single drop, leaving the emotional woman frozen mid-gesture in awkward speechless disbelief, 9:16 vertical cinema frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    }
+  ],
+  "units": [
+    {
+      "id": "A1",
+      "variant": "A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A1.mp4"
+      ],
+      "prompt": "One continuous natural handheld shot (strictly no camera cuts), 9:16 vertical frame. Matching the sunlit Seoul cafe dry oak table and young Korean man from the attached reference, his elbow bumps the matte-white cup knocking it flat 90 degrees onto the spotless wooden table WITHOUT spilling a single drop as vivid deep emerald-green gel stays frozen inside the horizontal cup, while his hands freeze back in genuine wide-eyed shock. Quiet cafe room tone only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "A2",
+      "variant": "A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A2.mp4"
+      ],
+      "prompt": "One continuous slow macro push-in (strictly no camera cuts), 9:16 vertical frame. Matching the tipped matte-white cup on dry oak wood from the attached reference, the hand gently rocks the horizontal cup back and forth slightly while the glossy vivid deep emerald-green solid gel inside holds completely firm vertically without dripping or spilling at all onto the dry wood, finger tapping the cup side lightly. Subtle cup tap sound only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "B1",
+      "variant": "B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B1.mp4"
+      ],
+      "prompt": "One continuous gentle 1st-person POV walk-in shot (strictly no camera cuts), 9:16 vertical frame. Matching the quiet 3000K Korean apartment entryway and dark wood floor from the attached reference, the camera glides smoothly inside as the front door closes gently behind into warm peaceful stillness while distant rain streaks softly down the balcony glass. Faint door latch click and room hush only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "B2",
+      "variant": "B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B2.mp4"
+      ],
+      "prompt": "One continuous calm close-up (strictly no camera cuts), 9:16 vertical frame. Matching the dim wooden apartment shelf and unbranded glass spray bottles from the attached reference, a hand reaches quietly toward the unlabeled spray bottle, pauses smoothly inches away without grabbing it, then pulls back calmly leaving it untouched. Quiet room hush only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "C1",
+      "variant": "C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_C1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/C1.mp4"
+      ],
+      "prompt": "One continuous brisk handheld 1st-person POV shot (strictly no camera cuts), 9:16 vertical frame. Matching the bright light-oak wooden home table and spilled unbranded glass reed-diffuser bottle from the attached reference, a hand quickly dabs up the shiny oil spill around the scattered wooden sticks using crumpled white tissues in everyday annoyance. Subtle paper rustle only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "C2",
+      "variant": "C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_C2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/C2.mp4"
+      ],
+      "prompt": "One continuous crisp overhead tabletop action shot (strictly no camera cuts), 9:16 vertical frame. Matching the bright daylight light-oak wood table from the attached reference, a decisive hand clears the unbranded glass diffuser bottle and sticks cleanly out of frame and wipes the oak tabletop spotless with one brisk swipe. Quiet wooden tap sound only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "VO_A1",
+      "variant": "vo_A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A1.mp4"
+      ],
+      "prompt": "Static medium close-up of a relatable 27-year-old Korean male creator wearing a clean heather-gray sweatshirt speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a natural upbeat Seoul Korean voice at crisp brisk Reels storytelling pace with clear pause before the third sentence: \"아니 컵이 구십 도로 누웠는데 왜 한 방울도 안 흘러요? 말차인 줄 알았는데 꼼짝도 안 하네. 근데 이거 음료가 아니라 고체 젤 방향제입니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_A2",
+      "variant": "vo_A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same relatable 27-year-old Korean male creator wearing a clean heather-gray sweatshirt speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same natural upbeat Seoul Korean voice at crisp brisk Reels review pace with friendly closing question: \"뚜껑만 열면 초록빛 피톤치드 젤이 은은하게 퍼지고, 기울여도 쏟을 걱정 없으니까 선반에 두기 딱 좋아요. 여러분 집엔 어떤 향 두시나요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_B1",
+      "variant": "vo_B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_B1.mp4"
+      ],
+      "prompt": "Static medium close-up of a calm relatable 27-year-old Korean female creator wearing a clean cream knit top speaking gently into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a soft intimate late-night conversational Seoul Korean voice at unhurried natural pacing with a clear pause before the second sentence: \"이상하게 집 들어왔을 때, 독한 향수 냄새보다 그냥 숲 공기처럼 은은하게 깔끔할 때가 제일 편하지 않아요? 그래서 저는 뚜껑만 열어두는 걸로 바꿨어요.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_B2",
+      "variant": "vo_B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_B2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same calm relatable 27-year-old Korean female creator wearing a clean cream knit top speaking gently into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same soft intimate conversational Seoul Korean voice with warm honest closing question: \"흘릴 걱정 없는 초록 고체 젤이라 욕실 선반에도 그냥 툭 올려두고 쓰기 좋더라고요. 다들 은은한 향 선호하시나요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_C1",
+      "variant": "vo_C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_C1.mp4"
+      ],
+      "prompt": "Static medium close-up of a crisp 28-year-old Korean male creator wearing a clean white crewneck tee speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a clear energetic Seoul Korean review voice with crisp diction: \"액체 디퓨저 스틱 치다가 한 번이라도 쏟아본 적 있죠? 이건 기울여도 한 방울 안 흐르는 초록 고체 젤 방향제입니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_C2",
+      "variant": "vo_C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_C2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same crisp 28-year-old Korean male creator wearing a clean white crewneck tee speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same clear energetic Seoul Korean review voice with friendly closing question: \"은색 뚜껑만 열어서 테이블이나 욕실 선반에 올려두면 끝, 은은한 피톤치드 향이라 부담도 없어요. 집안 냄새 관리 어떻게 하시나요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "A1_v2",
+      "variant": "A_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A1_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A1_v2.mp4"
+      ],
+      "prompt": "One continuous desaturated cold slate-blue disaster documentary camera shake (strictly no camera cuts), 9:16 vertical frame. Matching the apartment dining table from the attached reference, clear water glasses and glass bottles abruptly tip 90 degrees sideways together and spill splashing liquid streams sideways across the oak wood as if gravity suddenly shifted sideways. Dramatic glass rattle and splash sound only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "A2_v2",
+      "variant": "A_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A2_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A2_v2.mp4"
+      ],
+      "prompt": "One continuous slow zoom-in on the night Korean apartment building exterior (strictly no camera cuts), 9:16 vertical frame. Matching the facade from the attached reference, neighboring blue-lit windows show panicked silhouettes scrambling to wipe floors, as the camera glides smoothly closer to the lone serene golden emerald-lit calm apartment window glowing peacefully in the center. Low suspense city hum only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "B1_v2",
+      "variant": "B_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B1_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B1_v2.mp4"
+      ],
+      "prompt": "One continuous slow botanical macro glide (strictly no camera cuts), 9:16 vertical frame. Matching the ancient misty cypress bark from the attached reference, delicate pale emerald aromatic mist particles slowly rise from the sunlit evergreen bark into morning sunbeams inside the quiet forest. Gentle morning forest breeze only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "B2_v2",
+      "variant": "B_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B2_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B2_v2.mp4"
+      ],
+      "prompt": "One continuous calm forest sunlight canopy drift (strictly no camera cuts), 9:16 vertical frame. Matching the sunlit evergreen needles and glowing emerald mist from the attached reference, crisp clean emerald forest particles swirl gently upward through warm sunbeams in quiet nature-documentary stillness. Faint leaves rustle only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "VO_A1_v2",
+      "variant": "vo_A_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A1_v2.mp4"
+      ],
+      "prompt": "Static medium close-up of a composed 32-year-old Korean male documentary narrator in a charcoal crewneck speaking closely into a studio condenser microphone and pop filter in a silent dark vocal booth. Starting promptly without delay in a deadpan solemn urgent Seoul Korean TV news-docu voice: \"속보입니다. 오늘 오전 아홉 시, 한반도 중력이 갑자기 구십 도로 기울어졌습니다. 온 동네가 바닥 닦느라 대혼란에 빠진 사이, 단 한 집만 평온했습니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_A2_v2",
+      "variant": "vo_A_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A2_v2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same 32-year-old Korean male narrator in a charcoal crewneck speaking closely into a studio condenser microphone and pop filter in a silent dark vocal booth. Starting promptly without delay in a dry deadpan-warm Seoul Korean docu voice turning cheeky at the closing question: \"구십 도로 눕혀도 한 방울도 안 흐르는 초록 고체 젤. 중력이 기울어도 피에브 에어워셔 피톤치드 앞에서는 아무 일도 없었습니다. 여러분 집은 무사한가요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_B1_v2",
+      "variant": "vo_B_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_B1_v2.mp4"
+      ],
+      "prompt": "Static medium close-up of a calm poised 29-year-old Korean female science communicator in a cream knit sweater speaking clearly into a studio condenser microphone and pop filter in a silent dark vocal booth. Starting promptly without delay in an informative authoritative Seoul Korean documentary voice ending in '~습니다': \"나무는 도망칠 다리가 없는데, 어떻게 벌레와 곰팡이 사이에서 수백 년을 버틸까요? 비결은 스스로 뿜어내는 천연 방어 물질, 피톤치드입니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_B2_v2",
+      "variant": "vo_B_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_B2_v2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same calm 29-year-old Korean female science communicator in a cream knit sweater speaking clearly into a studio condenser microphone and pop filter in a silent dark vocal booth. Starting promptly without delay in the exact same informative calm Seoul Korean voice ending in '~습니다': \"그래서 숲속 공기는 유독 깔끔합니다. 피에브 에어워셔 피톤치드는 이 초록빛 피톤치드를 흐르지 않는 고체 젤로 담았습니다. 뚜껑만 열어두면 은은하게 퍼집니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "A1_v3",
+      "variant": "A_v3",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A1_v3"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A1_v3.mp4"
+      ],
+      "prompt": "One continuous playful Korean K-drama romantic-comedy parody camera push-in (strictly no camera cuts), 9:16 vertical frame. Matching the rainy cafe scene from the attached reference, the actress in a camel coat dramatically lifts one edge of the warm oak cafe table tilting it slightly sideways in exaggerated comedy-drama style as empty glasses slide slowly across the wood. Soft rain on window and gentle wood creak only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "A2_v3",
+      "variant": "A_v3",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A2_v3"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A2_v3.mp4"
+      ],
+      "prompt": "One continuous deadpan Korean romantic-comedy reaction shot (strictly no camera cuts), 9:16 vertical frame. Matching the exact rainy cafe and woman from the attached reference, the calm man effortlessly tilts the blank matte-white cylindrical cup sideways at 90 degrees with glossy emerald solid gel completely unmoving inside while the woman freezes mid-anger blinking in awkward stunned silence. Faint rainy cafe ambience only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "VO_A1_v3",
+      "variant": "vo_A_v3",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A1_v3.mp4"
+      ],
+      "prompt": "Static medium close-up of an expressive 28-year-old Korean female actress in a beige turtleneck speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a dramatic tearful Korean K-drama breakup voice turning perplexed at the end: \"우리 이제 그만 끝내요. 화나서 식탁을 구십 도로 확 엎어버리려던 그 순간, 오빠 손에 들린 저 컵만은 단 한 방울도 안 흐르더라고요.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_A2_v3",
+      "variant": "vo_A_v3",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A2_v3.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same expressive 28-year-old Korean female actress in a beige turtleneck speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a deadpan amused-warm Seoul Korean comedy voice: \"분위기는 깨졌는데 테이블은 말짱했습니다. 뚜껑 열면 초록 고체 젤이 꽉 잡힌 피에브 에어워셔 피톤치드. 은은한 향에 화도 좀 풀렸는데, 저 화해할까요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    }
+  ]
+}

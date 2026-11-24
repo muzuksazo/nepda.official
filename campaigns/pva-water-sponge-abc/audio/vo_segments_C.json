@@ -1,0 +1,45 @@
+{
+  "mode": "manifest",
+  "output_wav": "audio/vo_master_C.wav",
+  "total_duration": 18.29,
+  "segment_count": 4,
+  "lufs_i": -16.4,
+  "segments": [
+    {
+      "id": "VO_C1_pain",
+      "text": "행주로 닦아도 물자국만 번지고, 금방 찝찝해지죠.",
+      "file": "audio/VO_C1.mp4",
+      "start": 0.0,
+      "end": 3.9,
+      "duration": 3.9,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_C1_solve",
+      "text": "이건 물기를 밀어내는 게 아니라 그대로 쭉 빨아들입니다.",
+      "file": "audio/VO_C1.mp4",
+      "start": 4.04,
+      "end": 7.62,
+      "duration": 3.58,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_C2_body",
+      "text": "게다가 원래 천 원짜리 엄청 큰 블록이라, 작게 여러 조각 잘랐으면 세면대 구석까지 가성비가 말도 안 돼요.",
+      "file": "audio/VO_C2.mp4",
+      "start": 7.76,
+      "end": 14.7,
+      "duration": 6.94,
+      "gap_after": 0.18
+    },
+    {
+      "id": "VO_C2_cta",
+      "text": "꽉 짜면 끝, 다들 물기 정리 어떻게 하시나요?",
+      "file": "audio/VO_C2.mp4",
+      "start": 14.88,
+      "end": 18.29,
+      "duration": 3.41,
+      "gap_after": 0.0
+    }
+  ]
+}

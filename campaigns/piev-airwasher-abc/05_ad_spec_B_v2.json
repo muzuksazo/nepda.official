@@ -1,0 +1,188 @@
+{
+  "project_id": "piev-airwasher-abc-B-v2",
+  "output_stem": "ad_B_phytoncide_info",
+  "title": "피에브 에어워셔 피톤치드 B안(리뉴얼) — 나무 천연 방어 피톤치드 50% 오차 정보성 훅",
+  "mode": "narrative_master",
+  "track_archetype": "B_info_hook_offset",
+  "hook_similarity_score": 0.45,
+  "product_taboo_keywords": ["피에브", "방향제", "고체 젤"],
+  "hook_window_sec": 12.05,
+  "framing_mode": "full-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/piev_03_tilt.mp4",
+  "source_duration": 6.612,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "실물 영상 및 숲 다큐 클립 모두 9:16 full-bleed 적용.",
+  "vo_audio": "audio/vo_master_B_v2.wav",
+  "usps": [
+    {
+      "title": "흐르지 않는 에메랄드 초록빛 고체 젤 제형",
+      "fact_ids": ["F02", "F03"]
+    },
+    {
+      "title": "뚜껑만 열면 피톤치드 향이 은은하게 퍼지는 실내 거치형",
+      "fact_ids": ["F01", "F04"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 12.03,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Distant Memories Piano.caf"
+      ],
+      "gain_db": -16.5,
+      "fade_in": 0.08,
+      "fade_out": 0.04,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 12.29,
+      "end": 21.55,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Contrails Acoustic Guitar.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Contrails Bass.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Contrails Synth.caf"
+      ],
+      "gain_db": -15.5,
+      "fade_in": 0.05,
+      "fade_out": 0.45,
+      "stem_offset_sec": 0.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 12.05,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Small.caf",
+      "trim_start": 0.0,
+      "duration": 0.70,
+      "gain_db": -16.5,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "B_v2_cut01_cypress_bark",
+      "type": "video",
+      "path": "clips/B1_v2.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 5.34,
+      "speed": 0.94,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "B_v2_cut02_cypress_mist",
+      "type": "video",
+      "path": "clips/B2_v2.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 6.71,
+      "speed": 0.75,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "B_v2_bridge_pause",
+      "type": "silence_gap",
+      "duration": 0.24,
+      "audio_owner": "silence"
+    },
+    {
+      "id": "B_v2_cut03_real_lid",
+      "type": "video",
+      "path": "source/piev_02_lid.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.35,
+      "duration": 2.90,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02"]
+    },
+    {
+      "id": "B_v2_cut04_real_tilt",
+      "type": "source",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 2.60,
+      "src_end": 5.55,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F03"]
+    },
+    {
+      "id": "B_v2_cut05_real_shelf",
+      "type": "video",
+      "path": "source/piev_04_shelf.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.70,
+      "duration": 1.65,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "B_v2_cut06_real_place",
+      "type": "video",
+      "path": "source/piev_05_place.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.50,
+      "duration": 1.85,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F04"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 5.20,
+      "text": "도망칠 다리도 없는데\n수백 년을 버티는 나무",
+      "pop_badge": "식물 생존 과학"
+    },
+    {
+      "start": 5.34,
+      "end": 9.37,
+      "text": "스스로 뿜는 천연 방어 물질\n**피톤치드**입니다"
+    },
+    {
+      "start": 9.51,
+      "end": 12.05,
+      "text": "그래서 **숲속 공기**는\n유독 깔끔합니다"
+    },
+    {
+      "start": 12.29,
+      "end": 17.63,
+      "text": "**피에브 에어워셔 피톤치드**\n흐르지 않는 고체 젤로 담았습니다",
+      "pop_badge": "초록빛 피톤치드"
+    },
+    {
+      "start": 17.81,
+      "end": 21.55,
+      "text": "뚜껑만 열어두면\n**은은하게** 퍼집니다",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "숲속 피톤치드 향 좋아하시나요?",
+    "badge_copy": "좋아하는 향 댓글로 남겨보세요",
+    "show_from_sec": 17.81,
+    "start_sec": 17.81,
+    "fact_ids": ["F04"]
+  }
+}

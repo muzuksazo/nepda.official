@@ -1,0 +1,44 @@
+{
+  "beats": [
+    {
+      "id": "VO_B1_mood",
+      "file": "VO_B1.mp4",
+      "start_sec": 0.00,
+      "end_sec": 6.88,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.30,
+      "text": "이상하게 집 들어왔을 때, 독한 향수 냄새보다 그냥 숲 공기처럼 은은하게 깔끔할 때가 제일 편하지 않아요?"
+    },
+    {
+      "id": "VO_B1_shift",
+      "file": "VO_B1.mp4",
+      "start_sec": 7.72,
+      "end_sec": 11.54,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.14,
+      "text": "그래서 저는 뚜껑만 열어두는 걸로 바꿨어요."
+    },
+    {
+      "id": "VO_B2_body",
+      "file": "VO_B2.mp4",
+      "start_sec": 0.22,
+      "end_sec": 7.62,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.22,
+      "text": "흘릴 걱정 없는 초록 고체 젤이라 욕실 선반에도 그냥 툭 올려두고 쓰기 좋더라고요."
+    },
+    {
+      "id": "VO_B2_cta",
+      "file": "VO_B2.mp4",
+      "start_sec": 9.10,
+      "end_sec": 11.80,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.0,
+      "text": "다들 은은한 향 선호하시나요?"
+    }
+  ]
+}

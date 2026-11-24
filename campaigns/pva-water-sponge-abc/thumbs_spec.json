@@ -1,0 +1,117 @@
+{
+  "canvas": {"width": 1080, "height": 1920},
+  "strict_margin": true,
+  "thumbnails": [
+    {
+      "id": "sponge_A_noir_sponge",
+      "filename": "thumb_A_noir_sponge.png",
+      "layout": "split_2panel",
+      "panels": [
+        {
+          "image": "refs/R_A2_v3.png",
+          "height": 940,
+          "y": 0,
+          "crop_norm": [0, 0.06, 1, 0.72],
+          "anchor": [0.5, 0.25],
+          "contrast": 1.07
+        },
+        {
+          "image": "refs/REAL_SPONGE_WIPE.png",
+          "height": 968,
+          "y": 952,
+          "crop_norm": [0, 0.28, 1, 0.92],
+          "anchor": [0.5, 0.45],
+          "contrast": 1.08
+        }
+      ],
+      "scrim": {"y_top": 670, "y_bottom": 1060, "peak_alpha": 208, "edge_soft": 105},
+      "pill": {"y": 645, "text": "현장 물기 증발 미스터리", "fill": [210, 38, 30, 248], "font_size": 40},
+      "headline": {
+        "style": "stroke_bold",
+        "gap_after_pill": 22,
+        "font_size": 120,
+        "line_gap": 16,
+        "stroke_w": 11,
+        "lines": [
+          {"text": "수건도 없는데", "color": [255, 255, 255]},
+          {"text": "1초 만에 증발?!", "color": [255, 224, 71]}
+        ]
+      }
+    },
+    {
+      "id": "sponge_B_sponge_science",
+      "filename": "thumb_B_sponge_science.png",
+      "layout": "single",
+      "image": "refs/R_B1_v2.png",
+      "anchor": [0.5, 0.48],
+      "contrast": 1.07,
+      "scrim": {"y_top": 520, "y_bottom": 1040, "peak_alpha": 165, "edge_soft": 120},
+      "pill": {
+        "y": 510,
+        "text": "뇌·심장도 없는데",
+        "fill": [12, 24, 34, 236],
+        "outline": [65, 205, 255, 225],
+        "dot_color": [65, 205, 255, 255],
+        "font_size": 40
+      },
+      "headline": {
+        "style": "panel_card",
+        "gap_after_pill": 22,
+        "font_size": 116,
+        "line_gap": 18,
+        "card_fill": [10, 18, 28, 226],
+        "card_pad_x": 38,
+        "card_pad_y": 26,
+        "lines": [
+          {"text": "6억 년 생존한", "color": [255, 255, 255]},
+          {"text": "물 흡입 구멍 원리", "color": [255, 224, 71]}
+        ]
+      },
+      "inset_cards": [
+        {
+          "image": "refs/REAL_SPONGE_CUT.png",
+          "crop_norm": [0.22, 0.10, 0.82, 0.90],
+          "x": 685,
+          "y": 1105,
+          "size": 310,
+          "radius": 34,
+          "border": 8
+        }
+      ]
+    },
+    {
+      "id": "sponge_C_rag_direct",
+      "filename": "thumb_C_rag_direct.png",
+      "layout": "single",
+      "image": "refs/R_C1.png",
+      "anchor": [0.5, 0.45],
+      "contrast": 1.06,
+      "scrim": {"y_top": 490, "y_bottom": 960, "peak_alpha": 160, "edge_soft": 120},
+      "pill": {"y": 495, "text": "행주 물자국 번진다면", "fill": [20, 115, 195, 245], "font_size": 40},
+      "headline": {
+        "style": "line_blocks",
+        "gap_after_pill": 22,
+        "font_size": 116,
+        "line_gap": 14,
+        "block_pad_x": 30,
+        "block_pad_y": 14,
+        "block_radius": 20,
+        "lines": [
+          {"text": "1,000원 대형 블록", "color": [16, 20, 26], "bg": [255, 255, 255, 250]},
+          {"text": "잘라 쓰는 원스윕!", "color": [18, 92, 168], "bg": [255, 236, 115, 250]}
+        ]
+      },
+      "inset_cards": [
+        {
+          "image": "refs/REAL_SPONGE_PACK.png",
+          "crop_norm": [0.08, 0.14, 0.94, 0.80],
+          "x": 685,
+          "y": 1105,
+          "size": 310,
+          "radius": 34,
+          "border": 8
+        }
+      ]
+    }
+  ]
+}

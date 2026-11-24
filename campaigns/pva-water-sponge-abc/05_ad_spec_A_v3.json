@@ -1,0 +1,212 @@
+{
+  "project_id": "pva-water-sponge-abc-A-v3",
+  "output_stem": "ad_A_noir_sponge",
+  "title": "물기 제거 스펀지 A안(v3) — 욕실 물기 증발 누아르 취조 반전",
+  "mode": "narrative_master",
+  "track_archetype": "A_bgrade_reversal",
+  "a_genre_archetype": "noir_interrogation",
+  "product_taboo_keywords": ["스펀지", "물기 제거", "천 원"],
+  "hook_window_sec": 9.2,
+  "framing_mode": "full-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/sponge_04_wipe.mp4",
+  "source_duration": 7.986,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "실물 9:16 3편은 full-bleed, 16:9 sponge_01_press는 blur-bleed + 캡션 y_pos:1385 하단 회피.",
+  "vo_audio": "audio/vo_master_A_v3.wav",
+  "usps": [
+    {
+      "title": "천 원짜리 대형 블록을 조각조각 소분해 두어 물기 한 번에 흡수",
+      "fact_ids": ["F01", "F02", "F05"]
+    },
+    {
+      "title": "쓱 밀고 꽉 짜서 깔끔하게 재사용",
+      "fact_ids": ["F03", "F04"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 9.18,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Last Episode Piano.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Stone Cold Warped Piano.caf"
+      ],
+      "gain_db": -16.0,
+      "fade_in": 0.05,
+      "fade_out": 0.03,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 9.46,
+      "end": 20.55,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/09 Disco Funk/Sky Lounge Electric Piano 01.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Bass.caf"
+      ],
+      "gain_db": -15.0,
+      "fade_in": 0.04,
+      "fade_out": 0.45,
+      "stem_offset_sec": 0.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 9.18,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Impacts & Crashes/Impact Hit Reverb 03.caf",
+      "trim_start": 0.53,
+      "duration": 0.34,
+      "gain_db": -12.0,
+      "fade_in": 0.005,
+      "fade_out": 0.06
+    },
+    {
+      "time": 9.46,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Click Off FX.caf",
+      "trim_start": 0.03,
+      "duration": 0.30,
+      "gain_db": -12.5,
+      "fade_in": 0.005,
+      "fade_out": 0.05
+    },
+    {
+      "time": 17.12,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Transition.caf",
+      "trim_start": 0.0,
+      "duration": 0.65,
+      "gain_db": -16.5,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "A_v3_cut01_noir_floor",
+      "type": "video",
+      "path": "clips/A1_v3.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 5.20,
+      "speed": 0.96,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "A_v3_cut02_dry_tile",
+      "type": "video",
+      "path": "clips/A2_v3.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 4.00,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "A_v3_twist_stop",
+      "type": "silence_gap",
+      "duration": 0.26,
+      "audio_owner": "silence"
+    },
+    {
+      "id": "A_v3_cut03_big_block",
+      "type": "video",
+      "path": "source/sponge_02_pack.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 1.4,
+      "duration": 2.30,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F05"]
+    },
+    {
+      "id": "A_v3_cut04_cut_piece",
+      "type": "video",
+      "path": "source/sponge_01_press.mp4",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 2.75,
+      "speed": 0.72,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02", "F05"]
+    },
+    {
+      "id": "A_v3_cut05_wipe_dry",
+      "type": "source",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 4.0,
+      "src_end": 6.75,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "A_v3_cut06_squeeze_cta",
+      "type": "video",
+      "path": "source/sponge_03_rinse.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 17.5,
+      "duration": 3.34,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F03"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 5.20,
+      "text": "솔직히 말해, 바닥 물기가\n**1초 만에 흔적 없이** 사라졌어",
+      "pop_badge": "물기 증발 미스터리"
+    },
+    {
+      "start": 6.70,
+      "end": 9.20,
+      "text": "수건도 걸레도 없는데\n**무슨 수법을** 쓴 거야?"
+    },
+    {
+      "start": 9.46,
+      "end": 11.76,
+      "text": "**1,000원 대형 블록**을\n작게 여러 조각 잘라 뒀거든요",
+      "pop_badge": "자수한 증거품"
+    },
+    {
+      "start": 11.76,
+      "end": 14.39,
+      "text": "형사님, 별거 아닙니다",
+      "y_pos": 1385
+    },
+    {
+      "start": 14.53,
+      "end": 16.98,
+      "text": "**쓱 밀고 꽉 짜면** 증거 인멸 끝"
+    },
+    {
+      "start": 17.12,
+      "end": 20.55,
+      "text": "저 자수할게요\n**여러분도 공범인가요?**",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "여러분도 공범인가요?",
+    "badge_copy": "자수 행렬 댓글로 동참하기",
+    "show_from_sec": 17.12,
+    "start_sec": 17.12,
+    "fact_ids": ["F05"]
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "beats": [
+    {
+      "id": "M_p1",
+      "file": "parts/M_p1.wav",
+      "text": "아니, 분명 빨간 피자 한 판 다 시켰는데",
+      "trim_edges": false,
+      "gap_before": 0.12,
+      "gap_after": 0.25
+    },
+    {
+      "id": "M_p2a",
+      "file": "parts/M_p2a.wav",
+      "text": "눈 깜짝할 새 사라졌습니다.",
+      "trim_edges": false,
+      "gap_after": 0.15
+    },
+    {
+      "id": "M_p2b",
+      "file": "parts/M_p2b.wav",
+      "text": "어디로 갔냐고요?",
+      "trim_edges": false,
+      "gap_after": 0.18
+    },
+    {
+      "id": "M_p2c",
+      "file": "parts/M_p2c.wav",
+      "text": "사실 이건 피자가 아니라,",
+      "trim_edges": false,
+      "gap_after": 0.62
+    },
+    {
+      "id": "M_p3",
+      "file": "parts/M_p3.wav",
+      "text": "제가 딴짓하다 날려먹은 한 시간입니다.",
+      "trim_edges": false,
+      "gap_after": 0.6
+    },
+    {
+      "id": "M_p4a",
+      "file": "parts/M_p4a.wav",
+      "text": "숫자? 볼 필요도 없어요.",
+      "trim_edges": false,
+      "gap_after": 0.15
+    },
+    {
+      "id": "M_p4b",
+      "file": "parts/M_p4b.wav",
+      "text": "다이얼만 쓱 돌리면 남은 시간이 빨간 판으로 딱 보이니까.",
+      "trim_edges": false,
+      "gap_after": 0.6
+    },
+    {
+      "id": "M_p5",
+      "file": "parts/M_p5.wav",
+      "text": "피자 조각 줄어드는 것 같아서 딴짓 못 하게 되네요.",
+      "trim_edges": false,
+      "gap_after": 1.15
+    },
+    {
+      "id": "M_p6",
+      "file": "parts/M_p6.wav",
+      "text": "여러분은 하루에 몇 조각 날리시나요?",
+      "trim_edges": false,
+      "gap_after": 0.55
+    }
+  ]
+}

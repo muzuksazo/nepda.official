@@ -1,0 +1,206 @@
+{
+  "project_id": "piev-airwasher-abc-A-v2",
+  "output_stem": "ad_A_gravity_bgrade",
+  "title": "피에브 에어워셔 피톤치드 A안(리뉴얼) — 중력 90도 기울기 B급 재난 페이크 다큐 반전",
+  "mode": "narrative_master",
+  "track_archetype": "A_bgrade_reversal",
+  "product_taboo_keywords": ["피에브", "방향제", "피톤치드", "고체 젤"],
+  "hook_window_sec": 10.18,
+  "framing_mode": "full-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/piev_03_tilt.mp4",
+  "source_duration": 6.612,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "실물 영상 및 AI 재난 컷 모두 9:16 full-bleed 적용.",
+  "vo_audio": "audio/vo_master_A_v2.wav",
+  "usps": [
+    {
+      "title": "90도로 기울여도 한 방울 안 흐르는 초록 고체 젤",
+      "fact_ids": ["F02", "F03"]
+    },
+    {
+      "title": "실내 어디나 올려두는 깔끔한 원통 컵 피에브 에어워셔 피톤치드",
+      "fact_ids": ["F01", "F04"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 10.16,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Caution Synth.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Brooklyn Noir Swag Bass.caf"
+      ],
+      "gain_db": -16.0,
+      "fade_in": 0.05,
+      "fade_out": 0.03,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 10.46,
+      "end": 21.95,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Beach Run Synth.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Beach Run Bass.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Chill Loop Guitar.caf"
+      ],
+      "gain_db": -15.0,
+      "fade_in": 0.04,
+      "fade_out": 0.45,
+      "stem_offset_sec": 0.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 10.16,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Misc./Turntable Scratch 2.caf",
+      "trim_start": 0.0,
+      "duration": 0.28,
+      "gain_db": -11.5,
+      "fade_in": 0.005,
+      "fade_out": 0.04
+    },
+    {
+      "time": 10.46,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Impacts & Crashes/LFE Hit Impact 04.caf",
+      "trim_start": 0.0,
+      "duration": 0.65,
+      "gain_db": -12.0,
+      "fade_in": 0.005,
+      "fade_out": 0.25
+    },
+    {
+      "time": 20.05,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Transition.caf",
+      "trim_start": 0.0,
+      "duration": 0.65,
+      "gain_db": -16.5,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "A_v2_cut01_gravity_table",
+      "type": "video",
+      "path": "clips/A1_v2.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 5.06,
+      "speed": 0.99,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "A_v2_cut02_apt_facade",
+      "type": "video",
+      "path": "clips/A2_v2.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 5.12,
+      "speed": 0.98,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "A_v2_twist_stop",
+      "type": "silence_gap",
+      "duration": 0.28,
+      "audio_owner": "silence"
+    },
+    {
+      "id": "A_v2_cut03_real_tilt_90",
+      "type": "source",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 2.60,
+      "src_end": 6.40,
+      "speed": 0.93,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F03"]
+    },
+    {
+      "id": "A_v2_cut04_real_lid_gel",
+      "type": "video",
+      "path": "source/piev_02_lid.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.40,
+      "duration": 3.12,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02"]
+    },
+    {
+      "id": "A_v2_cut05_real_shelf_calm",
+      "type": "video",
+      "path": "source/piev_04_shelf.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.70,
+      "duration": 2.48,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "A_v2_cut06_real_rotate_cta",
+      "type": "video",
+      "path": "source/piev_01_rotate.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 2.00,
+      "duration": 1.88,
+      "speed": 1.20,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 5.06,
+      "text": "**[속보]** 한반도 중력\n갑자기 90도로 기울어졌다",
+      "pop_badge": "긴급 재난 다큐"
+    },
+    {
+      "start": 5.20,
+      "end": 10.18,
+      "text": "온 동네 바닥 닦느라 대혼란\n**단 한 집만 평온했습니다**"
+    },
+    {
+      "start": 10.46,
+      "end": 14.54,
+      "text": "90도로 눕혀도 한 방울 안 흐르는\n**초록 고체 젤**",
+      "pop_badge": "평온의 정체"
+    },
+    {
+      "start": 14.68,
+      "end": 20.04,
+      "text": "**피에브 에어워셔 피톤치드** 앞에선\n아무 일도 없었습니다"
+    },
+    {
+      "start": 20.20,
+      "end": 21.95,
+      "text": "여러분 집은\n**무사한가요?**",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "여러분 집은 무사한가요?",
+    "badge_copy": "우리 집 상태 댓글로 제보하기",
+    "show_from_sec": 20.05,
+    "start_sec": 20.05,
+    "fact_ids": ["F03"]
+  }
+}

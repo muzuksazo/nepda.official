@@ -1,0 +1,258 @@
+{
+  "project_id": "digimore-timer-abc-B",
+  "output_stem": "ad_B_docu_twist",
+  "title": "60분 비주얼 타이머 B안 — 인류 집중력 3초 붕괴 다큐 반전 리뷰",
+  "mode": "narrative_master",
+  "hook_window_sec": 10.4,
+  "framing_mode": "blur-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/timer_dial.mp4",
+  "source_duration": 20.167,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "원본 실물 영상에 내장 자막 없음. 정사각형 다이얼(532x532)은 blur-bleed, 세로 손 회전(960x1280)은 smart-crop, AI 다큐 9:16 컷은 full-bleed 적용.",
+  "vo_audio": "audio/vo_master_B.wav",
+  "usps": [
+    {
+      "title": "다이얼 회전으로 빨간 원판 즉시 설정",
+      "fact_ids": ["F01", "F03"]
+    },
+    {
+      "title": "빨간 칸 감소 시각화",
+      "fact_ids": ["F04"]
+    },
+    {
+      "title": "아날로그 콤팩트 폼팩터",
+      "fact_ids": ["F02"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 10.08,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Epoch Ambient Piano.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Epoch Orchestra Hits.caf"
+      ],
+      "gain_db": -16.5,
+      "fade_in": 0.08,
+      "fade_out": 0.05,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 10.40,
+      "end": 27.75,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Epoch Beat.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Epoch Sub Bass.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Epoch Synth Arp.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Epoch Ambient Piano.caf"
+      ],
+      "gain_db": -14.5,
+      "fade_in": 0.04,
+      "fade_out": 0.45,
+      "stem_offset_sec": -1.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 1.45,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Small.caf",
+      "trim_start": 0.0,
+      "duration": 0.90,
+      "gain_db": -15.5,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    },
+    {
+      "time": 10.12,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Impacts & Crashes/LFE Hit Impact 04.caf",
+      "trim_start": 0.0,
+      "duration": 0.90,
+      "gain_db": -11.5,
+      "fade_in": 0.005,
+      "fade_out": 0.35
+    },
+    {
+      "time": 10.35,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Transition.caf",
+      "trim_start": 0.0,
+      "duration": 1.10,
+      "gain_db": -15.0,
+      "fade_in": 0.01,
+      "fade_out": 0.35
+    },
+    {
+      "time": 14.30,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Ratchet FX.caf",
+      "trim_start": 0.0,
+      "duration": 0.34,
+      "gain_db": -12.0,
+      "fade_in": 0.005,
+      "fade_out": 0.05
+    },
+    {
+      "time": 21.95,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Computer Keyboard.caf",
+      "trim_start": 0.2,
+      "duration": 2.40,
+      "gain_db": -19.5,
+      "fade_in": 0.08,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "B_cut01_docu_glow",
+      "type": "video",
+      "path": "clips/B1.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.05,
+      "duration": 4.90,
+      "speed": 0.98,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "B_cut02_docu_clock",
+      "type": "video",
+      "path": "clips/B2.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.05,
+      "duration": 5.20,
+      "speed": 0.95,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "B_twist_stop",
+      "type": "silence_gap",
+      "duration": 0.30,
+      "audio_owner": "silence"
+    },
+    {
+      "id": "B_cut03_real_hand_rotate",
+      "type": "video",
+      "path": "source/timer_hand.mp4",
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.50,
+      "bottom_crop_px": 0,
+      "src_start": 2.1,
+      "duration": 3.20,
+      "speed": 1.22,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F02"]
+    },
+    {
+      "id": "B_cut04_real_dial_fill",
+      "type": "source",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.5,
+      "src_end": 4.8,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F03"]
+    },
+    {
+      "id": "B_cut05_real_dial_shrink",
+      "type": "source",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 7.9,
+      "src_end": 13.5,
+      "speed": 1.40,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "B_cut06_desk_focus",
+      "type": "video",
+      "path": "clips/DESK_25.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.6,
+      "duration": 3.40,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02", "F03"]
+    },
+    {
+      "id": "B_cut07_real_front_close",
+      "type": "video",
+      "path": "source/timer_hand.mp4",
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.50,
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 2.45,
+      "speed": 0.85,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F02"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "인류가 집중력을 잃는 데\n걸리는 시간은 **단 3초**",
+      "pop_badge": "집중력 관찰 리포트"
+    },
+    {
+      "start": 3.12,
+      "end": 6.08,
+      "text": "**알림 하나면**\n공부 계획은 사라집니다"
+    },
+    {
+      "start": 6.08,
+      "end": 7.65,
+      "text": "의지가 약해서가\n**아닙니다**"
+    },
+    {
+      "start": 7.65,
+      "end": 10.10,
+      "text": "**폰 타이머가**\n함정이었으니까요"
+    },
+    {
+      "start": 10.40,
+      "end": 14.20,
+      "text": "해답은 첨단 앱이 아니라\n이 **아날로그 타이머**",
+      "header_tag": "아날로그 타이머"
+    },
+    {
+      "start": 14.20,
+      "end": 18.05,
+      "text": "다이얼만 돌리면\n**빨간 원판**으로 보이고",
+      "header_tag": "60분 비주얼 타이머"
+    },
+    {
+      "start": 18.05,
+      "end": 22.00,
+      "text": "줄어드는 게 눈에 보이니\n**딴짓이 사라지죠**",
+      "header_tag": "뽀모도로 25분 집중"
+    },
+    {
+      "start": 22.00,
+      "end": 27.75,
+      "text": "여러분의 **집중 비결**은\n무엇인가요?",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "여러분의 집중 비결은 뭔가요?",
+    "badge_copy": "댓글로 집중 노하우 알려주세요",
+    "show_from_sec": 23.60,
+    "start_sec": 23.60,
+    "fact_ids": ["F01"]
+  }
+}

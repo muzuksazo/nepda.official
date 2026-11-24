@@ -1,0 +1,262 @@
+{
+  "project_id": "digimore-timer-abc-A-absurd",
+  "output_stem": "ad_A_absurd_pizza",
+  "title": "60분 비주얼 타이머 무맥락 A형 — 사라진 빨간 피자 한 판 매치컷 반전",
+  "mode": "narrative_master",
+  "hook_window_sec": 8.4,
+  "framing_mode": "blur-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/timer_dial.mp4",
+  "source_duration": 20.167,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "원본 실물 영상에 내장 자막 없음. 정사각형 다이얼(532x532)은 blur-bleed로 피자 원판과의 사각 프레임 매치컷 및 눈금·베젤을 온전히 유지하고, 세로 손 회전(960x1280)은 smart-crop, AI 9:16 컷은 full-bleed 사용.",
+  "vo_audio": "audio/vo_master_M.wav",
+  "usps": [
+    {
+      "title": "사라지는 빨간 원판으로 남은 시간 시각화",
+      "fact_ids": ["F01", "F04"]
+    },
+    {
+      "title": "숫자 없이 다이얼만 돌려 빨간 판 즉시 표시",
+      "fact_ids": ["F03"]
+    },
+    {
+      "title": "사각 흰 베젤과 한 손 크기 아날로그 디자인",
+      "fact_ids": ["F02"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 8.03,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Empire State Harp.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Empire State Piano.caf"
+      ],
+      "gain_db": -16.5,
+      "fade_in": 0.06,
+      "fade_out": 0.03,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 8.35,
+      "end": 26.10,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Empire State Beat.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Empire State Horns.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Empire State Piano.caf"
+      ],
+      "gain_db": -14.5,
+      "fade_in": 0.04,
+      "fade_out": 0.45,
+      "stem_offset_sec": -1.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 8.02,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Misc./Turntable Scratch 2.caf",
+      "trim_start": 0.0,
+      "duration": 0.30,
+      "gain_db": -11.0,
+      "fade_in": 0.005,
+      "fade_out": 0.04
+    },
+    {
+      "time": 8.34,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Impacts & Crashes/LFE Hit Impact 04.caf",
+      "trim_start": 0.0,
+      "duration": 0.70,
+      "gain_db": -11.5,
+      "fade_in": 0.005,
+      "fade_out": 0.25
+    },
+    {
+      "time": 13.80,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Ratchet FX.caf",
+      "trim_start": 0.0,
+      "duration": 0.34,
+      "gain_db": -11.5,
+      "fade_in": 0.005,
+      "fade_out": 0.05
+    },
+    {
+      "time": 15.10,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Ratchet FX.caf",
+      "trim_start": 0.0,
+      "duration": 0.34,
+      "gain_db": -13.0,
+      "fade_in": 0.005,
+      "fade_out": 0.06
+    },
+    {
+      "time": 21.00,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Computer Keyboard.caf",
+      "trim_start": 0.2,
+      "duration": 1.60,
+      "gain_db": -20.0,
+      "fade_in": 0.06,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "M_cut01_pizza_shock",
+      "type": "video",
+      "path": "clips/M1.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.05,
+      "duration": 3.05,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "M_cut02_pizza_vanish",
+      "type": "video",
+      "path": "clips/M2.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.05,
+      "duration": 5.00,
+      "speed": 0.98,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "M_twist_stop",
+      "type": "silence_gap",
+      "duration": 0.30,
+      "audio_owner": "silence"
+    },
+    {
+      "id": "M_cut03_matchcut_dial_shrink",
+      "type": "source",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 7.9,
+      "src_end": 13.5,
+      "speed": 1.40,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F04"]
+    },
+    {
+      "id": "M_cut04_real_dial_fill",
+      "type": "source",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.4,
+      "src_end": 5.6,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F03"]
+    },
+    {
+      "id": "M_cut05_real_hand_rotate",
+      "type": "video",
+      "path": "source/timer_hand.mp4",
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.50,
+      "bottom_crop_px": 0,
+      "src_start": 2.1,
+      "duration": 3.20,
+      "speed": 1.22,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02"]
+    },
+    {
+      "id": "M_cut06_desk_focus",
+      "type": "video",
+      "path": "clips/DESK_25.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.5,
+      "duration": 2.90,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02", "F03"]
+    },
+    {
+      "id": "M_cut07_real_front_close",
+      "type": "video",
+      "path": "source/timer_hand.mp4",
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.50,
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 2.45,
+      "speed": 0.85,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F02"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 3.00,
+      "text": "아니 분명 **빨간 피자 한 판**\n다 시켰는데"
+    },
+    {
+      "start": 3.00,
+      "end": 4.95,
+      "text": "**눈 깜짝할 새**\n사라졌습니다"
+    },
+    {
+      "start": 4.95,
+      "end": 6.10,
+      "text": "어디로 갔냐고요?"
+    },
+    {
+      "start": 6.10,
+      "end": 8.05,
+      "text": "사실 이건\n**피자가 아니라**"
+    },
+    {
+      "start": 8.35,
+      "end": 12.10,
+      "text": "제가 딴짓하다 날려먹은\n**한 시간입니다**",
+      "pop_badge": "사라진 내 시간"
+    },
+    {
+      "start": 12.10,
+      "end": 14.30,
+      "text": "숫자?\n**볼 필요도 없어요**",
+      "header_tag": "60분 비주얼 타이머"
+    },
+    {
+      "start": 14.30,
+      "end": 18.10,
+      "text": "다이얼만 돌리면 남은 시간이\n**빨간 판**으로 딱 보이니까",
+      "header_tag": "빨간 원판으로 남은 시간 한눈에"
+    },
+    {
+      "start": 18.10,
+      "end": 21.80,
+      "text": "**피자 조각** 줄어드는 것 같아서\n딴짓 못 하게 되네요",
+      "header_tag": "아날로그 타이머"
+    },
+    {
+      "start": 21.80,
+      "end": 26.10,
+      "text": "여러분은 하루에\n**몇 조각 날리시나요?**",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "여러분은 하루에 몇 조각 날리시나요?",
+    "badge_copy": "댓글로 몇 조각 날리는지 알려주세요",
+    "show_from_sec": 21.80,
+    "start_sec": 21.80,
+    "fact_ids": ["F01"]
+  }
+}

@@ -1,0 +1,700 @@
+{
+  "project_id": "pva-water-sponge-abc",
+  "aspect_ratio": "9:16",
+  "resolution": "720p",
+  "references": [
+    {
+      "id": "R_A1",
+      "file": "refs/R_A1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Bright modern Korean studio desk over-the-shoulder close-up photograph: a young Korean creative holds a slim white stylus dragging a crisp solid rectangular white eraser block straight down across an abstract vivid sky-blue watercolor liquid splash painted on a completely blank white tablet screen, leaving a razor-sharp bone-dry white stripe cleanly erased through the middle of the blue splash. Zero tablet UI buttons, zero toolbars, clean daylight editorial photography, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no icons, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A2",
+      "file": "refs/R_A2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_A1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same bright modern Korean desk and young Korean creative from the attached reference image, crisp medium portrait: the person leans back slightly resting chin near one hand while lightly tapping the white stylus against their palm, glancing sideways toward a bright sunlit doorway with a playful sudden bright idea expression. Clean daylight realism, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, no icons, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B1",
+      "file": "refs/R_B1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Quiet late-night minimalist Korean bathroom 1st-person POV photograph in soft dim 3000K mirror vanity lighting: pausing at the doorway turning back toward a sleek white ceramic vanity counter where shiny backlit water droplets and a wide glistening wet water puddle sit pooled conspicuously right behind the brushed chrome sink faucet against a light speckled stone backsplash wall. Moody nocturnal cinema look, shallow depth of field, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B2",
+      "file": "refs/R_B2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_B1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same dim 3000K late-night Korean bathroom sink lighting from the attached reference image, tactile close-up: a hand reaches slowly toward a visibly damp dark soggy grey cloth rag hanging crumpled from a wall hook next to the vanity, fingertips pausing two inches shy in quiet mild reluctance without touching the wet rag. Moody realism, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_C1",
+      "file": "refs/R_C1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Crisp bright daylight 1st-person POV photograph in a modern Korean bathroom matching a white ceramic vanity sink with light grey stone tile backsplash: a hand pushes a damp folded white cotton towel across a wet glossy white vanity countertop edge, visibly smearing thin watery streaks and lingering droplets across the surface rather than absorbing them cleanly. Authentic handheld smartphone vlog look, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_C2",
+      "file": "refs/R_C2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_C1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same bright daylight white bathroom vanity sink from the attached reference image, low 35-degree angle macro look along the countertop edge: natural light glares off messy smudged water streaks and droplets still covering the wiped white ceramic surface, while the hand lifts the soggy white cotton cloth out of frame cleanly. Crisp daytime realism, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A1_v2",
+      "file": "refs/R_A1_v2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Cold desaturated slate-blue cinematic disaster documentary still frame inside a dimly lit Korean bathroom: miniature dramatic ocean swells and rising splashing floodwater overflowing wildly across a white ceramic vanity sink around a bobbing toothbrush cup and ceramic soap dish like a comical miniature tidal disaster. Moody cold storm lighting, shallow depth of field, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no icons, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A2_v2",
+      "file": "refs/R_A2_v2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_A1_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Surreal B-grade Korean apartment documentary hallway at night: in the foreground shadowed cool blue corridor neighbors in bathrobes carry wet mops and yellow plastic buckets in humorous disaster panic, while one open apartment bathroom doorway ahead glows with serene warm 3200K golden morning sunlight over a completely bone-dry spotless sink counter. Stark cold-vs-warm contrast, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B1_v2",
+      "file": "refs/R_B1_v2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "National Geographic deep turquoise ocean nature documentary macro photograph: a textured natural golden-brown marine sea sponge thriving gently on a sunlit ocean reef floor with crisp delicate natural pores visibly drawing tiny shimmering azure water micro-bubbles inward in calm underwater light shafts. Crisp scientific wildlife photography realism, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B2_v2",
+      "file": "refs/R_B2_v2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_B1_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Clean bright optical science documentary macro close-up: glistening clear crystal water droplets sitting along a dense microscopic honeycomb-like grey open-cell porous block texture, pulling smoothly downward into the dark matte grey inner pores in sharp capillary absorption detail. Crisp laboratory macro clarity, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A1_v3",
+      "file": "refs/R_A1_v3.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Moody Korean film-noir detective interrogation room under a single hanging tungsten lamp: a stern veteran Korean detective in a dark trench coat leans over a stainless steel interrogation table holding a case folder while questioning a nervous young Korean suspect in a grey hoodie sitting across from him, dramatic chiaroscuro shadows, 9:16 vertical cinema frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A2_v3",
+      "file": "refs/R_A2_v3.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_A1_v3"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same dark tungsten-lit Korean film-noir interrogation room from the attached reference image, tight over-table close-up: the stern detective shines a brushed silver flashlight beam down onto a bone-dry matte ceramic bathroom tile sample sitting in a clean metal tray with zero water drops left, looking bewildered with raised eyebrows. Dramatic noir lighting, 9:16 vertical cinema frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A1_v3b",
+      "file": "refs/R_A1_v3b.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_A2_v3"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same veteran Korean actor in a dark trench coat and moody dramatic film-noir tungsten lighting from the attached reference image, cinematic wide vertical shot inside a dim modern Korean bathroom: the detective crouches beside a spotless bone-dry dark slate bathroom floor and white ceramic sink holding a brushed silver flashlight beam across the completely dry tiles with zero water puddles anywhere, furrowed brows in dramatic mystery movie shock. Film-noir cinematography, 9:16 vertical frame. Zero readable text, strictly ZERO numbers, ZERO digits, no typography, no logos, no subtitles, no watermarks."
+    }
+  ],
+  "units": [
+    {
+      "id": "A1",
+      "variant": "A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A1.mp4"
+      ],
+      "prompt": "One continuous crisp over-the-shoulder close-up (strictly no camera cuts), 9:16 vertical frame. Matching the bright studio desk and blank matte tablet from the attached reference, the stylus smoothly drags the crisp white rectangular eraser block in straight rapid passes left-to-right across the blue watercolor splash on screen, instantly erasing messy blue pools into spotless clean white stripes. Soft stylus glass glide sound only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "A2",
+      "variant": "A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A2.mp4"
+      ],
+      "prompt": "One continuous natural medium close-up (strictly no camera cuts), 9:16 vertical frame. Matching the bright studio desk and young Korean creative from the attached reference, they pause with a knowing amused smile, tap the white stylus lightly against their open palm, then glance toward the sunlit hallway with a playful sudden realization. Quiet studio room tone only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "B1",
+      "variant": "B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B1.mp4"
+      ],
+      "prompt": "One continuous slow moody 1st-person POV zoom-in (strictly no camera cuts), 9:16 vertical frame. Matching the dimly lit 3000K bathroom vanity sink from the attached reference, the camera drifts steadily forward toward the chrome faucet base as a lingering water drop trembles on the spout lip and splashes softly into the glossy standing puddle behind the tap. Faint solitary water drip sound only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "B2",
+      "variant": "B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B2.mp4"
+      ],
+      "prompt": "One continuous quiet close-up (strictly no camera cuts), 9:16 vertical frame. Matching the dim late-night bathroom hook and soggy grey rag from the attached reference, human fingers reach almost to the damp hanging cloth, hesitate gently in mid-air without gripping it, then smoothly pull back away leaving the wet rag hanging undisturbed. Quiet room hush only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "C1",
+      "variant": "C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_C1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/C1.mp4"
+      ],
+      "prompt": "One continuous brisk handheld 1st-person POV shot (strictly no camera cuts), 9:16 vertical frame. Matching the bright bathroom sink counter and damp white towel from the attached reference, a hand sweeps the wet towel back and forth twice over the puddle, visibly spreading smeared watery streaks and droplets back and forth across the glossy white ceramic. Soft wet cloth wipe sound only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "C2",
+      "variant": "C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_C2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/C2.mp4"
+      ],
+      "prompt": "One continuous low-angle daylight countertop shot (strictly no camera cuts), 9:16 vertical frame. Matching the wet streaked vanity surface from the attached reference, the hand lifts the soggy white cotton towel cleanly upward and tosses it aside out of frame, leaving bright light glare shimmering off the stubborn leftover wet smears across the white sink edge. Quiet bathroom room tone only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "VO_A1",
+      "variant": "vo_A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A1.mp4"
+      ],
+      "prompt": "Static medium close-up of a relatable 27-year-old Korean male creator wearing a clean heather-gray sweatshirt speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a natural upbeat Seoul Korean voice at crisp brisk Reels storytelling pace with clear pause before the third sentence: \"화면 속 얼룩은 지우개 툴로 한 번에 지우잖아요. 현실에도 이런 지우개 하나 있으면 얼마나 편할까요? 근데 욕실 물기는 진짜 이걸로 한 번에 지워집니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_A2",
+      "variant": "vo_A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same relatable 27-year-old Korean male creator wearing a clean heather-gray sweatshirt speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same natural upbeat Seoul Korean voice at crisp brisk Reels review pace with friendly closing question: \"원래 천 원짜리 큰 블록인데, 너무 커서 이렇게 작게 소분해 잘라 쓰면 세면대 틈새까지 딱 맞고 가성비도 끝장나요. 집에서 물 제일 많이 고이는 곳은 어디인가요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_B1",
+      "variant": "vo_B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_B1.mp4"
+      ],
+      "prompt": "Static medium close-up of a calm relatable 27-year-old Korean female creator wearing a clean cream knit top speaking gently into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a soft intimate late-night conversational Seoul Korean voice at unhurried natural pacing with a clear pause before the second sentence: \"이상하게 씻고 나가려는데 세면대 뒤에 물 고인 거 보면 못 지나치겠고, 축축한 행주 잡기는 또 싫은 그 느낌. 그래서 천 원짜리 큰 걸 작게 잘라 두고 써요.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_B2",
+      "variant": "vo_B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_B2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same calm relatable 27-year-old Korean female creator wearing a clean cream knit top speaking gently into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same soft intimate conversational Seoul Korean voice with warm honest closing question: \"너무 커서 여러 조각으로 나눠 쓰니까 틈새만 쓱 닦고, 꽉 짜서 올려두면 끝이라 은근 계속 손이 가더라고요. 저만 이런가요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_C1",
+      "variant": "vo_C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_C1.mp4"
+      ],
+      "prompt": "Static medium close-up of a crisp 28-year-old Korean male creator wearing a clean white crewneck tee speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a clear energetic Seoul Korean review voice with crisp diction: \"행주로 닦아도 물자국만 번지고, 금방 찝찝해지죠. 이건 물기를 밀어내는 게 아니라 그대로 쭉 빨아들입니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_C2",
+      "variant": "vo_C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_C2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same crisp 28-year-old Korean male creator wearing a clean white crewneck tee speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same clear energetic Seoul Korean review voice with friendly closing question: \"게다가 원래 천 원짜리 엄청 큰 블록이라, 작게 여러 조각 잘라 쓰면 세면대 구석까지 가성비가 말도 안 돼요. 꽉 짜면 끝, 다들 물기 정리 어떻게 하시나요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "A1_v2",
+      "variant": "A_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A1_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A1_v2.mp4"
+      ],
+      "prompt": "One continuous desaturated blue disaster documentary shot (strictly no camera cuts), 9:16 vertical frame. Matching the dim Korean bathroom vanity and rising miniature floodwater from the attached reference, turbulent water swells slosh upward over the sink counter around the bobbing toothbrush cup and soap dish in solemn news-crisis framing. Low distant water roar only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos."
+    },
+    {
+      "id": "A2_v2",
+      "variant": "A_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A2_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A2_v2.mp4"
+      ],
+      "prompt": "One continuous deadpan B-grade documentary glide forward (strictly no camera cuts), 9:16 vertical frame. Matching the cold blue apartment hallway and stressed robe-clad neighbors with wet mops from the attached reference, the camera pushes calmly straight past the frantic neighbors toward the lone glowing warm golden-lit dry bathroom doorway ahead. Subtle bucket slosh and eerie hush only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "B1_v2",
+      "variant": "B_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B1_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B1_v2.mp4"
+      ],
+      "prompt": "One continuous serene deep-ocean nature documentary shot (strictly no camera cuts), 9:16 vertical frame. Matching the sunlit reef sea sponge from the attached reference, tiny luminous blue ocean micro-currents and bubbles drift calmly inward straight into the sponge's natural intricate pores while sunlight beams shimmer above. Soft gentle underwater ambience only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "B2_v2",
+      "variant": "B_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B2_v2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B2_v2.mp4"
+      ],
+      "prompt": "One continuous crisp scientific macro lens shot (strictly no camera cuts), 9:16 vertical frame. Matching the dense matte grey porous material and clear water droplets from the attached reference, bright water beads silently sink and lock deep inside the fine open grey pores leaving the top surface clean and matte dry. Subtle soft absorption hush only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "VO_A1_v2",
+      "variant": "vo_A_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A1_v2.mp4"
+      ],
+      "prompt": "Static medium close-up of a composed 32-year-old Korean male documentary narrator in a charcoal crewneck speaking closely into a studio condenser microphone and pop filter in a silent dark vocal booth. Starting promptly without delay in a deadpan solemn urgent Seoul Korean TV news-docu voice: \"속보입니다. 전국 원룸 욕실의 해수면이 통제 불능 수준으로 차오르기 시작했습니다. 수건과 행주가 모두 전멸한 그날 밤, 단 한 집만 사막처럼 말라 있었습니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_A2_v2",
+      "variant": "vo_A_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A2_v2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same 32-year-old Korean male narrator in a charcoal crewneck speaking closely into a studio condenser microphone and pop filter in a silent dark vocal booth. Starting promptly without delay in a dry deadpan-warm Seoul Korean docu voice turning cheeky at the closing question: \"천 원짜리 큰 블록을 조각조각 나눠 둔 그 집에선 물이 고일 틈이 없었습니다. 쓱 밀고 꽉 짜면 끝. 여러분 집 욕실 해수면은 안녕하신가요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_B1_v2",
+      "variant": "vo_B_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_B1_v2.mp4"
+      ],
+      "prompt": "Static medium close-up of a calm poised 29-year-old Korean female science communicator in a cream knit sweater speaking clearly into a studio condenser microphone and pop filter in a silent dark vocal booth. Starting promptly without delay in an informative authoritative Seoul Korean documentary voice ending in '~습니다': \"지구에서 뇌도 심장도 없는데 육억 년 넘게 살아남은 동물이 있습니다. 바로 바다 스펀지, 해면동물입니다. 몸 전체의 미세한 구멍으로 물을 쭉 빨아들입니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks."
+    },
+    {
+      "id": "VO_B2_v2",
+      "variant": "vo_B_v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_B2_v2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same calm 29-year-old Korean female science communicator in a cream knit sweater speaking clearly into a studio condenser microphone and pop filter in a silent dark vocal booth. Starting promptly without delay in the exact same informative calm Seoul Korean voice ending in '~습니다': \"이 물기 제거 스펀지도 원래 천 원짜리 큰 블록을 작게 여러 조각 잘라 씁니다. 세면대 틈새 물기를 한 번에 빨아들이고 꽉 짜면 다시 쓸 수 있습니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks."
+    },
+    {
+      "id": "A1_v3",
+      "variant": "A_v3",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A1_v3b"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A1_v3.mp4"
+      ],
+      "prompt": "One continuous moody Korean mystery film-noir camera push-in (strictly no camera cuts), 9:16 vertical frame. Matching the veteran actor in a dark trench coat from the attached reference, the detective slowly sweeps his brushed silver flashlight beam left-to-right across the completely bone-dry dark bathroom floor and vanity edge, shaking his head in dramatic disbelief under moody dim lighting. Faint quiet bathroom room tone and soft flashlight click only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "A2_v3",
+      "variant": "A_v3",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A2_v3"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A2_v3.mp4"
+      ],
+      "prompt": "One continuous slow noir tilt-up shot (strictly no camera cuts), 9:16 vertical frame. Matching the exact interrogation room and bone-dry tile tray from the attached reference, the detective sweeps his silver flashlight beam across the completely dry matte tile searching for water trace, then raises his head in sheer disbelief. Subtle flashlight click and tense room tone only. No dialogue, no music, no camera cuts, zero readable text, strictly ZERO numbers, no typography, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "VO_A1_v3",
+      "variant": "vo_A_v3",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A1_v3.mp4"
+      ],
+      "prompt": "Static medium close-up of a gritty 38-year-old Korean male noir voice actor in a dark leather jacket speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a grave low-pitched Seoul Korean detective interrogation voice: \"솔직히 말해. 사건 현장 바닥에 고였던 물기가 일 초 만에 흔적도 없이 사라졌어. 수건도 걸레도 없는데 무슨 수법을 쓴 거야?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_A2_v3",
+      "variant": "vo_A_v3",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A2_v3.mp4"
+      ],
+      "prompt": "Static medium close-up of a casual 27-year-old Korean male voice actor in a soft grey hoodie speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a deadpan sheepish-cheeky Seoul Korean confession voice: \"형사님, 별거 아닙니다. 천 원짜리 대형 블록을 작게 여러 조각 잘라 뒀거든요. 쓱 밀고 꽉 짜면 증거 인멸 끝. 저 자수할게요. 여러분도 공범인가요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet silence at the end, zero background music, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    }
+  ]
+}

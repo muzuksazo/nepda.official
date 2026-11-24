@@ -1,0 +1,155 @@
+{
+  "project_id": "mooas-v2-night-ramen",
+  "aspect_ratio": "9:16",
+  "resolution": "720p",
+  "references": [
+    {
+      "id": "R_V1",
+      "file": "refs/R_V1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "First-person 11 PM night POV photograph from bed edge inside a dim cozy Korean studio one-room apartment lit only by a small warm 3000K bedside lamp. Looking toward rumpled dark gray knit bedding where a sleek matte-black smartphone rests screen-side down beside a pillow, night apartment city lights softly blurred through the dark window in background. Authentic handheld smartphone night photo, natural film grain, 9:16 vertical framing. Zero readable text, no glowing screen UI, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_V2",
+      "file": "refs/R_V2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Candid first-person smartphone POV stepping into a cramped real Korean studio one-room kitchenette under cool everyday 4500K fluorescent light. Narrow countertop showing a crowded stainless kitchen sink on the left stacked with used ceramic rice bowls, spoon, and pot, and a tiny black single-burner built-in electric cooktop on the right occupied by one bulky tarnished stainless pot. Honest unpolished everyday apartment realism, 9:16 vertical framing. Zero readable text, no brand labels, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_V3",
+      "file": "refs/R_V3.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Tight first-person overhead close-up inside a cramped Korean one-room kitchen under cool 4500K light, focused on a pair of matte cream-beige kitchen rubber dishwashing gloves set down squarely on the narrow counter beside a sink full of stacked bowls, dirty skillet, and sponge. Authentic candid smartphone framing, grounded natural indoor lighting, 9:16 vertical framing. Zero readable text, no brand packaging, no typography, no logos, no subtitles, no watermarks."
+    }
+  ],
+  "units": [
+    {
+      "id": "VO_01",
+      "variant": "vo",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_01.mp4"
+      ],
+      "prompt": "Static medium close-up of a charismatic young Korean male voice actor standing closely in front of a studio condenser microphone with pop filter inside a dimly lit acoustic vocal booth, speaking clearly and briskly at punchy energetic social ad pace. The Korean male narrator says energetically in crisp natural Seoul Korean, \"밤 열한 시에 라면 하나 먹으려다, 우리가 하는 미친 짓 아세요? 배달 앱 켜면 오십이 분 대기에 배달비 사천 원. 직접 끓이려 주방 가면 설거지 산더미에 인덕션은 겨우 한 구. 라면 삼 분 먹자고 설거지 네 개에 사십칠 분 중노동입니다. 그래서 저는, 그냥 주방을 포기했습니다.\" Sound: dry studio close-mic broadcast vocal ONLY, crisp consonant articulation, zero room reverb, zero background music, zero SFX, zero hum. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "V1",
+      "variant": "v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_V1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/V1.mp4"
+      ],
+      "prompt": "One continuous handheld first-person POV shot (strictly no camera cuts), 9:16 vertical frame. Matching the dim 11 PM Korean studio bedroom from the attached reference, a person's right hand gently flips a matte-black smartphone face-down onto the rumpled charcoal blanket beside a warm 3000K bedside lamp and pulls back slowly, camera tilting subtly toward the dark window. Quiet late-night apartment room ambience and soft blanket fabric rustle only. No dialogue, no music, no camera cuts, zero readable text, no screen UI, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "V2",
+      "variant": "v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_V2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/V2.mp4"
+      ],
+      "prompt": "One continuous slow handheld walk-in first-person POV shot (strictly no camera cuts), 9:16 vertical frame. Matching the cramped Korean one-room kitchenette from the attached reference under 4500K fluorescent light, the camera drifts steadily forward toward the crowded sink full of dirty bowls and the tiny black single-burner cooktop crammed with one oversized steel pot, slight authentic handheld motion. Faint kitchen refrigerator hum and distant dish clink ambience only. No dialogue, no music, no camera cuts, zero readable text, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "V3",
+      "variant": "v2",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_V3"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/V3.mp4"
+      ],
+      "prompt": "One continuous locked handheld first-person overhead shot (strictly no camera cuts), 9:16 vertical frame. Matching the cluttered one-room kitchen sink and counter edge from the attached reference, a person's calm hand places matte cream-beige rubber kitchen gloves squarely onto the narrow counter edge beside the stacked bowls and pulls back out of frame smoothly, holding steady at the end. Soft rubber-on-countertop placement sound and quiet kitchen ambience only. Calm grounded hand posture, no dialogue, no music, no camera cuts, zero readable text, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "VO_03",
+      "variant": "vo",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 10
+      },
+      "est_credits": 12,
+      "outputs": [
+        "audio/VO_03.mp4"
+      ],
+      "prompt": "Static medium close-up of a young 28-year-old Korean male voice actor in a matte black pullover hoodie standing before a large studio condenser microphone and black pop filter inside a dark acoustic foam vocal booth, speaking clearly and cheerfully into the mic at energetic brisk social Reels pace. The Korean male narrator says crisply in natural upbeat Seoul Korean, \"코드 빼서 냄비째 먹고, 스마일 커버 닫고 쓱 헹구면 끝! 만두찜·햇반 중탕도 한 대면 되고, 배달 오십이 분 기다릴 시간에 이미 다 먹고 누웠습니다. 댓글에 머그팟 남기세요.\" Sound: dry studio close-mic broadcast vocal ONLY, crisp consonant articulation, finishes cleanly with 0.5s room silence at end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 10,
+      "actual_duration_sec": 10.027,
+      "actual_resolution": "360x640"
+    }
+  ]
+}

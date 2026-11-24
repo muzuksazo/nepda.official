@@ -1,0 +1,204 @@
+{
+  "project_id": "piev-airwasher-abc-C",
+  "output_stem": "ad_C_spill_direct",
+  "title": "피에브 에어워셔 피톤치드 C안 — 액체 디퓨저 누수 직격 리뷰",
+  "mode": "narrative_master",
+  "track_archetype": "C_direct_proof",
+  "hook_window_sec": 8.0,
+  "framing_mode": "full-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/piev_03_tilt.mp4",
+  "source_duration": 6.612,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "실물 영상 및 AI 컷 모두 9:16 full-bleed 적용.",
+  "vo_audio": "audio/vo_master_C.wav",
+  "usps": [
+    {
+      "title": "기울여도 한 방울 안 흐르는 초록 고체 젤",
+      "fact_ids": ["F02", "F03"]
+    },
+    {
+      "title": "실버 뚜껑 열고 테이블·욕실 선반 배치 끝",
+      "fact_ids": ["F01", "F04"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 3.30,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Electric Piano.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Bass.caf"
+      ],
+      "gain_db": -16.5,
+      "fade_in": 0.05,
+      "fade_out": 0.04,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 3.35,
+      "end": 18.00,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Beat.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Bass.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Electric Piano.caf"
+      ],
+      "gain_db": -15.0,
+      "fade_in": 0.04,
+      "fade_out": 0.45,
+      "stem_offset_sec": 0.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 3.34,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Click Off FX.caf",
+      "trim_start": 0.0,
+      "duration": 0.30,
+      "gain_db": -11.5,
+      "fade_in": 0.005,
+      "fade_out": 0.05
+    },
+    {
+      "time": 13.70,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Transition.caf",
+      "trim_start": 0.0,
+      "duration": 0.70,
+      "gain_db": -16.5,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "C_cut01_diffuser_spill",
+      "type": "video",
+      "path": "clips/C1.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.15,
+      "duration": 1.85,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "C_cut02_diffuser_clear",
+      "type": "video",
+      "path": "clips/C2.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.15,
+      "duration": 1.50,
+      "speed": 1.25,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "C_cut03_real_tilt_proof",
+      "type": "source",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 2.8,
+      "src_end": 6.3,
+      "speed": 0.90,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F03"]
+    },
+    {
+      "id": "C_cut04_real_lid_open",
+      "type": "video",
+      "path": "source/piev_02_lid.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.50,
+      "duration": 3.00,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02"]
+    },
+    {
+      "id": "C_cut05_real_place_table",
+      "type": "video",
+      "path": "source/piev_05_place.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.40,
+      "duration": 2.40,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "C_cut06_real_shelf",
+      "type": "video",
+      "path": "source/piev_04_shelf.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 1.00,
+      "duration": 2.40,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "C_cut07_real_rotate_front",
+      "type": "video",
+      "path": "source/piev_01_rotate.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 2.20,
+      "duration": 3.00,
+      "speed": 1.2,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 3.21,
+      "text": "액체 디퓨저 스틱 치다가\n**한 번이라도 쏟아본 적** 있죠?"
+    },
+    {
+      "start": 3.35,
+      "end": 7.23,
+      "text": "이건 **기울여도 한 방울 안 흐르는**\n초록 고체 젤 방향제입니다",
+      "pop_badge": "안 흐르는 고체 젤"
+    },
+    {
+      "start": 7.37,
+      "end": 10.30,
+      "text": "**은색 뚜껑**만 열어서\n테이블·욕실 선반에 두면 끝",
+      "header_tag": "실내·욕실 어디든"
+    },
+    {
+      "start": 10.30,
+      "end": 13.55,
+      "text": "은은한 **피톤치드 향**이라\n부담도 없어요",
+      "header_tag": "피에브 에어워셔 피톤치드"
+    },
+    {
+      "start": 13.75,
+      "end": 18.00,
+      "text": "집안 냄새 관리\n**어떻게 하시나요?**",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "집안 냄새 관리 어떻게 하시나요?",
+    "badge_copy": "집안 냄새 관리 팁 댓글로 공유해 주세요",
+    "show_from_sec": 14.20,
+    "start_sec": 14.20,
+    "fact_ids": ["F01"]
+  }
+}

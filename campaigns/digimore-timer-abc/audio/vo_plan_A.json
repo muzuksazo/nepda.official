@@ -1,0 +1,68 @@
+{
+  "beats": [
+    {
+      "id": "A_p1",
+      "file": "parts/A_p1.wav",
+      "text": "딱 25분만 집중하자 하고 폰 타이머 켰다가",
+      "trim_edges": false,
+      "gap_before": 0.1,
+      "gap_after": 0.25
+    },
+    {
+      "id": "A_p2",
+      "file": "parts/A_p2.wav",
+      "text": "알림 하나 보고 릴스 켰는데 정신 차리니 한 시간 순삭.",
+      "trim_edges": false,
+      "gap_after": 0.65
+    },
+    {
+      "id": "A_p3",
+      "file": "parts/A_p3.wav",
+      "text": "저만 그런가요?",
+      "trim_edges": false,
+      "gap_after": 0.9
+    },
+    {
+      "id": "A_p4",
+      "file": "parts/A_p4.wav",
+      "text": "그냥 폰을 치우고, 이걸 들었습니다.",
+      "trim_edges": false,
+      "gap_after": 0.55
+    },
+    {
+      "id": "A_p5",
+      "file": "parts/A_p5.wav",
+      "text": "숫자 볼 필요도 없어요.",
+      "trim_edges": false,
+      "gap_after": 0.18
+    },
+    {
+      "id": "A_p6",
+      "file": "parts/A_p6.wav",
+      "text": "다이얼만 쓱 돌리면 남은 시간이 빨간색으로 한눈에 보이거든요.",
+      "trim_edges": false,
+      "gap_after": 0.35
+    },
+    {
+      "id": "A_p7",
+      "file": "parts/A_p7.wav",
+      "text": "빨간 칸이 줄어드니 딴짓할 틈이 줄고",
+      "trim_edges": false,
+      "gap_after": 0.45
+    },
+    {
+      "id": "A_p8",
+      "file": "parts/A_p8.wav",
+      "text": "책상도 깔끔해요.",
+      "trim_edges": false,
+      "gap_after": 1.15
+    },
+    {
+      "id": "A_p9",
+      "file": "parts/A_p9.wav",
+      "text": "여러분은 집중할 때 어떤 방법 쓰시나요?",
+      "trim_edges": false,
+      "gap_after": 0.5
+    }
+  ]
+}

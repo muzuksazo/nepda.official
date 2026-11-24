@@ -1,0 +1,218 @@
+{
+  "project_id": "pva-water-sponge-abc-B",
+  "output_stem": "ad_B_subtle_faucet",
+  "title": "물기 제거 스펀지 B안 — 맥락인 듯 아닌 밤 수전 물고임 + 천 원 소분 루틴",
+  "mode": "narrative_master",
+  "hook_window_sec": 8.0,
+  "framing_mode": "full-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/sponge_04_wipe.mp4",
+  "source_duration": 7.986,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "9:16 원본 3편은 full-bleed, 16:9 sponge_01_press는 blur-bleed + 캡션 하단 회피(y_pos:1385) 적용.",
+  "vo_audio": "audio/vo_master_B.wav",
+  "usps": [
+    {
+      "title": "축축한 행주 대신 천 원짜리 대형 블록을 작게 소분해 쓰는 위생·가성비",
+      "fact_ids": ["F01", "F02", "F05"]
+    },
+    {
+      "title": "세면대 실리콘 틈새 쓱 흡수 후 꽉 짜서 보관하는 간단 루틴",
+      "fact_ids": ["F03", "F04"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 7.81,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Synth.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Guitar.caf"
+      ],
+      "gain_db": -16.5,
+      "fade_in": 0.08,
+      "fade_out": 0.04,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 8.10,
+      "end": 22.25,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Acoustic Layers Beat 01.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Bass.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Guitar.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Synth.caf"
+      ],
+      "gain_db": -15.5,
+      "fade_in": 0.05,
+      "fade_out": 0.45,
+      "stem_offset_sec": 0.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 3.40,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Ambience/Water Drip.caf",
+      "trim_start": 0.0,
+      "duration": 0.70,
+      "gain_db": -16.5,
+      "fade_in": 0.01,
+      "fade_out": 0.20
+    },
+    {
+      "time": 7.82,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Small.caf",
+      "trim_start": 0.0,
+      "duration": 0.80,
+      "gain_db": -16.0,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    },
+    {
+      "time": 20.15,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Transition.caf",
+      "trim_start": 0.0,
+      "duration": 0.70,
+      "gain_db": -17.0,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "B_cut01_faucet_drip",
+      "type": "video",
+      "path": "clips/B1.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.20,
+      "duration": 4.30,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "B_cut02_wet_rag_retract",
+      "type": "video",
+      "path": "clips/B2.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.30,
+      "duration": 3.52,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "B_twist_stop",
+      "type": "silence_gap",
+      "duration": 0.28,
+      "audio_owner": "silence"
+    },
+    {
+      "id": "B_cut03_big_block_pack",
+      "type": "video",
+      "path": "source/sponge_02_pack.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 1.2,
+      "duration": 3.74,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F05"]
+    },
+    {
+      "id": "B_cut04_cut_piece_press",
+      "type": "video",
+      "path": "source/sponge_01_press.mp4",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 2.80,
+      "speed": 0.70,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02", "F05"]
+    },
+    {
+      "id": "B_cut05_silicone_wipe",
+      "type": "source",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 3.8,
+      "src_end": 6.8,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "B_cut06_squeeze_finish",
+      "type": "video",
+      "path": "source/sponge_03_rinse.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 16.3,
+      "duration": 4.70,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F03"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 4.88,
+      "text": "이상하게 씻고 나가려는데\n세면대 뒤에 **물 고인 거 보면**"
+    },
+    {
+      "start": 4.88,
+      "end": 7.82,
+      "text": "못 지나치겠고\n**축축한 행주 잡기**는 또 싫은 그 느낌"
+    },
+    {
+      "start": 8.10,
+      "end": 11.80,
+      "text": "그래서 **천 원짜리 큰 걸**\n작게 잘라 두고 써요",
+      "pop_badge": "천 원 대형 블록 소분"
+    },
+    {
+      "start": 11.94,
+      "end": 14.64,
+      "text": "너무 커서 여러 조각으로\n**나눴으니까**",
+      "header_tag": "작게 잘라 쓰기",
+      "y_pos": 1385
+    },
+    {
+      "start": 14.64,
+      "end": 17.64,
+      "text": "틈새만 **쓱 닦고**\n꽉 짜서 올려두면 끝이라",
+      "header_tag": "세면대 틈새 원스윕"
+    },
+    {
+      "start": 17.64,
+      "end": 20.05,
+      "text": "은근 계속\n**손이 가더라고요**",
+      "header_tag": "반복 사용 루틴"
+    },
+    {
+      "start": 20.21,
+      "end": 22.25,
+      "text": "**저만** 이런가요?",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "저만 이런가요?",
+    "badge_copy": "여러분도 그러신가요? 댓글로 알려주세요",
+    "show_from_sec": 20.15,
+    "start_sec": 20.15,
+    "fact_ids": ["F05"]
+  }
+}

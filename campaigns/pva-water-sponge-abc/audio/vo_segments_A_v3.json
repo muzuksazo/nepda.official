@@ -1,0 +1,54 @@
+{
+  "mode": "manifest",
+  "output_wav": "audio/vo_master_A_v3.wav",
+  "total_duration": 20.44,
+  "segment_count": 5,
+  "lufs_i": -15.9,
+  "segments": [
+    {
+      "id": "VO_A1_v3_scene",
+      "text": "솔직히 말해. 사건 현장 바닥에 고였던 물기가 1초 만에 흔적도 없이 사라졌어.",
+      "file": "audio/VO_A1_v3.mp4",
+      "start": 0.0,
+      "end": 5.2,
+      "duration": 5.2,
+      "gap_after": 1.5
+    },
+    {
+      "id": "VO_A1_v3_how",
+      "text": "수건도 걸레도 없는데 무슨 수법을 쓴 거야?",
+      "file": "audio/VO_A1_v3.mp4",
+      "start": 6.7,
+      "end": 9.2,
+      "duration": 2.5,
+      "gap_after": 0.26
+    },
+    {
+      "id": "VO_A2_v3_confess",
+      "text": "형사님, 별거 아닙니다. 1,000원짜리 대형 블록을 작게 여러 조각 잘라 뒀거든요.",
+      "file": "audio/VO_A2_v3.mp4",
+      "start": 9.46,
+      "end": 14.39,
+      "duration": 4.93,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_A2_v3_wipe",
+      "text": "쓱 밀고 꽉 짜면 증거 인멸 끝.",
+      "file": "audio/VO_A2_v3.mp4",
+      "start": 14.53,
+      "end": 16.98,
+      "duration": 2.45,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_A2_v3_cta",
+      "text": "저 자수할게요. 여러분도 공범인가요?",
+      "file": "audio/VO_A2_v3.mp4",
+      "start": 17.12,
+      "end": 20.44,
+      "duration": 3.32,
+      "gap_after": 0.0
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "project_id": "mooas-v2-table-indep",
+  "aspect_ratio": "9:16",
+  "resolution": "720p",
+  "references": [
+    {
+      "id": "R_T1",
+      "file": "refs/R_T1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Candid warm late-afternoon Korean one-room kitchenette POV (4200K natural window light), a young woman's two hands holding an unmarked plain cream paper noodle bundle and a small ceramic bowl of white dumplings hovering above a cramped black single-burner built-in induction cooktop already occupied by a stainless pot, realistic everyday studio kitchen, 9:16 vertical framing. Zero readable text, no food packaging labels, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_T2",
+      "file": "refs/R_T2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Candid first-person POV of a cramped Korean studio kitchenette counter under 4200K daylight, a steaming stainless steel pot resting on a tiny black single-burner electric cooktop beside a plain white ceramic bowl of cold cooked noodles waiting on the narrow counter edge, authentic everyday home kitchen realism, 9:16 vertical framing. Zero readable text, no brand labels, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_T3",
+      "file": "refs/R_T3.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Cozy sunlit warm aesthetic Korean studio apartment wooden dining table near a soft sheer white window curtain (3600K golden afternoon light), a young woman's hand wiping clean an open warm oak tabletop spot beside a tidy minimalist white wall power outlet, calm minimalist home vlog vibe, 9:16 vertical framing. Zero readable text, no logos, no typography, no subtitles, no watermarks."
+    }
+  ],
+  "units": [
+    {
+      "id": "T1",
+      "variant": "table",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": ["R_T1"],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": ["clips/T1.mp4"],
+      "prompt": "One continuous candid handheld first-person POV shot (strictly no camera cuts), 9:16 vertical frame. Matching the cramped Korean one-room single-burner cooktop from the attached reference, a young woman's hands shift the ceramic bowl of dumplings beside the occupied burner and glance from the single occupied pot to the cramped counter. Quiet indoor kitchen room tone only. No dialogue, no music, no camera cuts, zero readable text, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "T2",
+      "variant": "table",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": ["R_T2"],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": ["clips/T2.mp4"],
+      "prompt": "One continuous natural handheld POV shot (strictly no camera cuts), 9:16 vertical frame. Matching the cramped Korean kitchenette counter from the attached reference, gentle steam rises from the boiling stainless pot occupying the tiny single-burner cooktop as the camera tilts smoothly down toward the waiting white bowl of plain noodles resting on the narrow counter edge. Faint kitchen ambience only. No dialogue, no music, no camera cuts, zero readable text, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "T3",
+      "variant": "table",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": ["R_T3"],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": ["clips/T3.mp4"],
+      "prompt": "One continuous smooth warm vlog POV shot (strictly no camera cuts), 9:16 vertical frame. Matching the sunlit oak dining table from the attached reference, a woman's hand sets a clean wooden coaster on the cleared table surface near the tidy white outlet while camera glides smoothly forward into the warm sunlit table space. Soft quiet afternoon room tone only. No dialogue, no music, no camera cuts, zero readable text, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "T_VO_01",
+      "variant": "vo",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": ["audio/VO_01.mp4"],
+      "prompt": "Static medium close-up of a friendly 26-year-old Korean female lifestyle creator in a soft cream knit cardigan standing before a studio condenser microphone and black pop filter inside a dark acoustic foam vocal booth. Starting promptly without delay in a bright warm conversational Seoul Korean Reels vlog voice, she says: \"자취방 1구 인덕션에서 라면이랑 만두 같이 먹어보셨어요? 불이 하나라 만두 찌는 동안 라면은 다 불고, 밥맛이 뚝 떨어지죠. 자취 3년 차에 딱 하나 바꿨습니다.\" Sound: dry studio close-mic broadcast vocal ONLY, crisp friendly articulation, finishes cleanly with 2.0s room silence at end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks."
+    },
+    {
+      "id": "T_VO_02",
+      "variant": "vo",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": ["audio/VO_02.mp4"],
+      "prompt": "Static medium close-up of the exact same friendly 26-year-old Korean female lifestyle creator in a soft cream knit cardigan standing before a studio condenser microphone and black pop filter inside a dark acoustic foam vocal booth. Starting promptly without delay in the exact same bright warm Seoul Korean conversational voice at upbeat Reels pace, she says: \"식탁 위에 보조 화구를 들였거든요. 코드만 꽂고 다이얼 돌리면 바로 끓고, 라면·만두·햇반까지 한 번에 끝! 스마일 커버로 세척도 간편해요. 댓글에 머그팟 남기세요.\" Sound: dry studio close-mic broadcast vocal ONLY, crisp friendly articulation, finishes cleanly with 2.0s room silence at end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks."
+    }
+  ]
+}

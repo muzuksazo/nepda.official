@@ -1,0 +1,286 @@
+{
+  "project_id": "digimore-timer-abc-A",
+  "output_stem": "ad_A_focus_scroll",
+  "title": "60분 비주얼 타이머 A안 — 25분 집중하려다 릴스 1시간 순삭 반전 리뷰",
+  "mode": "narrative_master",
+  "hook_window_sec": 8.8,
+  "framing_mode": "blur-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/timer_dial.mp4",
+  "source_duration": 20.167,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "원본 실물 영상에 내장 자막 없음. 정사각형 다이얼(532x532)은 blur-bleed로 숫자·베젤 잘림을 방지하고, 세로 손 회전(960x1280)은 smart-crop, AI 9:16 컷은 full-bleed로 1080x1920 풀스크린 통합.",
+  "vo_audio": "audio/vo_master_A.wav",
+  "usps": [
+    {
+      "title": "빨간 원판 잔여시간 직관 표시",
+      "fact_ids": ["F01", "F03"]
+    },
+    {
+      "title": "다이얼 조작 및 감소 시각화",
+      "fact_ids": ["F03", "F04"]
+    },
+    {
+      "title": "한 손에 들어오는 콤팩트 책상 디자인",
+      "fact_ids": ["F02"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 8.50,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Guitar.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Synth.caf"
+      ],
+      "gain_db": -17.5,
+      "fade_in": 0.08,
+      "fade_out": 0.04,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 8.80,
+      "end": 26.44,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Guitar.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Bass.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Synth.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Pastel Colors Beat 01.caf"
+      ],
+      "gain_db": -15.0,
+      "fade_in": 0.05,
+      "fade_out": 0.45,
+      "stem_offset_sec": -1.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 2.92,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Small.caf",
+      "trim_start": 0.0,
+      "duration": 0.90,
+      "gain_db": -14.0,
+      "fade_in": 0.005,
+      "fade_out": 0.20
+    },
+    {
+      "time": 8.10,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Click Off FX.caf",
+      "trim_start": 0.0,
+      "duration": 0.30,
+      "gain_db": -10.5,
+      "fade_in": 0.005,
+      "fade_out": 0.05
+    },
+    {
+      "time": 8.46,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Air Reverse Burst 1.caf",
+      "trim_start": 0.15,
+      "duration": 0.35,
+      "gain_db": -13.0,
+      "fade_in": 0.02,
+      "fade_out": 0.02
+    },
+    {
+      "time": 12.25,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Ratchet FX.caf",
+      "trim_start": 0.0,
+      "duration": 0.34,
+      "gain_db": -12.0,
+      "fade_in": 0.005,
+      "fade_out": 0.05
+    },
+    {
+      "time": 13.40,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Ratchet FX.caf",
+      "trim_start": 0.0,
+      "duration": 0.34,
+      "gain_db": -13.5,
+      "fade_in": 0.005,
+      "fade_out": 0.06
+    },
+    {
+      "time": 21.40,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Computer Keyboard.caf",
+      "trim_start": 0.2,
+      "duration": 2.40,
+      "gain_db": -19.5,
+      "fade_in": 0.08,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "A_cut01_phone_tap",
+      "type": "video",
+      "path": "clips/A1.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 2.90,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "A_cut02_reels_trap",
+      "type": "video",
+      "path": "clips/A2.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.2,
+      "duration": 4.00,
+      "speed": 1.15,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "A_cut03_phone_flip",
+      "type": "video",
+      "path": "clips/A3.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.8,
+      "duration": 1.62,
+      "speed": 1.35,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "A_twist_stop",
+      "type": "silence_gap",
+      "duration": 0.28,
+      "audio_owner": "silence"
+    },
+    {
+      "id": "A_cut04_real_hand_rotate",
+      "type": "video",
+      "path": "source/timer_hand.mp4",
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.50,
+      "bottom_crop_px": 0,
+      "src_start": 2.1,
+      "duration": 3.00,
+      "speed": 1.30,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F02"]
+    },
+    {
+      "id": "A_cut05_real_dial_fill",
+      "type": "source",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.5,
+      "src_end": 4.9,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F03"]
+    },
+    {
+      "id": "A_cut06_real_dial_shrink",
+      "type": "source",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 7.9,
+      "src_end": 13.5,
+      "speed": 1.40,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "A_cut07_desk_focus",
+      "type": "video",
+      "path": "clips/DESK_25.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.5,
+      "duration": 3.79,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02", "F03"]
+    },
+    {
+      "id": "A_cut08_real_front_close",
+      "type": "video",
+      "path": "source/timer_hand.mp4",
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.50,
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 2.45,
+      "speed": 0.85,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F02"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 2.90,
+      "text": "**딱 25분**만 집중하자 하고\n폰 타이머 켰다가",
+      "header_tag": "집중 시작 0초"
+    },
+    {
+      "start": 2.90,
+      "end": 6.60,
+      "text": "알림 보고 릴스 켰는데\n**정신 차리니 1시간 순삭**",
+      "pop_badge": "알림 1개 · 집중 붕괴"
+    },
+    {
+      "start": 6.60,
+      "end": 8.52,
+      "text": "**저만 그런가요?**"
+    },
+    {
+      "start": 8.80,
+      "end": 11.60,
+      "text": "그냥 폰을 치우고\n**이걸 들었습니다**",
+      "header_tag": "60분 비주얼 타이머"
+    },
+    {
+      "start": 11.60,
+      "end": 14.30,
+      "text": "숫자 볼 필요도 없이\n**다이얼만 쓱 돌리면**"
+    },
+    {
+      "start": 14.30,
+      "end": 17.35,
+      "text": "남은 시간이 **빨간색**으로\n한눈에 보이거든요",
+      "header_tag": "직관적 잔여시간 표시"
+    },
+    {
+      "start": 17.35,
+      "end": 20.20,
+      "text": "빨간 칸이 줄어드니\n**딴짓할 틈이 확 줄고**",
+      "header_tag": "뽀모도로 25분 집중"
+    },
+    {
+      "start": 20.20,
+      "end": 22.70,
+      "text": "**책상도 깔끔**해요",
+      "header_tag": "아날로그 타이머"
+    },
+    {
+      "start": 22.70,
+      "end": 26.44,
+      "text": "여러분은 집중할 때\n**어떤 방법 쓰시나요?**",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "여러분은 집중할 때 어떤 방법 쓰시나요?",
+    "badge_copy": "댓글로 나만의 집중법 공유해요",
+    "show_from_sec": 22.70,
+    "start_sec": 22.70,
+    "fact_ids": ["F01"]
+  }
+}

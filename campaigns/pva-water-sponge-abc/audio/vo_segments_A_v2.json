@@ -1,0 +1,45 @@
+{
+  "mode": "manifest",
+  "output_wav": "audio/vo_master_A_v2.wav",
+  "total_duration": 22.24,
+  "segment_count": 4,
+  "lufs_i": -16.5,
+  "segments": [
+    {
+      "id": "VO_A1_v2_news",
+      "text": "속보입니다. 전국 원룸 욕실의 해수면이 통제 불능 수준으로 차오르기 시작했습니다.",
+      "file": "audio/VO_A1_v2.mp4",
+      "start": 0.0,
+      "end": 5.32,
+      "duration": 5.32,
+      "gap_after": 0.16
+    },
+    {
+      "id": "VO_A1_v2_night",
+      "text": "수건과 행주가 모두 전멸한 그날 밤, 단 한 집만 사막처럼 말라 있었습니다.",
+      "file": "audio/VO_A1_v2.mp4",
+      "start": 5.48,
+      "end": 11.12,
+      "duration": 5.64,
+      "gap_after": 0.28
+    },
+    {
+      "id": "VO_A2_v2_payoff",
+      "text": "천 원짜리 큰 블록을 조각조각 나눠 둔 그 집에선 물이 고일 틈이 없었습니다. 쓱 밀고 꽉 짜면 끝.",
+      "file": "audio/VO_A2_v2.mp4",
+      "start": 11.4,
+      "end": 18.62,
+      "duration": 7.22,
+      "gap_after": 0.18
+    },
+    {
+      "id": "VO_A2_v2_cta",
+      "text": "여러분 집 욕실 해수면은 안녕하신가요?",
+      "file": "audio/VO_A2_v2.mp4",
+      "start": 18.8,
+      "end": 22.24,
+      "duration": 3.44,
+      "gap_after": 0.0
+    }
+  ]
+}

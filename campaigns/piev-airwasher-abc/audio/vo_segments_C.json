@@ -1,0 +1,45 @@
+{
+  "mode": "manifest",
+  "output_wav": "audio/vo_master_C.wav",
+  "total_duration": 15.43,
+  "segment_count": 4,
+  "lufs_i": -16.0,
+  "segments": [
+    {
+      "id": "VO_C1_pain",
+      "text": "액체 디퓨저 스틱 치다가 한 번이라도 쏟아본 적 있죠?",
+      "file": "audio/VO_C1.mp4",
+      "start": 0.0,
+      "end": 3.21,
+      "duration": 3.21,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_C1_proof",
+      "text": "이건 기울여도 한 방울 안 흐르는 초록 고체 젤 방향제입니다.",
+      "file": "audio/VO_C1.mp4",
+      "start": 3.35,
+      "end": 7.23,
+      "duration": 3.88,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_C2_use",
+      "text": "은색 뚜껑만 열어서 테이블이나 욕실 선반에 올려두면 끝, 은은한 피톤치드 향이라 부담도 없어요.",
+      "file": "audio/VO_C2.mp4",
+      "start": 7.37,
+      "end": 13.55,
+      "duration": 6.18,
+      "gap_after": 0.2
+    },
+    {
+      "id": "VO_C2_cta",
+      "text": "집안 냄새 관리 어떻게 하시나요?",
+      "file": "audio/VO_C2.mp4",
+      "start": 13.75,
+      "end": 15.43,
+      "duration": 1.68,
+      "gap_after": 0.0
+    }
+  ]
+}

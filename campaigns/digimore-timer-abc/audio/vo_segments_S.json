@@ -1,0 +1,72 @@
+{
+  "mode": "manifest",
+  "output_wav": "audio/vo_master_S.wav",
+  "total_duration": 23.677,
+  "segment_count": 7,
+  "lufs_i": -14.3,
+  "segments": [
+    {
+      "id": "S_p1",
+      "text": "이상하게 빨간색이 줄어드는 걸 보고 있으면,",
+      "file": "audio/parts/S_p1.wav",
+      "start": 0.12,
+      "end": 2.887,
+      "duration": 2.767,
+      "gap_after": 0.22
+    },
+    {
+      "id": "S_p2",
+      "text": "사람이 좀 조급해지더라고요.",
+      "file": "audio/parts/S_p2.wav",
+      "start": 3.107,
+      "end": 5.032,
+      "duration": 1.925,
+      "gap_after": 0.2
+    },
+    {
+      "id": "S_p3",
+      "text": "누가 뭐라 하는 것도 아닌데,",
+      "file": "audio/parts/S_p3.wav",
+      "start": 5.232,
+      "end": 6.833,
+      "duration": 1.601,
+      "gap_after": 0.22
+    },
+    {
+      "id": "S_p4",
+      "text": "왠지 저게 다 없어지기 전엔 자리 못 뜨겠는 느낌?",
+      "file": "audio/parts/S_p4.wav",
+      "start": 7.053,
+      "end": 10.487,
+      "duration": 3.433,
+      "gap_after": 0.62
+    },
+    {
+      "id": "S_p5",
+      "text": "별 기능도 없어요. 그냥 돌리면 빨개지고, 시간 지나면 조용히 줄어들 뿐인데.",
+      "file": "audio/parts/S_p5.wav",
+      "start": 11.107,
+      "end": 15.867,
+      "duration": 4.76,
+      "gap_after": 1.1
+    },
+    {
+      "id": "S_p6",
+      "text": "괜히 이거 하나 켜두면 딴짓하다가도 다시 앉게 되네요.",
+      "file": "audio/parts/S_p6.wav",
+      "start": 16.967,
+      "end": 20.067,
+      "duration": 3.1,
+      "gap_after": 1.4
+    },
+    {
+      "id": "S_p7",
+      "text": "저만 이런 기분 드나요?",
+      "file": "audio/parts/S_p7.wav",
+      "start": 21.467,
+      "end": 23.027,
+      "duration": 1.56,
+      "gap_after": 0.65
+    }
+  ]
+}

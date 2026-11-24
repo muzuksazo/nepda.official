@@ -1,0 +1,197 @@
+{
+  "project_id": "piev-airwasher-abc-A-v3",
+  "output_stem": "ad_A_breakup_piev",
+  "title": "피에브 에어워셔 피톤치드 A안(v3) — 이별 카페 90도 식탁 반전 멜로극",
+  "mode": "narrative_master",
+  "track_archetype": "A_bgrade_reversal",
+  "a_genre_archetype": "romance_breakup",
+  "product_taboo_keywords": ["피에브", "방향제", "피톤치드", "고체 젤"],
+  "hook_window_sec": 10.06,
+  "framing_mode": "full-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/piev_03_tilt.mp4",
+  "source_duration": 6.612,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "실물 영상 및 이별 멜로 AI 컷 모두 9:16 full-bleed 적용.",
+  "vo_audio": "audio/vo_master_A_v3.wav",
+  "usps": [
+    {
+      "title": "식탁을 90도로 기울여도 한 방울 안 흐르는 초록 고체 젤",
+      "fact_ids": ["F02", "F03"]
+    },
+    {
+      "title": "뚜껑만 열면 은은한 피톤치드 향이 퍼지는 원통 컵",
+      "fact_ids": ["F01", "F04"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 10.04,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/04 Modern RnB/Excelsior Strings.caf",
+        "/Library/Audio/Apple Loops/Apple/04 Modern RnB/Breathless Piano.caf"
+      ],
+      "gain_db": -15.5,
+      "fade_in": 0.05,
+      "fade_out": 0.03,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 10.32,
+      "end": 22.22,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/04 Modern RnB/Breathless Harp.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Contrails Acoustic Guitar.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Contrails Bass.caf"
+      ],
+      "gain_db": -15.0,
+      "fade_in": 0.04,
+      "fade_out": 0.45,
+      "stem_offset_sec": 0.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 10.04,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Impacts & Crashes/Impact Metal Hit Reverb 08.caf",
+      "trim_start": 0.52,
+      "duration": 0.32,
+      "gain_db": -12.0,
+      "fade_in": 0.005,
+      "fade_out": 0.06
+    },
+    {
+      "time": 18.06,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Transition.caf",
+      "trim_start": 0.0,
+      "duration": 0.65,
+      "gain_db": -16.5,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "A_v3_cut01_cafe_tilt",
+      "type": "video",
+      "path": "clips/A1_v3.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 5.20,
+      "speed": 0.96,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "A_v3_cut02_cup_reaction",
+      "type": "video",
+      "path": "clips/A2_v3.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 4.86,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "A_v3_twist_stop",
+      "type": "silence_gap",
+      "duration": 0.26,
+      "audio_owner": "silence"
+    },
+    {
+      "id": "A_v3_cut03_real_tilt",
+      "type": "source",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 2.60,
+      "src_end": 5.55,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F03"]
+    },
+    {
+      "id": "A_v3_cut04_real_lid",
+      "type": "video",
+      "path": "source/piev_02_lid.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.40,
+      "duration": 3.10,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02"]
+    },
+    {
+      "id": "A_v3_cut05_real_shelf",
+      "type": "video",
+      "path": "source/piev_04_shelf.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.70,
+      "duration": 3.20,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "A_v3_cut06_real_rotate",
+      "type": "video",
+      "path": "source/piev_01_rotate.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 2.00,
+      "duration": 2.70,
+      "speed": 1.10,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 5.20,
+      "text": "우리 이제 그만 끝내요\n**식탁 90도** 확 엎으려던 순간",
+      "pop_badge": "비 오는 날 이별극"
+    },
+    {
+      "start": 5.34,
+      "end": 10.06,
+      "text": "오빠 손에 들린 저 컵만은\n**한 방울도 안 흐르더라고요**"
+    },
+    {
+      "start": 10.32,
+      "end": 13.20,
+      "text": "분위기는 깨졌는데\n**테이블은 말짱**했습니다"
+    },
+    {
+      "start": 13.36,
+      "end": 17.86,
+      "text": "초록 고체 젤 꽉 잡힌\n**피에브 에어워셔 피톤치드**"
+    },
+    {
+      "start": 18.06,
+      "end": 22.22,
+      "text": "향에 화도 좀 풀렸는데\n**저 화해할까요?**",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "저 화해할까요?",
+    "badge_copy": "화해 찬성 vs 반대 댓글 남기기",
+    "show_from_sec": 18.06,
+    "start_sec": 18.06,
+    "fact_ids": ["F03"]
+  }
+}

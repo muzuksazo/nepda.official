@@ -1,0 +1,258 @@
+{
+  "project_id": "digimore-timer-abc-C",
+  "output_stem": "ad_C_pomodoro_direct",
+  "title": "60분 비주얼 타이머 C안 — 폰부터 치우는 뽀모도로 25분 루틴 리뷰",
+  "mode": "narrative_master",
+  "hook_window_sec": 8.5,
+  "framing_mode": "blur-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/timer_dial.mp4",
+  "source_duration": 20.167,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "원본 실물 영상에 내장 자막 없음. 정사각형 다이얼(532x532)은 blur-bleed, 세로 손 회전(960x1280)은 smart-crop, AI 오버헤드 컷은 full-bleed 사용.",
+  "vo_audio": "audio/vo_master_C.wav",
+  "usps": [
+    {
+      "title": "60분 비주얼 다이얼 조작",
+      "fact_ids": ["F01", "F03"]
+    },
+    {
+      "title": "빨간 칸 감소로 25분 뽀모도로 몰입",
+      "fact_ids": ["F03", "F04"]
+    },
+    {
+      "title": "한 손 크기 깔끔한 디자인",
+      "fact_ids": ["F02"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 6.13,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Electric Piano.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Bass.caf"
+      ],
+      "gain_db": -17.0,
+      "fade_in": 0.06,
+      "fade_out": 0.04,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 6.43,
+      "end": 25.08,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Beat.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Bass.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Electric Piano.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Strings.caf"
+      ],
+      "gain_db": -15.0,
+      "fade_in": 0.04,
+      "fade_out": 0.45,
+      "stem_offset_sec": -1.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 1.15,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Small.caf",
+      "trim_start": 0.0,
+      "duration": 0.80,
+      "gain_db": -15.0,
+      "fade_in": 0.005,
+      "fade_out": 0.20
+    },
+    {
+      "time": 4.55,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Click Off FX.caf",
+      "trim_start": 0.0,
+      "duration": 0.30,
+      "gain_db": -10.5,
+      "fade_in": 0.005,
+      "fade_out": 0.05
+    },
+    {
+      "time": 6.80,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Ratchet FX.caf",
+      "trim_start": 0.0,
+      "duration": 0.34,
+      "gain_db": -11.5,
+      "fade_in": 0.005,
+      "fade_out": 0.05
+    },
+    {
+      "time": 8.60,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Ratchet FX.caf",
+      "trim_start": 0.0,
+      "duration": 0.34,
+      "gain_db": -13.0,
+      "fade_in": 0.005,
+      "fade_out": 0.06
+    },
+    {
+      "time": 19.35,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Mech:Tech/Computer Keyboard.caf",
+      "trim_start": 0.2,
+      "duration": 2.30,
+      "gain_db": -19.5,
+      "fade_in": 0.08,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "C_cut01_study_alert",
+      "type": "video",
+      "path": "clips/C1.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.35,
+      "duration": 2.65,
+      "speed": 0.85,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "C_cut02_desk_sweep",
+      "type": "video",
+      "path": "clips/C2.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.40,
+      "duration": 3.50,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "C_twist_stop",
+      "type": "silence_gap",
+      "duration": 0.28,
+      "audio_owner": "silence"
+    },
+    {
+      "id": "C_cut03_real_dial_fill",
+      "type": "source",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.4,
+      "src_end": 5.2,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F03"]
+    },
+    {
+      "id": "C_cut04_real_dial_shrink",
+      "type": "source",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 7.9,
+      "src_end": 13.5,
+      "speed": 1.16,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "C_cut05_real_hand_rotate",
+      "type": "video",
+      "path": "source/timer_hand.mp4",
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.50,
+      "bottom_crop_px": 0,
+      "src_start": 2.1,
+      "duration": 3.20,
+      "speed": 1.22,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02"]
+    },
+    {
+      "id": "C_cut06_desk_focus",
+      "type": "video",
+      "path": "clips/DESK_25.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.5,
+      "duration": 3.40,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02", "F03"]
+    },
+    {
+      "id": "C_cut07_real_front_close",
+      "type": "video",
+      "path": "source/timer_hand.mp4",
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.50,
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 2.45,
+      "speed": 0.85,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F02"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 3.30,
+      "text": "공부할 때 폰 타이머 켜면\n**왜 10분 만에 딴짓할까요?**"
+    },
+    {
+      "start": 3.30,
+      "end": 6.15,
+      "text": "답은 하나예요\n**책상에서 폰부터 치우는 것**",
+      "pop_badge": "집중 방해 요소 제거"
+    },
+    {
+      "start": 6.43,
+      "end": 8.65,
+      "text": "대신 이\n**60분 비주얼 타이머**",
+      "header_tag": "60분 비주얼 타이머"
+    },
+    {
+      "start": 8.65,
+      "end": 11.45,
+      "text": "다이얼만 **쓱 돌려두면**\n끝이에요"
+    },
+    {
+      "start": 11.45,
+      "end": 14.00,
+      "text": "남은 시간이 **빨간 칸**으로\n바로 줄어드니까"
+    },
+    {
+      "start": 14.00,
+      "end": 16.65,
+      "text": "**25분 뽀모도로** 집중이\n쉬워져요",
+      "header_tag": "뽀모도로 25분 집중"
+    },
+    {
+      "start": 16.65,
+      "end": 20.40,
+      "text": "한 손에 들어오는\n**깔끔한 디자인**",
+      "header_tag": "아날로그 타이머"
+    },
+    {
+      "start": 20.40,
+      "end": 25.08,
+      "text": "여러분은 **몇 분 타이머**로\n집중하시나요?",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "여러분은 몇 분 타이머로 집중하시나요?",
+    "badge_copy": "댓글로 집중 루틴 남겨주세요",
+    "show_from_sec": 21.10,
+    "start_sec": 21.10,
+    "fact_ids": ["F01"]
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "project_id": "mooas-v2-fire-docu",
+  "aspect_ratio": "9:16",
+  "resolution": "720p",
+  "references": [
+    {
+      "id": "R_D1",
+      "file": "refs/R_D1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Dramatic BBC/Netflix documentary close-up of primitive glowing orange campfire flames crackling beneath a dark ancient blackened stone hearth inside a misty twilight cavern, warm embers rising into dark smoke, cinematic 35mm film grain, 9:16 vertical framing. Zero readable text, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_D2",
+      "file": "refs/R_D2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Moody documentary close-up of a dim cramped Korean one-room kitchen single-burner electric cooktop under stark overhead light, heavy tarnished stainless pot occupying the lone burner, tight shadows on beige wall tiles, authentic documentary realism, 9:16 vertical framing. Zero readable text, no brand labels, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_D3",
+      "file": "refs/R_D3.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "High-contrast dark scientific laboratory macro of a sleek clear cylindrical glass thermodynamic reaction vessel under a dramatic cool overhead spotlight, dense silver micro-bubbles and bright luminous white steam swirling upward inside dark space, crisp cinematic optics, 9:16 vertical framing. Zero readable text, no gauges/numbers, no typography, no logos, no subtitles, no watermarks."
+    }
+  ],
+  "units": [
+    {
+      "id": "D1",
+      "variant": "docu",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_D1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/D1.mp4"
+      ],
+      "prompt": "One continuous slow cinematic documentary push-in (strictly no camera cuts), 9:16 vertical frame. Matching the primitive campfire stone hearth from the attached reference, orange flames lick upward around blackened stones while bright embers drift gently through dark cavern smoke. Crackling wood fire ambience only. No dialogue, no music, no camera cuts, zero readable text, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "D2",
+      "variant": "docu",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_D2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/D2.mp4"
+      ],
+      "prompt": "One continuous slow moody documentary camera pan (strictly no camera cuts), 9:16 vertical frame. Matching the cramped Korean one-room single-burner cooktop from the attached reference, harsh fluorescent light catches the bulky steel pot hogging the single burner while faint wisps of heat shimmer above the rim. Low indoor hum only. No dialogue, no music, no camera cuts, zero readable text, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "D3",
+      "variant": "docu",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_D3"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/D3.mp4"
+      ],
+      "prompt": "One continuous dramatic macro documentary tilt-up (strictly no camera cuts), 9:16 vertical frame. Matching the dark thermodynamic glass vessel from the attached reference, silver bubbles boil rapidly from below as thick white steam billows straight upward into the overhead spotlight beam. Deep submerged bubbling rumble only. No dialogue, no music, no camera cuts, zero readable text, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "D_VO_01",
+      "variant": "vo",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_01.mp4"
+      ],
+      "prompt": "Static medium close-up of a dignified 45-year-old Korean male broadcast documentary narrator wearing a charcoal knit sweater standing before a studio condenser microphone and black pop filter inside a dark acoustic foam vocal booth. Speaking in a deep resonant authoritative Seoul Korean nature-documentary baritone voice at measured cinematic pace, he narrates: \"인류가 물 백 도를 끓이려 거친 진화의 역사. 원시 장작불에서 가스, 인덕션까지 왔지만 원룸 화구 하나엔 여전히 한계였죠. 수천 년 열역학이 마침내 도달한 최종 형태는...\" Sound: dry studio close-mic broadcast vocal ONLY, crisp consonant articulation, finishes cleanly with 1.5s room silence at end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "D_VO_02",
+      "variant": "vo",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_02.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same dignified 45-year-old Korean male broadcast documentary narrator wearing a charcoal knit sweater standing before a studio condenser microphone and black pop filter inside a dark acoustic foam vocal booth. Maintaining the exact same deep resonant authoritative Seoul Korean documentary baritone voice with deadpan solemn conviction at crisp pace, he narrates: \"책상 위 무아스 머그팟이었습니다. 코드만 꽂아 다이얼 돌리면 스텐 내솥이 바로 끓고, 만두찜·햇반 중탕까지 다목적 생존 장치. 코드 빼고 스마일 커버로 세척 끝. 인류 진화의 종착지, 댓글에 머그팟 남기세요.\" Sound: dry studio close-mic broadcast vocal ONLY, crisp consonant articulation, finishes cleanly with 1.0s room silence at end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "D_VO_02_r2",
+      "variant": "vo",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_02_r2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same dignified 45-year-old Korean male broadcast documentary narrator wearing a charcoal knit sweater standing before a studio condenser microphone and black pop filter inside a dark acoustic foam vocal booth. Starting promptly without delay in a deep resonant authoritative Seoul Korean documentary baritone voice at brisk crisp pace, he narrates cleanly: \"바로 책상 위 무아스 머그팟. 코드만 꽂아 다이얼 돌리면 스텐 내솥이 바로 끓고, 만두·햇반 중탕에 스마일 커버 세척까지 끝. 댓글에 머그팟 남기세요.\" Sound: dry studio close-mic broadcast vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0s room silence at end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks."
+    }
+  ]
+}

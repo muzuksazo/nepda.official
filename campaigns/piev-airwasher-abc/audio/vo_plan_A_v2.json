@@ -1,0 +1,54 @@
+{
+  "beats": [
+    {
+      "id": "VO_A1_v2_news",
+      "file": "VO_A1_v2.mp4",
+      "start_sec": 0.12,
+      "end_sec": 5.18,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.14,
+      "text": "속보입니다. 오늘 오전 9시, 한반도 중력이 갑자기 90도로 기울어졌습니다."
+    },
+    {
+      "id": "VO_A1_v2_calm",
+      "file": "VO_A1_v2.mp4",
+      "start_sec": 5.38,
+      "end_sec": 10.36,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.28,
+      "text": "온 동네가 바닥 닦느라 대혼란에 빠진 사이, 단 한 집만 평온했습니다."
+    },
+    {
+      "id": "VO_A2_v2_gel",
+      "file": "VO_A2_v2.mp4",
+      "start_sec": 0.0,
+      "end_sec": 4.08,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.14,
+      "text": "90도로 눕혀도 한 방울도 안 흐르는 초록 고체 젤."
+    },
+    {
+      "id": "VO_A2_v2_brand",
+      "file": "VO_A2_v2.mp4",
+      "start_sec": 4.5,
+      "end_sec": 9.86,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.16,
+      "text": "중력이 기울어도 피에브 에어워셔 피톤치드 앞에서는 아무 일도 없었습니다."
+    },
+    {
+      "id": "VO_A2_v2_cta",
+      "file": "VO_A2_v2.mp4",
+      "start_sec": 12.64,
+      "end_sec": 14.16,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.0,
+      "text": "여러분 집은 무사한가요?"
+    }
+  ]
+}

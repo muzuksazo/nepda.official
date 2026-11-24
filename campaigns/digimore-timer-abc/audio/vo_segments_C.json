@@ -1,0 +1,63 @@
+{
+  "mode": "manifest",
+  "output_wav": "audio/vo_master_C.wav",
+  "total_duration": 24.39,
+  "segment_count": 6,
+  "lufs_i": -14.7,
+  "segments": [
+    {
+      "id": "C_p1",
+      "text": "공부할 때 폰 타이머 켜면 왜 10분 만에 딴짓할까요?",
+      "file": "audio/parts/C_p1.wav",
+      "start": 0.08,
+      "end": 3.242,
+      "duration": 3.162,
+      "gap_after": 0.16
+    },
+    {
+      "id": "C_p2",
+      "text": "답은 하나예요. 책상에서 폰부터 치우는 것.",
+      "file": "audio/parts/C_p2.wav",
+      "start": 3.402,
+      "end": 5.931,
+      "duration": 2.529,
+      "gap_after": 0.55
+    },
+    {
+      "id": "C_p3",
+      "text": "대신 이 60분 비주얼 타이머, 다이얼만 쓱 돌려두면 끝이에요.",
+      "file": "audio/parts/C_p3.wav",
+      "start": 6.481,
+      "end": 11.25,
+      "duration": 4.769,
+      "gap_after": 0.35
+    },
+    {
+      "id": "C_p4",
+      "text": "남은 시간이 빨간 칸으로 바로 줄어드니까 25분 뽀모도로 집중이 쉬워져요.",
+      "file": "audio/parts/C_p4.wav",
+      "start": 11.6,
+      "end": 16.46,
+      "duration": 4.86,
+      "gap_after": 0.3
+    },
+    {
+      "id": "C_p5",
+      "text": "한 손에 들어오는 깔끔한 디자인이라 매일 켜두게 되네요.",
+      "file": "audio/parts/C_p5.wav",
+      "start": 16.76,
+      "end": 19.84,
+      "duration": 3.08,
+      "gap_after": 1.45
+    },
+    {
+      "id": "C_p6",
+      "text": "여러분은 몇 분 타이머로 집중하시나요?",
+      "file": "audio/parts/C_p6.wav",
+      "start": 21.29,
+      "end": 23.84,
+      "duration": 2.55,
+      "gap_after": 0.55
+    }
+  ]
+}

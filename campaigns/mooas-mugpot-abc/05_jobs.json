@@ -1,0 +1,116 @@
+{
+  "project_id": "mooas-mugpot-abc",
+  "aspect_ratio": "9:16",
+  "resolution": "720p",
+  "anchors": [
+    {
+      "id": "REF_PRODUCT",
+      "time_sec": 2.3,
+      "file": "refs/REF_PRODUCT.png",
+      "purpose": "Exact cream white mug pot with oak handle and stainless interior for Track B lifestyle grounding"
+    },
+    {
+      "id": "BRIDGE_B",
+      "time_sec": 4.0,
+      "file": "refs/BRIDGE_B.png",
+      "purpose": "Plugging detachable cord start-frame alignment reference"
+    }
+  ],
+  "references": [
+    {
+      "id": "R_A",
+      "file": "refs/R_A.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Extreme macro studio photograph of dense silvery water bubbles violently rising inside a dark-lit transparent glass chamber against a pure matte black background, dramatic overhead spotlight illuminating turbulent pockets, crisp scientific documentary look, 9:16 vertical framing. Zero readable text, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B",
+      "file": "refs/R_B.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "First-person night POV photograph from bed height inside a cozy Korean studio apartment looking toward a wooden desk under a warm 3200K lamp where a matte off-white cylindrical 1-person electric mini ramen pot with rounded L-shaped light natural oak wood handle, small circular beige-rimmed front rotary dial, and clear glass lid with round wooden knob sits gently steaming beside a bowl, authentic smartphone low-light photo, 9:16 vertical framing. Zero readable text, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_C",
+      "file": "refs/R_C.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Unpolished candid 1st-person smartphone photo inside a cramped Korean one-room kitchen showing a cluttered dishwashing sink full of pots and plates under everyday cool ceiling light, a hand holding a blank generic orange-red instant noodle wrapper hesitating before a dirty stove, realistic handheld framing, 9:16 vertical. Zero readable text, no brand names, no typography, no logos, no subtitles Calm grounded hands and natural neutral posture."
+    }
+  ],
+  "units": [
+    {
+      "id": "G_A",
+      "variant": "A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 4
+      },
+      "est_credits": 12,
+      "outputs": [
+        "clips/G_A_t1.mp4"
+      ],
+      "prompt": "One continuous smooth macro push-in (strictly no camera cuts), 9:16 vertical frame. Matching the dark transparent boiling chamber from the attached reference, dense silvery steam bubbles accelerate violently upward under dramatic cool overhead lighting against pure black backdrop, creating tense documentary pressure energy. SFX: close-mic deep submerged boiling rumble rising gradually in pitch. No dialogue, no voiceover, no music, no camera cuts, zero readable text, no typography, no subtitles, no watermarks, no logos.",
+      "status": "completed"
+    },
+    {
+      "id": "G_B",
+      "variant": "B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 4
+      },
+      "est_credits": 12,
+      "outputs": [
+        "clips/G_B_t1.mp4"
+      ],
+      "prompt": "One continuous gentle handheld 1st-person POV pan right from a cozy messy dark blanket edge onto the wooden desk under a warm 3200K lamp (strictly no camera cuts), 9:16 vertical frame. Focusing smoothly onto the cream-white electric cooker with light wood handle from the attached reference as gentle wispy steam rises into the lamplight. SFX: soft fabric bedding rustle followed by distant cozy indoor quiet hum and faint simmering sound. No dialogue, no voiceover, no music, no camera cuts, zero readable text, no typography, no subtitles, no watermarks.",
+      "status": "completed"
+    },
+    {
+      "id": "G_C",
+      "variant": "C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_C"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 3
+      },
+      "est_credits": 9,
+      "outputs": [
+        "clips/G_C_t1.mp4"
+      ],
+      "prompt": "One continuous slightly unsteady handheld 1st-person POV shot (strictly no camera cuts), 9:16 vertical frame. Matching the cramped cluttered one-room kitchen sink from the attached reference, the hand slightly lowers the blank noodle packet in hesitation before the sink full of stacked dirty dishes under fluorescent ceiling light. SFX: crisp plastic wrapper crinkle and muffled urban apartment kitchen ambience. No dialogue, no voiceover, no music, no camera cuts, zero readable text, no typography, no subtitles, no watermarks Calm grounded hands and natural neutral posture.",
+      "status": "completed"
+    }
+  ]
+}

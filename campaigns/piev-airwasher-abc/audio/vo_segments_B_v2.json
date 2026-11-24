@@ -1,0 +1,54 @@
+{
+  "mode": "manifest",
+  "output_wav": "audio/vo_master_B_v2.wav",
+  "total_duration": 20.95,
+  "segment_count": 5,
+  "lufs_i": -14.8,
+  "segments": [
+    {
+      "id": "VO_B1_v2_hook",
+      "text": "나무는 도망칠 다리가 없는데, 어떻게 벌레와 곰팡이 사이에서 수백 년을 버틸까요?",
+      "file": "audio/VO_B1_v2.mp4",
+      "start": 0.0,
+      "end": 5.2,
+      "duration": 5.2,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_B1_v2_defense",
+      "text": "비결은 스스로 뿜어내는 천연 방어 물질, 피톤치드입니다.",
+      "file": "audio/VO_B1_v2.mp4",
+      "start": 5.34,
+      "end": 9.37,
+      "duration": 4.03,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_B2_v2_forest",
+      "text": "그래서 숲속 공기는 유독 깔끔합니다.",
+      "file": "audio/VO_B2_v2.mp4",
+      "start": 9.51,
+      "end": 12.05,
+      "duration": 2.54,
+      "gap_after": 0.24
+    },
+    {
+      "id": "VO_B2_v2_reveal",
+      "text": "피에브 에어워셔 피톤치드는 이 초록빛 피톤치드를 흐르지 않는 고체 젤로 담았습니다.",
+      "file": "audio/VO_B2_v2.mp4",
+      "start": 12.29,
+      "end": 17.63,
+      "duration": 5.34,
+      "gap_after": 0.18
+    },
+    {
+      "id": "VO_B2_v2_place",
+      "text": "뚜껑만 열어두면 은은하게 퍼집니다.",
+      "file": "audio/VO_B2_v2.mp4",
+      "start": 17.81,
+      "end": 20.95,
+      "duration": 3.14,
+      "gap_after": 0.0
+    }
+  ]
+}

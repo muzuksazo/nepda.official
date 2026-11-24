@@ -1,0 +1,649 @@
+{
+  "project_id": "digimore-timer-abc",
+  "aspect_ratio": "9:16",
+  "resolution": "720p",
+  "references": [
+    {
+      "id": "R_DESK",
+      "file": "refs/R_DESK.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Warm editorial photograph of a tidy modern Korean study desk under soft golden desk lamp light matching an evening work mood: hands resting calmly near an open sleek silver MacBook laptop keyboard on warm oak wood beside an open cream notebook and dark gel pen, and standing compactly on the desk beside the laptop is a small palm-sized 8cm square analog visual timer featuring a thick rounded clean white inner square bezel with only a razor-thin 2mm black outer edge, a white ribbed center cylindrical knob, and a vivid solid crimson-red circular pie sector filling clockwise from 12 o'clock to 5 o'clock on a completely smooth blank unmarked pure white dial face with strictly ZERO numbers, ZERO digits, ZERO text marks. Shallow depth of field, cozy productive mood, 9:16 vertical frame. Zero readable text, no clock numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A1",
+      "file": "refs/R_A1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Warm cozy night study desk photograph inside a quiet Korean room under a warm amber desk lamp: an open blank cream notebook and black gel pen on dark walnut wood beside a smartphone lying flat on the desk, a young Korean adult hand reaching in to tap a clean minimalist circular red progress ring graphic glowing softly on the smartphone screen. Photorealistic lifestyle cinematography, 9:16 vertical frame. Zero readable text, no letters, no numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A2",
+      "file": "refs/R_A2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_A1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same cozy warm-lit Korean night study desk and young Korean adult hand from the attached reference image, slightly wider angle: the young Korean adult leans back holding the smartphone vertically in one hand, cool blue-purple glow of blurred colorful vertical video thumbnails illuminating their fingers and thumb mid-scroll, while the open blank notebook and pen sit pushed aside forgotten under the dim amber desk lamp, subtle dim clock-shadow ambiance on the wall behind. Photorealistic 9:16 vertical frame. Zero readable text, no app icons, no numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_A3",
+      "file": "refs/R_A3.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_A1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same warm-lit Korean night study desk and young Korean adult hand from the attached reference image: close overhead-angle action shot of the hand decisively flipping the matte-black smartphone face-down and pushing it far away into the top-left corner of the wooden desk, clearing a clean uncluttered central workspace beside the open blank notebook. Crisp tactile realism, 9:16 vertical frame. Zero readable text, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B1",
+      "file": "refs/R_B1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Dramatic BBC/Netflix science documentary macro close-up in a dark midnight study room: a sleek dark smartphone lies face-up on a dark wood desk pulsing an abstract soft glowing cyan notification halo ring from its black screen in shallow depth of field, while the silhouette of human fingertips hovers tantalizingly inches above the glass light glow. Moody high-contrast cinema lighting, fine 35mm film grain, 9:16 vertical frame. Zero readable text, no icons, no numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_B2",
+      "file": "refs/R_B2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Dramatic cinema documentary medium side-angle portrait in a dim midnight room: a young Korean adult sits motionless hunched slightly over a study desk staring down at the bright cold blue glow of a vertical smartphone screen held in both hands, an unopened clean hardcover notebook forgotten beside a cup, dramatic long wall clock shadow stripes sweeping across the background plaster wall. High-contrast documentary film look, 9:16 vertical frame. Zero readable text, no clock digits, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_C1",
+      "file": "refs/R_C1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Crisp bright modern aesthetic top-down overhead flat-lay of a light oak Korean study desk: an open silver laptop, an open blank cream study notebook with a pen held in a tidy young Korean woman's hand, a minimalist iced coffee glass, and a matte smartphone sitting right beside the notebook lighting up with a bright abstract glowing alert banner glow (completely blank pure color glow, no letters) drawing the other hand toward the screen. Clean natural daylight vlog photography, 9:16 vertical frame. Zero readable text, no letters, no numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_C2",
+      "file": "refs/R_C2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_C1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same bright modern light-oak study desk top-down overhead flat-lay, iced coffee glass, open laptop, and blank cream notebook from the attached reference image: one hand decisively sweeps the smartphone completely off the side edge out of the desk frame, leaving a clean open empty wood desk spot right next to the laptop and notebook ready for focus. Crisp natural daylight vlog photography, 9:16 vertical frame. Zero readable text, no letters, no numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_M1",
+      "file": "refs/R_M1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Warm cinematic medium shot inside a cozy moody brick-oven pizzeria at night: a deadpan 27-year-old Korean male customer in a clean matte-black crewneck sweater sits at a dark wooden table staring down in wide-eyed comedic disbelief at a gleaming circular vibrant crimson-red tomato margherita pizza centered on a crisp white square ceramic plate with a thin dark rim in front of him, holding a silver fork frozen mid-air, soft warm glowing brick pizza oven bokeh in the background, 35mm cinema realism, 9:16 vertical frame. Zero readable text, no menus, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_M2",
+      "file": "refs/R_M2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Strict 90-degree vertical overhead bird's-eye top-down flat-lay macro photograph of ONLY a whole vibrant crimson-red tomato margherita pizza centered dead-middle on a crisp clean white square ceramic plate with a thin dark outer rim on a dark walnut wooden table: smooth bold continuous bright red circular tomato surface with subtle golden crust edge and zero human presence (strictly NO people, NO hands, NO fork, NO face), so the round crimson circle centered in the white square frame strongly evokes a visual timer disc. Warm cozy pizzeria tabletop light, 9:16 vertical frame. Zero readable text, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_S1",
+      "file": "refs/R_S1.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Moody atmospheric indie-film medium shot at a dim late-night study desk: a young Korean woman in an oversized charcoal knit sweater sits resting her chin lazily in one hand gently spinning a wooden pencil between her fingers, looking sideways with quiet intrigue toward a subtle soft crimson-red circular light reflection glowing on the corner of the wooden table beside an open blank cream notebook; poetic quiet nocturnal mood, soft shallow depth of field, 9:16 vertical frame. Zero readable text, no clock numbers, no typography, no logos, no subtitles, no watermarks."
+    },
+    {
+      "id": "R_S2",
+      "file": "refs/R_S2.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "attach_ids": [
+        "R_S1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Matching the exact same dim moody late-night wooden desk, oversized charcoal knit sleeve, and open blank cream notebook from the attached reference: close-up shot of her right hand hovering half-way toward a face-down matte smartphone sitting near the edge of the desk, pausing mid-reach as a soft warm crimson glow reflects faintly from off-frame right, subtle quiet self-restraint mood, 9:16 vertical frame. Zero readable text, no typography, no logos, no subtitles, no watermarks."
+    }
+  ],
+  "units": [
+    {
+      "id": "DESK_25",
+      "variant": "shared",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_DESK"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/DESK_25.mp4"
+      ],
+      "prompt": "One continuous calm natural lifestyle medium close-up (strictly no camera cuts), 9:16 vertical frame. Matching the tidy warm-lit study desk and exact compact white-bezel black-frame square analog visual timer with red sector beside the silver laptop from the attached reference, two hands type steadily and calmly on the silver laptop keyboard while the visual timer stands crisp, solid, and undisturbed beside the notebook. Soft ambient room tone only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "A1",
+      "variant": "A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A1.mp4"
+      ],
+      "prompt": "One continuous smooth handheld night study POV shot (strictly no camera cuts), 9:16 vertical frame. Matching the cozy warm-lit wooden desk from the attached reference, a young Korean adult fingertip taps the glowing minimalist red ring on the flat smartphone screen to begin focusing, then picks up the black gel pen poised over the blank open cream notebook. Subtle quiet lamp-lit room ambience only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "A2",
+      "variant": "A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A2.mp4"
+      ],
+      "prompt": "One continuous smooth lifestyle shot (strictly no camera cuts), 9:16 vertical frame. Matching the night desk and person holding the vertical smartphone from the attached reference, a bright abstract flash ripples across the phone screen and the thumb flicks upward repeatedly scrolling through vibrant blurred vertical feed visuals as shadows quietly lengthen across the forgotten notebook and wall behind. Soft quiet night ambience only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "A3",
+      "variant": "A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A3"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A3.mp4"
+      ],
+      "prompt": "One continuous crisp close action shot (strictly no camera cuts), 9:16 vertical frame. Matching the warm night study desk from the attached reference, a decisive hand firmly turns the smartphone screen face-down onto the wooden tabletop and slides it far away into the dim corner edge, leaving the central wooden desk clear and uncluttered. Crisp wood slide sound only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "B1",
+      "variant": "B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B1.mp4"
+      ],
+      "prompt": "One continuous slow moody cinema documentary push-in (strictly no camera cuts), 9:16 vertical frame. Matching the dark desk and smartphone from the attached reference, an abstract cyan light ring pulses softly upward from the dark glass screen while human fingertips drift slowly downward toward the magnetic screen light in dramatic shallow depth of field. Low nocturnal room hum only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "B2",
+      "variant": "B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B2.mp4"
+      ],
+      "prompt": "One continuous smooth documentary side dolly movement (strictly no camera cuts), 9:16 vertical frame. Matching the young Korean adult in cool blue phone light at the dim desk from the attached reference, the viewer stays glued motionless scrolling the glowing vertical screen with one thumb while sharp diagonal clock shadows sweep quickly across the wall behind, showing hours slipping away silently. Low midnight ambience only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "C1",
+      "variant": "C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_C1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/C1.mp4"
+      ],
+      "prompt": "One continuous crisp overhead flat-lay vlog shot (strictly no camera cuts), 9:16 vertical frame. Matching the bright light-oak desk overhead view from the attached reference, the hand holding the pen pauses mid-note the instant the smartphone beside the notebook flashes with a soft glowing banner wave, and the other hand shifts away from study toward the glowing screen. Quiet crisp desk room tone only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "C2",
+      "variant": "C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_C2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/C2.mp4"
+      ],
+      "prompt": "One continuous brisk overhead flat-lay desk action shot (strictly no camera cuts), 9:16 vertical frame. Matching the bright modern desk flat-lay from the attached reference, a decisive hand sweeps the glowing smartphone cleanly out of frame off the edge of the desk, leaving an organized uncluttered oak surface beside the silver laptop and open cream notebook. Quiet desk sound only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "VO_A1",
+      "variant": "vo_A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A1.mp4"
+      ],
+      "prompt": "Static medium close-up of a relatable 27-year-old Korean male creator wearing a clean heather-gray sweatshirt speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a natural warm conversational Seoul Korean voice at crisp brisk Reels storytelling pace with tight short pauses: \"딱 이십오 분만 집중하자 하고 폰 타이머 켰다가, 알림 하나 보고 릴스 켰는데 정신 차리니 한 시간 순삭. 저만 그런가요? 그래서 저는 그냥 폰을 치우고, 이걸 들었습니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_A2",
+      "variant": "vo_A",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_A2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same relatable 27-year-old Korean male creator wearing a clean heather-gray sweatshirt speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same natural warm conversational Seoul Korean voice at crisp brisk Reels review pace with confident smile and friendly closing question: \"숫자 볼 필요도 없어요. 다이얼만 쓱 돌리면 남은 시간이 빨간색으로 한눈에 보이거든요. 빨간 칸이 줄어드니 딴짓할 틈이 줄고 책상도 깔끔해요. 여러분은 집중할 때 어떤 방법 쓰시나요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_B1",
+      "variant": "vo_B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_B1.mp4"
+      ],
+      "prompt": "Static medium close-up of a dignified 45-year-old Korean male broadcast documentary narrator wearing a charcoal knit sweater standing closely before a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a deep resonant authoritative Seoul Korean documentary baritone voice at crisp measured cinema pace: \"인류가 집중력을 잃는 데 걸리는 시간은 단 삼 초. 알림 하나면 공부 계획은 흔적도 없이 사라집니다. 의지가 약해서가 아닙니다. 폰 타이머가 함정이었으니까요.\" Sound: dry close-mic broadcast vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_B2",
+      "variant": "vo_B",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_B2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same dignified 45-year-old Korean male broadcast documentary narrator wearing a charcoal knit sweater standing closely before a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same deep resonant authoritative Seoul Korean documentary baritone voice with deadpan conviction and brisk crisp pace: \"해답은 첨단 앱이 아니라, 이 아날로그 타이머였습니다. 다이얼만 돌리면 남은 시간이 빨간 원판으로 보이고, 줄어드는 게 눈에 보이니 딴짓이 사라지죠. 여러분의 집중 비결은 뭔가요?\" Sound: dry close-mic broadcast vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_C1",
+      "variant": "vo_C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_C1.mp4"
+      ],
+      "prompt": "Static medium close-up of an articulate 26-year-old Korean female study-vlog creator wearing a crisp ivory cardigan standing closely before a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a clear bright crisp Seoul Korean female voice at brisk engaging practical pace: \"공부할 때 폰 타이머 켜면 왜 십 분 만에 딴짓할까요? 답은 하나예요. 책상에서 폰부터 치우는 것. 대신 이 육십 분 비주얼 타이머, 다이얼만 쓱 돌려두면 끝이에요.\" Sound: dry close-mic studio female vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_C2",
+      "variant": "vo_C",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_C2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same articulate 26-year-old Korean female study-vlog creator wearing a crisp ivory cardigan standing closely before a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same clear bright crisp Seoul Korean female voice at brisk practical pace with warm organic closing question: \"남은 시간이 빨간 칸으로 바로 줄어드니까 이십오 분 뽀모도로 집중이 쉬워져요. 한 손에 들어오는 깔끔한 디자인이라 매일 켜두게 되네요. 여러분은 몇 분 타이머로 집중하시나요?\" Sound: dry close-mic studio female vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "M1",
+      "variant": "absurd",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_M1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/M1.mp4"
+      ],
+      "prompt": "One continuous smooth cinematic push-in (strictly no camera cuts), 9:16 vertical frame. Matching the deadpan Korean man in the moody brick-oven pizzeria from the attached reference, he blinks twice in deadpan stunned disbelief with his fork frozen mid-air staring down at the vibrant crimson-red round pizza on the white square plate while warm pizza oven light flickers gently in the background. Quiet cozy restaurant ambience only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "M2",
+      "variant": "absurd",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_M2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/M2.mp4"
+      ],
+      "prompt": "One continuous locked-off overhead top-down shot (strictly no camera cuts), 9:16 vertical frame. Matching the symmetrical overhead vibrant crimson-red round pizza on the white square plate from the attached reference, triangular wedges of the bright red circular pizza vanish cleanly one by one in a brisk clockwise pie-chart sweep until only a thin crimson sliver remains on the clean white square plate, surreal comedic stop-motion vanishing feel. Soft subtle whoosh room tone only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "VO_M1",
+      "variant": "vo_M",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_M1.mp4"
+      ],
+      "prompt": "Static medium close-up of a witty deadpan 27-year-old Korean male creator wearing a matte-black crewneck sweater speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a crisp deadpan comedic Seoul Korean voice with bewildered mock-serious opening then dry punchline reveal: \"아니, 분명 빨간 피자 한 판 다 시켰는데 눈 깜짝할 새 사라졌습니다. 어디로 갔냐고요? 사실 이건 피자가 아니라, 제가 딴짓하다 날려먹은 한 시간입니다.\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_M2",
+      "variant": "vo_M",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_M2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same witty deadpan 27-year-old Korean male creator wearing a matte-black crewneck sweater speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same effortless relaxed Seoul Korean voice with light playful review vibe and cheeky callback closing question: \"숫자? 볼 필요도 없어요. 다이얼만 쓱 돌리면 남은 시간이 빨간 판으로 딱 보이니까. 피자 조각 줄어드는 것 같아서 딴짓 못 하게 되네요. 여러분은 하루에 몇 조각 날리시나요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "S1",
+      "variant": "subtle",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_S1"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/S1.mp4"
+      ],
+      "prompt": "One continuous slow poetic cinema camera drift (strictly no camera cuts), 9:16 vertical frame. Matching the young Korean woman resting her chin at the dim late-night wooden desk from the attached reference, she absent-mindedly twirls the pencil once while glancing subtly toward the soft crimson glow on the desk corner as her expression shifts into quiet alert focus. Soft quiet night room tone only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "S2",
+      "variant": "subtle",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_S2"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/S2.mp4"
+      ],
+      "prompt": "One continuous smooth intimate close-up shot (strictly no camera cuts), 9:16 vertical frame. Matching the dim wooden desk and charcoal knit sleeve from the attached reference, her fingertips reach almost to the matte smartphone on the desk, hesitate for a beat, then quietly pull back without touching the phone and pick up the pen onto the open blank notebook instead. Soft ambient night room tone only. No dialogue, no music, no camera cuts, zero readable text, no typography, no logos, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 15,
+      "actual_duration_sec": 5.035,
+      "actual_resolution": "720x1280"
+    },
+    {
+      "id": "VO_S1",
+      "variant": "vo_S",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_S1.mp4"
+      ],
+      "prompt": "Static medium close-up of a calm understated 26-year-old Korean female indie-vlog creator wearing a soft charcoal knit sweater speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in a relaxed intimate slightly dry Seoul Korean female voice like casual late-night inner monologue: \"이상하게 빨간색이 줄어드는 걸 보고 있으면, 사람이 좀 조급해지더라고요. 누가 뭐라 하는 것도 아닌데, 왠지 저게 다 없어지기 전엔 자리 못 뜨겠는 느낌?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    },
+    {
+      "id": "VO_S2",
+      "variant": "vo_S",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "360p",
+        "duration_sec": 15
+      },
+      "est_credits": 20,
+      "outputs": [
+        "audio/VO_S2.mp4"
+      ],
+      "prompt": "Static medium close-up of the exact same calm understated 26-year-old Korean female indie-vlog creator wearing a soft charcoal knit sweater speaking closely into a studio condenser microphone and black pop filter inside a silent dark acoustic vocal booth. Starting promptly without delay in the exact same effortless relaxed intimate Seoul Korean female voice with understated honest cadence and gentle closing question: \"별기능도 없어요. 그냥 돌리면 빨개지고, 시간 지나면 조용히 줄어들 뿐인데. 괜히 이거 하나 켜두면 딴짓하다가도 다시 앉게 되네요. 저만 이런 기분 드나요?\" Sound: dry close-mic studio vocal ONLY, crisp consonant articulation, finishes cleanly with 2.0 seconds of quiet room silence at the end, zero background music, zero echo, zero SFX. No background music, no singing, zero readable text, no subtitles, no watermarks.",
+      "status": "completed",
+      "actual_credits": 20,
+      "actual_duration_sec": 15.04,
+      "actual_resolution": "360x640"
+    }
+  ]
+}

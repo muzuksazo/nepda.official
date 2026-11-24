@@ -1,0 +1,44 @@
+{
+  "beats": [
+    {
+      "id": "VO_B1_v2_info1",
+      "file": "VO_B1_v2.mp4",
+      "start_sec": 0.02,
+      "end_sec": 7.86,
+      "trim_edges": false,
+      "speed": 1.11,
+      "gap_after": 0.14,
+      "text": "지구에서 뇌도 심장도 없는데 육억 년 넘게 살아남은 동물이 있습니다. 바로 바다 스펀지, 해면동물입니다."
+    },
+    {
+      "id": "VO_B1_v2_info2",
+      "file": "VO_B1_v2.mp4",
+      "start_sec": 8.26,
+      "end_sec": 12.66,
+      "trim_edges": false,
+      "speed": 1.09,
+      "gap_after": 0.24,
+      "text": "몸 전체의 미세한 구멍으로 물을 쭉 빨아들입니다."
+    },
+    {
+      "id": "VO_B2_v2_rev",
+      "file": "VO_B2_v2.mp4",
+      "start_sec": 0.00,
+      "end_sec": 5.18,
+      "trim_edges": false,
+      "speed": 1.02,
+      "gap_after": 0.20,
+      "text": "이 물기 제거 스펀지도 원래 천 원짜리 큰 블록을 작게 여러 조각 잘랐습니다."
+    },
+    {
+      "id": "VO_B2_v2_proof",
+      "file": "VO_B2_v2.mp4",
+      "start_sec": 7.42,
+      "end_sec": 12.92,
+      "trim_edges": false,
+      "speed": 1.04,
+      "gap_after": 0.0,
+      "text": "세면대 틈새 물기를 한 번에 빨아들이고 꽉 짜면 다시 쓸 수 있습니다."
+    }
+  ]
+}

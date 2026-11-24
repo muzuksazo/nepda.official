@@ -1,0 +1,168 @@
+{
+  "canvas": {"width": 1080, "height": 1920},
+  "strict_margin": true,
+  "thumbnails": [
+    {
+      "id": "digimore_A_absurd_pizza",
+      "filename": "thumb_A_absurd_pizza.png",
+      "layout": "split_2panel",
+      "panels": [
+        {
+          "image": "refs/R_M1.png",
+          "height": 880,
+          "y": 0,
+          "crop_norm": [0.0, 0.0, 1.0, 0.50],
+          "anchor": [0.5, 0.0],
+          "contrast": 1.07
+        },
+        {
+          "image": "work_thumbs/m2_half_pizza.png",
+          "height": 1028,
+          "y": 892,
+          "crop_norm": [0.0, 0.16, 1.0, 0.80],
+          "anchor": [0.5, 0.52],
+          "contrast": 1.08
+        }
+      ],
+      "scrim": {"y_top": 675, "y_bottom": 1045, "peak_alpha": 212, "edge_soft": 90},
+      "pill": {"y": 685, "text": "분명 한 판 다 시켰는데", "fill": [214, 44, 32, 248], "font_size": 40},
+      "headline": {
+        "style": "stroke_bold",
+        "gap_after_pill": 18,
+        "font_size": 114,
+        "line_gap": 14,
+        "stroke_w": 11,
+        "lines": [
+          {"text": "피자가 통째로", "color": [255, 255, 255]},
+          {"text": "증발했습니다!", "color": [255, 224, 71]}
+        ]
+      }
+    },
+    {
+      "id": "digimore_B_subtle_vibe",
+      "filename": "thumb_B_subtle_vibe.png",
+      "layout": "single",
+      "image": "refs/R_S1.png",
+      "anchor": [0.5, 0.45],
+      "contrast": 1.07,
+      "scrim": {"y_top": 945, "y_bottom": 1390, "peak_alpha": 175, "edge_soft": 120},
+      "pill": {
+        "y": 935,
+        "text": "묘하게 신경 쓰이는",
+        "fill": [18, 20, 28, 236],
+        "outline": [255, 86, 86, 225],
+        "dot_color": [255, 76, 76, 255],
+        "font_size": 40
+      },
+      "headline": {
+        "style": "panel_card",
+        "gap_after_pill": 22,
+        "font_size": 114,
+        "line_gap": 18,
+        "card_fill": [12, 15, 22, 228],
+        "card_pad_x": 38,
+        "card_pad_y": 26,
+        "lines": [
+          {"text": "빨간색 줄어들면", "color": [255, 255, 255]},
+          {"text": "왜 못 일어날까?", "color": [255, 224, 71]}
+        ]
+      }
+    },
+    {
+      "id": "digimore_C_pomodoro_direct",
+      "filename": "thumb_C_pomodoro_direct.png",
+      "layout": "single",
+      "image": "refs/R_C1.png",
+      "anchor": [0.5, 0.5],
+      "contrast": 1.06,
+      "scrim": {"y_top": 490, "y_bottom": 960, "peak_alpha": 165, "edge_soft": 120},
+      "pill": {"y": 495, "text": "뽀모도로 25분 루틴", "fill": [214, 52, 34, 245], "font_size": 40},
+      "headline": {
+        "style": "line_blocks",
+        "gap_after_pill": 22,
+        "font_size": 116,
+        "line_gap": 14,
+        "block_pad_x": 30,
+        "block_pad_y": 14,
+        "block_radius": 20,
+        "lines": [
+          {"text": "폰부터 치웠더니", "color": [16, 20, 26], "bg": [255, 255, 255, 250]},
+          {"text": "집중이 달라졌다!", "color": [180, 32, 20], "bg": [255, 236, 115, 250]}
+        ]
+      },
+      "inset_cards": [
+        {
+          "image": "refs/REF_TIMER_RED.png",
+          "crop_norm": [0.17, 0.23, 0.75, 0.81],
+          "x": 685,
+          "y": 1105,
+          "size": 310,
+          "radius": 34,
+          "border": 8
+        }
+      ]
+    },
+    {
+      "id": "digimore_A_focus_scroll",
+      "filename": "thumb_A_focus_scroll.png",
+      "layout": "single",
+      "image": "refs/R_A2.png",
+      "anchor": [0.5, 0.5],
+      "contrast": 1.06,
+      "scrim": {"y_top": 490, "y_bottom": 960, "peak_alpha": 185, "edge_soft": 120},
+      "pill": {"y": 495, "text": "딱 25분만 집중하려다", "fill": [224, 74, 28, 245], "font_size": 40},
+      "headline": {
+        "style": "stroke_bold",
+        "gap_after_pill": 22,
+        "font_size": 120,
+        "line_gap": 16,
+        "stroke_w": 11,
+        "lines": [
+          {"text": "알림 하나 보고", "color": [255, 255, 255]},
+          {"text": "1시간 순삭됐다", "color": [255, 224, 71]}
+        ]
+      },
+      "inset_cards": [
+        {
+          "image": "refs/R_DESK.png",
+          "crop_norm": [0.562, 0.410, 0.893, 0.595],
+          "x": 72,
+          "y": 1105,
+          "size": 310,
+          "radius": 34,
+          "border": 8
+        }
+      ]
+    },
+    {
+      "id": "digimore_B_docu_twist",
+      "filename": "thumb_B_docu_twist.png",
+      "layout": "single",
+      "image": "refs/R_B2.png",
+      "anchor": [0.5, 0.45],
+      "contrast": 1.07,
+      "scrim": {"y_top": 955, "y_bottom": 1410, "peak_alpha": 195, "edge_soft": 120},
+      "pill": {
+        "y": 950,
+        "text": "집중력 관찰 리포트",
+        "fill": [18, 22, 30, 236],
+        "outline": [255, 92, 60, 225],
+        "dot_color": [255, 86, 52, 255],
+        "font_size": 40
+      },
+      "headline": {
+        "style": "panel_card",
+        "gap_after_pill": 22,
+        "font_size": 114,
+        "line_gap": 18,
+        "card_fill": [12, 16, 24, 228],
+        "card_pad_x": 38,
+        "card_pad_y": 26,
+        "lines": [
+          {"text": "집중력이 무너지는", "color": [255, 255, 255]},
+          {"text": "단 3초의 함정", "color": [255, 224, 71]}
+        ]
+      }
+    }
+  ]
+}

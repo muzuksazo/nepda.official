@@ -1,0 +1,44 @@
+{
+  "beats": [
+    {
+      "id": "VO_C1_pain",
+      "file": "VO_C1.mp4",
+      "start_sec": 0.00,
+      "end_sec": 3.90,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.14,
+      "text": "행주로 닦아도 물자국만 번지고, 금방 찝찝해지죠."
+    },
+    {
+      "id": "VO_C1_solve",
+      "file": "VO_C1.mp4",
+      "start_sec": 4.36,
+      "end_sec": 7.94,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.14,
+      "text": "이건 물기를 밀어내는 게 아니라 그대로 쭉 빨아들입니다."
+    },
+    {
+      "id": "VO_C2_body",
+      "file": "VO_C2.mp4",
+      "start_sec": 0.98,
+      "end_sec": 7.92,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.18,
+      "text": "게다가 원래 천 원짜리 엄청 큰 블록이라, 작게 여러 조각 잘랐으면 세면대 구석까지 가성비가 말도 안 돼요."
+    },
+    {
+      "id": "VO_C2_cta",
+      "file": "VO_C2.mp4",
+      "start_sec": 8.33,
+      "end_sec": 11.74,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.0,
+      "text": "꽉 짜면 끝, 다들 물기 정리 어떻게 하시나요?"
+    }
+  ]
+}

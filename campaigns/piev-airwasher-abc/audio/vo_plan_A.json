@@ -1,0 +1,44 @@
+{
+  "beats": [
+    {
+      "id": "VO_A1_hook",
+      "file": "VO_A1.mp4",
+      "start_sec": 0.52,
+      "end_sec": 7.06,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.30,
+      "text": "아니 컵이 90도로 누웠는데 왜 한 방울도 안 흘러요? 말차인 줄 알았는데 꼼짝도 안 하네."
+    },
+    {
+      "id": "VO_A1_flip",
+      "file": "VO_A1.mp4",
+      "start_sec": 8.42,
+      "end_sec": 12.04,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.14,
+      "text": "근데 이거 음료가 아니라 고체 젤 방향제입니다."
+    },
+    {
+      "id": "VO_A2_body",
+      "file": "VO_A2.mp4",
+      "start_sec": 0.24,
+      "end_sec": 7.76,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.22,
+      "text": "뚜껑만 열면 초록빛 피톤치드 젤이 은은하게 퍼지고, 기울여도 쏟을 걱정 없으니까 선반에 두기 딱 좋아요."
+    },
+    {
+      "id": "VO_A2_cta",
+      "file": "VO_A2.mp4",
+      "start_sec": 8.52,
+      "end_sec": 10.64,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.0,
+      "text": "여러분 집엔 어떤 향 두시나요?"
+    }
+  ]
+}

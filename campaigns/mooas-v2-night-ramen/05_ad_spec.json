@@ -1,0 +1,397 @@
+{
+  "project_id": "mooas-v2-night-ramen",
+  "title": "무아스 머그팟 밤 11시 야식 라면 30초 내러티브 리믹스 마스터 v2",
+  "mode": "v2_narrative_master",
+  "output_stem": "ad_night_ramen_v2",
+  "short_tag": "밤 11시 라면",
+  "platform": "instagram_reels",
+  "aspect_ratio": "9:16",
+  "resolution": [1080, 1920],
+  "fps": 30,
+  "hook_window_sec": 13.1,
+  "source_video": "source/mooas_36s_orig.mp4",
+  "source_duration": 36.061,
+  "allow_static_intro": false,
+  "disclosure": "own_brand",
+  "framing_mode": "smart-crop",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1240,
+  "highlight_color": "#FFE047",
+  "editorial_bg_color": "#12141A",
+  "editorial_card_y": 420,
+  "bottom_crop_px": 162,
+  "burned_in_subtitle_strategy": "원본 1:1 컷은 하단 162px 주황 자막을 bottom_crop_px로 제거한 뒤 9:16 스마트 크롭 및 블러 블리드로 풀스크린 구성하고, 9:16 Flow 컷은 bottom_crop_px=0 full-bleed를 유지하며 하단 1240px 안전영역에 키워드 강조 릴스 자막을 배치합니다.",
+  "vo_audio": "audio/vo_master.wav",
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 12.95,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Electric Piano.caf"
+      ],
+      "gain_db": -15.0,
+      "fade_in": 0.15,
+      "fade_out": 0.18,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 13.36,
+      "end": 15.16,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Electric Piano.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Bass.caf"
+      ],
+      "gain_db": -14.5,
+      "fade_in": 0.08,
+      "fade_out": 0.05,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 15.16,
+      "end": 31.2,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Beat.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Bass.caf",
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/City Nights Electric Piano.caf"
+      ],
+      "gain_db": -10.8,
+      "fade_in": 0.03,
+      "fade_out": 0.45,
+      "stem_offset_sec": 0.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 0.15,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Small.caf",
+      "trim_start": 0.0,
+      "duration": 0.7,
+      "gain_db": -16.0,
+      "fade_in": 0.01,
+      "fade_out": 0.2
+    },
+    {
+      "time": 5.0,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Work:Home/Dishes 1.caf",
+      "trim_start": 0.0,
+      "duration": 1.0,
+      "gain_db": -13.0,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    },
+    {
+      "time": 9.11,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Work:Home/Dishes Wash.caf",
+      "trim_start": 1.0,
+      "duration": 1.4,
+      "gain_db": -17.0,
+      "fade_in": 0.05,
+      "fade_out": 0.3
+    },
+    {
+      "time": 12.82,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Misc./Turntable Scratch 1.caf",
+      "trim_start": 0.0,
+      "duration": 0.3,
+      "gain_db": -13.5,
+      "fade_in": 0.01,
+      "fade_out": 0.04
+    },
+    {
+      "time": 14.59,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Air Reverse Burst 1.caf",
+      "trim_start": 0.0,
+      "duration": 0.58,
+      "gain_db": -11.0,
+      "fade_in": 0.02,
+      "fade_out": 0.03
+    },
+    {
+      "time": 15.16,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Impacts & Crashes/LFE Hit Impact 04.caf",
+      "trim_start": 0.0,
+      "duration": 1.4,
+      "gain_db": -12.0,
+      "fade_in": 0.01,
+      "fade_out": 0.5
+    },
+    {
+      "time": 18.3,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Work:Home/Boiling Water.caf",
+      "trim_start": 2.0,
+      "duration": 2.8,
+      "gain_db": -21.0,
+      "fade_in": 0.15,
+      "fade_out": 0.35
+    },
+    {
+      "time": 29.35,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Transition.caf",
+      "trim_start": 0.0,
+      "duration": 1.4,
+      "gain_db": -15.5,
+      "fade_in": 0.01,
+      "fade_out": 0.4
+    }
+  ],
+  "usps": [
+    {
+      "fact_id": "F02",
+      "title": "코드만 꽂는 2단 화력",
+      "desc": "가스레인지·인덕션 없이 전기코드만 꽂고 다이얼로 끓이는 스텐 내솥"
+    },
+    {
+      "fact_id": "F04",
+      "title": "라면·찜·중탕 4-in-1",
+      "desc": "라면부터 만두찜, 햇반·카레 중탕까지 한 대로 조리"
+    },
+    {
+      "fact_id": "F05",
+      "title": "1구 주방 + 분리 이동",
+      "desc": "인덕션 1구 보조 활용 및 분리형 코드로 식탁 직행"
+    },
+    {
+      "fact_id": "F06",
+      "title": "스마일 커버 + 감성 마감",
+      "desc": "전원부 실리콘 스마일 커버와 화이트·우드 디자인"
+    }
+  ],
+  "timeline": [
+    {
+      "id": "V1",
+      "type": "flow_video",
+      "path": "clips/V1.mp4",
+      "fallback_image": "refs/R_V1.png",
+      "duration": 5.0,
+      "speed": 1.0,
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "audio_owner": "mute"
+    },
+    {
+      "id": "V2",
+      "type": "flow_video",
+      "path": "clips/V2.mp4",
+      "fallback_image": "refs/R_V2.png",
+      "duration": 4.11,
+      "speed": 1.0,
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "audio_owner": "mute"
+    },
+    {
+      "id": "V3",
+      "type": "flow_video",
+      "path": "clips/V3.mp4",
+      "fallback_image": "refs/R_V3.png",
+      "src_start": 0.35,
+      "duration": 3.99,
+      "speed": 1.0,
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "audio_owner": "mute"
+    },
+    {
+      "id": "TWIST_FREEZE",
+      "type": "silence_gap",
+      "duration": 0.26,
+      "freeze_image": "refs/R_V3.png",
+      "audio_owner": "silence"
+    },
+    {
+      "id": "P01",
+      "type": "source",
+      "src_start": 15.62,
+      "src_end": 17.15,
+      "speed": 0.85,
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.5,
+      "bottom_crop_px": 162,
+      "audio_owner": "mute",
+      "fact_ids": ["F05"]
+    },
+    {
+      "id": "P02",
+      "type": "source",
+      "src_start": 3.95,
+      "src_end": 6.55,
+      "speed": 0.85,
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.52,
+      "bottom_crop_px": 162,
+      "audio_owner": "mute",
+      "fact_ids": ["F02"]
+    },
+    {
+      "id": "P03",
+      "type": "source",
+      "src_start": 2.0,
+      "src_end": 3.7,
+      "speed": 0.929,
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.45,
+      "punch_zoom": 1.04,
+      "bottom_crop_px": 162,
+      "audio_owner": "mute",
+      "fact_ids": ["F02", "F03"]
+    },
+    {
+      "id": "P04",
+      "type": "source",
+      "src_start": 7.0,
+      "src_end": 8.5,
+      "speed": 1.304,
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.42,
+      "bottom_crop_px": 162,
+      "audio_owner": "mute",
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "P05",
+      "type": "source",
+      "src_start": 19.0,
+      "src_end": 21.15,
+      "speed": 1.265,
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.55,
+      "bottom_crop_px": 162,
+      "audio_owner": "mute",
+      "fact_ids": ["F05"]
+    },
+    {
+      "id": "P06",
+      "type": "source",
+      "src_start": 22.3,
+      "src_end": 24.5,
+      "speed": 1.257,
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.45,
+      "bottom_crop_px": 162,
+      "audio_owner": "mute",
+      "fact_ids": ["F06"]
+    },
+    {
+      "id": "P07",
+      "type": "source",
+      "src_start": 10.0,
+      "src_end": 13.5,
+      "speed": 1.0,
+      "framing": "blur-bleed",
+      "card_y": 330,
+      "bottom_crop_px": 162,
+      "audio_owner": "mute",
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "P08",
+      "type": "source",
+      "src_start": 29.2,
+      "src_end": 32.6,
+      "speed": 1.115,
+      "framing": "smart-crop",
+      "crop_x_ratio": 0.5,
+      "bottom_crop_px": 162,
+      "audio_owner": "mute",
+      "fact_ids": ["F01", "F06"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 2.55,
+      "text": "밤 11시 라면 하나에\n우리가 하는 **미친 짓** 아세요?",
+      "pop_badge": "밤 11시 야식",
+      "y_pos": 1240,
+      "is_cta": false
+    },
+    {
+      "start": 2.55,
+      "end": 5.57,
+      "text": "배달앱 켜면 **52분 대기**\n배달비만 **4,000원**",
+      "pop_badge": "배달 52분",
+      "y_pos": 1240,
+      "is_cta": false
+    },
+    {
+      "start": 5.57,
+      "end": 9.01,
+      "text": "직접 끓이려 주방 가면\n**설거지 산더미** · 인덕션 1구",
+      "pop_badge": "설거지 산더미",
+      "y_pos": 1240,
+      "is_cta": false
+    },
+    {
+      "start": 9.01,
+      "end": 11.2,
+      "text": "라면 **3분** 먹자고\n설거지 **네 개**에",
+      "y_pos": 1240,
+      "is_cta": false
+    },
+    {
+      "start": 11.2,
+      "end": 13.1,
+      "text": "**47분**\n**중노동**입니다",
+      "pop_badge": "현타 주의",
+      "y_pos": 1240,
+      "is_cta": false
+    },
+    {
+      "start": 13.36,
+      "end": 15.62,
+      "text": "그래서 저는 그냥\n**주방을 포기했습니다**",
+      "pop_badge": "전환점",
+      "y_pos": 1240,
+      "is_cta": false
+    },
+    {
+      "start": 15.62,
+      "end": 18.28,
+      "text": "식탁에서 코드만 꽂고\n**다이얼**을 돌리면",
+      "pop_badge": "코드 + 2단 다이얼",
+      "y_pos": 1240,
+      "is_cta": false
+    },
+    {
+      "start": 18.28,
+      "end": 21.15,
+      "text": "**스텐 내솥**이 바로\n**팔팔** 끓거든요",
+      "pop_badge": "스텐 내솥",
+      "y_pos": 1240,
+      "is_cta": false
+    },
+    {
+      "start": 21.15,
+      "end": 24.65,
+      "text": "코드 빼서 **냄비째** 먹고\n스마일 커버 닫고 **쓱 헹구면 끝!**",
+      "pop_badge": "스마일 커버",
+      "y_pos": 1240,
+      "is_cta": false
+    },
+    {
+      "start": 24.65,
+      "end": 28.15,
+      "text": "만두찜·햇반 중탕도 한 대면\n**배달 52분** 기다릴 시간에",
+      "pop_badge": "4-in-1 멀티",
+      "y_pos": 1385,
+      "is_cta": false
+    },
+    {
+      "start": 28.15,
+      "end": 31.2,
+      "text": "이미 **다 먹고 누웠습니다**\n댓글에 **'머그팟'** 남기세요",
+      "pop_badge": "공구 진행중",
+      "y_pos": 1240,
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_dm",
+    "keyword": "머그팟",
+    "copy": "단 O일 한정 공구가 | 댓글에 '머그팟' 남기면 링크 DM",
+    "badge_copy": "댓글에 '머그팟' 남기면 링크 DM",
+    "start_sec": 28.15,
+    "show_from_sec": 28.15,
+    "fact_ids": ["F01"]
+  }
+}

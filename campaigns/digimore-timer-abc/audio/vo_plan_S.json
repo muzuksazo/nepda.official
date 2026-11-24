@@ -1,0 +1,58 @@
+{
+  "beats": [
+    {
+      "id": "S_p1",
+      "file": "parts/S_p1.wav",
+      "speed": 1.08,
+      "text": "이상하게 빨간색이 줄어드는 걸 보고 있으면,",
+      "trim_edges": false,
+      "gap_before": 0.12,
+      "gap_after": 0.22
+    },
+    {
+      "id": "S_p2",
+      "file": "parts/S_p2.wav",
+      "speed": 1.08,
+      "text": "사람이 좀 조급해지더라고요.",
+      "trim_edges": false,
+      "gap_after": 0.2
+    },
+    {
+      "id": "S_p3",
+      "file": "parts/S_p3.wav",
+      "speed": 1.08,
+      "text": "누가 뭐라 하는 것도 아닌데,",
+      "trim_edges": false,
+      "gap_after": 0.22
+    },
+    {
+      "id": "S_p4",
+      "file": "parts/S_p4.wav",
+      "speed": 1.08,
+      "text": "왠지 저게 다 없어지기 전엔 자리 못 뜨겠는 느낌?",
+      "trim_edges": false,
+      "gap_after": 0.62
+    },
+    {
+      "id": "S_p5",
+      "file": "parts/S_p5.wav",
+      "text": "별 기능도 없어요. 그냥 돌리면 빨개지고, 시간 지나면 조용히 줄어들 뿐인데.",
+      "trim_edges": false,
+      "gap_after": 1.1
+    },
+    {
+      "id": "S_p6",
+      "file": "parts/S_p6.wav",
+      "text": "괜히 이거 하나 켜두면 딴짓하다가도 다시 앉게 되네요.",
+      "trim_edges": false,
+      "gap_after": 1.4
+    },
+    {
+      "id": "S_p7",
+      "file": "parts/S_p7.wav",
+      "text": "저만 이런 기분 드나요?",
+      "trim_edges": false,
+      "gap_after": 0.65
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "mode": "manifest",
+  "output_wav": "audio/vo_master_B_v2.wav",
+  "total_duration": 23.5,
+  "segment_count": 4,
+  "lufs_i": -15.6,
+  "segments": [
+    {
+      "id": "VO_B1_v2_info1",
+      "text": "지구에서 뇌도 심장도 없는데 육억 년 넘게 살아남은 동물이 있습니다. 바로 바다 스펀지, 해면동물입니다.",
+      "file": "audio/VO_B1_v2.mp4",
+      "start": 0.0,
+      "end": 7.84,
+      "duration": 7.84,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_B1_v2_info2",
+      "text": "몸 전체의 미세한 구멍으로 물을 쭉 빨아들입니다.",
+      "file": "audio/VO_B1_v2.mp4",
+      "start": 7.98,
+      "end": 12.38,
+      "duration": 4.4,
+      "gap_after": 0.24
+    },
+    {
+      "id": "VO_B2_v2_rev",
+      "text": "이 물기 제거 스펀지도 원래 천 원짜리 큰 블록을 작게 여러 조각 잘랐습니다.",
+      "file": "audio/VO_B2_v2.mp4",
+      "start": 12.62,
+      "end": 17.8,
+      "duration": 5.18,
+      "gap_after": 0.2
+    },
+    {
+      "id": "VO_B2_v2_proof",
+      "text": "세면대 틈새 물기를 한 번에 빨아들이고 꽉 짜면 다시 쓸 수 있습니다.",
+      "file": "audio/VO_B2_v2.mp4",
+      "start": 18.0,
+      "end": 23.5,
+      "duration": 5.5,
+      "gap_after": 0.0
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "beats": [
+    {
+      "id": "VO_B1_mood",
+      "file": "VO_B1.mp4",
+      "start_sec": 0.04,
+      "end_sec": 7.86,
+      "trim_edges": false,
+      "speed": 1.04,
+      "gap_after": 0.28,
+      "text": "이상하게 씻고 나가려는데 세면대 뒤에 물 고인 거 보면 못 지나치겠고, 축축한 행주 잡기는 또 싫은 그 느낌."
+    },
+    {
+      "id": "VO_B1_shift",
+      "file": "VO_B1.mp4",
+      "start_sec": 9.58,
+      "end_sec": 13.28,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.14,
+      "text": "그래서 천 원짜리 큰 걸 작게 잘라 두고 써요."
+    },
+    {
+      "id": "VO_B2_body",
+      "file": "VO_B2.mp4",
+      "start_sec": 0.00,
+      "end_sec": 8.05,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.22,
+      "text": "너무 커서 여러 조각으로 나눴으니까 틈새만 쓱 닦고, 꽉 짜서 올려두면 끝이라 은근 계속 손이 가더라고요."
+    },
+    {
+      "id": "VO_B2_cta",
+      "file": "VO_B2.mp4",
+      "start_sec": 8.90,
+      "end_sec": 10.06,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.0,
+      "text": "저만 이런가요?"
+    }
+  ]
+}

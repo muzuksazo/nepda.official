@@ -1,0 +1,54 @@
+{
+  "mode": "manifest",
+  "output_wav": "audio/vo_master_A.wav",
+  "total_duration": 23.82,
+  "segment_count": 5,
+  "lufs_i": -15.8,
+  "segments": [
+    {
+      "id": "VO_A1_hook_p1",
+      "text": "화면 속 얼룩은 지우개 툴로 한 번에 지우잖아요.",
+      "file": "audio/VO_A1.mp4",
+      "start": 0.0,
+      "end": 3.11,
+      "duration": 3.11,
+      "gap_after": 0.3
+    },
+    {
+      "id": "VO_A1_hook_p2",
+      "text": "현실에도 이런 지우개 하나 있으면 얼마나 편할까요?",
+      "file": "audio/VO_A1.mp4",
+      "start": 3.41,
+      "end": 6.71,
+      "duration": 3.3,
+      "gap_after": 0.28
+    },
+    {
+      "id": "VO_A1_flip",
+      "text": "근데 욕실 물기는 진짜 이걸로 한 번에 지워집니다.",
+      "file": "audio/VO_A1.mp4",
+      "start": 6.99,
+      "end": 11.7,
+      "duration": 4.71,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_A2_body",
+      "text": "원래 천 원짜리 큰 블록인데, 너무 커서 이렇게 작게 소분해 잘랐으면 세면대 틈새까지 딱 맞고 가성비도 끝장나요.",
+      "file": "audio/VO_A2.mp4",
+      "start": 11.84,
+      "end": 19.83,
+      "duration": 7.99,
+      "gap_after": 0.22
+    },
+    {
+      "id": "VO_A2_cta",
+      "text": "집에서 물 제일 많이 고이는 곳은 어디인가요?",
+      "file": "audio/VO_A2.mp4",
+      "start": 20.05,
+      "end": 23.82,
+      "duration": 3.77,
+      "gap_after": 0.0
+    }
+  ]
+}

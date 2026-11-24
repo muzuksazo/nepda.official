@@ -1,0 +1,117 @@
+{
+  "canvas": {"width": 1080, "height": 1920},
+  "strict_margin": true,
+  "thumbnails": [
+    {
+      "id": "piev_A_breakup_piev",
+      "filename": "thumb_A_breakup_piev.png",
+      "layout": "split_2panel",
+      "panels": [
+        {
+          "image": "refs/R_A1_v3.png",
+          "height": 940,
+          "y": 0,
+          "crop_norm": [0, 0.14, 1, 0.68],
+          "anchor": [0.5, 0.22],
+          "contrast": 1.07
+        },
+        {
+          "image": "refs/REAL_PIEV_TILT_90.png",
+          "height": 968,
+          "y": 952,
+          "crop_norm": [0, 0.14, 1, 0.72],
+          "anchor": [0.5, 0.45],
+          "contrast": 1.08
+        }
+      ],
+      "scrim": {"y_top": 670, "y_bottom": 1060, "peak_alpha": 208, "edge_soft": 105},
+      "pill": {"y": 645, "text": "이별 선언 후 식탁을", "fill": [210, 38, 30, 248], "font_size": 40},
+      "headline": {
+        "style": "stroke_bold",
+        "gap_after_pill": 22,
+        "font_size": 120,
+        "line_gap": 16,
+        "stroke_w": 11,
+        "lines": [
+          {"text": "90° 확 엎었는데", "color": [255, 255, 255]},
+          {"text": "저 컵만 멀쩡해?!", "color": [255, 224, 71]}
+        ]
+      }
+    },
+    {
+      "id": "piev_B_phytoncide_info",
+      "filename": "thumb_B_phytoncide_info.png",
+      "layout": "single",
+      "image": "refs/R_B1_v2.png",
+      "anchor": [0.5, 0.48],
+      "contrast": 1.07,
+      "scrim": {"y_top": 520, "y_bottom": 1040, "peak_alpha": 165, "edge_soft": 120},
+      "pill": {
+        "y": 510,
+        "text": "나무는 다리가 없는데",
+        "fill": [14, 24, 20, 236],
+        "outline": [72, 224, 128, 225],
+        "dot_color": [72, 224, 128, 255],
+        "font_size": 40
+      },
+      "headline": {
+        "style": "panel_card",
+        "gap_after_pill": 22,
+        "font_size": 116,
+        "line_gap": 18,
+        "card_fill": [10, 18, 16, 226],
+        "card_pad_x": 38,
+        "card_pad_y": 26,
+        "lines": [
+          {"text": "수백 년 버틴", "color": [255, 255, 255]},
+          {"text": "초록 방어 물질", "color": [255, 224, 71]}
+        ]
+      },
+      "inset_cards": [
+        {
+          "image": "refs/REAL_PIEV_GEL.png",
+          "crop_norm": [0.10, 0.14, 0.90, 0.88],
+          "x": 685,
+          "y": 1105,
+          "size": 310,
+          "radius": 34,
+          "border": 8
+        }
+      ]
+    },
+    {
+      "id": "piev_C_spill_direct",
+      "filename": "thumb_C_spill_direct.png",
+      "layout": "single",
+      "image": "refs/R_C1.png",
+      "anchor": [0.5, 0.45],
+      "contrast": 1.06,
+      "scrim": {"y_top": 490, "y_bottom": 960, "peak_alpha": 160, "edge_soft": 120},
+      "pill": {"y": 495, "text": "디퓨저 또 엎었다면", "fill": [26, 138, 78, 245], "font_size": 40},
+      "headline": {
+        "style": "line_blocks",
+        "gap_after_pill": 22,
+        "font_size": 116,
+        "line_gap": 14,
+        "block_pad_x": 30,
+        "block_pad_y": 14,
+        "block_radius": 20,
+        "lines": [
+          {"text": "기울여도 ZERO", "color": [16, 20, 26], "bg": [255, 255, 255, 250]},
+          {"text": "초록 고체 젤!", "color": [18, 108, 56], "bg": [255, 236, 115, 250]}
+        ]
+      },
+      "inset_cards": [
+        {
+          "image": "refs/REAL_PIEV_FRONT.png",
+          "crop_norm": [0.12, 0.22, 0.80, 0.74],
+          "x": 685,
+          "y": 1105,
+          "size": 310,
+          "radius": 34,
+          "border": 8
+        }
+      ]
+    }
+  ]
+}

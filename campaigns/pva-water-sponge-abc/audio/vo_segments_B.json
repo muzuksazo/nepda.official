@@ -1,0 +1,45 @@
+{
+  "mode": "manifest",
+  "output_wav": "audio/vo_master_B.wav",
+  "total_duration": 21.37,
+  "segment_count": 4,
+  "lufs_i": -14.4,
+  "segments": [
+    {
+      "id": "VO_B1_mood",
+      "text": "이상하게 씻고 나가려는데 세면대 뒤에 물 고인 거 보면 못 지나치겠고, 축축한 행주 잡기는 또 싫은 그 느낌.",
+      "file": "audio/VO_B1.mp4",
+      "start": 0.0,
+      "end": 7.82,
+      "duration": 7.82,
+      "gap_after": 0.28
+    },
+    {
+      "id": "VO_B1_shift",
+      "text": "그래서 천 원짜리 큰 걸 작게 잘라 두고 써요.",
+      "file": "audio/VO_B1.mp4",
+      "start": 8.1,
+      "end": 11.8,
+      "duration": 3.7,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_B2_body",
+      "text": "너무 커서 여러 조각으로 나눴으니까 틈새만 쓱 닦고, 꽉 짜서 올려두면 끝이라 은근 계속 손이 가더라고요.",
+      "file": "audio/VO_B2.mp4",
+      "start": 11.94,
+      "end": 19.99,
+      "duration": 8.05,
+      "gap_after": 0.22
+    },
+    {
+      "id": "VO_B2_cta",
+      "text": "저만 이런가요?",
+      "file": "audio/VO_B2.mp4",
+      "start": 20.21,
+      "end": 21.37,
+      "duration": 1.16,
+      "gap_after": 0.0
+    }
+  ]
+}

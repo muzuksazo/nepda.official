@@ -1,0 +1,54 @@
+{
+  "beats": [
+    {
+      "id": "VO_A1_v3_scene",
+      "file": "VO_A1_v3.mp4",
+      "start_sec": 0.14,
+      "end_sec": 5.34,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 1.5,
+      "text": "솔직히 말해. 사건 현장 바닥에 고였던 물기가 1초 만에 흔적도 없이 사라졌어."
+    },
+    {
+      "id": "VO_A1_v3_how",
+      "file": "VO_A1_v3.mp4",
+      "start_sec": 5.52,
+      "end_sec": 8.02,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.26,
+      "text": "수건도 걸레도 없는데 무슨 수법을 쓴 거야?"
+    },
+    {
+      "id": "VO_A2_v3_confess",
+      "file": "VO_A2_v3.mp4",
+      "start_sec": 0.32,
+      "end_sec": 5.25,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.14,
+      "text": "형사님, 별거 아닙니다. 1,000원짜리 대형 블록을 작게 여러 조각 잘라 뒀거든요."
+    },
+    {
+      "id": "VO_A2_v3_wipe",
+      "file": "VO_A2_v3.mp4",
+      "start_sec": 5.49,
+      "end_sec": 7.94,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.14,
+      "text": "쓱 밀고 꽉 짜면 증거 인멸 끝."
+    },
+    {
+      "id": "VO_A2_v3_cta",
+      "file": "VO_A2_v3.mp4",
+      "start_sec": 8.2,
+      "end_sec": 11.52,
+      "trim_edges": false,
+      "speed": 1.0,
+      "gap_after": 0.0,
+      "text": "저 자수할게요. 여러분도 공범인가요?"
+    }
+  ]
+}
