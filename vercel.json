@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/remix.js": { "maxDuration": 120 },
+    "api/copy.py": { "maxDuration": 120 }
+  }
+}
