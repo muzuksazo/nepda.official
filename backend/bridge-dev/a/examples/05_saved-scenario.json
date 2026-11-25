@@ -1,0 +1,61 @@
+{
+  "_comment": "output/{project_id}/{hook_id}/scenario.json 에 저장되는 파일(ScenarioItem 그대로)",
+  "scenario_id": "sc_demo_A1",
+  "round": 1,
+  "type": "A",
+  "hook_title": "재판장 입정: 내일 할게 피고",
+  "hook_duration_sec": 12.0,
+  "body_duration_sec": 18.0,
+  "replacement_test_note": "훅만 보면 어떤 제품 광고에도 붙일 수 있다(교체 테스트 통과): 법정 장르 훅은 제품 단서가 0개이고 마지막 장면만 제품 컷으로 바꾸면 된다.",
+  "beats": [
+    {
+      "order": 1,
+      "role": "어긋난 시작(장르 몰입)",
+      "duration_sec": 3.0,
+      "visual": "클레이 법정. 재판장이 나무망치를 들고 피고석의 '이따 할게' 인형을 가리킨다",
+      "narration": "재판장이 피고를 입정시킵니다. 죄목은 미루기입니다.",
+      "caption": "피고 입정"
+    },
+    {
+      "order": 2,
+      "role": "빌드업",
+      "duration_sec": 3.5,
+      "visual": "방청석 인형들이 일제히 고개를 끄덕이고, 증거물 '어제의 나'가 올라온다",
+      "narration": "피고는 어제도, 그제도 같은 말로 기소됐습니다.",
+      "caption": "어제도 그제도\n같은 말"
+    },
+    {
+      "order": 3,
+      "role": "패턴 인터럽트",
+      "duration_sec": 1.5,
+      "visual": "망치가 내려치는 순간 정지 화면. 소리가 0.25초 끊긴다",
+      "narration": "",
+      "caption": "땅!"
+    },
+    {
+      "order": 4,
+      "role": "담백한 실물 착지",
+      "duration_sec": 4.0,
+      "visual": "실제 제품 컷: 빨간 원판이 줄어드는 클로즈업",
+      "narration": "남은 시간이 빨갛게 보이면 내일로 미루기가 어렵습니다.",
+      "caption": "빨간 면적이\n줄어듭니다"
+    }
+  ],
+  "ad_spec": {
+    "track_archetype": "A_bgrade_reversal",
+    "a_genre_archetype": "courtroom_trial",
+    "visual_style": "blender_clay_diorama",
+    "product_taboo_keywords": [
+      "타이머",
+      "시계",
+      "다이얼",
+      "원판",
+      "뽀모도로",
+      "공부",
+      "집중"
+    ],
+    "silence_gap_sec": 0.25,
+    "pre_twist_ratio": 0.54,
+    "payoff_ratio": 0.33
+  }
+}

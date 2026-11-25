@@ -1,0 +1,9 @@
+{
+  "hook_id": "hook_demo_B1",
+  "status": "failed",
+  "files": {
+    "storyboard_images": []
+  },
+  "output_dir": "output/proj_demo01/hook_demo_B1",
+  "error": "TTS 생성 실패: 공급자 응답 시간 초과"
+}

@@ -1,0 +1,27 @@
+{
+  "project_id": "proj_demo01",
+  "scenario_id": "sc_demo_B1",
+  "status": "STORYBOARD_READY",
+  "frames": [
+    {
+      "beat_order": 1,
+      "image_url": "output/proj_demo01/sc_demo_B1/storyboard_01.png",
+      "caption": "시속 1,670km 지금도 도는 중"
+    },
+    {
+      "beat_order": 2,
+      "image_url": "output/proj_demo01/sc_demo_B1/storyboard_02.png",
+      "caption": "360° ÷ 24 = 15°"
+    },
+    {
+      "beat_order": 3,
+      "image_url": "output/proj_demo01/sc_demo_B1/storyboard_03.png",
+      "caption": "남은 만큼이 면적으로"
+    },
+    {
+      "beat_order": 4,
+      "image_url": "output/proj_demo01/sc_demo_B1/storyboard_04.png",
+      "caption": "60분 비주얼 타이머"
+    }
+  ]
+}
