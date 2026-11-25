@@ -11,11 +11,11 @@ model: sonnet
 ## 작업 절차
 1. 휴대폰 촬영 원본(`.mov`, HEVC, 가변 프레임레이트, 확장자 누락 파일 등)이 있으면 먼저 CFR `30fps` H.264 로 정규화한다:
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/shortform-ad-remix-director/scripts/ad_source_analyzer.py normalize-cfr --input <raw_file> --out <project_dir>/source/<name>_cfr.mp4
+   python3 ${CLAUDE_PLUGIN_ROOT}/libraries/media-tools/ad_source_analyzer.py normalize-cfr --input <raw_file> --out <project_dir>/source/<name>_cfr.mp4
    ```
 2. 정규화된 원본 영상마다 아래 분석 명령을 실행한다:
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/shortform-ad-remix-director/scripts/ad_source_analyzer.py analyze --input <source_mp4> --out-dir <project_dir>/analysis
+   python3 ${CLAUDE_PLUGIN_ROOT}/libraries/media-tools/ad_source_analyzer.py analyze --input <source_mp4> --out-dir <project_dir>/analysis
    ```
 3. 생성된 `analysis/source_metadata.json` 과 **딱 1장의 PNG/JPG**(`analysis/source_contact_sheet.jpg`) 를 `Read` 로 직접 확인하고, 실물 하우징에 실제 인쇄된 로고·눈금·텍스트를 눈으로 검증한다(사용자 메모 속 별칭을 실물 인쇄 문구로 오기입 금지).
 4. 원본에서 핵심 시연 4장 스트립(`refs/master_4cuts.jpg`) 이 필요하면 `ad_source_analyzer.py extract-strip` 으로 뽑는다.

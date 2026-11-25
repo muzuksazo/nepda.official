@@ -1,6 +1,14 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "node scripts/build-prototype.mjs",
+  "outputDirectory": "dist/prototype",
   "functions": {
     "api/remix.js": { "maxDuration": 120 },
-    "api/copy.py": { "maxDuration": 120 }
+    "api/copy.py": {
+      "maxDuration": 120,
+      "includeFiles": "prototypes/hookcut/api/copy.py"
+    }
   }
 }

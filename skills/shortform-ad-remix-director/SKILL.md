@@ -47,7 +47,7 @@ Delegate stages cleanly to isolated studio agents under `${CLAUDE_PLUGIN_ROOT}/s
 
 ## Programmatic CLI Toolchain (`scripts/`)
 
-Run all heavy work deterministically via scripts inside `${CLAUDE_PLUGIN_ROOT}/skills/shortform-ad-remix-director/scripts/`:
+Run all heavy work deterministically via scripts inside `${CLAUDE_PLUGIN_ROOT}/libraries/media-tools/`:
 
 - `ad_source_analyzer.py` — `normalize-cfr` (raw VFR/HEVC/`.mov`/extensionless -> CFR `30fps` H.264), `analyze` (`ffprobe` + scene cuts + contact sheet + subtitle detection + aspect framing), `extract-strip`, `extract-frame`.
 - `ad_audio_prep.py` — `--probe-islands` (speech-island & gap scanner), `--input` (single-take trim), `--manifest` (per-beat `start_sec`/`end_sec` slicing, speed, RMS loudness normalization, exact gaps -> `48kHz` stereo `vo_master.wav` + `vo_segments.json`; always pass `--out-wav` + `--out-json`).

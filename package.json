@@ -1,0 +1,14 @@
+{
+  "name": "napda",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["libraries/planner-api"],
+  "scripts": {
+    "build": "npm run build --workspace @napda/planner-api",
+    "build:prototype": "node scripts/build-prototype.mjs",
+    "typecheck": "npm run typecheck --workspace @napda/planner-api",
+    "test": "node scripts/test-node.mjs",
+    "dev:planner": "node --env-file=libraries/planner-api/.env --import tsx --watch libraries/planner-api/src/server.ts"
+  },
+  "engines": { "node": ">=20.6" }
+}

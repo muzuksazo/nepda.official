@@ -12,7 +12,7 @@ model: sonnet
 1. `05_ad_spec.json`, `00_product_facts.md`, `analysis/source_metadata.json` 을 읽는다.
 2. 아래 명령으로 Google Flow 작업 명세(`05_jobs.json`, `Nano Banana 2 Lite` `0 cr` + `Omni 1.2 Flash` `x1` 강제) 와 크레딧 견적서(`05_credit_quote.md`) 를 결정론적으로 생성한다. 원본 제품 시연(`5–25s`) 은 절대 AI 로 다시 만들지 않는다:
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/shortform-ad-remix-director/scripts/ad_flow_jobs.py \
+   python3 ${CLAUDE_PLUGIN_ROOT}/libraries/media-tools/ad_flow_jobs.py \
      --spec <project_dir>/05_ad_spec.json \
      --out-jobs <project_dir>/05_jobs.json \
      --out-quote <project_dir>/05_credit_quote.md \
@@ -26,5 +26,5 @@ model: sonnet
    - **Flow 탭 격리**: 기존 Flow 탭에서 다른 작업(`%` 진행)이 돌고 있으면 절대 간섭하지 않고 새 프로젝트 탭에서 실행하도록 명시한다.
 4. 아래 Gate A 린트를 실행해 **`12/12 PASS (0 violations)`** 가 나올 때까지 스펙과 `05_jobs.json` 을 고친다:
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/shortform-ad-remix-director/scripts/ad_gate_a_lint.py --spec <project_dir>/05_ad_spec.json --facts <project_dir>/00_product_facts.md --jobs <project_dir>/05_jobs.json --source-meta <project_dir>/analysis/source_metadata.json --out <project_dir>/05_lint_report.md
+   python3 ${CLAUDE_PLUGIN_ROOT}/libraries/media-tools/ad_gate_a_lint.py --spec <project_dir>/05_ad_spec.json --facts <project_dir>/00_product_facts.md --jobs <project_dir>/05_jobs.json --source-meta <project_dir>/analysis/source_metadata.json --out <project_dir>/05_lint_report.md
    ```

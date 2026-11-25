@@ -28,5 +28,5 @@ model: sonnet
    - 모든 `caption_text` 는 `2줄 이하`, `한 줄 <= 22자` (이모지 금지). 순수 리뷰 시 `disclosure: "ai_assisted"` 및 `cta` (`type: "comment_engagement"`, `show_from_sec: total - 3.8`) 를 적용한다.
 3. 아래 명령으로 시각적 편집 가이드 HTML 을 생성한다:
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/shortform-ad-remix-director/scripts/ad_abc_sheet_builder.py --spec <project_dir>/05_ad_spec.json --out <project_dir>/04_abc_edit_guide.html
+   python3 ${CLAUDE_PLUGIN_ROOT}/libraries/media-tools/ad_abc_sheet_builder.py --spec <project_dir>/05_ad_spec.json --out <project_dir>/04_abc_edit_guide.html
    ```

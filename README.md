@@ -90,88 +90,109 @@
 - 업로드 영상의 길이·용량 상한, 가이드와 다른 영상의 처리 방식.
 - 촬영 후 복귀 방법, 데이터 보관 위치·기간, 생성 실패·재시도·화면 이탈 시 처리.
 
+## 폴더 구조
+
+```text
+apps/                       프로덕션 앱
+  frontend/                 PRD 가이드 먼저형 UI 개발 위치
+  backend/                  FastAPI API·미디어 워커
+libraries/                  재사용 API·라이브러리
+  planner-api/              TypeScript 기획 API·스키마·워커 연결
+  media-tools/              분석·검수·음성·조립·썸네일 CLI
+prototypes/                 기존 프로토타입·제작 실험
+  hookcut/                  업로드 먼저형 웹 화면·렌더링·API 구현
+  campaigns/                제품 정보·대본·스펙·검수 자료
+tests/                      PRD 기능·사용자 흐름별 테스트
+  product_info/             제품 정보
+  planning/                 A·B·C 선택·시나리오·기획
+  storyboards/              이미지 콘티
+  filming_guide/            촬영 가이드
+  uploads/                  원본 업로드·분석
+  generation/               생성·합치기·예산·재시도
+  narration/                내레이션·음성
+  delivery/                 결과·썸네일·내려받기
+  workflow/                 이어하기·전체 흐름
+  credits/                  미정 크레딧 정책
+  infrastructure/           설정·인증·공통 실행 경로
+  integration/              플래너→백엔드·조립 통합 검증
+  prototypes/               기존 실험·배포 호환 검증
+  support/                  공통 픽스처·모의 공급자
+skills/                     기획·제작 지침
+scripts/                    루트 빌드·테스트 실행기
+api/                        기존 Vercel URL 호환 진입점
+Makefile                    설치·개발·검증 명령
+vercel.json                 기존 웹 프로토타입 배포 설정
+```
+
+[앱 구성](apps/README.md) · [공용 라이브러리](libraries/README.md) · [프로토타입](prototypes/README.md) · [PRD별 테스트](tests/README.md)
+
 ## 현재 구현과 개발 구성
 
-현재 루트 웹앱은 **영상을 먼저 올리는 프로토타입**입니다. PRD의 가이드 먼저형 흐름을 구현하는 출발점으로 참고하며, 기존의 A·B·C 일괄 출력과 Blender 연결 코드는 실험 구현으로 남아 있습니다.
+기존 업로드 먼저형 웹앱은 `prototypes/hookcut/`로 모았습니다. `apps/backend/`에는 기존 production 워커를 옮겼고, `apps/frontend/`는 PRD의 가이드 먼저형 UI를 개발할 위치로 분리했습니다. 가이드 먼저형 프론트엔드는 아직 구현되어 있지 않습니다.
 
-| 구성 | 현재 코드의 역할 | 실행 방식 |
+| 구성 | 현재 역할 | 실행 위치 |
 | --- | --- | --- |
-| 웹 편집기 | 영상 업로드·훅 선택·문구 편집·미리보기·내보내기 | 루트 웹앱을 Vercel에 배포 |
-| AI 기획 서버 | Claude·Gemini 기획 생성·비교, 제작 스펙 전달 | `planner-ai-sdk/` · 기본 포트 `8787` |
-| 미디어 워커 | Google Gen AI SDK 기반 미디어 생성, 검수·FFmpeg 조립, 작업 상태·파일 관리 | `production/` · 기본 포트 `8080` |
-| 제작 도구·캠페인 | 훅 설계·제작·검수 스크립트와 제품 정보·대본·제작 스펙 | `skills/`, `campaigns/` |
+| 프로덕션 프론트엔드 | PRD 기반 UI 개발 위치 | `apps/frontend/` |
+| 백엔드 | 작업 API·저장소·생성·검수·조립 | `apps/backend/` · `8080` |
+| 플래너 API·라이브러리 | Claude·Gemini 기획·비교·스펙·워커 연결 | `libraries/planner-api/` · `8787` |
+| 미디어 도구 | 분석·검수·음성·영상·썸네일 CLI | `libraries/media-tools/` |
+| 기존 웹 프로토타입 | 업로드 먼저형 편집·브라우저 렌더·Blender 연결 | `prototypes/hookcut/` |
 
-웹앱과 기획 서버·미디어 워커는 각각 실행합니다. 현재 워커의 Google API 키·Vertex AI 인증 지원과 Docker 구성은 [워커 문서](production/README.md)에 있습니다.
-
-기존 Blender 렌더 브리지는 `http://localhost:8000`의 로컬 보조 서버를 사용합니다. 보조 서버 실행 파일은 이 저장소에 포함되어 있지 않습니다. 이 연결은 기존 구현을 설명하는 내용이며, PRD에서 확정한 제작 방식은 아닙니다.
+기존 Blender 렌더 브리지는 `http://localhost:8000`의 별도 보조 서버를 사용합니다. 보조 서버는 저장소에 포함되어 있지 않습니다. 이 연결은 PRD에서 확정한 생성 방식이 아닙니다.
 
 ## 개발 시작하기
 
-### 웹 편집기
-
-Vercel 프로젝트의 루트를 이 저장소 최상위로 설정합니다. AI 기능을 사용하려면 Vercel 환경변수에 `GEMINI_API_KEY`를 설정합니다. `HOOKCUT_PASSWORD`는 웹 API의 접근 비밀번호 설정입니다.
-
-`HookCut` 계열 코드 식별자와 환경변수 이름은 기존 구현에 사용되는 기술 명칭이며, 서비스명은 **냅다**입니다.
-
-### AI 기획 서버·미디어 워커
-
-아래 명령은 **Bash / WSL 기준**입니다. Python 3.11, `uv`, Node.js 20.6 이상과 npm을 준비하고, 실제 미디어 조립에는 FFmpeg가 필요합니다.
+Python 3.11 이상, uv, Node.js 20.6 이상, npm, FFmpeg·FFprobe를 준비합니다. 아래는 저장소 루트·Bash/WSL 기준입니다.
 
 ```bash
 git clone https://github.com/muzuksazo/nepda.official.git
 cd nepda.official
-make setup-python
-make setup-node
-cp production/.env.example production/.env
-cp planner-ai-sdk/.env.example planner-ai-sdk/.env
+uv venv .venv --python 3.12
+uv pip install --python .venv/bin/python -r apps/backend/requirements.txt
+npm ci
+cp apps/backend/.env.example apps/backend/.env
+cp libraries/planner-api/.env.example libraries/planner-api/.env
 ```
 
-각 `.env`에 사용할 공급자의 API 키와 모델 설정을 입력합니다. 기획 서버에서 워커를 호출하려면 `WORKER_BASE_URL`을 워커 주소로 설정하고, 워커 인증을 사용한다면 `WORKER_BEARER_TOKEN`과 워커의 `API_BEARER_TOKEN`을 맞춥니다.
+Windows PowerShell에서는 Python 실행 경로를 `.venv\Scripts\python.exe`로 바꾸고, 환경 파일은 다음 명령으로 준비합니다.
 
-**터미널 1 — 미디어 워커**
+```powershell
+Copy-Item apps/backend/.env.example apps/backend/.env
+Copy-Item libraries/planner-api/.env.example libraries/planner-api/.env
+```
+
+각 환경 파일에 사용할 공급자의 키와 설정을 입력합니다. 플래너의 `WORKER_BASE_URL`을 백엔드 주소로 지정하고, 인증을 사용하면 `WORKER_BEARER_TOKEN`과 백엔드의 `API_BEARER_TOKEN`을 맞춥니다.
+
+**터미널 1 — 백엔드**
 
 ```bash
-cd production
-.venv/bin/uvicorn app.server:app --host 127.0.0.1 --port 8080
+.venv/bin/python -m uvicorn app.server:app --app-dir apps/backend --host 127.0.0.1 --port 8080
 ```
 
-**터미널 2 — AI 기획 서버**
+**터미널 2 — 플래너 API**
 
 ```bash
-cd planner-ai-sdk
-node --env-file=.env --import tsx src/server.ts
+node --env-file=libraries/planner-api/.env --import tsx libraries/planner-api/src/server.ts
 ```
 
-기획 서버는 셸 환경변수를 읽으므로, 위 명령은 `--env-file`로 `.env`를 명시적으로 불러옵니다.
+자세한 사용법은 [백엔드 문서](apps/backend/README.md)와 [플래너 문서](libraries/planner-api/README.md)를 참고하세요.
 
-각 서버의 `GET /health`로 설정·연결 정보를 확인할 수 있습니다. 설치를 마친 뒤 저장소 루트에서 검증 명령을 실행합니다.
+### 검증
 
 ```bash
-make test-all
-make check-health
+.venv/bin/python scripts/test-python.py
+npm test
+npm run typecheck
+npm run build
+node scripts/build-prototype.mjs
 ```
 
-자세한 CLI·API 사용법은 [기획 서버 문서](planner-ai-sdk/README.md)와 [미디어 워커 문서](production/README.md)를 참고하세요.
+Bash/WSL 또는 Make가 설치된 환경에서는 `make setup-python`, `make setup-node`, `make test-all`, `make dev-worker`, `make dev-planner`도 사용할 수 있습니다.
 
-## 저장소 구조
+기존 테스트는 PRD 영역에 맞게 재배치했습니다. 미구현·미정 기능은 수용 기준을 문서로 남기며, 실행 테스트가 있는 영역과 구분합니다. [범위와 상태](tests/README.md)를 확인하세요.
 
-```text
-index.html          웹 편집기
-three_render.js     브라우저 3D 렌더링
-render_bridge.js    로컬 Blender 보조 서버 연결
-api/                Vercel 웹 API
-planner-ai-sdk/     TypeScript · Vercel AI SDK 기획 서버
-production/         Python · Google Gen AI SDK 미디어 워커
-skills/             훅 설계·생성·조립·검수·커버 제작 도구
-campaigns/          제품 정보·대본·제작 스펙·자막·검수 자료
-Makefile            설치·개발 실행·검증 명령
-vercel.json         웹앱 함수 설정
-```
+## 프로토타입 배포와 제작 자료
 
-캠페인별 제품 정보는 `00_product_facts.md`, 제작 기준은 `05_ad_spec*.json` 등에서 관리합니다. 관련 자료는 각 캠페인 폴더에서 확인할 수 있습니다. 생성·조립·검수·커버 제작 도구는 [제작·검수 가이드](skills/shortform-ad-remix-director/SKILL.md)를 참고하세요.
+기존 Vercel 프로젝트는 저장소 루트를 유지합니다. 정적 빌드는 `prototypes/hookcut/`의 웹 파일 3개를 `dist/prototype/`에 복사하고, 루트 `api/`는 기존 API 주소를 프로토타입 구현에 연결합니다. `GEMINI_API_KEY`, `HOOKCUT_PASSWORD`는 기존 웹 API 설정 이름입니다.
 
-## 제작 자료와 배포 정책
-
-- API 키와 비밀번호는 환경변수로 관리합니다. `.env`와 실제 인증 정보는 저장소에 올리지 않습니다.
-- 원본 촬영본(`source/`), AI 중간 클립(`clips/`), 최종 영상과 오디오 등은 `.gitignore`로 제외합니다. 저장소에는 제작 스펙·자막·검수 자료를 함께 관리합니다.
-- `skills/`, `campaigns/`, `production/`, `planner-ai-sdk/`, `Makefile`은 `.vercelignore`에 따라 웹앱 배포 번들에서 제외합니다.
+원본 영상·중간 클립·최종 영상·오디오·작업 DB·환경 파일은 `.gitignore`로 제외합니다. 캠페인 스펙·자막·검수 이미지는 `prototypes/campaigns/`에서 관리합니다. 프로덕션 앱·라이브러리·테스트·캠페인 자료는 기존 웹 프로토타입 배포 번들에서 제외합니다.

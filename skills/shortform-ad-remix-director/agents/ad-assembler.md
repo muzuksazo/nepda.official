@@ -12,7 +12,7 @@ model: sonnet
    - 긴 VO 녹음은 `ad_audio_prep.py --probe-islands --input <vo_mp4> --silence-db -39.0 --min-silence 0.08` 로 문장별 발화 구간을 측정한다.
    - `audio/vo_manifest.json` 에 비트별 `start_sec`/`end_sec`, `trim_edges: false`, 반전 무음(`gap_after: 0.26~0.30`) 을 기입하고 조립한다:
      ```bash
-     python3 ${CLAUDE_PLUGIN_ROOT}/skills/shortform-ad-remix-director/scripts/ad_audio_prep.py \
+     python3 ${CLAUDE_PLUGIN_ROOT}/libraries/media-tools/ad_audio_prep.py \
        --manifest <project_dir>/audio/vo_manifest.json \
        --out-wav <project_dir>/audio/vo_master.wav \
        --out-json <project_dir>/audio/vo_segments.json
@@ -20,7 +20,7 @@ model: sonnet
 2. `vo_segments.json` 과 청취 로그 기준 자막·타임라인 동기화 후 `05_ad_spec.json` 과 `05_lint_report.md` (`12/12 PASS`) 를 확인한다 (`1:1` 정밀 다이얼 → `blur-bleed`, `3:4` 실물 → `smart-crop`, 다중 실물 `audio_owner: "mute"`).
 3. `ad_remix_assemble.py` 로 최종 영상(`ad_*.mp4`, `_clean.mp4`, `.srt`, `review/qa_*_strip.png`) 을 렌더링한다 (`timeline` 마스터는 `--variant` 없이 단일 렌더 가능):
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/shortform-ad-remix-director/scripts/ad_remix_assemble.py \
+   python3 ${CLAUDE_PLUGIN_ROOT}/libraries/media-tools/ad_remix_assemble.py \
      --spec <project_dir>/05_ad_spec.json \
      --out-dir <project_dir>/final \
      --variant all \
@@ -30,7 +30,7 @@ model: sonnet
 4. **Stage 8.5 — 1080x1920 커버 썸네일 & `1:1` 안전 영역 접촉시트 생성**:
    - `thumbs_spec.json` (반드시 얼굴·필 배지·2줄 헤드라인·인셋 카드를 `y = 420..1500` 내부 배치) 로 커버와 QA 시트를 생성한다:
      ```bash
-     python3 ${CLAUDE_PLUGIN_ROOT}/skills/shortform-ad-remix-director/scripts/ad_thumbnail_builder.py \
+     python3 ${CLAUDE_PLUGIN_ROOT}/libraries/media-tools/ad_thumbnail_builder.py \
        --spec <project_dir>/thumbs_spec.json \
        --out-dir <project_dir>/thumbnails \
        --sheet <project_dir>/thumbnails/thumbnails_sheet.png
