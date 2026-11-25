@@ -139,7 +139,14 @@ function roundBlock(run: RunRecord, open: boolean) {
             return `<div class="video"><video controls preload="metadata" src="${esc(v.file)}"></video>
             <div><b>훅 영상 · ${g ? "Google 클립 + 3D 반전" : "3D"}</b> ${v.seconds}초 · <a href="${esc(v.file)}" target="_blank">mp4 열기</a>
             <table><thead><tr><th>장면</th><th>계획</th><th>최종</th><th>음성</th><th>화면</th></tr></thead><tbody>${rows}</tbody></table>
-            <p class="muted">음성이 장면보다 길면 장면이 늘어납니다(+0.25초 여유).</p></div></div>`;
+            <p class="muted">음성이 장면보다 길면 장면이 늘어납니다(+0.25초 여유).</p></div></div>${
+              g && (v.sourceClips?.length || v.refImage)
+                ? `<div class="strip">${v.refImage ? `<figure><img src="${esc(v.refImage)}" alt="참고 이미지"><figcaption>참고 이미지 (Google 이미지 모델)</figcaption></figure>` : ""}${(v.sourceClips ?? [])
+                    .sort((a, b) => a.order - b.order)
+                    .map((c) => `<figure><video controls muted preload="metadata" src="${esc(c.file)}"></video><figcaption>장면 ${c.order} 원본 클립</figcaption></figure>`)
+                    .join("")}</div>`
+                : ""
+            }`;
           })
           .join("")}
         ${strip}
@@ -215,6 +222,7 @@ footer{color:var(--muted);font-size:12px;margin-top:24px}
 .video{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin:4px 0 12px}.video video{width:220px;aspect-ratio:9/16;border-radius:12px;background:#000}
 .video>div{flex:1;min-width:220px;font-size:14px}.video table{max-width:360px}
 .strip{display:flex;gap:10px;overflow-x:auto;padding:4px 0 10px}.strip figure{margin:0;flex:none;width:150px}
+.strip video{width:150px;aspect-ratio:9/16;border-radius:10px;display:block;background:#000}
 .strip img{width:150px;aspect-ratio:9/16;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block;background:#000}
 .strip figcaption{font-size:12px;color:var(--muted);margin-top:4px}
 .cuts{display:flex;gap:6px;margin:8px 0 2px}.cuts img{width:64px;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block;background:#000}
