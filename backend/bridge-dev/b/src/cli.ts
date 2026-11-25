@@ -7,7 +7,7 @@ import { dur, renderReport } from "./report.js";
 import { renderCuts } from "./cuts.js";
 import { renderHookVideos } from "./video.js";
 import { addScene3d } from "./scene3d.js";
-import { totals } from "./cost.js";
+import { totals, type StepUsage } from "./cost.js";
 import { DraftScenarioSchema, WorkerInputSchema } from "./schema.js";
 
 const USAGE = `사용법:
@@ -142,13 +142,39 @@ async function main() {
     }
     const run = readJson(recordPath) as RunRecord & { product_name?: string };
     const t0 = Date.now();
+    // --gclips: scripts/gclips.py 로 만든 Google 영상 클립을 이야기 장면에 쓴다 (반전은 3D)
+    const gclips = has("--gclips");
+    let clips: Record<number, string> | undefined;
+    const gSteps: StepUsage[] = [];
+    if (gclips) {
+      const gdir = join(OUT, file, `round-${round}`, "gclips");
+      const metaPath = join(gdir, "meta.json");
+      if (!existsSync(metaPath)) {
+        console.error(`${metaPath} 가 없습니다. 먼저 .venv/Scripts/python scripts/gclips.py ${file} ${round}`);
+        process.exit(1);
+      }
+      const meta = readJson(metaPath) as {
+        image_model: string; video_model: string;
+        ref?: { elapsed_sec: number };
+        clips: { order: number; path: string; elapsed_sec: number; requested_sec: number }[];
+      };
+      clips = Object.fromEntries(meta.clips.map((c) => [c.order, join(gdir, c.path)]));
+      // Google 모델 단가는 아직 모름 → 비용 미상(null)으로 기록, 시간은 실측
+      if (meta.ref) gSteps.push({ step: "Google: 참고 이미지", model: meta.image_model, inputTokens: 0, outputTokens: 0, costUsd: null, ms: Math.round(meta.ref.elapsed_sec * 1000) });
+      for (const c of meta.clips)
+        gSteps.push({ step: `Google: 장면 ${c.order} 클립 ${c.requested_sec}초`, model: meta.video_model, inputTokens: 0, outputTokens: 0, costUsd: null, ms: Math.round(c.elapsed_sec * 1000) });
+    }
     const { videos, steps } = await renderHookVideos(run.response.scenarios, run.cuts, {
       projectDir: join(OUT, file),
       round,
       log: (m) => console.error(m),
+      clips,
     });
-    const allSteps = [...run.steps.filter((s) => !s.step.startsWith("영상:")), ...steps];
-    const updated = { ...run, videos, steps: allSteps, total: totals(allSteps) };
+    const variant = gclips ? "gclips" : "3d";
+    const isMine = (s: StepUsage) => (gclips ? s.step.startsWith("Google:") || s.step.startsWith("영상(Google") : s.step.startsWith("영상:"));
+    const allSteps = [...run.steps.filter((s) => !isMine(s)), ...gSteps, ...steps];
+    const keepVideos = (run.videos ?? []).filter((v) => (v.variant ?? "3d") !== variant);
+    const updated = { ...run, videos: [...keepVideos, ...videos], steps: allSteps, total: totals(allSteps) };
     writeFileSync(recordPath, JSON.stringify(updated, null, 2) + "\n", "utf8");
     const reportPath = writeReport(file, run.product_name ?? file);
     for (const v of videos) {

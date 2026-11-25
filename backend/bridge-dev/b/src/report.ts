@@ -128,17 +128,20 @@ function roundBlock(run: RunRecord, open: boolean) {
       return `<details class="card" open><summary><span class="title">${esc(s.hook_title)}</span>
           <span class="meta">${s.hook_duration_sec}초 · 장면 ${s.beats.length}개 · <span class="mono">${esc(s.scenario_id)}</span></span>
           <span class="badge ${c.errors.length ? "bad" : "good"}">${c.errors.length ? `위반 ${c.errors.length}` : "통과"}</span></summary>
-        ${(() => {
-          const v = run.videos?.find((x) => x.scenario_id === s.scenario_id);
-          if (!v) return "";
-          const rows = v.scenes
-            .map((x) => `<tr><td class="num">${x.order}</td><td class="num">${x.planned}초</td><td class="num">${x.final}초</td><td class="num">${x.voiceSec ?? "—"}초</td><td>${x.usedGen ? "생성 코드" : "기본 도형"}</td></tr>`)
-            .join("");
-          return `<div class="video"><video controls preload="metadata" src="${esc(v.file)}"></video>
-            <div><b>훅 영상</b> ${v.seconds}초 · <a href="${esc(v.file)}" target="_blank">mp4 열기</a>
-            <table><thead><tr><th>장면</th><th>계획</th><th>최종</th><th>음성</th><th>3D</th></tr></thead><tbody>${rows}</tbody></table>
+        ${(run.videos ?? [])
+          .filter((x) => x.scenario_id === s.scenario_id)
+          .sort((a, b) => ((a.variant ?? "3d") === "3d" ? -1 : 1) - ((b.variant ?? "3d") === "3d" ? -1 : 1))
+          .map((v) => {
+            const g = v.variant === "gclips";
+            const rows = v.scenes
+              .map((x) => `<tr><td class="num">${x.order}</td><td class="num">${x.planned}초</td><td class="num">${x.final}초</td><td class="num">${x.voiceSec ?? "—"}초</td><td>${g && x.order !== v.scenes[v.scenes.length - 1].order ? "Google 클립" : x.usedGen ? "3D 코드" : "기본 도형"}</td></tr>`)
+              .join("");
+            return `<div class="video"><video controls preload="metadata" src="${esc(v.file)}"></video>
+            <div><b>훅 영상 · ${g ? "Google 클립 + 3D 반전" : "3D"}</b> ${v.seconds}초 · <a href="${esc(v.file)}" target="_blank">mp4 열기</a>
+            <table><thead><tr><th>장면</th><th>계획</th><th>최종</th><th>음성</th><th>화면</th></tr></thead><tbody>${rows}</tbody></table>
             <p class="muted">음성이 장면보다 길면 장면이 늘어납니다(+0.25초 여유).</p></div></div>`;
-        })()}
+          })
+          .join("")}
         ${strip}
         ${pathChips(s.ad_spec.bridge_path, s.ad_spec.anchor)}
         <p class="muted">시작 유사도 ${s.ad_spec.hook_similarity_score.toFixed(2)} · 인접 최소 ${s.ad_spec.adjacent_min_sim.toFixed(2)} · 숫자 실 ${esc(s.ad_spec.number_thread)} · ${esc(s.replacement_test_note)}</p>
