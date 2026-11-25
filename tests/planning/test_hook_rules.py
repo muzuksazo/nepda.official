@@ -121,3 +121,96 @@ class TestGateACrossCampaignReskin(GateACrossCampaignReskinCase):
             "sfx_events": [{"file": "/sfx/Violin Scrape.caf"}],
         }
         self.assertEqual(ad_gate_a_lint.validate_no_campaign_reskin([noir_sponge, romance_piev]), [])
+
+
+class TestGateAPrincipleAbstractionAndCategoryTaboo(GateAOrthogonalGuardCase):
+    def test_accepts_brainrot_mechanisms_when_double_zero_holds(self) -> None:
+        with temporary_directory() as td:
+            fp = self._base_facts(td)
+            for mech in ("brainrot_hypnosis", "deadpan_rhythmic_loop", "sensory_sync_loop"):
+                spec = self._base_spec(
+                    td,
+                    "A_bgrade_reversal",
+                    [
+                        {"start": 0.0, "end": 4.5, "text": "359도에서 절대 안 멈추는 고리", "pop_badge": "수렴 카운트"},
+                        {"start": 4.5, "end": 8.9, "text": "0.1도 남기고 갑자기 정적"},
+                        {"start": 9.3, "end": 16.0, "text": "천 원 대형 블록 소분 스펀지"},
+                    ],
+                    taboo=["스펀지"],
+                )
+                spec["a_genre_archetype"] = mech
+                spec["category_taboo_keywords"] = ["욕실", "세면대", "물기", "수건", "bathroom"]
+                spec["reference_surface_taboo"] = ["나사", "screw", "소다팝", "soda pop"]
+                spec["timeline"][0]["flow_ref_prompt"] = (
+                    "Matte clay geometric ring rotating toward an empty center plinth, zero text."
+                )
+                spec["timeline"][0]["flow_video_prompt"] = (
+                    "Continuous slow orbit as the ring approaches alignment, zero readable text."
+                )
+                checks, _ = ad_gate_a_lint.run_lint(spec, fp)
+                self.assertTrue(all(not errs for _, _, errs in checks), (mech, checks))
+
+    def test_blocks_category_clues_and_reference_surface_copies_in_track_a(self) -> None:
+        with temporary_directory() as td:
+            fp = self._base_facts(td)
+            cat_spec = self._base_spec(
+                td,
+                "A_bgrade_reversal",
+                [
+                    {"start": 0.0, "end": 4.5, "text": "바닥 물기가 사라졌다", "pop_badge": "욕실 미스터리"},
+                    {"start": 9.3, "end": 16.0, "text": "실물 스펀지 정리"},
+                ],
+                taboo=["스펀지"],
+            )
+            cat_spec["a_genre_archetype"] = "brainrot_hypnosis"
+            cat_spec["category_taboo_keywords"] = ["욕실", "물기", "bathroom"]
+            cat_spec["timeline"][0]["flow_ref_prompt"] = "Clay diorama inside a white bathroom vanity, no text."
+            cat_checks, _ = ad_gate_a_lint.run_lint(cat_spec, fp)
+            cat_c13 = [errs for idx, _, errs in cat_checks if idx == 13][0]
+            self.assertGreaterEqual(len(cat_c13), 3, cat_c13)
+
+            surf_spec = self._base_spec(
+                td,
+                "A_bgrade_reversal",
+                [
+                    {"start": 0.0, "end": 4.5, "text": "나사 100개가 뺑뺑 도는 중"},
+                    {"start": 9.3, "end": 16.0, "text": "실물 스펀지 정리"},
+                ],
+                taboo=["스펀지"],
+            )
+            surf_spec["a_genre_archetype"] = "deadpan_rhythmic_loop"
+            surf_spec["reference_surface_taboo"] = ["나사", "소다팝", "soda pop"]
+            surf_spec["timeline"][1]["flow_video_prompt"] = "Dancing soda pop mascot waving in 3D, no text."
+            surf_checks, _ = ad_gate_a_lint.run_lint(surf_spec, fp)
+            surf_c13 = [errs for idx, _, errs in surf_checks if idx == 13][0]
+            self.assertGreaterEqual(len(surf_c13), 2, surf_c13)
+
+    def test_blocks_late_pre_bridge_product_spoiler_in_track_b(self) -> None:
+        with temporary_directory() as td:
+            fp = self._base_facts(td)
+            spec_b = self._base_spec(
+                td,
+                "B_info_hook_offset",
+                [
+                    {"start": 0.0, "end": 4.4, "text": "6억 년 살아남은 동물"},
+                    {"start": 4.4, "end": 7.9, "text": "바로 바다 스펀지 해면입니다"},
+                    {"start": 7.98, "end": 12.38, "text": "미세한 구멍이 물을 빨아들입니다"},
+                    {"start": 12.62, "end": 19.38, "text": "천 원 스펀지 블록 원리입니다"},
+                ],
+                sim=0.45,
+                taboo=["스펀지"],
+            )
+            spec_b["timeline"][0]["duration"] = 7.90
+            spec_b["timeline"][1]["duration"] = 4.48
+            spec_b["timeline"][2]["duration"] = 0.24
+            spec_b["timeline"][3]["duration"] = 7.00
+            spec_b["hook_window_sec"] = 12.38
+            checks_late_44, _ = ad_gate_a_lint.run_lint(spec_b, fp)
+            c13_44 = [errs for idx, _, errs in checks_late_44 if idx == 13][0]
+            self.assertTrue(any("pre" in e or "before bridge" in e for e in c13_44), c13_44)
+
+            spec_b["captions"][1]["text"] = "바로 **해면동물**입니다"
+            spec_b["captions"][2] = {"start": 7.98, "end": 12.38, "text": "스펀지 구조로 흡수합니다"}
+            checks_late_798, _ = ad_gate_a_lint.run_lint(spec_b, fp)
+            c13_798 = [errs for idx, _, errs in checks_late_798 if idx == 13][0]
+            self.assertTrue(any("before bridge" in e for e in c13_798), c13_798)

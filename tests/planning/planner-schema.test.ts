@@ -22,3 +22,22 @@ test("AdSpecSchema validates Blender 3D styles and rejects invalid a_genre_arche
     })
   );
 });
+
+test("AdSpecSchema accepts brainrot mechanism archetypes and defaults new taboo arrays", () => {
+  const defaulted = AdSpecSchema.parse({
+    ...sampleValidSpec(),
+    a_genre_archetype: "brainrot_hypnosis",
+  });
+  assert.equal(defaulted.a_genre_archetype, "brainrot_hypnosis");
+  assert.deepEqual(defaulted.category_taboo_keywords, []);
+  assert.deepEqual(defaulted.reference_surface_taboo, []);
+
+  const populated = AdSpecSchema.parse({
+    ...sampleValidSpec(),
+    a_genre_archetype: "deadpan_rhythmic_loop",
+    category_taboo_keywords: ["욕실", "물기"],
+    reference_surface_taboo: ["소다팝", "나사"],
+  });
+  assert.deepEqual(populated.category_taboo_keywords, ["욕실", "물기"]);
+  assert.deepEqual(populated.reference_surface_taboo, ["소다팝", "나사"]);
+});

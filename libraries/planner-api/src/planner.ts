@@ -57,9 +57,9 @@ function buildSystemPrompt(req: PlanRequest): string {
     "1. Ground every product claim, USP, and CTA strictly in [VERIFIED] [F##] facts from productFacts. Never invent numbers or forbidden superlatives.",
     `2. Track archetype = ${track}. Visual style = ${style}.`,
     track === "A_bgrade_reversal"
-      ? `   - For A_bgrade_reversal: pick a fresh a_genre_archetype NOT in [${avoid.join(", ")}]. Never clone breaking-news templates ('속보입니다', '단 한 집만'). Keep product taboo words 0% before the 0.20-0.30s silence_gap, and payoff <= 55% of runtime.`
+      ? `   - For A_bgrade_reversal: pick a fresh a_genre_archetype NOT in [${avoid.join(", ")}] (dramatic genres or mechanism-only Brainrot archetypes: brainrot_hypnosis, deadpan_rhythmic_loop, sensory_sync_loop). Abstract ONLY retention principles from user/trend examples—never copy concrete nouns/songs/IP (record them in reference_surface_taboo). Populate product_taboo_keywords AND category_taboo_keywords (room/setting/function clues) and keep all three taboo lists at 0% across pre-twist captions, pop_badge, flow_ref_prompt, and flow_video_prompt before the 0.20-0.30s silence_gap; payoff <= 55% of runtime. Never clone breaking-news templates ('속보입니다', '단 한 집만').`
       : track === "B_info_hook_offset"
-      ? "   - For B_info_hook_offset: set hook_similarity_score between 0.38 and 0.58; open with an unrelated science/nature fact + number before bridging smoothly into product proof."
+      ? "   - For B_info_hook_offset: set hook_similarity_score between 0.38 and 0.58; open with an unrelated science/nature fact + number across the entire pre-bridge window before silence_gap (0% direct product_taboo_keywords or reference_surface_taboo until payoff reveal)."
       : "   - For C_direct_proof: open with bright direct POV pain -> strongest real kinetic proof cut first.",
     style !== "photoreal"
       ? `3. Use stylized Blender 3D (${style}) prompts for flow_video hook cuts (` +

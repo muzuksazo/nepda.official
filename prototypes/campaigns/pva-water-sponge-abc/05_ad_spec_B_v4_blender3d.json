@@ -1,0 +1,225 @@
+{
+  "project_id": "pva-water-sponge-abc-B-v4-b3d",
+  "output_stem": "ad_B_sponge_science_b3d_v4",
+  "title": "물기 제거 스펀지 B안(v4 Blender 3D) — 해면동물 모세관 3D 단면 정보 훅 (무스포일러)",
+  "visual_style": "blender_3d_cutaway",
+  "mode": "narrative_master",
+  "track_archetype": "B_info_hook_offset",
+  "hook_similarity_score": 0.45,
+  "product_taboo_keywords": ["스펀지", "물기 제거", "천 원"],
+  "hook_window_sec": 10.18,
+  "framing_mode": "full-bleed",
+  "caption_style": "reels_kinetic",
+  "caption_y": 1245,
+  "highlight_color": "#FFE047",
+  "disclosure": "ai_assisted",
+  "source_video": "source/sponge_04_wipe.mp4",
+  "source_duration": 7.986,
+  "allow_static_intro": true,
+  "burned_in_subtitle_strategy": "실물 9:16 3편은 full-bleed, 16:9 sponge_01_press는 blur-bleed + 캡션 y_pos:1385 하단 회피.",
+  "vo_audio": "audio/vo_master_B_v4.wav",
+  "usps": [
+    {
+      "title": "미세한 구멍으로 물기를 안쪽으로 빨아들이는 구조",
+      "fact_ids": ["F04"]
+    },
+    {
+      "title": "천 원대 대형 블록을 여러 조각 소분해 세면대 틈새까지 활용",
+      "fact_ids": ["F01", "F02", "F05"]
+    },
+    {
+      "title": "물로 적시고 꽉 짜서 재사용",
+      "fact_ids": ["F03"]
+    }
+  ],
+  "bgm_timeline": [
+    {
+      "start": 0.0,
+      "end": 10.16,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Distant Memories Piano.caf"
+      ],
+      "gain_db": -16.5,
+      "fade_in": 0.08,
+      "fade_out": 0.04,
+      "stem_offset_sec": 0.0
+    },
+    {
+      "start": 10.42,
+      "end": 21.40,
+      "stems": [
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Guitar.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Bass.caf",
+        "/Library/Audio/Apple Loops/Apple/07 Chillwave/Brooklyn Nights Synth.caf"
+      ],
+      "gain_db": -15.5,
+      "fade_in": 0.05,
+      "fade_out": 0.45,
+      "stem_offset_sec": 0.0
+    }
+  ],
+  "sfx_events": [
+    {
+      "time": 10.18,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Motions & Transitions/Bell Small.caf",
+      "trim_start": 0.0,
+      "duration": 0.75,
+      "gain_db": -16.5,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    },
+    {
+      "time": 18.60,
+      "file": "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Ambience/Water Drip.caf",
+      "trim_start": 0.0,
+      "duration": 0.70,
+      "gain_db": -17.0,
+      "fade_in": 0.01,
+      "fade_out": 0.25
+    }
+  ],
+  "timeline": [
+    {
+      "id": "B_v4_cut01_sea_sponge",
+      "type": "flow_video",
+      "flow_unit_id": "B1_b3d",
+      "flow_ref_id": "R_B1_b3d",
+      "flow_mode": "ingredients",
+      "flow_duration_sec": 5,
+      "human_present": false,
+      "flow_ref_prompt": "3D underwater coral reef pedestal diorama: a sculpted matte ochre-gold sea organism specimen resting on a clean turquoise mineral seabed base with crisp stylized circular pores drawing luminous translucent sky-blue volumetric micro-currents gently inward under soft studio underwater shafts, zero readable text, 9:16 vertical frame.",
+      "flow_video_prompt": "Smooth slow macro camera push-in orbit (strictly no camera cuts), 9:16 vertical frame: matching the 3D marine diorama from the attached reference, luminous translucent blue particle streams glide smoothly inward into the golden specimen surface pores like a clean 3D biology explainer. Faint serene underwater ambient tone only. No dialogue, no music, zero readable text.",
+      "path": "clips/B1_b3d.mp4",
+      "fallback_image": "refs/R_B1_b3d.png",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.05,
+      "duration": 6.08,
+      "speed": 0.80,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "B_v4_cut02_micro_pores",
+      "type": "flow_video",
+      "flow_unit_id": "B2_b3d",
+      "flow_ref_id": "R_B2_b3d",
+      "attach_ids": ["R_B1_b3d"],
+      "flow_mode": "ingredients",
+      "flow_duration_sec": 5,
+      "human_present": false,
+      "flow_ref_prompt": "Clean architectural 3D cutaway cross-section of a matte charcoal-grey honeycomb porous block resting on a bright minimal ceramic pedestal: crisp flat cutaway face revealing dense interconnected vertical capillary tubes inside the block, while glossy translucent cobalt-blue spheres rest at top pore openings starting to sink downward, soft studio rim light, zero readable text, 9:16 vertical frame.",
+      "flow_video_prompt": "Smooth slow isometric cutaway push-in (strictly no camera cuts), 9:16 vertical frame: matching the 3D cross-section porous cube from the attached reference, crystal-clear translucent blue spheres are drawn rapidly downward into the internal honeycomb capillary channels without spreading sideways. Clean subtle studio ambience only. No dialogue, no music, zero readable text.",
+      "path": "clips/B2_b3d.mp4",
+      "fallback_image": "refs/R_B2_b3d.png",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.05,
+      "duration": 4.10,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0
+    },
+    {
+      "id": "B_v4_bridge_stop",
+      "type": "silence_gap",
+      "duration": 0.24,
+      "audio_owner": "silence"
+    },
+    {
+      "id": "B_v4_cut03_big_block",
+      "type": "video",
+      "path": "source/sponge_02_pack.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 1.2,
+      "duration": 2.50,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F01", "F05"]
+    },
+    {
+      "id": "B_v4_cut04_cut_piece",
+      "type": "video",
+      "path": "source/sponge_01_press.mp4",
+      "framing": "blur-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 0.0,
+      "duration": 2.65,
+      "speed": 0.72,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F02", "F05"]
+    },
+    {
+      "id": "B_v4_cut05_wipe",
+      "type": "source",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 3.8,
+      "src_end": 6.5,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F04"]
+    },
+    {
+      "id": "B_v4_cut06_squeeze",
+      "type": "video",
+      "path": "source/sponge_03_rinse.mp4",
+      "framing": "full-bleed",
+      "bottom_crop_px": 0,
+      "src_start": 17.5,
+      "duration": 3.13,
+      "speed": 1.0,
+      "audio_owner": "mute",
+      "gain_db": -60.0,
+      "fact_ids": ["F03"]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 4.75,
+      "text": "뇌도 심장도 없는데\n**6억 년** 살아남은 동물"
+    },
+    {
+      "start": 4.85,
+      "end": 6.00,
+      "text": "바로 **해면동물**입니다"
+    },
+    {
+      "start": 6.10,
+      "end": 10.18,
+      "text": "몸 전체의 **미세한 구멍**으로\n물을 쭉 빨아들입니다",
+      "pop_badge": "생태 정보"
+    },
+    {
+      "start": 10.42,
+      "end": 12.92,
+      "text": "이 물기 제거 스펀지도\n원래 **1,000원 큰 블록**인데",
+      "header_tag": "천 원 대형 블록 소분"
+    },
+    {
+      "start": 12.92,
+      "end": 15.57,
+      "text": "**작게 여러 조각**\n잘랐습니다",
+      "y_pos": 1385
+    },
+    {
+      "start": 15.65,
+      "end": 21.40,
+      "text": "틈새 물기 한 번에 흡수하고\n**꽉 짜면 재사용** 끝",
+      "is_cta": true
+    }
+  ],
+  "cta": {
+    "type": "comment_engagement",
+    "copy": "자연 원리 닮은 소품 좋아하시나요?",
+    "badge_copy": "이런 원리 생활템 댓글로 이야기해 봐요",
+    "show_from_sec": 17.60,
+    "start_sec": 17.60,
+    "fact_ids": ["F04"]
+  }
+}

@@ -73,6 +73,9 @@ VALID_A_GENRE_ARCHETYPES = {
     "horror_mystery",
     "mock_documentary",
     "absurd_skit",
+    "brainrot_hypnosis",
+    "deadpan_rhythmic_loop",
+    "sensory_sync_loop",
 }
 RESKIN_SKELETON_PATTERNS = (
     ("속보입니다", re.compile(r"속보\s*입니다|\[?\s*속보\s*\]?")),
@@ -435,7 +438,16 @@ def run_lint(
     if arch:
         if arch not in VALID_TRACK_ARCHETYPES:
             c13.append(f"Invalid track_archetype `{arch}` (expected {sorted(VALID_TRACK_ARCHETYPES)})")
-        taboo_words = [str(w).strip() for w in (spec.get("product_taboo_keywords") or []) if str(w).strip()]
+
+        def _norm_kw_list(key: str) -> List[str]:
+            return [str(w).strip() for w in (spec.get(key) or []) if str(w).strip()]
+
+        def _contains_ci(haystack: str, needle: str) -> bool:
+            return needle.lower() in haystack.lower()
+
+        taboo_words = _norm_kw_list("product_taboo_keywords")
+        category_taboo = _norm_kw_list("category_taboo_keywords")
+        surface_taboo = _norm_kw_list("reference_surface_taboo")
         master_cues = (
             spec.get("captions")
             or _derive_captions({"hook_segments": timeline_segs}, [])
@@ -445,6 +457,11 @@ def run_lint(
         gap_idx = next((i for i, s in enumerate(timeline_segs) if s.get("type") == "silence_gap"), None) if is_timeline_master else None
         pre_gap_dur = sum(_seg_dur(s) for s in timeline_segs[:gap_idx]) if gap_idx is not None else min(hook_target, 8.0)
         post_gap_dur = sum(_seg_dur(s) for s in timeline_segs[gap_idx + 1 :]) if gap_idx is not None else 0.0
+        pre_hook_segs = (
+            timeline_segs[:gap_idx]
+            if (is_timeline_master and gap_idx is not None)
+            else list((variants.get(arch[0], {}) if arch[0] in variants else {}).get("hook_segments") or [])
+        )
 
         if arch == "A_bgrade_reversal":
             a_genre = spec.get("a_genre_archetype")
@@ -466,13 +483,37 @@ def run_lint(
             for idx, cue in enumerate(master_cues):
                 st = float(cue.get("start", 0.0))
                 plain_txt = re.sub(r"\*\*(.+?)\*\*", r"\1", str(cue.get("text", "")))
+                cue_surface = " ".join(
+                    p for p in (plain_txt, str(cue.get("pop_badge") or ""), str(cue.get("header_tag") or "")) if p
+                )
                 if st < pre_gap_dur - 0.05:
                     for kw in taboo_words:
-                        if kw in plain_txt:
+                        if _contains_ci(cue_surface, kw):
                             c13.append(f"A_bgrade_reversal hook caption[{idx}] mentions taboo product word '{kw}' before twist")
+                    for kw in category_taboo:
+                        if _contains_ci(cue_surface, kw):
+                            c13.append(f"A_bgrade_reversal hook caption[{idx}] leaks category clue '{kw}' before twist")
+                    for kw in surface_taboo:
+                        if _contains_ci(cue_surface, kw):
+                            c13.append(f"A_bgrade_reversal hook caption[{idx}] copies reference surface term '{kw}' (abstract principle only)")
                 for cliche in A_BGRADE_CLICHES:
                     if cliche in plain_txt:
                         c13.append(f"A_bgrade_reversal caption[{idx}] contains C-style review cliché '{cliche}'")
+            for s_idx, seg in enumerate(pre_hook_segs):
+                seg_prompts = " ".join(
+                    str(seg.get(pk) or "") for pk in ("flow_ref_prompt", "flow_video_prompt") if seg.get(pk)
+                )
+                if not seg_prompts:
+                    continue
+                for kw in taboo_words:
+                    if _contains_ci(seg_prompts, kw):
+                        c13.append(f"A_bgrade_reversal hook segment[{s_idx}] visual prompt leaks product word '{kw}' before twist")
+                for kw in category_taboo:
+                    if _contains_ci(seg_prompts, kw):
+                        c13.append(f"A_bgrade_reversal hook segment[{s_idx}] visual prompt leaks category clue '{kw}' before twist")
+                for kw in surface_taboo:
+                    if _contains_ci(seg_prompts, kw):
+                        c13.append(f"A_bgrade_reversal hook segment[{s_idx}] visual prompt copies reference surface term '{kw}'")
 
         elif arch == "B_info_hook_offset":
             sim = spec.get("hook_similarity_score")
@@ -483,16 +524,34 @@ def run_lint(
             header_tags = [c.get("header_tag") for c in master_cues if c.get("header_tag")]
             if len(header_tags) > 2:
                 c13.append(f"B_info_hook_offset stacks {len(header_tags)} spec header_tags (max 2 to avoid C-style spec clone)")
+            b_bridge_end = (pre_gap_dur - 0.05) if (is_timeline_master and gap_idx is not None) else 5.5
             for idx, cue in enumerate(master_cues):
                 st = float(cue.get("start", 0.0))
                 plain_txt = re.sub(r"\*\*(.+?)\*\*", r"\1", str(cue.get("text", "")))
-                if st < 5.5:
+                cue_surface = " ".join(
+                    p for p in (plain_txt, str(cue.get("pop_badge") or ""), str(cue.get("header_tag") or "")) if p
+                )
+                if st < b_bridge_end:
                     for kw in taboo_words:
-                        if kw in plain_txt:
+                        if _contains_ci(cue_surface, kw):
                             c13.append(f"B_info_hook_offset opening caption[{idx}] leaks product word '{kw}' before bridge")
+                    for kw in surface_taboo:
+                        if _contains_ci(cue_surface, kw):
+                            c13.append(f"B_info_hook_offset opening caption[{idx}] copies reference surface term '{kw}'")
+                if st < 5.5:
                     for cliche in B_INFO_PAS_CLICHES:
                         if cliche in plain_txt:
                             c13.append(f"B_info_hook_offset opening caption[{idx}] uses C-style PAS cliché '{cliche}'")
+            if is_timeline_master and gap_idx is not None:
+                for s_idx, seg in enumerate(pre_hook_segs):
+                    seg_prompts = " ".join(
+                        str(seg.get(pk) or "") for pk in ("flow_ref_prompt", "flow_video_prompt") if seg.get(pk)
+                    )
+                    if not seg_prompts:
+                        continue
+                    for kw in surface_taboo:
+                        if _contains_ci(seg_prompts, kw):
+                            c13.append(f"B_info_hook_offset hook segment[{s_idx}] visual prompt copies reference surface term '{kw}'")
 
     checks = [
         (1, "Schema, Mode & Variant Structure", c1),

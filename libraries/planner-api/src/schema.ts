@@ -18,6 +18,9 @@ export const VALID_A_GENRE_ARCHETYPES = [
   "horror_mystery",
   "mock_documentary",
   "absurd_skit",
+  "brainrot_hypnosis",
+  "deadpan_rhythmic_loop",
+  "sensory_sync_loop",
 ] as const;
 
 export const VALID_TRACK_ARCHETYPES = [
@@ -71,6 +74,8 @@ export const AdSpecSchema = z.object({
   a_genre_archetype: z.enum(VALID_A_GENRE_ARCHETYPES).optional(),
   hook_similarity_score: z.number().min(0).max(1).optional(),
   product_taboo_keywords: z.array(z.string()).default([]),
+  category_taboo_keywords: z.array(z.string()).default([]),
+  reference_surface_taboo: z.array(z.string()).default([]),
   hook_window_sec: z.number().positive(),
   framing_mode: z.enum(["editorial-card", "smart-crop", "blur-bleed", "full-bleed"]).default("full-bleed"),
   disclosure: z.enum(["paid_ad", "sponsored", "own_brand", "ai_assisted", "none"]).default("ai_assisted"),

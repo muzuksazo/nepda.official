@@ -1,0 +1,74 @@
+{
+  "project_id": "pva-water-sponge-abc-A-v5-b3d",
+  "aspect_ratio": "9:16",
+  "resolution": "720p",
+  "anchors": [],
+  "references": [
+    {
+      "id": "R_A1_v5_b3d",
+      "file": "refs/R_A1_v5_b3d.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Stylized Blender Cycles 3D matte polymer-clay miniature diorama still render (subtle tactile clay fingerprint micro-texture, sculpted miniature props, tilt-shift shallow depth of field, zero photorealistic human skin or real photography). Surreal indigo void pedestal diorama: nine matte obsidian-purple polymer-clay torus rings suspended in a vertical spiral orbit above a softly glowing warm butter-yellow clay center peg, symmetrical studio rim lighting, clean minimalist abstract 3D hypnosis world with zero readable text, 9:16 vertical frame."
+    },
+    {
+      "id": "R_A2_v5_b3d",
+      "file": "refs/R_A2_v5_b3d.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Stylized Blender Cycles 3D matte polymer-clay miniature diorama still render (subtle tactile clay fingerprint micro-texture, sculpted miniature props, tilt-shift shallow depth of field, zero photorealistic human skin or real photography). Matching the exact same stylized matte polymer-clay aesthetic from the attached reference: tight overhead macro still of one final obsidian-purple clay torus ring suspended one hairsbreadth above a glowing butter-yellow center peg inside an empty slate-indigo void plinth, shallow tilt-shift depth of field, zero readable text, 9:16 vertical frame.",
+      "attach_ids": [
+        "R_A1_v5_b3d"
+      ]
+    }
+  ],
+  "units": [
+    {
+      "id": "A1_v5_b3d",
+      "variant": "ad_A_brainrot_ring_b3d",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A1_v5_b3d"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A1_v5_b3d.mp4"
+      ],
+      "prompt": "Stylized Blender Cycles 3D matte clay stop-motion-feel animation render (smooth 3D miniature character and diorama physics, soft global illumination, zero photorealistic human faces or uncanny live-action artifacts). One continuous slow mesmerizing orbit push-in (strictly no camera cuts), 9:16 vertical frame: matching the abstract indigo-and-purple polymer-clay torus rings diorama from the attached reference, the suspended rings glide silently inward one by one in calm concentric symmetry until the final ring hovers one millimeter short of the glowing yellow peg. Soft warm studio drone only. No dialogue, no music, zero readable text."
+    },
+    {
+      "id": "A2_v5_b3d",
+      "variant": "ad_A_brainrot_ring_b3d",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A2_v5_b3d"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A2_v5_b3d.mp4"
+      ],
+      "prompt": "Stylized Blender Cycles 3D matte clay stop-motion-feel animation render (smooth 3D miniature character and diorama physics, soft global illumination, zero photorealistic human faces or uncanny live-action artifacts). One continuous slow macro top-down creep-in (strictly no camera cuts), 9:16 vertical frame: matching the matte polymer-clay ring and glowing yellow peg diorama from the attached reference, the purple clay ring trembles subtly while hovering a hairsbreadth above locking onto the peg without ever clicking shut, then freezes completely still at the climax. Faint minimalist sub hum only. No dialogue, no music, zero readable text."
+    }
+  ],
+  "visual_style": "blender_clay_diorama"
+}
