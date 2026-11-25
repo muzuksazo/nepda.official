@@ -121,12 +121,15 @@ def _product_to_facts_md(product: Dict[str, Any]) -> str:
         f"# Product Facts — {product.get('name', 'Product')}",
         f"- Category: {product.get('category', 'living')}",
     ]
-    if product.get("one_liner"):
-        lines.append(f"- Summary: {product['one_liner']}")
     if product.get("price_or_offer"):
         lines.append(f"- Offer: {product['price_or_offer']}")
+    if product.get("target_audience"):
+        lines.append(f"- Target Audience: {product['target_audience']}")
     lines.append("")
-    for idx, fact in enumerate(product.get("verified_facts") or [], start=1):
+    facts = [str(f).strip() for f in (product.get("verified_facts") or []) if str(f).strip()]
+    if not facts:
+        facts = [f"{product.get('name', '제품')} 실물 시연 기반"]
+    for idx, fact in enumerate(facts, start=1):
         lines.append(f"- [F{idx:02d}] [VERIFIED] {fact}")
     return "\n".join(lines) + "\n"
 

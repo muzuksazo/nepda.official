@@ -9,7 +9,7 @@ PRD v0.2([`../README.md`](../README.md)) 기준 **가이드 먼저형** 9단계 
 
 | 항목 | 확정 정책 | 코드/환경변수 |
 | :--- | :--- | :--- |
-| **FR-001 필수 입력** | `product.name` + `product.category`(`living` \| `kitchen` \| `stationery`) + `product.verified_facts`(1개 이상). `one_liner`, `price_or_offer`, `target_audience`는 선택 | `ProductInput` |
+| **FR-001 필수 입력** | **필수**: `product.name` + `product.category`(`living` \| `kitchen` \| `stationery`). **옵션**: `verified_facts`(핵심 특징), `price_or_offer`(가격/혜택), `target_audience`(타깃) | `ProductInput` |
 | **FR-008 이어하기 인증** | **Google One Tap (+ Google 버튼 fallback)** — `POST /v1/auth/google`로 Google ID Token(JWT)을 `google-auth`로 검증 후 7일 서명 세션(`HttpOnly` 쿠키 `napda_session` + Bearer `access_token`) 발급 | `GOOGLE_CLIENT_ID`, `SESSION_SECRET`, `SESSION_TTL_DAYS=7` |
 | **FR-009 업로드 제한** | 단일 파일 & 컷별 다중 파일 모두 허용(`1~20`개), **파일당 최대 100MB**, **총 길이 5~90초**. 가이드와 다른 비율/길이는 비차단 `warnings[]` 반환 | `MAX_UPLOAD_FILE_BYTES=104857600`, `MIN_UPLOAD_TOTAL_SEC=5.0`, `MAX_UPLOAD_TOTAL_SEC=90.0` |
 | **FR-006 크레딧/무료 한도** | 결제 제외 무료 베타 — Google 계정(`user_id`)당 **일일 영상 생성 3회 제한** + 실행 전 단계별 예상 크레딧(`/estimate`) 표시 | `DAILY_RENDER_LIMIT=3` |

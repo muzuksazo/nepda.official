@@ -8,19 +8,18 @@ from tests.support.tempdirs import temporary_directory
 
 
 class TestProductInputAPI(unittest.TestCase):
-    def test_requires_minimum_product_fields_and_allows_optional_offer(self) -> None:
+    def test_requires_name_and_category_and_allows_optional_details(self) -> None:
         with temporary_directory() as td:
             client = build_test_client(Path(td))
             login_client(client)
 
-            # Minimal valid payload (price_or_offer & target_audience omitted)
+            # Minimal valid payload (verified_facts, price_or_offer & target_audience all optional)
             ok_resp = client.post(
                 "/v1/projects",
                 json={
                     "product": {
                         "name": "대형 PVA 스펀지",
                         "category": "living",
-                        "verified_facts": ["1,000원대 대형 블록 소분 사용"],
                     },
                     "selected_types": ["A", "B"],
                 },
@@ -30,8 +29,12 @@ class TestProductInputAPI(unittest.TestCase):
             self.assertEqual(body["status"], "PRODUCT_SAVED")
             self.assertEqual(body["selected_types"], ["A", "B"])
 
-            # Empty verified_facts -> 422
-            bad_facts = client.post(
+            detail_resp = client.get(f"/v1/projects/{body['project_id']}")
+            self.assertEqual(detail_resp.status_code, 200)
+            self.assertEqual(detail_resp.json()["product"]["verified_facts"], [])
+
+            # Blank verified_facts normalizes to [] and still produces a fallback [F01] [VERIFIED] line
+            blank_facts = client.post(
                 "/v1/projects",
                 json={
                     "product": {
@@ -42,7 +45,24 @@ class TestProductInputAPI(unittest.TestCase):
                     "selected_types": ["A"],
                 },
             )
-            self.assertEqual(bad_facts.status_code, 422)
+            self.assertEqual(blank_facts.status_code, 201, blank_facts.text)
+            from app.projects_router import _product_to_facts_md
+
+            facts_md = _product_to_facts_md({"name": "대형 PVA 스펀지", "category": "living", "verified_facts": []})
+            self.assertIn("[F01] [VERIFIED]", facts_md)
+
+            # Blank name -> 422
+            bad_name = client.post(
+                "/v1/projects",
+                json={
+                    "product": {
+                        "name": "   ",
+                        "category": "living",
+                    },
+                    "selected_types": ["A"],
+                },
+            )
+            self.assertEqual(bad_name.status_code, 422)
 
             # Unsupported category -> 422
             bad_cat = client.post(

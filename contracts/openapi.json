@@ -2179,20 +2179,7 @@
             },
             "type": "array",
             "maxItems": 20,
-            "minItems": 1,
             "title": "Verified Facts"
-          },
-          "one_liner": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 240
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "One Liner"
           },
           "price_or_offer": {
             "anyOf": [
@@ -2222,8 +2209,7 @@
         "type": "object",
         "required": [
           "name",
-          "category",
-          "verified_facts"
+          "category"
         ],
         "title": "ProductInput"
       },

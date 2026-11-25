@@ -70,8 +70,7 @@ class HookTypesResponse(BaseModel):
 class ProductInput(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     category: ProductCategory
-    verified_facts: List[str] = Field(..., min_length=1, max_length=20)
-    one_liner: Optional[str] = Field(default=None, max_length=240)
+    verified_facts: List[str] = Field(default_factory=list, max_length=20)
     price_or_offer: Optional[str] = Field(default=None, max_length=120)
     target_audience: Optional[str] = Field(default=None, max_length=120)
 
@@ -86,10 +85,7 @@ class ProductInput(BaseModel):
     @field_validator("verified_facts")
     @classmethod
     def _clean_facts(cls, items: List[str]) -> List[str]:
-        cleaned = [s.strip() for s in items if isinstance(s, str) and s.strip()]
-        if not cleaned:
-            raise ValueError("At least 1 non-empty verified_fact is required")
-        return cleaned
+        return [s.strip() for s in items if isinstance(s, str) and s.strip()]
 
 
 class CreateProjectRequest(BaseModel):
