@@ -106,6 +106,7 @@ npm run scenarios -- examples/01_worker-input.scenarios.json     # 1회차 생�
 npm run scenarios -- examples/01_worker-input.scenarios.json --next   # 다음 회차 (앞선 시작 소재 제외)
 npm run scenarios -- examples/01_worker-input.scenarios.json --next --cuts   # 다음 회차 + 장면 컷 이미지
 npm run cuts -- proj_demo01 3                                    # 이미 만든 3회차의 컷 이미지만 렌더
+npm run video -- proj_demo01 3                                   # 3회차 훅 영상(mp4) — 컷 단계 장면 코드 + TTS, Claude 호출 없음
 npm run report -- proj_demo01                                    # 리포트만 다시 만들기
 npx tsx test/cuts-render.ts                                      # 가짜 모델로 컷 렌더 경로 확인 (API 호출 없음, pipeline 필요)
 ```
@@ -131,6 +132,14 @@ out/{project_id}/
 - 실측(3회차, 장면 4개, 모두 1차 통과): 비용 $0.37, 소요 약 1분 20초(코드 생성 최장 54초 + 타입 검사 3초 + 번들·렌더 23초). 처음 렌더할 때 Remotion이 headless Chrome(약 131MB)을 내려받습니다.
 - 리포트: 시나리오 위쪽에 장면별 중간 프레임 스트립, 장면 표에 3컷 썸네일과 코드 링크. `index.html` "기록 불러오기"에서는 콘티 자리에 컷이 보입니다(#2 이후 버전).
 - 소요 시간 합계에서 동시에 실행된 단계(장면별 코드 생성)는 가장 긴 것만 더합니다.
+
+### 훅 영상 (`npm run video`)
+
+- 컷 단계에서 저장한 장면 코드(`cuts/<scenario_id>/beat{n}.tsx`)를 그대로 쓰고, `video_test/pipeline`의 `scripts/tts.mjs`(Edge TTS, ko-KR-SunHiNeural +25%)로 나레이션을 만든 뒤 Remotion `HookVideo`로 **훅만** 렌더합니다(본편·음악 없음). Claude 호출이 없어 비용은 $0입니다.
+- 음성이 장면보다 길면 장면이 늘어납니다(+0.25초). 장면별 계획/최종 길이는 리포트에 나옵니다.
+- 결과: `out/<project_id>/round-{n}/video/hook_<scenario_id>.mp4`(1080x1920, 30fps, AAC 음성)와 장면별 음성 wav. 리포트에서 바로 재생됩니다.
+- 실측(3회차, 15초 훅): TTS 25초 + 번들·렌더 27초 = 52초. 한 회차를 시나리오 → 컷 → 영상까지 하면 약 6분, 약 $1입니다.
+- 렌더하는 동안만 `pipeline/src/generated/`와 `pipeline/public/tts/`를 쓰고 끝나면 원래대로 되돌립니다.
 
 - 모델은 `.env`의 `B_MODEL`(기본 `claude-opus-5-5`). 유사도 검색 단계만 바꾸려면 `B_IDEA_MODEL`. 원화 표시는 `B_USD_KRW`(환율)를 넣었을 때만.
 - 비용은 표준 단가로 계산한 추정치입니다(캐시 할인 미반영). 실제 청구액은 Claude Console의 Usage에서 확인합니다. 참고: 2회차 실측 약 $0.49(호출 5번, 입력 1.6만·출력 2.1만 토큰).

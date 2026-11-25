@@ -81,7 +81,26 @@ function extractCode(text: string): string {
   return (m ? m[1] : text).trim();
 }
 
-function writeRegistry(genDir: string, keys: string[], keep: string[]) {
+/** pipeline/src/generated 를 잠시 쓰고 원래대로 되돌린다 */
+export function snapshotDir(dir: string): { keepKeys: string[]; restore: () => void } {
+  mkdirSync(dir, { recursive: true });
+  const orig = new Map<string, Buffer>();
+  const dirs = new Set<string>();
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory()) dirs.add(e.name); // 하위 폴더는 건드리지 않는다
+    else orig.set(e.name, readFileSync(join(dir, e.name)));
+  }
+  const keepKeys = [...(orig.get("index.ts")?.toString("utf8") ?? "").matchAll(/import (\w+) from '\.\/\1'/g)].map((m) => m[1]);
+  return {
+    keepKeys,
+    restore: () => {
+      for (const f of readdirSync(dir)) if (!orig.has(f) && !dirs.has(f)) rmSync(join(dir, f), { force: true, recursive: true });
+      for (const [f, buf] of orig) writeFileSync(join(dir, f), buf);
+    },
+  };
+}
+
+export function writeRegistry(genDir: string, keys: string[], keep: string[]) {
   const all = [...new Set([...keep, ...keys])];
   writeFileSync(
     join(genDir, "index.ts"),

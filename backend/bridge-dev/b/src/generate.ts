@@ -42,6 +42,8 @@ export interface RunRecord {
   createdAt: string;
   /** 컷 이미지 (--cuts 또는 npm run cuts) */
   cuts?: import("./cuts.js").ScenarioCuts[];
+  /** 훅 영상 (npm run video) */
+  videos?: import("./video.js").HookVideo[];
 }
 
 function checkAll(drafts: DraftScenario[], input: WorkerInput): CheckResult[] {

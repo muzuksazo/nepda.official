@@ -5,6 +5,7 @@ import { generateScenarios, type RunRecord } from "./generate.js";
 import { toPipelinePlan } from "./pipeline-plan.js";
 import { dur, renderReport } from "./report.js";
 import { renderCuts } from "./cuts.js";
+import { renderHookVideos } from "./video.js";
 import { totals } from "./cost.js";
 import { DraftScenarioSchema, WorkerInputSchema } from "./schema.js";
 
@@ -16,6 +17,8 @@ const USAGE = `사용법:
       --no-ideate  유사도 검색 단계 건너뛰기
   npm run cuts -- <project_id> <round>
       이미 만든 회차의 장면 컷 이미지를 렌더하고 리포트를 갱신. Claude API 호출(과금).
+  npm run video -- <project_id> <round>
+      컷 단계의 장면 코드 + TTS 나레이션으로 훅 영상(mp4)을 렌더. Claude 호출 없음.
   npm run report -- <project_id>
       out/<project_id>/ 의 회차 기록으로 report.html 다시 만들기. API 호출 없음.
   npm run check -- <시나리오응답.json> [--input <입력.json>]
@@ -116,6 +119,34 @@ async function main() {
     const cutSteps = updated.steps.filter((s) => s.step.startsWith("컷:"));
     const t = totals(cutSteps);
     console.log(`\n컷 비용 $${t.costUsd.toFixed(4)} · ⏱ ${dur(t.ms)}\n리포트: ${reportPath}`);
+    return;
+  }
+
+  if (cmd === "video") {
+    const round = Number(process.argv[4]);
+    const recordPath = join(OUT, file, `round-${round}.json`);
+    if (!round || !existsSync(recordPath)) {
+      console.error(`${recordPath} 가 없습니다. 사용법: npm run video -- <project_id> <round>`);
+      process.exit(1);
+    }
+    const run = readJson(recordPath) as RunRecord & { product_name?: string };
+    const t0 = Date.now();
+    const { videos, steps } = await renderHookVideos(run.response.scenarios, run.cuts, {
+      projectDir: join(OUT, file),
+      round,
+      log: (m) => console.error(m),
+    });
+    const allSteps = [...run.steps.filter((s) => !s.step.startsWith("영상:")), ...steps];
+    const updated = { ...run, videos, steps: allSteps, total: totals(allSteps) };
+    writeFileSync(recordPath, JSON.stringify(updated, null, 2) + "\n", "utf8");
+    const reportPath = writeReport(file, run.product_name ?? file);
+    for (const v of videos) {
+      console.log(`\n영상 ${v.scenario_id}: ${v.seconds}초 → out/${file}/${v.file}`);
+      for (const s of v.scenes)
+        console.log(`  장면 ${s.order}: 계획 ${s.planned}초 → ${s.final}초 (음성 ${s.voiceSec ?? "-"}초)${s.usedGen ? "" : " · 기본 도형"}`);
+    }
+    for (const s of steps) console.log(`  ${s.step}  ${dur(s.ms)}`);
+    console.log(`\n영상 단계 ⏱ ${dur(Date.now() - t0)} · 비용 $0\n리포트: ${reportPath}`);
     return;
   }
 

@@ -119,6 +119,17 @@ function roundBlock(run: RunRecord, open: boolean) {
       return `<details class="card" open><summary><span class="title">${esc(s.hook_title)}</span>
           <span class="meta">${s.hook_duration_sec}초 · 장면 ${s.beats.length}개 · <span class="mono">${esc(s.scenario_id)}</span></span>
           <span class="badge ${c.errors.length ? "bad" : "good"}">${c.errors.length ? `위반 ${c.errors.length}` : "통과"}</span></summary>
+        ${(() => {
+          const v = run.videos?.find((x) => x.scenario_id === s.scenario_id);
+          if (!v) return "";
+          const rows = v.scenes
+            .map((x) => `<tr><td class="num">${x.order}</td><td class="num">${x.planned}초</td><td class="num">${x.final}초</td><td class="num">${x.voiceSec ?? "—"}초</td><td>${x.usedGen ? "생성 코드" : "기본 도형"}</td></tr>`)
+            .join("");
+          return `<div class="video"><video controls preload="metadata" src="${esc(v.file)}"></video>
+            <div><b>훅 영상</b> ${v.seconds}초 · <a href="${esc(v.file)}" target="_blank">mp4 열기</a>
+            <table><thead><tr><th>장면</th><th>계획</th><th>최종</th><th>음성</th><th>3D</th></tr></thead><tbody>${rows}</tbody></table>
+            <p class="muted">음성이 장면보다 길면 장면이 늘어납니다(+0.25초 여유).</p></div></div>`;
+        })()}
         ${strip}
         ${pathChips(s.ad_spec.bridge_path, s.ad_spec.anchor)}
         <p class="muted">시작 유사도 ${s.ad_spec.hook_similarity_score.toFixed(2)} · 인접 최소 ${s.ad_spec.adjacent_min_sim.toFixed(2)} · 숫자 실 ${esc(s.ad_spec.number_thread)} · ${esc(s.replacement_test_note)}</p>
@@ -189,6 +200,8 @@ tr.total td{font-weight:700}tr.picked td{background:var(--goodbg)}
 .sub{margin:10px 0}.sub>summary{font-weight:600;font-size:14px;padding:6px 0}.sub h4{margin:12px 0 4px;font-size:13px;color:var(--muted)}
 .facts{padding-left:0;list-style:none}.facts li{margin:4px 0;font-size:13px}.tag{font-size:11px;border-radius:4px;padding:1px 6px;background:var(--chip)}.tag.warn{background:var(--warnbg);color:var(--warn)}
 footer{color:var(--muted);font-size:12px;margin-top:24px}
+.video{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin:4px 0 12px}.video video{width:220px;aspect-ratio:9/16;border-radius:12px;background:#000}
+.video>div{flex:1;min-width:220px;font-size:14px}.video table{max-width:360px}
 .strip{display:flex;gap:10px;overflow-x:auto;padding:4px 0 10px}.strip figure{margin:0;flex:none;width:150px}
 .strip img{width:150px;aspect-ratio:9/16;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block;background:#000}
 .strip figcaption{font-size:12px;color:var(--muted);margin-top:4px}
