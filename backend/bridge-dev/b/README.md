@@ -65,6 +65,63 @@ OUTPUT_DIR/{project_id}/{hook_id}/
 
 회차가 달라지면 `hook_id`가 다른 새 폴더가 생기고 기존 폴더는 지우지 않습니다.
 
+## B 시나리오 작업자 코드 (FR-003, 로컬 실행)
+
+시나리오 생성(+장면별 3D 명세)까지 구현되어 있습니다. 콘티 이미지(FR-004)와 훅 영상 렌더·TTS(FR-005)는 아직 없고, 3D 명세를 `video_test/pipeline` 입력(plan.json)으로 내보내는 데까지 합니다.
+Vercel AI SDK(`ai`, `@ai-sdk/anthropic`)로 Claude를 호출합니다.
+
+```text
+1. 유사도 검색 (src/ideate.ts)
+   앵커 선정 + 마인드맵(관점 4개, 단어 약 100개)
+   → 단어마다 info(정보 가치)·앵커 유사도 채점
+   → 시작 후보(0.40~0.60)·브리지 후보끼리 인접 유사도 채점
+   → 경로 탐색: 시작 → 브리지 1~2개, 유사도 상승, 인접 0.70 이상, 마지막 브리지 0.70 이상
+     점수 = info(시작) × 인접 최소 × (1 − 시작 유사도), 시작이 서로 다른 경로를 count개 고름
+2. 시나리오 + 3D 장면 생성 (src/generate.ts) — 고른 경로를 그대로 쓰게 하고, 경로 값은 검색 결과로 덮어씀
+3. 규칙 검사 (src/check.ts) — 위반이 있으면 위반 내용을 붙여 한 번 더 생성
+4. 저장 — 회차 기록, 리포트(HTML), pipeline plan
+```
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/schema.ts` | 입력(01_worker-input)·출력(ScenarioItem, 장면별 `scene3d`) zod 스키마 |
+| `src/ideate.ts` | 유사도 검색·경로 탐색 (`video_test/pipeline/scripts/ideate.mjs`를 옮기고 경로 탐색 추가) |
+| `src/prompt.ts` | B 규칙 + 3D 장면 규칙을 담은 프롬프트 |
+| `src/generate.ts` | `generateScenarios(input)` — 백엔드가 import해서 부를 함수 |
+| `src/check.ts` | 규칙 검사 (유사도, 브리지, 금지어, "~습니다"체, 자막, 15초, 3D 움직임·오브젝트 수·금지 요소 등) |
+| `src/cost.ts` | 단계별 토큰·비용(USD) 계산 |
+| `src/report.ts` | 프로젝트 리포트 HTML (회차·시나리오·3D 명세 접기/펴기) |
+| `src/pipeline-plan.ts` | 시나리오 → `video_test/pipeline` 의 plan.json 형식 |
+
+```bash
+cd backend/bridge-dev/b
+npm install
+cp .env.example .env        # ANTHROPIC_API_KEY 입력 (.env는 커밋되지 않음)
+
+npm test                                                         # 가짜 모델로 전체 흐름 확인 (API 호출 없음)
+npm run check -- examples/02_scenarios.response.json             # 규칙 검사만 (API 호출 없음)
+npm run scenarios -- examples/01_worker-input.scenarios.json     # 1회차 생성 (Claude API 과금)
+npm run scenarios -- examples/01_worker-input.scenarios.json --next   # 다음 회차 (앞선 시작 소재 제외)
+npm run report -- proj_demo01                                    # 리포트만 다시 만들기
+```
+
+결과 (`out/`은 커밋 안 함):
+
+```text
+out/{project_id}/
+├── report.html                       회차별로 접고 펴는 리포트 (최신 회차가 위·펼침), 단계별 토큰·비용, 유사도 검색 결과
+├── round-{n}.json                    회차 기록 (응답 + 검사 + 유사도 검색 + 비용)
+└── round-{n}/{scenario_id}.plan.json video_test/pipeline 입력 (scene.visual = 3D 명세, scene.say = 나레이션)
+```
+
+- 모델은 `.env`의 `B_MODEL`(기본 `claude-opus-5-5`). 유사도 검색 단계만 바꾸려면 `B_IDEA_MODEL`. 원화 표시는 `B_USD_KRW`(환율)를 넣었을 때만.
+- 비용은 표준 단가로 계산한 추정치입니다(캐시 할인 미반영). 실제 청구액은 Claude Console의 Usage에서 확인합니다. 참고: 2회차 실측 약 $0.49(호출 5번, 입력 1.6만·출력 2.1만 토큰).
+- 검사 결과의 ✗는 규칙 위반(종료 코드 2), △는 사람이 볼 경고(출처 확인 필요, 긴 자막 줄 등)입니다.
+- 유사도 값은 임베딩이 아니라 Claude가 같은 기준표로 한꺼번에 매긴 추정치입니다.
+- 시작 단어는 앵커 유사도 0.40~0.60이면서 **용도 영역 유사도 0.35 이하**여야 합니다. 용도 영역(usage_domains)은 제품을 언제·무엇에 쓰는지와 그 제품군의 역사·기법 유래까지 포함하며, 아이디어 단계에서 Claude가 제품마다 정합니다.
+- 반전 나레이션은 한 문장, 공백 제외 35자 이내(핵심 특징 하나)여야 검사를 통과합니다.
+- `index.html`에서 보기: "기록 불러오기"로 `out/<project_id>/round-N.json`을 고르면 결과 목록에 B 작업자 CLI 기록(비용·소요 시간·규칙 검사 포함)으로 들어갑니다. 기록은 그 브라우저에 보관됩니다.
+
 ## index.html로 테스트하기
 
 1. `python -m http.server 5500 --directory backend/bridge-dev` 후 `http://127.0.0.1:5500/`를 엽니다(파일로 열어도 됩니다).
