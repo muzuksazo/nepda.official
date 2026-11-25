@@ -62,6 +62,17 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .entry .note{padding:6px 9px;color:var(--bad);font-weight:600}
 .hint{font-size:12px;color:var(--sub)}
 .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
+details.round{padding:0}
+details.round>summary{padding:9px 10px;cursor:pointer;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:14px}
+details.round>summary b{font-size:14px}
+details.round>.rbody{padding:0 10px 10px}
+details.round .meta{color:var(--sub);font-size:12px;margin-left:auto}
+.badge.b{background:#ffe8e6;color:var(--acc)}
+.chk-err{color:var(--bad);font-size:12px}.chk-warn{color:var(--warn);font-size:12px}
+.s3d{font-size:12px;color:#444;background:#f6f6f3;border-radius:6px;padding:4px 8px;margin-top:3px}
+table.cost{border-collapse:collapse;font-size:12px;margin-top:6px;width:100%}
+table.cost td,table.cost th{border-bottom:1px solid var(--line);padding:3px 6px;text-align:left}
+table.cost td.n{text-align:right;font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -131,8 +142,13 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </section>
 
 <section id="resSec">
-  <h2>결과 <small>회차별 시나리오·콘티·선택·훅</small></h2>
-  <div class="bar"><button id="bSave" class="ghost">결과 저장 (JSON 다운로드)</button><span class="hint" id="resSummary"></span></div>
+  <h2>결과 <small>회차별 시나리오·콘티·선택·훅 · 이전 작업 기록은 이 브라우저에 보관</small></h2>
+  <div class="bar"><button id="bSave" class="ghost">결과 저장 (JSON 다운로드)</button>
+    <button id="bImport" class="ghost">기록 불러오기</button><input id="fImport" type="file" accept=".json,application/json" multiple hidden>
+    <button id="bOpenAll" class="ghost sm">모두 펼치기</button><button id="bCloseAll" class="ghost sm">모두 접기</button>
+    <button id="bClearHist" class="ghost sm">기록 비우기</button>
+    <span class="hint" id="resSummary"></span></div>
+  <p class="hint">기록 불러오기: 이 화면의 "결과 저장" JSON, 또는 B 작업자 CLI 결과 <code>b/out/&lt;project_id&gt;/round-N.json</code>(비용·소요 시간·규칙 검사 포함)을 여러 개 고를 수 있습니다.</p>
   <div class="result" id="results"><span class="hint">아직 결과가 없습니다.</span></div>
 </section>
 
@@ -297,13 +313,17 @@ async function newScenarioRound() {
   await ensureProject();
   var pid = S.project.project_id;
   setStatus("시나리오 생성(append)…");
+  var t0 = performance.now();
   var res = await api("POST", "/v1/projects/" + pid + "/scenarios", { types: [ptype()], count: 1 });
+  S.lastScenarioMs = Math.round(performance.now() - t0);
   var round = res.round;
   var list = res.scenarios || [];
   var mine = list.filter(function (s) { return s.round === round; });
   var sc = (mine.length ? mine : list.slice(-1))[0];
   if (!sc) throw new Error("응답 scenarios 가 비어 있습니다");
-  var rd = { round: round, scenario: sc, storyboard: null, selected_scenario_id: null, hook_start: null, hook: null };
+  var rd = { round: round, scenario: sc, storyboard: null, selected_scenario_id: null, hook_start: null, hook: null,
+    uid: "s:" + sc.scenario_id, source: isMock() ? "mock" : "live", product_name: $("pname").value.trim(),
+    project_id: pid, elapsed_ms: S.lastScenarioMs || 0, saved_at: nowIso() };
   S.rounds.push(rd);
   renderResults();
   return rd;
@@ -337,11 +357,17 @@ async function stepHook(rd) {
   }
   throw new Error("훅 폴링 시간 초과 (4분)");
 }
+/* 회차별 소요 시간: 각 단계의 실제 대기 시간(폴링 포함)을 더한다 */
+async function timed(rd, fn) {
+  var t0 = performance.now();
+  try { await fn(rd); }
+  finally { rd.elapsed_ms = (rd.elapsed_ms || 0) + Math.round(performance.now() - t0); renderResults(); }
+}
 async function oneCycle() {
   var rd = await newScenarioRound();
-  await stepStoryboard(rd);
-  await stepSelect(rd);
-  await stepHook(rd);
+  await timed(rd, stepStoryboard);
+  await timed(rd, stepSelect);
+  await timed(rd, stepHook);
   return rd;
 }
 
@@ -358,9 +384,9 @@ function setBusy(b) {
 }
 $("b1").onclick = function () { run(step1); };
 $("b2").onclick = function () { run(async function () { await newScenarioRound(); setStatus("② 완료 — 회차 " + lastRound().round + " 시나리오 " + lastRound().scenario.scenario_id); }); };
-$("b3").onclick = function () { run(async function () { var rd = lastRound(); if (!rd) throw new Error("먼저 ②를 실행하세요"); await stepStoryboard(rd); setStatus("③ 완료"); }); };
-$("b4").onclick = function () { run(async function () { var rd = lastRound(); if (!rd) throw new Error("먼저 ②를 실행하세요"); await stepSelect(rd); setStatus("④ 완료 — selected_scenario_id=" + rd.selected_scenario_id); }); };
-$("b5").onclick = function () { run(async function () { var rd = lastRound(); if (!rd) throw new Error("먼저 ②를 실행하세요"); await stepHook(rd); setStatus("⑤ 완료 — 훅 저장 위치: " + (rd.hook.output_dir || "?")); }); };
+$("b3").onclick = function () { run(async function () { var rd = lastRound(); if (!rd) throw new Error("먼저 ②를 실행하세요"); await timed(rd, stepStoryboard); setStatus("③ 완료"); }); };
+$("b4").onclick = function () { run(async function () { var rd = lastRound(); if (!rd) throw new Error("먼저 ②를 실행하세요"); await timed(rd, stepSelect); setStatus("④ 완료 — selected_scenario_id=" + rd.selected_scenario_id); }); };
+$("b5").onclick = function () { run(async function () { var rd = lastRound(); if (!rd) throw new Error("먼저 ②를 실행하세요"); await timed(rd, stepHook); setStatus("⑤ 완료 — 훅 저장 위치: " + (rd.hook.output_dir || "?")); }); };
 $("bAll").onclick = function () { run(async function () { await step1(); await oneCycle(); setStatus("1회 완료 — 결과 저장 가능"); }); };
 $("bCycle").onclick = function () {
   var n = Math.max(1, Math.min(10, parseInt($("nCycle").value, 10) || 1));
@@ -380,7 +406,7 @@ $("bSave").onclick = function () {
     exported_at: nowIso(), mode: isMock() ? "mock" : "live", base_url: $("base").value.trim(), hook_type: ptype(),
     product_info: S.productInfo, project: S.project,
     rounds: S.rounds.map(function (r) {
-      return { round: r.round, scenario: r.scenario, storyboard: r.storyboard, selected_scenario_id: r.selected_scenario_id, hook_request: r.hook_start, hook: r.hook };
+      return { round: r.round, scenario: r.scenario, storyboard: r.storyboard, selected_scenario_id: r.selected_scenario_id, hook_request: r.hook_start, hook: r.hook, elapsed_ms: r.elapsed_ms };
     })
   };
   var blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
@@ -391,35 +417,147 @@ $("bSave").onclick = function () {
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
 };
 
+/* ============================== 작업 기록 (브라우저 보관) ============================== */
+var HKEY = "napda-bridge-dev:history:v1";
+var HMAX = 200;
+var H = (function () {
+  try { var v = JSON.parse(localStorage.getItem(HKEY) || "[]"); return Array.isArray(v) ? v : []; }
+  catch (e) { return []; }
+})();
+var openState = {}; // uid → 펼침 여부 (다시 그려도 유지)
+function saveHist() { try { localStorage.setItem(HKEY, JSON.stringify(H.slice(0, HMAX))); } catch (e) { /* 저장 불가(사생활 모드 등) — 화면에는 그대로 표시 */ } }
+function upsertHist(e) {
+  for (var i = 0; i < H.length; i++) if (H[i].uid === e.uid) { H[i] = e; return; }
+  H.unshift(e);
+}
+function entryFromRound(r) {
+  return { uid: r.uid, source: r.source, hook_type: r.scenario.type || ptype(), product_name: r.product_name, project_id: r.project_id,
+    round: r.round, scenario: r.scenario, storyboard: r.storyboard, selected_scenario_id: r.selected_scenario_id,
+    hook: r.hook, hook_start: r.hook_start, elapsed_ms: r.elapsed_ms || 0, saved_at: r.saved_at };
+}
+function dur(ms) {
+  if (ms == null) return "—";
+  var s = Math.round(ms / 1000);
+  return s < 60 ? (ms < 1000 ? (ms / 1000).toFixed(1) : s) + "초" : Math.floor(s / 60) + "분 " + (s % 60) + "초";
+}
+function usd(n) { return n == null ? "" : "$" + Number(n).toFixed(n < 0.01 ? 4 : 3); }
+var SRC = { mock: ["Mock", "mock"], live: ["실제 백엔드", "live"], "b-cli": ["B 작업자 CLI", "b"] };
+
+/* 불러오기: 이 화면의 "결과 저장" JSON 또는 B CLI 회차 기록(out/<project_id>/round-N.json) */
+function importJson(obj, fileName) {
+  var n = 0;
+  if (obj && obj.response && Array.isArray(obj.response.scenarios)) {
+    obj.response.scenarios.forEach(function (s, i) {
+      upsertHist({ uid: "b:" + s.scenario_id, source: "b-cli", hook_type: s.type, product_name: obj.product_name || "",
+        project_id: obj.response.project_id, round: obj.response.round, scenario: s,
+        checks: (obj.checks || [])[i] || null, steps: obj.steps || [], total: obj.total || null,
+        elapsed_ms: obj.total ? obj.total.ms : null, cost_usd: obj.total ? obj.total.costUsd : null,
+        model: obj.modelId, saved_at: obj.createdAt || nowIso() });
+      n++;
+    });
+  } else if (obj && Array.isArray(obj.rounds)) {
+    obj.rounds.forEach(function (r) {
+      if (!r.scenario) return;
+      upsertHist({ uid: "s:" + r.scenario.scenario_id, source: obj.mode || "mock", hook_type: r.scenario.type || obj.hook_type,
+        product_name: obj.product_info && obj.product_info.product ? obj.product_info.product.name : "",
+        project_id: obj.project ? obj.project.project_id : "", round: r.round, scenario: r.scenario, storyboard: r.storyboard,
+        selected_scenario_id: r.selected_scenario_id, hook: r.hook, hook_start: r.hook_request,
+        elapsed_ms: r.elapsed_ms == null ? null : r.elapsed_ms, saved_at: obj.exported_at || nowIso() });
+      n++;
+    });
+  } else throw new Error(fileName + ": 알 수 없는 형식 (결과 저장 JSON 또는 b/out/<project_id>/round-N.json)");
+  return n;
+}
+
 /* ============================== 결과 렌더 ============================== */
+function beatHtml(b) {
+  var h = '<div class="beat"><b>' + esc(b.order) + ". " + esc(b.role) + "</b> (" + esc(b.duration_sec) + "s) " + esc(b.visual || "") +
+    (b.caption ? "<br>자막: " + esc(b.caption) : "") + (b.narration ? "<br>나레이션: " + esc(b.narration) : "");
+  if (b.scene3d) {
+    var sc = b.scene3d;
+    h += '<div class="s3d">3D · ' + esc(sc.fact_shown) + "<br>오브젝트: " + (sc.objects || []).map(function (o) { return esc(o.name); }).join(", ") +
+      " · 움직임 " + (sc.motion || []).length + "단계 · 카메라 " + esc(sc.camera) +
+      (sc.counter ? " · 카운터 " + esc(sc.counter.from) + "→" + esc(sc.counter.to) + esc(sc.counter.unit) : "") + "</div>";
+  }
+  return h + "</div>";
+}
+function entryHtml(e, open) {
+  var sc = e.scenario || {};
+  var src = SRC[e.source] || [e.source, ""];
+  var bad = e.checks && e.checks.errors && e.checks.errors.length;
+  var h = '<details class="round" data-uid="' + esc(e.uid) + '"' + (open ? " open" : "") + "><summary>" +
+    "<b>회차 " + esc(e.round) + "</b> <span class=\"badge\">" + esc(e.hook_type || "") + "</span> " + esc(sc.hook_title || "") +
+    ' <span class="badge ' + src[1] + '">' + esc(src[0]) + "</span>" +
+    (e.checks ? ' <span class="badge ' + (bad ? "mock" : "live") + '">' + (bad ? "규칙 위반 " + bad : "규칙 통과") + "</span>" : "") +
+    '<span class="meta">⏱ ' + (e.elapsed_ms ? dur(e.elapsed_ms) : "시간 기록 없음") + (e.cost_usd != null ? " · " + usd(e.cost_usd) : "") + " · " + esc(new Date(e.saved_at).toLocaleString("ko-KR")) + "</span>" +
+    '</summary><div class="rbody">';
+  h += '<div class="hint">' + esc(e.product_name || "") + " · project " + esc(e.project_id || "—") + " · scenario_id " + esc(sc.scenario_id) + " · 훅 " + esc(sc.hook_duration_sec) + "s</div>";
+  (sc.beats || []).forEach(function (b) { h += beatHtml(b); });
+  if (e.storyboard && e.storyboard.frames) {
+    h += '<div class="frames">' + e.storyboard.frames.map(function (f) { return '<img alt="콘티 ' + esc(f.beat_order) + '" src="' + esc(f.image_url) + '">'; }).join("") + "</div>";
+  }
+  if (e.source !== "b-cli") h += '<div class="hint">선택: ' + (e.selected_scenario_id ? "✅ " + esc(e.selected_scenario_id) : "—") + "</div>";
+  if (e.hook) {
+    h += '<div class="hint">훅: <b>' + esc(e.hook.status) + "</b> · hook_id " + esc(e.hook.hook_id) + "</div>";
+    if (e.hook.output_dir) h += '<div class="files">output_dir: ' + esc(e.hook.output_dir) + "</div>";
+    if (e.hook.files) h += '<div class="files">' + Object.keys(e.hook.files).map(function (k) {
+      var v = e.hook.files[k]; return esc(k) + ": " + esc(Array.isArray(v) ? v.length + "개" : v);
+    }).join("<br>") + "</div>";
+  } else if (e.hook_start) h += '<div class="hint">훅: ' + esc(e.hook_start.status) + " (접수)</div>";
+  else if (e.source === "b-cli") h += '<div class="hint">훅 영상: 아직 없음 (CLI는 시나리오·3D 명세까지)</div>';
+  if (e.checks) {
+    (e.checks.errors || []).forEach(function (x) { h += '<div class="chk-err">✗ ' + esc(x) + "</div>"; });
+    (e.checks.warnings || []).forEach(function (x) { h += '<div class="chk-warn">△ ' + esc(x) + "</div>"; });
+  }
+  if (e.steps && e.steps.length) {
+    h += '<table class="cost"><tr><th>단계</th><th>모델</th><th>입력</th><th>출력</th><th>비용</th><th>시간</th></tr>' +
+      e.steps.map(function (s) {
+        return "<tr><td>" + esc(s.step) + "</td><td>" + esc(s.model) + '</td><td class="n">' + esc(s.inputTokens) + '</td><td class="n">' + esc(s.outputTokens) +
+          '</td><td class="n">' + (s.costUsd == null ? "?" : usd(s.costUsd)) + '</td><td class="n">' + (s.ms ? dur(s.ms) : "—") + "</td></tr>";
+      }).join("") +
+      (e.total ? '<tr><td><b>합계</b></td><td></td><td class="n">' + esc(e.total.inputTokens) + '</td><td class="n">' + esc(e.total.outputTokens) + '</td><td class="n"><b>' + usd(e.total.costUsd) + '</b></td><td class="n">' + (e.total.ms ? dur(e.total.ms) : "—") + "</td></tr>" : "") +
+      "</table>";
+  }
+  return h + "</div></details>";
+}
 function renderResults() {
   var box = $("results");
+  S.rounds.forEach(function (r) { upsertHist(entryFromRound(r)); });
+  saveHist();
+  var current = {};
+  S.rounds.forEach(function (r) { current[r.uid] = true; });
   var head = "";
   if (S.productInfo) head += '<div class="round"><h3>제품 정보 <span class="badge ' + (S.productInfo.cached ? "mock" : "live") + '">' + (S.productInfo.cached ? "캐시" : "신규") + '</span></h3><div class="files">product_info_id: ' + esc(S.productInfo.product_info_id) + '<br>expires_at: ' + esc(S.productInfo.expires_at) + '</div></div>';
-  var body = S.rounds.map(function (r) {
-    var sc = r.scenario;
-    var h = '<div class="round"><h3>회차 ' + r.round + " · " + esc(sc.type) + " · " + esc(sc.hook_title || "") + '</h3>';
-    h += '<div class="hint">scenario_id: ' + esc(sc.scenario_id) + " · 훅 " + esc(sc.hook_duration_sec) + 's</div>';
-    (sc.beats || []).forEach(function (b) {
-      h += '<div class="beat"><b>' + esc(b.order) + ". " + esc(b.role) + "</b> (" + esc(b.duration_sec) + "s) " + esc(b.visual) +
-        (b.caption ? "<br>자막: " + esc(b.caption) : "") + (b.narration ? "<br>나레이션: " + esc(b.narration) : "") + "</div>";
-    });
-    if (r.storyboard && r.storyboard.frames) {
-      h += '<div class="frames">' + r.storyboard.frames.map(function (f) { return '<img alt="콘티 ' + esc(f.beat_order) + '" src="' + esc(f.image_url) + '">'; }).join("") + "</div>";
-    }
-    h += '<div class="hint">선택: ' + (r.selected_scenario_id ? "✅ " + esc(r.selected_scenario_id) : "—") + "</div>";
-    if (r.hook) {
-      h += '<div class="hint">훅: <b>' + esc(r.hook.status) + "</b> · hook_id " + esc(r.hook.hook_id) + "</div>";
-      if (r.hook.output_dir) h += '<div class="files">output_dir: ' + esc(r.hook.output_dir) + "</div>";
-      if (r.hook.files) h += '<div class="files">' + Object.keys(r.hook.files).map(function (k) {
-        var v = r.hook.files[k]; return esc(k) + ": " + esc(Array.isArray(v) ? v.length + "개" : v);
-      }).join("<br>") + "</div>";
-    } else if (r.hook_start) h += '<div class="hint">훅: ' + esc(r.hook_start.status) + " (접수)</div>";
-    return h + "</div>";
+  var list = H.slice().sort(function (a, b) { return String(b.saved_at).localeCompare(String(a.saved_at)); });
+  var body = list.map(function (e, i) {
+    var open = e.uid in openState ? openState[e.uid] : (current[e.uid] || (i === 0 && !S.rounds.length));
+    return entryHtml(e, open);
   }).join("");
   box.innerHTML = (head + body) || '<span class="hint">아직 결과가 없습니다.</span>';
-  $("resSummary").textContent = S.rounds.length + "회차";
+  box.querySelectorAll("details.round").forEach(function (d) {
+    d.addEventListener("toggle", function () { openState[d.getAttribute("data-uid")] = d.open; });
+  });
+  var totalMs = 0, totalUsd = 0, hasUsd = false;
+  H.forEach(function (e) { totalMs += e.elapsed_ms || 0; if (e.cost_usd != null) { totalUsd += e.cost_usd; hasUsd = true; } });
+  $("resSummary").textContent = "이번 세션 " + S.rounds.length + "회차 · 전체 기록 " + H.length + "건 · ⏱ " + dur(totalMs) + (hasUsd ? " · 비용 " + usd(totalUsd) : "");
 }
+$("bImport").onclick = function () { $("fImport").click(); };
+$("fImport").onchange = async function () {
+  var files = Array.prototype.slice.call(this.files || []), n = 0, errs = [];
+  for (var i = 0; i < files.length; i++) {
+    try { n += importJson(JSON.parse(await files[i].text()), files[i].name); }
+    catch (e) { errs.push(e.message); }
+  }
+  this.value = "";
+  renderResults();
+  setStatus("기록 " + n + "건 불러옴" + (errs.length ? " · 실패: " + errs.join(" / ") : ""));
+};
+$("bOpenAll").onclick = function () { $("results").querySelectorAll("details.round").forEach(function (d) { d.open = true; }); };
+$("bCloseAll").onclick = function () { $("results").querySelectorAll("details.round").forEach(function (d) { d.open = false; }); };
+$("bClearHist").onclick = function () {
+  if (!H.length || !confirm("이 브라우저에 보관된 작업 기록 " + H.length + "건을 지웁니다. 이번 세션 회차도 목록에서 사라집니다. 계속할까요?")) return;
+  H = []; S.rounds = []; openState = {}; saveHist(); renderResults(); setStatus("작업 기록을 비웠습니다");
+};
 
 /* ============================== Mock 백엔드 ============================== */
 var Mock = (function () {
@@ -522,7 +660,7 @@ initForm();
 refreshBadge();
 renderResults();
 // 테스트/자동화용 노출
-window.__bridge = { state: S, oneCycle: oneCycle, step1: step1 };
+window.__bridge = { state: S, oneCycle: oneCycle, step1: step1, importJson: importJson, history: function () { return H; } };
 </script>
 </body>
 </html>
