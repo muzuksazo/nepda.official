@@ -80,6 +80,7 @@ export const BAdSpecSchema = z.object({
   adjacent_min_sim: z.number().min(0).max(1),
   number_thread: z.string(),
   product_first_mention_beat: z.number().int().min(1),
+  story_seed: z.string().optional().describe("고른 이야기 씨앗 한 줄 (유사도 검색 후보에서)"),
   product_taboo_keywords: z.array(z.string()).default([]).describe("반전 전까지 쓰면 안 되는 제품명·제품군 어휘"),
   visual_style: z.string().default("blender_3d_cutaway"),
   fact_sources: z.array(FactSourceSchema),

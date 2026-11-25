@@ -49,6 +49,34 @@ function scene3dBlock(sc: Scene3D | undefined) {
     }</p></details>`;
 }
 
+type LegacyIdeation = { anchor: string; anchorFact: string; words?: { word: string; sim: number; info: number; usage?: number }[] };
+
+function ideationBlock(run: RunRecord): string {
+  const id = run.ideation as (RunRecord["ideation"] & LegacyIdeation) | null;
+  if (!id) return `<p class="muted">유사도 검색 없이 생성한 회차입니다.</p>`;
+  const head = `<p><b>앵커</b> ${esc(id.anchor)}<br><span class="muted">근거: ${esc(id.anchorFact)}${id.usageDomains ? ` · 용도 영역: ${esc(id.usageDomains.join(", "))}` : ""}</span></p>`;
+  if (Array.isArray(id.seeds)) {
+    const picked = new Set(run.response.scenarios.map((s) => s.ad_spec.story_seed).filter(Boolean));
+    const rows = [...id.seeds]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12)
+      .map(
+        (s) => `<tr${picked.has(s.word) ? ' class="picked"' : ""}><td class="num">${s.score.toFixed(3)}</td><td>${esc(s.word)}<br><span class="muted">${esc(s.arc)}</span></td>
+          <td class="muted">${esc(s.lens)}</td><td>${simBar(s.sim)}</td><td class="num">${s.usage.toFixed(2)}</td><td class="num">${s.link.toFixed(2)}</td><td class="num">${s.info.toFixed(2)}</td></tr>`
+      )
+      .join("");
+    return `<details class="sub"><summary>유사도 검색 — 이야기 씨앗 ${id.seeds.length}개 · 조건 통과 ${(run.seedCandidates ?? []).length}개 후보로 전달</summary>${head}
+      <p class="muted">조건: 발단-앵커 0.40~0.60 · 용도 영역 0.35 이하 · 결말-앵커 연결 0.6 이상. 초록 줄이 고른 씨앗.</p>
+      <div class="scroll"><table><thead><tr><th>점수</th><th>씨앗 · 흐름</th><th>관점</th><th>발단 유사도</th><th>용도</th><th>연결</th><th>흥미</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+  }
+  // 예전 기록(단어 경로 방식)
+  const words = (id.words ?? []).filter((w) => w.sim >= 0.4 && w.sim <= 0.6).sort((a, b) => b.info - a.info).slice(0, 10);
+  return `<details class="sub"><summary>유사도 검색 (예전 방식: 단어 경로)</summary>${head}
+    <table><thead><tr><th>시작 후보</th><th>info</th><th>앵커 유사도</th></tr></thead><tbody>${words
+      .map((w) => `<tr><td>${esc(w.word)}</td><td class="num">${w.info.toFixed(2)}</td><td>${simBar(w.sim)}</td></tr>`)
+      .join("")}</tbody></table></details>`;
+}
+
 function roundBlock(run: RunRecord, open: boolean) {
   const r = run.response;
   const allOk = run.checks.every((c) => c.errors.length === 0);
@@ -58,27 +86,7 @@ function roundBlock(run: RunRecord, open: boolean) {
     .map((s) => `<tr><td>${esc(s.step)}</td><td class="mono">${esc(s.model)}</td><td class="num">${num(s.inputTokens)}</td><td class="num">${num(s.outputTokens)}</td><td class="num">${usd(s.costUsd)}</td><td class="num">${s.ms ? dur(s.ms) : "—"}</td></tr>`)
     .join("");
 
-  const ideation = run.ideation
-    ? `<details class="sub"><summary>유사도 검색 — 단어 ${run.ideation.words.length}개 · 쌍 ${run.ideation.pairs.length}개 · 경로 후보 ${run.ideation.paths.length}개</summary>
-        <p><b>앵커</b> ${esc(run.ideation.anchor)}<br><span class="muted">근거: ${esc(run.ideation.anchorFact)}</span></p>
-        <h4>경로 후보 상위</h4>
-        <table><thead><tr><th>점수</th><th>시작 → 브리지</th><th>시작 info</th><th>인접 최소</th></tr></thead><tbody>${run.ideation.paths
-          .slice(0, 8)
-          .map(
-            (p) => `<tr${run.chosenPaths.includes(p) ? ' class="picked"' : ""}><td class="num">${p.score.toFixed(3)}</td><td>${[p.start, ...p.bridges]
-              .map((n) => `${esc(n.word)} <span class="mono muted">${n.sim.toFixed(2)}</span>`)
-              .join(" → ")}</td><td class="num">${p.start.info.toFixed(2)}</td><td class="num">${p.adjMin.toFixed(2)}</td></tr>`
-          )
-          .join("")}</tbody></table>
-        <h4>시작 후보 (앵커 유사도 0.40~0.60)</h4>
-        <table><thead><tr><th>단어</th><th>관점 · 가지</th><th>info</th><th>앵커 유사도</th></tr></thead><tbody>${run.ideation.words
-          .filter((w) => w.sim >= 0.4 && w.sim <= 0.6)
-          .sort((a, b) => b.info - a.info)
-          .slice(0, 10)
-          .map((w) => `<tr><td>${esc(w.word)}</td><td class="muted">${esc(w.lens)} · ${esc(w.branch)}</td><td class="num">${w.info.toFixed(2)}</td><td>${simBar(w.sim)}</td></tr>`)
-          .join("")}</tbody></table>
-      </details>`
-    : `<p class="muted">유사도 검색 없이 생성한 회차입니다.</p>`;
+  const ideation = ideationBlock(run);
 
   const cards = r.scenarios
     .map((s, i) => {

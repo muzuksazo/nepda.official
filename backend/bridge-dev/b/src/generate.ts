@@ -3,8 +3,8 @@ import { generateText, Output, type LanguageModel } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { checkAgainstPrevious, checkScenario, type CheckResult } from "./check.js";
 import { priceOf, totals, type StepUsage } from "./cost.js";
-import { ideate, pickDistinct, type IdeationResult, type PathCandidate } from "./ideate.js";
-import { buildUserPrompt, SYSTEM_PROMPT, type PathBrief } from "./prompt.js";
+import { ideate, rankSeeds, type IdeationResult, type StorySeed } from "./ideate.js";
+import { buildUserPrompt, SYSTEM_PROMPT, type SeedBrief } from "./prompt.js";
 import {
   DraftResponseSchema,
   type DraftScenario,
@@ -36,7 +36,8 @@ export interface RunRecord {
   modelId: string;
   ideaModelId: string;
   ideation: IdeationResult | null;
-  chosenPaths: PathCandidate[];
+  /** 시나리오 프롬프트에 후보로 준 이야기 씨앗 */
+  seedCandidates?: StorySeed[];
   steps: StepUsage[];
   total: ReturnType<typeof totals>;
   createdAt: string;
@@ -54,20 +55,17 @@ function checkAll(drafts: DraftScenario[], input: WorkerInput): CheckResult[] {
   });
 }
 
-/** 경로 값은 모델 자기 평가가 아니라 검색 결과로 덮어쓴다. */
-function applyPath(d: DraftScenario, p: PathCandidate | undefined, anchor: string | undefined): DraftScenario {
-  if (!p) return d;
-  const nodes = [p.start, ...p.bridges];
-  return {
-    ...d,
-    ad_spec: {
-      ...d.ad_spec,
-      anchor: anchor ?? d.ad_spec.anchor,
-      hook_similarity_score: p.start.sim,
-      bridge_path: nodes.map((n) => ({ word: n.word, sim_to_anchor: n.sim })),
-      adjacent_min_sim: p.adjMin,
-    },
-  };
+/** 고른 씨앗이 후보에 있으면 발단 유사도는 모델 자기 평가 대신 검색 단계 점수를 쓴다. */
+function applySeed(d: DraftScenario, seeds: StorySeed[], anchor: string | undefined): DraftScenario {
+  const picked = d.ad_spec.story_seed?.trim();
+  const seed = picked ? seeds.find((s) => s.word === picked || picked.includes(s.word) || s.word.includes(picked)) : undefined;
+  const ad = { ...d.ad_spec, anchor: anchor ?? d.ad_spec.anchor };
+  if (seed) {
+    ad.story_seed = seed.word;
+    ad.hook_similarity_score = seed.sim;
+    if (ad.bridge_path[0]) ad.bridge_path = [{ ...ad.bridge_path[0], sim_to_anchor: seed.sim }, ...ad.bridge_path.slice(1)];
+  }
+  return { ...d, ad_spec: ad };
 }
 
 export async function generateScenarios(input: WorkerInput, opts: GenerateOptions = {}): Promise<RunRecord> {
@@ -82,18 +80,21 @@ export async function generateScenarios(input: WorkerInput, opts: GenerateOption
 
   // 1) 유사도 검색
   let ideation: IdeationResult | null = null;
-  let chosen: PathCandidate[] = [];
+  let chosen: StorySeed[] = [];
   if (opts.ideate !== false) {
     ideation = await ideate(input, ideaModel, ideaModelId, track, { log });
-    chosen = pickDistinct(ideation.paths, input.count);
+    const used = input.previous_scenarios
+      .map((s) => (s as { ad_spec?: { story_seed?: string } })?.ad_spec?.story_seed)
+      .filter((w): w is string => !!w);
+    chosen = rankSeeds(ideation.seeds, { exclude: used }).slice(0, Math.max(3, input.count * 2));
     if (chosen.length < input.count)
-      log(`[B] 조건(시작 0.40~0.60·용도 영역 0.40 이하, 인접 0.70 이상)을 만족하는 경로 ${chosen.length}개뿐. 나머지는 모델이 직접 고름`);
+      log(`[B] 조건(발단 0.40~0.60·용도 영역 0.35 이하·결말 연결 0.6 이상)을 만족하는 씨앗 ${chosen.length}개뿐. 나머지는 모델이 직접 고름`);
   }
-  const brief: PathBrief | undefined = ideation
-    ? { anchor: ideation.anchor, anchorFact: ideation.anchorFact, usageDomains: ideation.usageDomains, paths: chosen }
+  const brief: SeedBrief | undefined = ideation
+    ? { anchor: ideation.anchor, anchorFact: ideation.anchorFact, usageDomains: ideation.usageDomains, seeds: chosen }
     : undefined;
 
-  // 2) 시나리오 + 3D 장면 생성
+  // 2) 시나리오 생성 (3D 명세는 컷 단계)
   let feedback: string | undefined;
   let drafts: DraftScenario[] = [];
   let checks: CheckResult[] = [];
@@ -125,7 +126,7 @@ export async function generateScenarios(input: WorkerInput, opts: GenerateOption
 
     drafts = result.output.scenarios
       .slice(0, input.count)
-      .map((d, i) => applyPath(d, chosen[i], ideation?.anchor));
+      .map((d) => applySeed(d, chosen, ideation?.anchor));
     if (drafts.length < input.count) log(`[B] 요청 ${input.count}개 중 ${drafts.length}개만 생성됨`);
     checks = checkAll(drafts, input);
 
@@ -151,7 +152,7 @@ export async function generateScenarios(input: WorkerInput, opts: GenerateOption
     modelId,
     ideaModelId,
     ideation,
-    chosenPaths: chosen,
+    seedCandidates: chosen,
     steps,
     total: totals(steps),
     createdAt: new Date().toISOString(),
