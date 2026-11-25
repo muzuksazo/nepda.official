@@ -1,0 +1,2885 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "NAPDA Backend API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/uploads/presign": {
+      "post": {
+        "summary": "Presign Upload",
+        "operationId": "presign_upload_v1_uploads_presign_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresignRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Presign Upload V1 Uploads Presign Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs": {
+      "post": {
+        "summary": "Create Job",
+        "operationId": "create_job_v1_jobs_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateJobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Job V1 Jobs Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Jobs",
+        "operationId": "list_jobs_v1_jobs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Jobs V1 Jobs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}": {
+      "get": {
+        "summary": "Get Job",
+        "operationId": "get_job_v1_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Job V1 Jobs  Job Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/retry-unit/{unit_id}": {
+      "post": {
+        "summary": "Retry Unit",
+        "operationId": "retry_unit_v1_jobs__job_id__retry_unit__unit_id__post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Unit Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Retry Unit V1 Jobs  Job Id  Retry Unit  Unit Id  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/google": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Auth Google",
+        "operationId": "auth_google_v1_auth_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleAuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleAuthResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Auth Logout",
+        "operationId": "auth_logout_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Auth Me",
+        "operationId": "auth_me_v1_auth_me_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthMeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/hook-types": {
+      "get": {
+        "tags": [
+          "Planning"
+        ],
+        "summary": "List Hook Types",
+        "operationId": "list_hook_types_v1_hook_types_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HookTypesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects": {
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Create Project",
+        "operationId": "create_project_v1_projects_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "List Projects",
+        "operationId": "list_projects_v1_projects_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Get Project",
+        "operationId": "get_project_v1_projects__project_id__get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/scenarios": {
+      "post": {
+        "tags": [
+          "Planning"
+        ],
+        "summary": "Generate Scenarios",
+        "operationId": "generate_scenarios_v1_projects__project_id__scenarios_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateScenariosRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateScenariosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/scenarios/{scenario_id}/storyboard": {
+      "post": {
+        "tags": [
+          "Planning"
+        ],
+        "summary": "Generate Storyboard",
+        "operationId": "generate_storyboard_v1_projects__project_id__scenarios__scenario_id__storyboard_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateStoryboardRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryboardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/filming-guide": {
+      "post": {
+        "tags": [
+          "Filming Guide"
+        ],
+        "summary": "Create Filming Guide",
+        "operationId": "create_filming_guide_v1_projects__project_id__filming_guide_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFilmingGuideRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilmingGuideResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/estimate": {
+      "post": {
+        "tags": [
+          "Credits"
+        ],
+        "summary": "Estimate Credits",
+        "operationId": "estimate_credits_v1_projects__project_id__estimate_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstimateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstimateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/uploads/complete": {
+      "post": {
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "Complete Uploads",
+        "operationId": "complete_uploads_v1_projects__project_id__uploads_complete_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteUploadsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteUploadsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/renders": {
+      "post": {
+        "tags": [
+          "Generation"
+        ],
+        "summary": "Create Render",
+        "operationId": "create_render_v1_projects__project_id__renders_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRenderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRenderResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/deliverables": {
+      "get": {
+        "tags": [
+          "Delivery"
+        ],
+        "summary": "Get Deliverables",
+        "operationId": "get_deliverables_v1_projects__project_id__deliverables_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliverablesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AIDisclosureInfo": {
+        "properties": {
+          "has_ai_generated_media": {
+            "type": "boolean",
+            "title": "Has Ai Generated Media",
+            "default": true
+          },
+          "label_text": {
+            "type": "string",
+            "title": "Label Text",
+            "default": "AI 연출 포함"
+          },
+          "instagram_guide": {
+            "type": "string",
+            "title": "Instagram Guide",
+            "default": "인스타그램 게시 시 'AI 정보' 라벨 활성화를 권장합니다."
+          }
+        },
+        "type": "object",
+        "title": "AIDisclosureInfo"
+      },
+      "AuthMeResponse": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/AuthUserResponse"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/QuotaStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "quota"
+        ],
+        "title": "AuthMeResponse"
+      },
+      "AuthUserResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "picture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Picture"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "email"
+        ],
+        "title": "AuthUserResponse"
+      },
+      "CompleteUploadsRequest": {
+        "properties": {
+          "clips": {
+            "items": {
+              "$ref": "#/components/schemas/UploadClipInput"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Clips"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clips"
+        ],
+        "title": "CompleteUploadsRequest"
+      },
+      "CompleteUploadsResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_SAVED",
+              "SCENARIOS_READY",
+              "STORYBOARD_READY",
+              "GUIDE_READY",
+              "UPLOADS_READY",
+              "RENDERING",
+              "DELIVERABLE_READY",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "upload_status": {
+            "type": "string",
+            "enum": [
+              "VALIDATED",
+              "WARNING"
+            ],
+            "title": "Upload Status"
+          },
+          "total_duration_sec": {
+            "type": "number",
+            "title": "Total Duration Sec"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/UploadWarning"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "metadata": {
+            "items": {
+              "$ref": "#/components/schemas/UploadClipMetadata"
+            },
+            "type": "array",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "status",
+          "upload_status",
+          "total_duration_sec",
+          "warnings",
+          "metadata"
+        ],
+        "title": "CompleteUploadsResponse"
+      },
+      "CreateFilmingGuideRequest": {
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Scenario Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario_id"
+        ],
+        "title": "CreateFilmingGuideRequest"
+      },
+      "CreateJobRequest": {
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Campaign Id"
+          },
+          "source_video": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Video"
+          },
+          "source_object_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Object Key"
+          },
+          "facts_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facts Path"
+          },
+          "facts_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facts Markdown"
+          },
+          "spec_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spec Path"
+          },
+          "spec_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spec Data"
+          },
+          "compare_abc_specs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compare Abc Specs"
+          },
+          "thumbs_spec_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbs Spec Path"
+          },
+          "vo_manifest_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vo Manifest Path"
+          },
+          "track_archetype": {
+            "type": "string",
+            "title": "Track Archetype",
+            "default": "A_bgrade_reversal"
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution",
+            "default": "720p"
+          },
+          "normalize_cfr": {
+            "type": "boolean",
+            "title": "Normalize Cfr",
+            "default": false
+          },
+          "clean_copy": {
+            "type": "boolean",
+            "title": "Clean Copy",
+            "default": false
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": false
+          },
+          "max_credits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Credits"
+          },
+          "concurrency": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concurrency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "campaign_id"
+        ],
+        "title": "CreateJobRequest"
+      },
+      "CreateProjectRequest": {
+        "properties": {
+          "product": {
+            "$ref": "#/components/schemas/ProductInput"
+          },
+          "selected_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "A",
+                "B",
+                "C"
+              ]
+            },
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Selected Types"
+          },
+          "flow_mode": {
+            "type": "string",
+            "enum": [
+              "guide_first",
+              "skip_drafts"
+            ],
+            "title": "Flow Mode",
+            "default": "guide_first"
+          }
+        },
+        "type": "object",
+        "required": [
+          "product",
+          "selected_types"
+        ],
+        "title": "CreateProjectRequest"
+      },
+      "CreateRenderRequest": {
+        "properties": {
+          "scenario_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario Id"
+          },
+          "skip_drafts": {
+            "type": "boolean",
+            "title": "Skip Drafts",
+            "default": false
+          },
+          "selected_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "A",
+                  "B",
+                  "C"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Type"
+          },
+          "voice_id": {
+            "type": "string",
+            "title": "Voice Id",
+            "default": "Kore"
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "360p",
+              "720p"
+            ],
+            "title": "Resolution",
+            "default": "720p"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "CreateRenderRequest"
+      },
+      "CreateRenderResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "selected_type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "title": "Selected Type"
+          },
+          "estimated_credits": {
+            "type": "integer",
+            "title": "Estimated Credits"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/QuotaStatus"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "job_id",
+          "status",
+          "selected_type",
+          "estimated_credits",
+          "quota",
+          "expires_at"
+        ],
+        "title": "CreateRenderResponse"
+      },
+      "DeliverableThumbnail": {
+        "properties": {
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Url"
+          },
+          "safe_zone_1_1_ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safe Zone 1 1 Ok"
+          },
+          "headline_lines": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Headline Lines"
+          }
+        },
+        "type": "object",
+        "title": "DeliverableThumbnail"
+      },
+      "DeliverableVideo": {
+        "properties": {
+          "stream_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream Url"
+          },
+          "download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Url"
+          },
+          "clean_download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clean Download Url"
+          },
+          "srt_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Srt Url"
+          },
+          "duration_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Sec"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "lufs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lufs"
+          }
+        },
+        "type": "object",
+        "title": "DeliverableVideo"
+      },
+      "DeliverablesResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "video": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeliverableVideo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "thumbnail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeliverableThumbnail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ai_disclosure": {
+            "$ref": "#/components/schemas/AIDisclosureInfo"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "status",
+          "ai_disclosure",
+          "expires_at"
+        ],
+        "title": "DeliverablesResponse"
+      },
+      "EstimateRequest": {
+        "properties": {
+          "scenario_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario Id"
+          },
+          "selected_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "A",
+                  "B",
+                  "C"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Type"
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "360p",
+              "720p"
+            ],
+            "title": "Resolution",
+            "default": "720p"
+          }
+        },
+        "type": "object",
+        "title": "EstimateRequest"
+      },
+      "EstimateResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "360p",
+              "720p"
+            ],
+            "title": "Resolution"
+          },
+          "total_estimated_credits": {
+            "type": "integer",
+            "title": "Total Estimated Credits"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageCreditItem"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/QuotaStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "resolution",
+          "total_estimated_credits",
+          "stages",
+          "quota"
+        ],
+        "title": "EstimateResponse"
+      },
+      "FilmingGuideResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_SAVED",
+              "SCENARIOS_READY",
+              "STORYBOARD_READY",
+              "GUIDE_READY",
+              "UPLOADS_READY",
+              "RENDERING",
+              "DELIVERABLE_READY",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "selected_scenario_id": {
+            "type": "string",
+            "title": "Selected Scenario Id"
+          },
+          "target_body_duration_sec": {
+            "type": "number",
+            "title": "Target Body Duration Sec"
+          },
+          "shots": {
+            "items": {
+              "$ref": "#/components/schemas/FilmingGuideShot"
+            },
+            "type": "array",
+            "title": "Shots"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "status",
+          "selected_scenario_id",
+          "target_body_duration_sec",
+          "shots"
+        ],
+        "title": "FilmingGuideResponse"
+      },
+      "FilmingGuideShot": {
+        "properties": {
+          "shot_no": {
+            "type": "integer",
+            "title": "Shot No"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "duration_sec": {
+            "type": "number",
+            "title": "Duration Sec"
+          },
+          "framing_tip": {
+            "type": "string",
+            "title": "Framing Tip"
+          },
+          "fact_ref": {
+            "type": "string",
+            "title": "Fact Ref"
+          }
+        },
+        "type": "object",
+        "required": [
+          "shot_no",
+          "title",
+          "duration_sec",
+          "framing_tip",
+          "fact_ref"
+        ],
+        "title": "FilmingGuideShot"
+      },
+      "GenerateScenariosRequest": {
+        "properties": {
+          "types": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "A",
+                    "B",
+                    "C"
+                  ]
+                },
+                "type": "array",
+                "maxItems": 3,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Types"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "anthropic",
+              "google"
+            ],
+            "title": "Provider",
+            "default": "anthropic"
+          }
+        },
+        "type": "object",
+        "title": "GenerateScenariosRequest"
+      },
+      "GenerateScenariosResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_SAVED",
+              "SCENARIOS_READY",
+              "STORYBOARD_READY",
+              "GUIDE_READY",
+              "UPLOADS_READY",
+              "RENDERING",
+              "DELIVERABLE_READY",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioItem"
+            },
+            "type": "array",
+            "title": "Scenarios"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "status",
+          "scenarios"
+        ],
+        "title": "GenerateScenariosResponse"
+      },
+      "GenerateStoryboardRequest": {
+        "properties": {
+          "visual_style": {
+            "type": "string",
+            "title": "Visual Style",
+            "default": "default"
+          }
+        },
+        "type": "object",
+        "title": "GenerateStoryboardRequest"
+      },
+      "GoogleAuthRequest": {
+        "properties": {
+          "credential": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Credential",
+            "description": "Google One Tap or GIS ID Token (JWT)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "credential"
+        ],
+        "title": "GoogleAuthRequest"
+      },
+      "GoogleAuthResponse": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/AuthUserResponse"
+          },
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "const": "Bearer",
+            "title": "Token Type",
+            "default": "Bearer"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/QuotaStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "access_token",
+          "expires_at",
+          "quota"
+        ],
+        "title": "GoogleAuthResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HookTypeMeta": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "title": "Type"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "track_archetype": {
+            "type": "string",
+            "title": "Track Archetype"
+          },
+          "product_relation": {
+            "type": "string",
+            "title": "Product Relation"
+          },
+          "replacement_test": {
+            "type": "string",
+            "title": "Replacement Test"
+          },
+          "example_hook": {
+            "type": "string",
+            "title": "Example Hook"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "name",
+          "track_archetype",
+          "product_relation",
+          "replacement_test",
+          "example_hook"
+        ],
+        "title": "HookTypeMeta"
+      },
+      "HookTypesResponse": {
+        "properties": {
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/HookTypeMeta"
+            },
+            "type": "array",
+            "title": "Types"
+          }
+        },
+        "type": "object",
+        "required": [
+          "types"
+        ],
+        "title": "HookTypesResponse"
+      },
+      "PresignRequest": {
+        "properties": {
+          "object_key": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Object Key"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type",
+            "default": "video/mp4"
+          },
+          "expires_sec": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 60.0,
+            "title": "Expires Sec",
+            "default": 900
+          }
+        },
+        "type": "object",
+        "required": [
+          "object_key"
+        ],
+        "title": "PresignRequest"
+      },
+      "ProductInput": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "living",
+              "kitchen",
+              "stationery"
+            ],
+            "title": "Category"
+          },
+          "verified_facts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Verified Facts"
+          },
+          "one_liner": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 240
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "One Liner"
+          },
+          "price_or_offer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Or Offer"
+          },
+          "target_audience": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Audience"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "verified_facts"
+        ],
+        "title": "ProductInput"
+      },
+      "ProjectDetailResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_SAVED",
+              "SCENARIOS_READY",
+              "STORYBOARD_READY",
+              "GUIDE_READY",
+              "UPLOADS_READY",
+              "RENDERING",
+              "DELIVERABLE_READY",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "flow_mode": {
+            "type": "string",
+            "enum": [
+              "guide_first",
+              "skip_drafts"
+            ],
+            "title": "Flow Mode"
+          },
+          "product": {
+            "$ref": "#/components/schemas/ProductInput"
+          },
+          "selected_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "A",
+                "B",
+                "C"
+              ]
+            },
+            "type": "array",
+            "title": "Selected Types"
+          },
+          "selected_scenario_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Scenario Id"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioItem"
+            },
+            "type": "array",
+            "title": "Scenarios"
+          },
+          "filming_guide": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilmingGuideResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uploads": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompleteUploadsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Job Id"
+          },
+          "latest_job": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Job"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/QuotaStatus"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "status",
+          "flow_mode",
+          "product",
+          "selected_types",
+          "quota",
+          "expires_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProjectDetailResponse"
+      },
+      "ProjectListResponse": {
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectSummary"
+            },
+            "type": "array",
+            "title": "Projects"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/QuotaStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "projects",
+          "quota"
+        ],
+        "title": "ProjectListResponse"
+      },
+      "ProjectSummary": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_SAVED",
+              "SCENARIOS_READY",
+              "STORYBOARD_READY",
+              "GUIDE_READY",
+              "UPLOADS_READY",
+              "RENDERING",
+              "DELIVERABLE_READY",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "flow_mode": {
+            "type": "string",
+            "enum": [
+              "guide_first",
+              "skip_drafts"
+            ],
+            "title": "Flow Mode"
+          },
+          "product_name": {
+            "type": "string",
+            "title": "Product Name"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "living",
+              "kitchen",
+              "stationery"
+            ],
+            "title": "Category"
+          },
+          "selected_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "A",
+                "B",
+                "C"
+              ]
+            },
+            "type": "array",
+            "title": "Selected Types"
+          },
+          "selected_scenario_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Scenario Id"
+          },
+          "latest_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Job Id"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "status",
+          "flow_mode",
+          "product_name",
+          "category",
+          "selected_types",
+          "expires_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProjectSummary"
+      },
+      "QuotaStatus": {
+        "properties": {
+          "daily_limit": {
+            "type": "integer",
+            "title": "Daily Limit"
+          },
+          "used_today": {
+            "type": "integer",
+            "title": "Used Today"
+          },
+          "remaining_today": {
+            "type": "integer",
+            "title": "Remaining Today"
+          },
+          "resets_at": {
+            "type": "string",
+            "title": "Resets At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "daily_limit",
+          "used_today",
+          "remaining_today",
+          "resets_at"
+        ],
+        "title": "QuotaStatus"
+      },
+      "ScenarioBeat": {
+        "properties": {
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "duration_sec": {
+            "type": "number",
+            "title": "Duration Sec"
+          },
+          "visual": {
+            "type": "string",
+            "title": "Visual"
+          },
+          "narration": {
+            "type": "string",
+            "title": "Narration",
+            "default": ""
+          },
+          "caption": {
+            "type": "string",
+            "title": "Caption",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "order",
+          "role",
+          "duration_sec",
+          "visual"
+        ],
+        "title": "ScenarioBeat"
+      },
+      "ScenarioItem": {
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "title": "Scenario Id"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "title": "Type"
+          },
+          "hook_title": {
+            "type": "string",
+            "title": "Hook Title"
+          },
+          "hook_duration_sec": {
+            "type": "number",
+            "title": "Hook Duration Sec"
+          },
+          "body_duration_sec": {
+            "type": "number",
+            "title": "Body Duration Sec"
+          },
+          "replacement_test_note": {
+            "type": "string",
+            "title": "Replacement Test Note"
+          },
+          "beats": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioBeat"
+            },
+            "type": "array",
+            "title": "Beats"
+          },
+          "storyboard_frames": {
+            "items": {
+              "$ref": "#/components/schemas/StoryboardFrame"
+            },
+            "type": "array",
+            "title": "Storyboard Frames"
+          },
+          "ad_spec": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Ad Spec"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario_id",
+          "type",
+          "hook_title",
+          "hook_duration_sec",
+          "body_duration_sec",
+          "replacement_test_note",
+          "beats"
+        ],
+        "title": "ScenarioItem"
+      },
+      "StageCreditItem": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "estimated_credits": {
+            "type": "integer",
+            "title": "Estimated Credits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage",
+          "description",
+          "estimated_credits"
+        ],
+        "title": "StageCreditItem"
+      },
+      "StoryboardFrame": {
+        "properties": {
+          "beat_order": {
+            "type": "integer",
+            "title": "Beat Order"
+          },
+          "image_url": {
+            "type": "string",
+            "title": "Image Url"
+          },
+          "caption": {
+            "type": "string",
+            "title": "Caption",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "beat_order",
+          "image_url"
+        ],
+        "title": "StoryboardFrame"
+      },
+      "StoryboardResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "scenario_id": {
+            "type": "string",
+            "title": "Scenario Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_SAVED",
+              "SCENARIOS_READY",
+              "STORYBOARD_READY",
+              "GUIDE_READY",
+              "UPLOADS_READY",
+              "RENDERING",
+              "DELIVERABLE_READY",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/StoryboardFrame"
+            },
+            "type": "array",
+            "title": "Frames"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "scenario_id",
+          "status",
+          "frames"
+        ],
+        "title": "StoryboardResponse"
+      },
+      "UploadClipInput": {
+        "properties": {
+          "shot_no": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Shot No"
+          },
+          "object_key": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Object Key"
+          },
+          "file_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size Bytes"
+          },
+          "duration_sec": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Sec"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "local_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "shot_no",
+          "object_key"
+        ],
+        "title": "UploadClipInput"
+      },
+      "UploadClipMetadata": {
+        "properties": {
+          "shot_no": {
+            "type": "integer",
+            "title": "Shot No"
+          },
+          "object_key": {
+            "type": "string",
+            "title": "Object Key"
+          },
+          "duration_sec": {
+            "type": "number",
+            "title": "Duration Sec"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "recommended_framing": {
+            "type": "string",
+            "title": "Recommended Framing"
+          }
+        },
+        "type": "object",
+        "required": [
+          "shot_no",
+          "object_key",
+          "duration_sec",
+          "width",
+          "height",
+          "recommended_framing"
+        ],
+        "title": "UploadClipMetadata"
+      },
+      "UploadWarning": {
+        "properties": {
+          "shot_no": {
+            "type": "integer",
+            "title": "Shot No"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "shot_no",
+          "code",
+          "message"
+        ],
+        "title": "UploadWarning"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

@@ -1,5 +1,6 @@
 frontend/
 backend/
+contracts/
 libraries/
 prototypes/campaigns/
 tests/

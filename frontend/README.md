@@ -6,6 +6,7 @@
 
 - UI·프론트엔드 코드는 이 폴더에서 관리합니다.
 - 서버·미디어 워커는 `backend/`에서 관리합니다.
+- 프론트·백엔드 공통 API 명세와 OpenAPI 스키마는 [`contracts/api-spec.md`](../contracts/api-spec.md) · [`contracts/openapi.json`](../contracts/openapi.json)에서 관리합니다.
 - 플래너 계약·스키마는 `libraries/planner-api/`에서 관리합니다.
 - 사용자 흐름 테스트는 루트 `tests/`의 PRD별 폴더에 추가합니다.
 

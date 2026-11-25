@@ -95,6 +95,7 @@
 ```text
 frontend/                   PRD 가이드 먼저형 UI 개발 위치
 backend/                    FastAPI API·미디어 워커
+contracts/                  프론트·백엔드 공통 API 명세·OpenAPI 스키마
 libraries/                  재사용 API·라이브러리
   planner-api/              TypeScript 기획 API·스키마·워커 연결
   media-tools/              분석·검수·음성·조립·썸네일 CLI
@@ -123,7 +124,7 @@ Makefile                    설치·개발·검증 명령
 vercel.json                 기존 웹 프로토타입 배포 설정
 ```
 
-[프론트엔드](frontend/README.md) · [백엔드](backend/README.md) · [공용 라이브러리](libraries/README.md) · [프로토타입](prototypes/README.md) · [PRD별 테스트](tests/README.md)
+[프론트엔드](frontend/README.md) · [백엔드](backend/README.md) · [API 계약](contracts/api-spec.md) · [공용 라이브러리](libraries/README.md) · [프로토타입](prototypes/README.md) · [PRD별 테스트](tests/README.md)
 
 ## 현재 구현과 개발 구성
 

@@ -17,6 +17,13 @@ from pydantic import BaseModel, Field
 from .config import Settings
 from .genai_provider import GenAIMediaProvider
 from .pipeline import CampaignRequest, ProductionPipeline
+from .project_store import ProjectStore
+from .projects_router import (
+    GoogleTokenVerifier,
+    ScenarioGenerator,
+    StoryboardGenerator,
+    build_projects_router,
+)
 from .storage import StorageBackend, build_storage
 from .store import JobStore
 
@@ -51,11 +58,16 @@ def create_app(
     settings: Optional[Settings] = None,
     *,
     store: Optional[JobStore] = None,
+    project_store: Optional[ProjectStore] = None,
     storage: Optional[StorageBackend] = None,
     provider_factory: Optional[Callable[[Settings], GenAIMediaProvider]] = None,
+    google_token_verifier: Optional[GoogleTokenVerifier] = None,
+    scenario_generator: Optional[ScenarioGenerator] = None,
+    storyboard_generator: Optional[StoryboardGenerator] = None,
 ) -> FastAPI:
     cfg = settings or Settings()
     job_store = store or JobStore(cfg.db_path)
+    proj_store = project_store or ProjectStore(cfg.db_path)
     storage_backend = storage or build_storage(cfg)
     pipeline = ProductionPipeline(
         cfg,
@@ -65,9 +77,10 @@ def create_app(
     )
     executor = ThreadPoolExecutor(max_workers=max(1, cfg.concurrency))
 
-    app = FastAPI(title="Shortform Ad Production API", version="0.1.0")
+    app = FastAPI(title="NAPDA Backend API", version="0.1.0")
     app.state.settings = cfg
     app.state.store = job_store
+    app.state.project_store = proj_store
     app.state.storage = storage_backend
     app.state.pipeline = pipeline
 
@@ -168,6 +181,20 @@ def create_app(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
         executor.submit(_retry_bg, job_id, unit_id)
         return {"job_id": job_id, "unit_id": unit_id, "status": "QUEUED_RETRY"}
+
+    app.include_router(
+        build_projects_router(
+            cfg,
+            proj_store,
+            job_store,
+            storage_backend,
+            pipeline,
+            executor,
+            google_token_verifier=google_token_verifier,
+            scenario_generator=scenario_generator,
+            storyboard_generator=storyboard_generator,
+        )
+    )
 
     return app
 
