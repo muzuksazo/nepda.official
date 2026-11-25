@@ -18,7 +18,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-PROD_ROOT = Path(__file__).resolve().parents[2] / "apps" / "backend"
+PROD_ROOT = Path(__file__).resolve().parents[2] / "backend"
 if str(PROD_ROOT) not in sys.path:
     sys.path.insert(0, str(PROD_ROOT))
 

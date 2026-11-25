@@ -9,4 +9,4 @@
 
 폴더 이동으로 캠페인 내부의 `source/`, `clips/`, `audio/` 상대 경로는 바꾸지 않았습니다. 대용량 미디어는 계속 Git에서 제외합니다.
 
-제품 앱은 `apps/`, 공용 도구는 `libraries/`, 기존 실험 회귀 테스트는 `tests/prototypes/`에서 관리합니다.
+제품 프론트엔드는 `frontend/`, 백엔드는 `backend/`, 공용 도구는 `libraries/`, 기존 실험 회귀 테스트는 `tests/prototypes/`에서 관리합니다.

@@ -1,4 +1,5 @@
-apps/
+frontend/
+backend/
 libraries/
 prototypes/campaigns/
 tests/

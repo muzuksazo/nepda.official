@@ -8,7 +8,7 @@ from typing import Literal, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROD_ROOT = Path(__file__).resolve().parents[1]
-_REPO_ROOT = _PROD_ROOT.parent.parent
+_REPO_ROOT = _PROD_ROOT.parent
 _DEFAULT_SCRIPTS = _REPO_ROOT / "libraries" / "media-tools"
 
 

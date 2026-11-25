@@ -93,9 +93,8 @@
 ## 폴더 구조
 
 ```text
-apps/                       프로덕션 앱
-  frontend/                 PRD 가이드 먼저형 UI 개발 위치
-  backend/                  FastAPI API·미디어 워커
+frontend/                   PRD 가이드 먼저형 UI 개발 위치
+backend/                    FastAPI API·미디어 워커
 libraries/                  재사용 API·라이브러리
   planner-api/              TypeScript 기획 API·스키마·워커 연결
   media-tools/              분석·검수·음성·조립·썸네일 CLI
@@ -124,16 +123,16 @@ Makefile                    설치·개발·검증 명령
 vercel.json                 기존 웹 프로토타입 배포 설정
 ```
 
-[앱 구성](apps/README.md) · [공용 라이브러리](libraries/README.md) · [프로토타입](prototypes/README.md) · [PRD별 테스트](tests/README.md)
+[프론트엔드](frontend/README.md) · [백엔드](backend/README.md) · [공용 라이브러리](libraries/README.md) · [프로토타입](prototypes/README.md) · [PRD별 테스트](tests/README.md)
 
 ## 현재 구현과 개발 구성
 
-기존 업로드 먼저형 웹앱은 `prototypes/hookcut/`로 모았습니다. `apps/backend/`에는 기존 production 워커를 옮겼고, `apps/frontend/`는 PRD의 가이드 먼저형 UI를 개발할 위치로 분리했습니다. 가이드 먼저형 프론트엔드는 아직 구현되어 있지 않습니다.
+기존 업로드 먼저형 웹앱은 `prototypes/hookcut/`로 모았습니다. `backend/`에는 기존 production 워커를 옮겼고, `frontend/`는 PRD의 가이드 먼저형 UI를 개발할 위치로 분리했습니다. 가이드 먼저형 프론트엔드는 아직 구현되어 있지 않습니다.
 
 | 구성 | 현재 역할 | 실행 위치 |
 | --- | --- | --- |
-| 프로덕션 프론트엔드 | PRD 기반 UI 개발 위치 | `apps/frontend/` |
-| 백엔드 | 작업 API·저장소·생성·검수·조립 | `apps/backend/` · `8080` |
+| 프로덕션 프론트엔드 | PRD 기반 UI 개발 위치 | `frontend/` |
+| 백엔드 | 작업 API·저장소·생성·검수·조립 | `backend/` · `8080` |
 | 플래너 API·라이브러리 | Claude·Gemini 기획·비교·스펙·워커 연결 | `libraries/planner-api/` · `8787` |
 | 미디어 도구 | 분석·검수·음성·영상·썸네일 CLI | `libraries/media-tools/` |
 | 기존 웹 프로토타입 | 업로드 먼저형 편집·브라우저 렌더·Blender 연결 | `prototypes/hookcut/` |
@@ -148,16 +147,16 @@ Python 3.11 이상, uv, Node.js 20.6 이상, npm, FFmpeg·FFprobe를 준비합�
 git clone https://github.com/muzuksazo/nepda.official.git
 cd nepda.official
 uv venv .venv --python 3.12
-uv pip install --python .venv/bin/python -r apps/backend/requirements.txt
+uv pip install --python .venv/bin/python -r backend/requirements.txt
 npm ci
-cp apps/backend/.env.example apps/backend/.env
+cp backend/.env.example backend/.env
 cp libraries/planner-api/.env.example libraries/planner-api/.env
 ```
 
 Windows PowerShell에서는 Python 실행 경로를 `.venv\Scripts\python.exe`로 바꾸고, 환경 파일은 다음 명령으로 준비합니다.
 
 ```powershell
-Copy-Item apps/backend/.env.example apps/backend/.env
+Copy-Item backend/.env.example backend/.env
 Copy-Item libraries/planner-api/.env.example libraries/planner-api/.env
 ```
 
@@ -166,7 +165,7 @@ Copy-Item libraries/planner-api/.env.example libraries/planner-api/.env
 **터미널 1 — 백엔드**
 
 ```bash
-.venv/bin/python -m uvicorn app.server:app --app-dir apps/backend --host 127.0.0.1 --port 8080
+.venv/bin/python -m uvicorn app.server:app --app-dir backend --host 127.0.0.1 --port 8080
 ```
 
 **터미널 2 — 플래너 API**
@@ -175,7 +174,7 @@ Copy-Item libraries/planner-api/.env.example libraries/planner-api/.env
 node --env-file=libraries/planner-api/.env --import tsx libraries/planner-api/src/server.ts
 ```
 
-자세한 사용법은 [백엔드 문서](apps/backend/README.md)와 [플래너 문서](libraries/planner-api/README.md)를 참고하세요.
+자세한 사용법은 [백엔드 문서](backend/README.md)와 [플래너 문서](libraries/planner-api/README.md)를 참고하세요.
 
 ### 검증
 

@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-for directory in (ROOT / "apps" / "backend", ROOT / "libraries" / "media-tools"):
+for directory in (ROOT / "backend", ROOT / "libraries" / "media-tools"):
     sys.path.insert(0, str(directory))
 if os.name == "nt":
     for variable, filename in (("SHORTFORM_FONT_BOLD", "malgunbd.ttf"),

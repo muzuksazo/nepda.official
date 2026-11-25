@@ -2,7 +2,7 @@
 .env
 .env.*
 !.env.example
-!apps/backend/.env.example
+!backend/.env.example
 !libraries/planner-api/.env.example
 __pycache__/
 *.pyc
@@ -23,7 +23,7 @@ prototypes/campaigns/*/clips/
 prototypes/campaigns/*/final/*.mp4
 prototypes/campaigns/*/refs/.flow_assets.json
 .venv/
-apps/backend/data/
+backend/data/
 *.db
 *.db-wal
 *.db-shm
