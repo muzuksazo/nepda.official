@@ -109,6 +109,54 @@ assert.equal(run.total.inputTokens, 8500);
 assert.equal(run.total.outputTokens, 3200);
 assert.ok(Math.abs(run.total.costUsd - 0.098) < 1e-9, `cost ${run.total.costUsd}`);
 
+assert.equal(run.ideationSource, "new");
+
+// 검색 재사용: 저장된 검색을 주면 아이디어 호출 없이 시나리오만 (앵커 그대로)
+{
+  const m2 = new MockLanguageModelV4({ doGenerate: [reply({ scenarios: [good] }, 3000, 1000)] });
+  const r2 = await generateScenarios({ ...input, round: 2 }, { model: m2, modelId: "claude-opus-5-5", pool: run.ideation });
+  assert.equal(r2.ideationSource, "reused");
+  assert.equal(m2.doGenerateCalls.length, 1, "재사용이면 시나리오 호출 1번뿐");
+  assert.ok(r2.steps[0].step.includes("재사용") && r2.steps[0].costUsd === 0);
+  assert.equal(r2.response.scenarios[0].ad_spec.anchor, mindmap.anchor, "앵커 고정");
+}
+// 씨앗이 떨어지면 추가 검색: 앵커·용도 영역은 처음 것 그대로
+{
+  const NEW = "에라토스테네스 그림자 7.2도로 지구 둘레 계산";
+  const m3 = new MockLanguageModelV4({
+    doGenerate: [
+      reply({ ...mindmap, anchor: "모델이 새로 쓴 앵커", seeds: [{ lens: "nature", word: NEW, arc: "그림자 각도 → 부채꼴 비율" }] }),
+      reply({ scores: [{ word: NEW, info: 0.8, sim: 0.5, usage: 0.1, link: 0.85 }] }),
+      reply({ scenarios: [{ ...good, ad_spec: { ...good.ad_spec, story_seed: NEW } }] }),
+    ],
+  });
+  const usedPrev = { ...good, ad_spec: { ...good.ad_spec, story_seed: SEED } };
+  const r3 = await generateScenarios({ ...input, round: 3, previous_scenarios: [usedPrev] }, { model: m3, modelId: "claude-opus-5-5", pool: run.ideation });
+  assert.equal(r3.ideationSource, "expanded");
+  assert.ok(JSON.stringify(m3.doGenerateCalls[0].prompt).includes("[고정]"), "추가 검색 프롬프트에 고정 앵커");
+  assert.equal(r3.ideation?.anchor, mindmap.anchor, "추가 검색해도 앵커는 처음 것");
+  assert.equal(r3.ideation?.seeds.length, 3, "씨앗 누적");
+  assert.equal(r3.response.scenarios[0].ad_spec.story_seed, NEW);
+  assert.equal(r3.response.scenarios[0].ad_spec.anchor, mindmap.anchor);
+}
+console.log("OK 검색 재사용·추가 검색(앵커 고정)");
+
+// 이야기 유사도: 발단 = 첫 전개는 통과(정체), 전체가 안 오르면 위반
+{
+  const flat = structuredClone(good);
+  flat.ad_spec.bridge_path = [{ word: "발단", sim_to_anchor: 0.55 }, { word: "전개1", sim_to_anchor: 0.55 }, { word: "전개2", sim_to_anchor: 0.8 }];
+  flat.beats.splice(2, 0, { ...good.beats[1], order: 3 });
+  flat.beats[3].order = 4;
+  flat.ad_spec.product_first_mention_beat = 4;
+  flat.beats[2].duration_sec = 3; // 합계 맞춤
+  flat.hook_duration_sec = 20;
+  const e1 = checkScenario(flat as never, input.product_info).errors;
+  assert.ok(!e1.some((e) => e.includes("다가가지")), "발단·첫 전개 같은 값은 통과: " + e1.join(" / "));
+  const noRise = structuredClone(good);
+  noRise.ad_spec.bridge_path = [{ word: "발단", sim_to_anchor: 0.55 }, { word: "전개", sim_to_anchor: 0.6 }];
+  assert.ok(checkScenario(noRise as never, input.product_info).errors.some((e) => e.includes("다가가지")), "0.1 미만 상승은 위반");
+}
+
 const plan = toPipelinePlan(s);
 assert.equal(plan.scenes.length, 3);
 assert.equal(plan.hookSeconds, 17);

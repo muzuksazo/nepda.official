@@ -65,7 +65,8 @@ function ideationBlock(run: RunRecord): string {
           <td class="muted">${esc(s.lens)}</td><td>${simBar(s.sim)}</td><td class="num">${s.usage.toFixed(2)}</td><td class="num">${s.link.toFixed(2)}</td><td class="num">${s.info.toFixed(2)}</td></tr>`
       )
       .join("");
-    return `<details class="sub"><summary>유사도 검색 — 이야기 씨앗 ${id.seeds.length}개 · 조건 통과 ${(run.seedCandidates ?? []).length}개 후보로 전달</summary>${head}
+    const src = { new: "새 검색", reused: "저장된 검색 재사용 · 앵커 고정", expanded: "재사용 + 추가 검색 · 앵커 고정" }[run.ideationSource ?? "new"];
+    return `<details class="sub"><summary>유사도 검색 (${src}) — 이야기 씨앗 ${id.seeds.length}개 · 후보 ${(run.seedCandidates ?? []).length}개 전달</summary>${head}
       <p class="muted">조건: 발단-앵커 0.40~0.60 · 용도 영역 0.35 이하 · 결말-앵커 연결 0.6 이상. 초록 줄이 고른 씨앗.</p>
       <div class="scroll"><table><thead><tr><th>점수</th><th>씨앗 · 흐름</th><th>관점</th><th>발단 유사도</th><th>용도</th><th>연결</th><th>흥미</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
   }

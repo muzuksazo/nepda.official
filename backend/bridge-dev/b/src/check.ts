@@ -52,9 +52,14 @@ export function checkScenario(s: DraftScenario, product: ProductInfo): CheckResu
   if (bridges < 1 || bridges > 2) errors.push(`브리지 ${bridges}개 (1~2개여야 함, bridge_path = [시작, 브리지...])`);
   if (path[0] && Math.abs(path[0].sim_to_anchor - h) > 0.001)
     warnings.push(`bridge_path[0].sim_to_anchor ${path[0].sim_to_anchor} ≠ hook_similarity_score ${h}`);
-  for (let i = 1; i < path.length; i++) {
-    if (path[i].sim_to_anchor <= path[i - 1].sim_to_anchor)
-      errors.push(`앵커 유사도가 올라가지 않음: "${path[i - 1].word}"(${path[i - 1].sim_to_anchor}) → "${path[i].word}"(${path[i].sim_to_anchor})`);
+  // 이야기 모드: 발단과 첫 전개는 비슷할 수 있다 → 전체로 올라가면 통과, 단계 사이 정체·소폭 하락은 경고
+  if (path.length >= 2) {
+    const first = path[0].sim_to_anchor, last = path[path.length - 1].sim_to_anchor;
+    if (last - first < 0.1)
+      errors.push(`이야기가 앵커 쪽으로 다가가지 않음: 발단 ${first} → 마지막 전개 ${last} (0.1 이상 올라야 함)`);
+    for (let i = 1; i < path.length; i++)
+      if (path[i].sim_to_anchor < path[i - 1].sim_to_anchor)
+        warnings.push(`앵커 유사도가 잠깐 내려감: "${path[i - 1].word}"(${path[i - 1].sim_to_anchor}) → "${path[i].word}"(${path[i].sim_to_anchor})`);
   }
   if (path.length && beats.length !== path.length + 1)
     warnings.push(`장면 ${beats.length}개가 경로(시작+브리지 ${bridges}개+반전 = ${path.length + 1}개)와 다름`);

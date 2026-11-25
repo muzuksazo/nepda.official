@@ -24,6 +24,8 @@ export interface GenerateOptions {
   model?: LanguageModel;
   /** 유사도 검색 단계를 건너뛸 때 false. 기본 true */
   ideate?: boolean;
+  /** 같은 프로젝트에서 저장해 둔 검색 결과. 있으면 재사용하고 앵커를 고정한다(후보가 떨어지면 추가 검색) */
+  pool?: IdeationResult | null;
   /** 규칙 위반 시 다시 생성하는 최대 횟수(첫 시도 포함). 기본 2 */
   maxAttempts?: number;
   log?: (msg: string) => void;
@@ -36,6 +38,8 @@ export interface RunRecord {
   modelId: string;
   ideaModelId: string;
   ideation: IdeationResult | null;
+  /** new: 새 검색 / reused: 저장된 검색 재사용 / expanded: 재사용 + 추가 검색 (앵커는 그대로) */
+  ideationSource?: "new" | "reused" | "expanded";
   /** 시나리오 프롬프트에 후보로 준 이야기 씨앗 */
   seedCandidates?: StorySeed[];
   steps: StepUsage[];
@@ -80,12 +84,28 @@ export async function generateScenarios(input: WorkerInput, opts: GenerateOption
 
   // 1) 유사도 검색
   let ideation: IdeationResult | null = null;
+  let ideationSource: RunRecord["ideationSource"];
   let chosen: StorySeed[] = [];
   if (opts.ideate !== false) {
-    ideation = await ideate(input, ideaModel, ideaModelId, track, { log });
     const used = input.previous_scenarios
       .map((s) => (s as { ad_spec?: { story_seed?: string } })?.ad_spec?.story_seed)
       .filter((w): w is string => !!w);
+    if (opts.pool?.seeds?.length) {
+      // 검색 재사용: 저장된 씨앗에서 이미 쓴 것만 빼고 고른다. 앵커는 그대로.
+      ideation = opts.pool;
+      ideationSource = "reused";
+      steps.push({ step: "아이디어: 저장된 검색 재사용 (앵커 고정)", model: "-", inputTokens: 0, outputTokens: 0, costUsd: 0, ms: 0 });
+      const left = rankSeeds(ideation.seeds, { exclude: used }).length;
+      log(`[B 아이디어] 저장된 검색 재사용 — 남은 씨앗 ${left}개, 앵커: ${ideation.anchor}`);
+      if (left < input.count) {
+        log("[B 아이디어] 남은 씨앗이 부족해서 추가 검색 (앵커 고정)");
+        ideation = await ideate(input, ideaModel, ideaModelId, track, { log, expandFrom: ideation });
+        ideationSource = "expanded";
+      }
+    } else {
+      ideation = await ideate(input, ideaModel, ideaModelId, track, { log });
+      ideationSource = "new";
+    }
     chosen = rankSeeds(ideation.seeds, { exclude: used }).slice(0, Math.max(3, input.count * 2));
     if (chosen.length < input.count)
       log(`[B] 조건(발단 0.40~0.60·용도 영역 0.35 이하·결말 연결 0.6 이상)을 만족하는 씨앗 ${chosen.length}개뿐. 나머지는 모델이 직접 고름`);
@@ -152,6 +172,7 @@ export async function generateScenarios(input: WorkerInput, opts: GenerateOption
     modelId,
     ideaModelId,
     ideation,
+    ideationSource,
     seedCandidates: chosen,
     steps,
     total: totals(steps),

@@ -16,6 +16,8 @@ const USAGE = `사용법:
       --next       이 프로젝트의 다음 회차로 실행 (앞선 회차 시나리오를 피함)
       --cuts       장면 컷 이미지까지 렌더 (video_test/pipeline 필요, 추가 과금)
       --no-ideate  유사도 검색 단계 건너뛰기
+      --new-search 저장된 검색(out/<project_id>/ideation.json)을 쓰지 않고 새로 검색 (앵커도 새로 정함)
+      (기본: 같은 프로젝트에 저장된 검색이 있으면 재사용하고 앵커를 고정, 씨앗이 떨어지면 추가 검색)
   npm run cuts -- <project_id> <round>
       이미 만든 회차의 장면 컷 이미지를 렌더하고 리포트를 갱신. Claude API 호출(과금).
   npm run video -- <project_id> <round>
@@ -189,14 +191,19 @@ async function main() {
       process.exit(1);
     }
 
+    const poolPath = join(dir, "ideation.json");
+    const pool = !has("--new-search") && existsSync(poolPath) ? (readJson(poolPath) as RunRecord["ideation"]) : null;
     let run = await generateScenarios(input, {
       ideate: !has("--no-ideate"),
+      pool,
       maxAttempts: arg("--attempts") ? Number(arg("--attempts")) : undefined,
       log: (m) => console.error(m),
     });
     if (has("--cuts")) run = await attachCuts(run, input.project_id, input.product_info);
 
     mkdirSync(join(dir, `round-${input.round}`), { recursive: true });
+    // 검색 결과 저장 → 다음 회차에서 재사용 (앵커 고정)
+    if (run.ideation && "seeds" in run.ideation) writeFileSync(poolPath, JSON.stringify(run.ideation, null, 2) + "\n", "utf8");
     writeFileSync(recordPath, JSON.stringify({ ...run, product_name: input.product_info.name, product_info: input.product_info }, null, 2) + "\n", "utf8");
     for (const s of run.response.scenarios)
       writeFileSync(join(dir, `round-${input.round}`, `${s.scenario_id}.plan.json`), JSON.stringify(toPipelinePlan(s), null, 2) + "\n", "utf8");

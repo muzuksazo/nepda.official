@@ -112,15 +112,24 @@ export async function ideate(
   model: LanguageModel,
   modelId: string,
   track: Track,
-  opts: { log?: (m: string) => void } = {}
+  opts: {
+    log?: (m: string) => void;
+    /** 추가 검색: 앵커·용도 영역은 이 결과 그대로 쓰고, 이미 있는 씨앗과 겹치지 않는 새 씨앗만 뽑는다 */
+    expandFrom?: IdeationResult;
+  } = {}
 ): Promise<IdeationResult> {
   const log = opts.log ?? (() => {});
+  const prev = opts.expandFrom;
   const p = input.product_info;
   const product = `제품: ${p.name}\nverified_facts:\n${p.verified_facts.map((f) => `- ${f}`).join("\n")}`;
+  const fixed = prev
+    ? `\n\n[고정] 앵커와 용도 영역은 이미 정해져 있습니다. 1·2번은 아래 값을 그대로 적으세요.\n앵커: ${prev.anchor}\n앵커 근거: ${prev.anchorFact}\n숫자 실: ${prev.numberHint}\n용도 영역: ${prev.usageDomains.join(", ")}\n` +
+      `[추가 검색] 아래 씨앗과 겹치지 않는 새 이야기만 적으세요: ${JSON.stringify(prev.seeds.map((s) => s.word))}`
+    : "";
 
   // 1) 앵커 + 용도 영역 + 이야기 씨앗
-  log("[B 아이디어] 1/2 앵커와 이야기 씨앗");
-  const mm = await call(
+  log(`[B 아이디어] 1/2 ${prev ? "추가 이야기 씨앗 (앵커 고정)" : "앵커와 이야기 씨앗"}`);
+  const mmRaw = await call(
     model,
     modelId,
     "아이디어: 앵커·이야기 씨앗",
@@ -136,11 +145,15 @@ export async function ideate(
    - 15~20초 동안 그 이야기 하나만 따라가며 설명할 수 있어야 합니다. 서로 다른 사실 여러 개를 엮은 것은 씨앗이 아닙니다.
    - 이야기의 발단은 용도 영역 밖이어야 하고, 이야기의 핵심 원리(결말)는 앵커와 모양·단위·움직임(원, 각도, 면적, 비율, 줄어듦 등)으로 이어질 수 있어야 합니다.
    - 제품명과 제품군 어휘는 쓰지 마세요. 널리 알려져 출처를 댈 수 있는 이야기를 우선하세요.
-관점: ${LENSES.map((l) => `${l.id}(${l.label}: ${l.hint})`).join(" / ")}`,
+관점: ${LENSES.map((l) => `${l.id}(${l.label}: ${l.hint})`).join(" / ")}${fixed}`,
     track
   );
+  // 앵커 고정: 추가 검색이면 모델이 뭐라고 쓰든 처음 값을 쓴다
+  const mm = prev
+    ? { ...mmRaw, anchor: prev.anchor, anchor_fact: prev.anchorFact, number_hint: prev.numberHint, usage_domains: prev.usageDomains }
+    : mmRaw;
 
-  const seen = new Set<string>();
+  const seen = new Set<string>(prev?.seeds.map((s) => s.word) ?? []);
   const flat = mm.seeds.filter((s) => (seen.has(s.word) ? false : (seen.add(s.word), true)));
 
   // 2) 씨앗 채점 (동시에)
@@ -183,7 +196,7 @@ ${SIM_SCALE}
       seeds.push({ word: c.word, arc: c.arc, lens: c.lens, info: s.info, sim: s.sim, usage: s.usage, link: s.link, score });
     }
   }
-  const ok = rankSeeds(seeds).length;
-  log(`[B 아이디어] 조건을 만족하는 씨앗 ${ok}개 / ${seeds.length}개`);
-  return { anchor: mm.anchor, usageDomains: mm.usage_domains, anchorFact: mm.anchor_fact, numberHint: mm.number_hint, seeds };
+  const all = [...(prev?.seeds ?? []), ...seeds];
+  log(`[B 아이디어] 조건을 만족하는 씨앗 ${rankSeeds(seeds).length}개 / 새 씨앗 ${seeds.length}개${prev ? ` (누적 ${all.length}개)` : ""}`);
+  return { anchor: mm.anchor, usageDomains: mm.usage_domains, anchorFact: mm.anchor_fact, numberHint: mm.number_hint, seeds: all };
 }
