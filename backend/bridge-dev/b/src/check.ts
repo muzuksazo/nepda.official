@@ -123,10 +123,7 @@ export function checkScenario(s: DraftScenario, product: ProductInfo): CheckResu
   const FORBIDDEN_3D = [/drei/i, /gltf|glb|\.obj\b|fbx/i, /텍스처|texture/i, /TextGeometry|3D 글자|글자를 띄|문구가 떠/i];
   for (const b of beats) {
     const sc = b.scene3d;
-    if (!sc) {
-      warnings.push(`장면 ${b.order}에 scene3d(3D 명세)가 없음`);
-      continue;
-    }
+    if (!sc) continue; // 3D 명세는 컷 단계에서 만든다
     if (sc.objects.length < 1 || sc.objects.length > 4) errors.push(`장면 ${b.order} 3D 오브젝트 ${sc.objects.length}개 (1~4개)`);
     if (sc.motion.length < 2) errors.push(`장면 ${b.order} 움직임 ${sc.motion.length}단계 (2단계 이상)`);
     else {

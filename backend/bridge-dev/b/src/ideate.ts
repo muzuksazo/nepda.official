@@ -23,8 +23,10 @@ export const SIM_MAX = 0.6;
 export const ADJ_MIN = 0.7;
 /** 시작 단어는 제품 용도 영역과 이 값 이하로 떨어져 있어야 한다. */
 export const USAGE_MAX_START = 0.35;
-const TOP_STARTS = 6;
-const TOP_BRIDGES = 14;
+// 작은 검색: 단어 약 40개, 채점은 나눠서 동시에, 쌍은 약 40개
+const TOP_STARTS = 4;
+const TOP_BRIDGES = 8;
+const SCORE_CHUNK = 20;
 
 export interface ScoredWord {
   word: string;
@@ -90,7 +92,8 @@ async function call<T extends z.ZodType>(
   step: string,
   schema: T,
   prompt: string,
-  track: Track
+  track: Track,
+  group?: string
 ): Promise<z.infer<T>> {
   const t0 = performance.now();
   const r = await generateText({
@@ -102,7 +105,7 @@ async function call<T extends z.ZodType>(
   });
   const inputTokens = r.usage?.inputTokens ?? 0;
   const outputTokens = r.usage?.outputTokens ?? 0;
-  track({ step, model: modelId, inputTokens, outputTokens, costUsd: priceOf(modelId, inputTokens, outputTokens), ms: Math.round(performance.now() - t0) });
+  track({ step, model: modelId, inputTokens, outputTokens, costUsd: priceOf(modelId, inputTokens, outputTokens), ms: Math.round(performance.now() - t0), group });
   return r.output as z.infer<T>;
 }
 
@@ -185,7 +188,7 @@ export async function ideate(
 2. 제품의 용도 영역(usage_domains)을 3~6개 적으세요. 이 제품을 언제·무엇을 하려고 쓰는지, 그 주제와 단위입니다.
    예: 시간 관리 제품 → 시간, 집중, 공부, 휴식 주기, 분·시간 단위, 시계·시간 측정 도구의 역사 / 주방 가전 → 요리, 음식 온도, 끓는점, 조리 도구의 역사
    제품군의 역사·옛 형태·발명가, 그 용도를 위한 기법의 유래·창시자도 용도 영역에 넣으세요.
-3. 아래 관점마다 마인드맵을 만드세요. 관점마다 가지 2~3개, 가지마다 단어 3~4개.
+3. 아래 관점마다 마인드맵을 만드세요. 관점마다 가지 2개, 가지마다 단어 3개.
    단어는 "주어 + 사실 + 숫자"를 담은 짧은 명사구로, 그대로 "<주어>는 ~했습니다." 문장이 될 수 있게 쓰세요(예: "뉴턴 프리즘 7색", "꿀벌 8자 춤 각도").
    제품명과 제품군 어휘(${p.name}의 일반 명칭)는 단어로 쓰지 마세요. 뒤로 갈수록 제품과 먼 연상을 섞으세요.
    situation 이외 관점의 단어는 용도 영역 밖에서 고르되, 앵커와 모양·단위·움직임(원, 각도, 면적, 비율, 줄어듦 등)으로 이어질 수 있는 것을 우선하세요.
@@ -203,15 +206,16 @@ export async function ideate(
           flat.push({ word: w, lens: m.lens, branch: b.name });
         }
 
-  // 2) 단어 채점: info + 앵커 유사도 (60개씩)
+  // 2) 단어 채점: info + 앵커 유사도 + 용도 영역 (SCORE_CHUNK개씩 동시에)
   log(`[B 아이디어] 2/3 단어 ${flat.length}개 채점`);
   const words: ScoredWord[] = [];
-  for (let i = 0; i < flat.length; i += 60) {
-    const chunk = flat.slice(i, i + 60);
+  const chunks: (typeof flat)[] = [];
+  for (let i = 0; i < flat.length; i += SCORE_CHUNK) chunks.push(flat.slice(i, i + SCORE_CHUNK));
+  const scoredChunks = await Promise.all(chunks.map(async (chunk, ci) => {
     const { scores } = await call(
       model,
       modelId,
-      `아이디어: 단어 채점 ${i / 60 + 1}`,
+      `아이디어: 단어 채점 ${ci + 1}`,
       ScoreSchema,
       `앵커: ${mm.anchor}
 
@@ -229,8 +233,12 @@ ${SIM_SCALE}
 용도 영역: ${mm.usage_domains.join(", ")}
 
 단어: ${JSON.stringify(chunk.map((c) => c.word))}`,
-      track
+      track,
+      "idea-score"
     );
+    return { chunk, scores };
+  }));
+  for (const { chunk, scores } of scoredChunks) {
     const byWord = new Map(scores.map((s) => [s.word, s]));
     for (const c of chunk) {
       const s = byWord.get(c.word);

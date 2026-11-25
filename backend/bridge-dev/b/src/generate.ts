@@ -6,7 +6,7 @@ import { priceOf, totals, type StepUsage } from "./cost.js";
 import { ideate, pickDistinct, type IdeationResult, type PathCandidate } from "./ideate.js";
 import { buildUserPrompt, SYSTEM_PROMPT, type PathBrief } from "./prompt.js";
 import {
-  GenResponseSchema,
+  DraftResponseSchema,
   type DraftScenario,
   type ScenarioItem,
   type ScenariosResponse,
@@ -107,14 +107,15 @@ export async function generateScenarios(input: WorkerInput, opts: GenerateOption
       model,
       system: SYSTEM_PROMPT,
       prompt: buildUserPrompt(input, feedback, brief),
-      output: Output.object({ schema: GenResponseSchema }),
-      maxOutputTokens: 32000,
+      // 3D 명세(scene3d)는 여기서 만들지 않는다 → 컷 단계에서 고른 시나리오에만 (src/scene3d.ts)
+      output: Output.object({ schema: DraftResponseSchema }),
+      maxOutputTokens: 16000,
       providerOptions: { anthropic: { effort: "high" } },
     });
     const inT = result.usage?.inputTokens ?? 0;
     const outT = result.usage?.outputTokens ?? 0;
     steps.push({
-      step: `시나리오·3D 장면 ${attempts}차`,
+      step: `시나리오 ${attempts}차`,
       model: modelId,
       inputTokens: inT,
       outputTokens: outT,

@@ -6,6 +6,7 @@ import { toPipelinePlan } from "./pipeline-plan.js";
 import { dur, renderReport } from "./report.js";
 import { renderCuts } from "./cuts.js";
 import { renderHookVideos } from "./video.js";
+import { addScene3d } from "./scene3d.js";
 import { totals } from "./cost.js";
 import { DraftScenarioSchema, WorkerInputSchema } from "./schema.js";
 
@@ -51,15 +52,23 @@ function writeReport(projectId: string, productName: string): string {
   return path;
 }
 
-async function attachCuts(run: RunRecord, projectId: string): Promise<RunRecord> {
-  const { cuts, steps } = await renderCuts(run.response.scenarios, {
-    projectDir: join(OUT, projectId),
-    round: run.response.round,
-    log: (m) => console.error(m),
-  });
+type ProductInfo = ReturnType<typeof WorkerInputSchema.parse>["product_info"];
+
+/** 기록에 제품 정보가 없으면(예전 기록) --input 또는 예시 입력에서 읽는다 */
+function productOf(run: RunRecord & { product_info?: ProductInfo }): ProductInfo {
+  if (run.product_info) return run.product_info;
+  return WorkerInputSchema.parse(readJson(arg("--input") ?? "examples/01_worker-input.scenarios.json")).product_info;
+}
+
+async function attachCuts(run: RunRecord, projectId: string, product: ProductInfo): Promise<RunRecord> {
+  const log = (m: string) => console.error(m);
+  // 시나리오 단계에서 뺀 3D 명세를 여기서(고른 시나리오에만) 만든다
+  const s3d = await addScene3d(run.response.scenarios, product, { log });
+  const scenarios = s3d.scenarios;
+  const { cuts, steps } = await renderCuts(scenarios, { projectDir: join(OUT, projectId), round: run.response.round, log });
   const kept = run.steps.filter((s) => !s.step.startsWith("컷:")); // 다시 렌더하면 이전 컷 비용을 대체
-  const allSteps = [...kept, ...steps];
-  return { ...run, cuts, steps: allSteps, total: totals(allSteps) };
+  const allSteps = [...kept, ...s3d.steps, ...steps];
+  return { ...run, response: { ...run.response, scenarios }, cuts, steps: allSteps, total: totals(allSteps) };
 }
 
 function printCuts(run: RunRecord) {
@@ -112,7 +121,7 @@ async function main() {
       process.exit(1);
     }
     const run = readJson(recordPath) as RunRecord & { product_name?: string };
-    const updated = await attachCuts(run, file);
+    const updated = await attachCuts(run, file, productOf(run));
     writeFileSync(recordPath, JSON.stringify(updated, null, 2) + "\n", "utf8");
     const reportPath = writeReport(file, run.product_name ?? file);
     printCuts(updated);
@@ -185,10 +194,10 @@ async function main() {
       maxAttempts: arg("--attempts") ? Number(arg("--attempts")) : undefined,
       log: (m) => console.error(m),
     });
-    if (has("--cuts")) run = await attachCuts(run, input.project_id);
+    if (has("--cuts")) run = await attachCuts(run, input.project_id, input.product_info);
 
     mkdirSync(join(dir, `round-${input.round}`), { recursive: true });
-    writeFileSync(recordPath, JSON.stringify({ ...run, product_name: input.product_info.name }, null, 2) + "\n", "utf8");
+    writeFileSync(recordPath, JSON.stringify({ ...run, product_name: input.product_info.name, product_info: input.product_info }, null, 2) + "\n", "utf8");
     for (const s of run.response.scenarios)
       writeFileSync(join(dir, `round-${input.round}`, `${s.scenario_id}.plan.json`), JSON.stringify(toPipelinePlan(s), null, 2) + "\n", "utf8");
     const reportPath = writeReport(input.project_id, input.product_info.name);
