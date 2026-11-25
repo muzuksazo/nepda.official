@@ -32,9 +32,19 @@ def decode_audio_f32(
     sample_rate: int = 48000,
     channels: int = 2,
     speed: float = 1.0,
+    start_sec: Optional[float] = None,
+    end_sec: Optional[float] = None,
 ) -> np.ndarray:
     cmd = ["ffmpeg", "-y", "-v", "error", "-i", input_path]
     af_parts = []
+    if start_sec is not None or end_sec is not None:
+        trim_args: List[str] = []
+        if start_sec is not None:
+            trim_args.append(f"start={float(start_sec):.6f}")
+        if end_sec is not None:
+            trim_args.append(f"end={float(end_sec):.6f}")
+        af_parts.append("atrim=" + ":".join(trim_args))
+        af_parts.append("asetpts=PTS-STARTPTS")
     if abs(speed - 1.0) > 1e-3:
         af_parts.append(f"atempo={speed:.4f}")
     if af_parts:
@@ -282,18 +292,18 @@ def build_manifest_vo(
             fpath = os.path.join(base_dir, fpath)
         speed = float(b.get("speed", 1.0) or 1.0)
         gain_db = float(b.get("gain_db", 0.0) or 0.0)
-        audio = decode_audio_f32(fpath, sample_rate=sample_rate, channels=2, speed=speed)
-
-        if b.get("start_sec") is not None or b.get("end_sec") is not None:
-            s_samp = max(0, int(round(float(b.get("start_sec") or 0.0) * sample_rate)))
-            e_samp = (
-                min(audio.shape[0], int(round(float(b["end_sec"]) * sample_rate)))
-                if b.get("end_sec") is not None
-                else audio.shape[0]
-            )
-            if e_samp <= s_samp:
-                raise RuntimeError(f"Invalid sub-slice [{b.get('start_sec')}, {b.get('end_sec')}] for beat {b.get('id', idx)}")
-            audio = audio[s_samp:e_samp]
+        start_sec = float(b["start_sec"]) if b.get("start_sec") is not None else None
+        end_sec = float(b["end_sec"]) if b.get("end_sec") is not None else None
+        if start_sec is not None and end_sec is not None and end_sec <= start_sec:
+            raise RuntimeError(f"Invalid sub-slice [{start_sec}, {end_sec}] for beat {b.get('id', idx)}")
+        audio = decode_audio_f32(
+            fpath,
+            sample_rate=sample_rate,
+            channels=2,
+            speed=speed,
+            start_sec=start_sec,
+            end_sec=end_sec,
+        )
 
         if b.get("trim_edges", True):
             islands = _detect_islands(audio, sample_rate=sample_rate, silence_db=silence_db, min_silence=min_silence)
@@ -358,41 +368,6 @@ def build_manifest_vo(
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     return payload
-
-
-def probe_islands(
-    input_path: str,
-    *,
-    silence_db: float = -39.0,
-    min_silence: float = 0.08,
-    speed: float = 1.0,
-    sample_rate: int = 48000,
-) -> Dict[str, Any]:
-    """Probe exact spoken speech islands and inter-phrase gaps without writing WAVs."""
-    audio = decode_audio_f32(input_path, sample_rate=sample_rate, channels=2, speed=speed)
-    raw_dur = audio.shape[0] / sample_rate
-    merged = _detect_islands(audio, sample_rate=sample_rate, silence_db=silence_db, min_silence=min_silence)
-    islands: List[Dict[str, Any]] = []
-    for idx, (sh, eh) in enumerate(merged):
-        st = round(sh * 0.01, 3)
-        en = round(min(raw_dur, eh * 0.01), 3)
-        next_st = round(merged[idx + 1][0] * 0.01, 3) if idx + 1 < len(merged) else round(raw_dur, 3)
-        islands.append({
-            "index": idx,
-            "start": st,
-            "end": en,
-            "duration": round(en - st, 3),
-            "gap_after": round(max(0.0, next_st - en), 3),
-        })
-    return {
-        "file": os.path.abspath(input_path),
-        "duration": round(raw_dur, 3),
-        "silence_db": silence_db,
-        "min_silence": min_silence,
-        "speed": speed,
-        "island_count": len(islands),
-        "islands": islands,
-    }
 
 
 def main() -> None:

@@ -344,6 +344,33 @@ class TestAudioPrep(unittest.TestCase):
             self.assertAlmostEqual(gap_actual, 0.28, delta=0.02)
             self.assertTrue(os.path.exists(out_wav))
 
+            # Verify speed!=1.0 slices raw start_sec/end_sec BEFORE atempo, without slicing past the end
+            fast_manifest = os.path.join(td, "vo_fast.json")
+            with open(fast_manifest, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "beats": [
+                            {
+                                "id": "FAST_1",
+                                "file": "sample.wav",
+                                "start_sec": probed["islands"][1]["start"],
+                                "end_sec": probed["islands"][1]["end"],
+                                "speed": 1.25,
+                                "trim_edges": False,
+                                "gap_after": 0.0,
+                                "text": "빠른 둘째 문장",
+                            }
+                        ]
+                    },
+                    f,
+                    ensure_ascii=False,
+                )
+            fast_wav = os.path.join(td, "vo_fast.wav")
+            fast_json = os.path.join(td, "vo_fast_segments.json")
+            fast_built = ad_audio_prep.build_manifest_vo(fast_manifest, fast_wav, fast_json)
+            raw_island_dur = probed["islands"][1]["end"] - probed["islands"][1]["start"]
+            self.assertAlmostEqual(fast_built["segments"][0]["duration"], raw_island_dur / 1.25, delta=0.06)
+
 
 class TestSourceAnalyzer(unittest.TestCase):
     def test_aspect_framing_recommendations(self) -> None:

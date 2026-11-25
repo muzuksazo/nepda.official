@@ -15,4 +15,7 @@
 ## 3. 캠페인 SSOT (`campaigns/`, Vercel 빌드 제외)
 각 캠페인의 제품 팩트 원장(`00_product_facts.md`), 대본(`01_abc_script.md`), 타임라인·VO 스펙(`05_ad_spec*.json`, `audio/vo_*.json`), 자막(`.srt`), 커버/QA 검수 시트(`thumbnails_sheet.png`, `qa_*_strip.png`)를 버전 관리합니다.
 
-> **미디어 파일 정책**: 대용량 원본 촬영본(`source/`), AI 중간 클립(`clips/`), 최종 렌더링 영상(`final/*.mp4`) 및 `.wav`/`.mov` 바이너리는 `.gitignore` 로 제외되어 있으며, `.vercelignore` 를 통해 `skills/` 와 `campaigns/` 는 Vercel 웹앱 배포 번들에 포함되지 않습니다.
+## 4. 프로덕션 워커 & API (`production/`, Vercel 빌드 제외)
+[`production/README.md`](production/README.md): Chrome Flow 자동화(`flow_automator.py`) 대신 공식 `google-genai>=3.0.0` SDK(`gemini-3.5-flash` · `gemini-nano-banana-2.1` · `gemini-omni-1.2-flash` · `gemini-3.8-flash-tts`)와 FastAPI · Docker FFmpeg 워커 · SQLite 상태 저장소 · S3/R2 스토리지를 묶은 프로덕션 실행 패키지입니다.
+
+> **미디어 파일 정책**: 대용량 원본 촬영본(`source/`), AI 중간 클립(`clips/`), 최종 렌더링 영상(`final/*.mp4`) 및 `.wav`/`.mov` 바이너리는 `.gitignore` 로 제외되어 있으며, `.vercelignore` 를 통해 `skills/` 와 `campaigns/` 와 `production/` 는 Vercel 웹앱 배포 번들에 포함되지 않습니다.

@@ -46,9 +46,16 @@ def resolve_font_path(font_override: Optional[str] = None) -> str:
     candidates = []
     if font_override:
         candidates.append(font_override)
+    env_bold = os.environ.get("SHORTFORM_FONT_BOLD", "").strip()
+    if env_bold:
+        candidates.append(env_bold)
     candidates.extend([
         os.path.expanduser("~/Library/Fonts/NotoSansCJKkr-Bold.otf"),
         "/Library/Fonts/NotoSansCJKkr-Bold.otf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/System/Library/Fonts/AppleSDGothicNeo.ttc",
         "/System/Library/Fonts/Helvetica.ttc",
     ])

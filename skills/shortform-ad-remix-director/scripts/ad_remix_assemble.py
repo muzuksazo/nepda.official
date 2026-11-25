@@ -56,23 +56,35 @@ DISCLOSURE_TEXT = {
 
 
 def _load_cjk_font(size: int, bold: bool = True) -> ImageFont.ImageFont:
+    env_bold = os.environ.get("SHORTFORM_FONT_BOLD", "").strip()
+    env_reg = os.environ.get("SHORTFORM_FONT_REGULAR", "").strip()
     candidates = (
         [
+            env_bold,
             os.path.expanduser("~/Library/Fonts/NotoSansCJKkr-Bold.otf"),
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
             "/System/Library/Fonts/AppleSDGothicNeo.ttc",
             os.path.expanduser("~/Library/Fonts/NotoSansCJKkr-Regular.otf"),
             "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
         ]
         if bold
         else [
+            env_reg,
             os.path.expanduser("~/Library/Fonts/NotoSansCJKkr-Regular.otf"),
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             os.path.expanduser("~/Library/Fonts/NotoSansCJKkr-Bold.otf"),
             "/System/Library/Fonts/AppleSDGothicNeo.ttc",
             "/System/Library/Fonts/Helvetica.ttc",
         ]
     )
     for p in candidates:
-        if os.path.exists(p):
+        if p and os.path.exists(p):
             try:
                 if p.endswith(".ttc") and bold:
                     return ImageFont.truetype(p, size, index=6)
@@ -833,12 +845,16 @@ def _master_audio_and_mix(
         vo_key_lbl = None
         if has_vo:
             cmd.extend(["-i", vo_path])
-            fc.append(
+            vo_base = (
                 f"[{idx}:a]highpass=f=85,acompressor=threshold=-18dB:ratio=3:attack=8:release=120:makeup=2dB,"
-                f"aresample={SR},apad=whole_dur={dur:.3f},atrim=0:{dur:.3f},asplit=2[avo][avokey]"
+                f"aresample={SR},apad=whole_dur={dur:.3f},atrim=0:{dur:.3f}"
             )
+            if bgm_bus_wav:
+                fc.append(f"{vo_base},asplit=2[avo][avokey]")
+                vo_key_lbl = "[avokey]"
+            else:
+                fc.append(f"{vo_base}[avo]")
             mix_labels.append("[avo]")
-            vo_key_lbl = "[avokey]"
             idx += 1
 
         if bgm_bus_wav:

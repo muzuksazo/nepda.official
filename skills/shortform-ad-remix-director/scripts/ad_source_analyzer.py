@@ -24,13 +24,18 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 def _load_font(size: int) -> ImageFont.ImageFont:
     candidates = [
+        os.environ.get("SHORTFORM_FONT_BOLD", "").strip(),
         os.path.expanduser("~/Library/Fonts/NotoSansCJKkr-Bold.otf"),
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/System/Library/Fonts/AppleSDGothicNeo.ttc",
         "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
     ]
     for path in candidates:
-        if os.path.exists(path):
+        if path and os.path.exists(path):
             try:
                 return ImageFont.truetype(path, size)
             except Exception:
