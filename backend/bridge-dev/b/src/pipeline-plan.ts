@@ -34,9 +34,11 @@ export function toPipelinePlan(s: ScenarioItem) {
       text: b.caption,
       say: b.narration,
       visual: b.scene3d ? scene3dToVisual(b.scene3d) : b.visual,
-      counter: b.scene3d?.counter
-        ? { from: b.scene3d.counter.from, to: b.scene3d.counter.to, suffix: b.scene3d.counter.unit, at: "top" as const }
-        : undefined,
+      // pipeline 카운터는 천 단위 쉼표를 붙여서 연도(1,980년)가 어색해진다 → 연도 카운터는 내보내지 않는다
+      counter:
+        b.scene3d?.counter && !/년/.test(b.scene3d.counter.unit)
+          ? { from: b.scene3d.counter.from, to: b.scene3d.counter.to, suffix: b.scene3d.counter.unit, at: "top" as const }
+          : undefined,
       color: ACCENT,
       bg: b.scene3d?.background ?? "#0b0b10",
     }));

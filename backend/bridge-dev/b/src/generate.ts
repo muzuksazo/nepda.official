@@ -40,6 +40,8 @@ export interface RunRecord {
   steps: StepUsage[];
   total: ReturnType<typeof totals>;
   createdAt: string;
+  /** 컷 이미지 (--cuts 또는 npm run cuts) */
+  cuts?: import("./cuts.js").ScenarioCuts[];
 }
 
 function checkAll(drafts: DraftScenario[], input: WorkerInput): CheckResult[] {

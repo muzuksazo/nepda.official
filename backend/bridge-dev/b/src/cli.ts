@@ -4,13 +4,18 @@ import { checkScenario } from "./check.js";
 import { generateScenarios, type RunRecord } from "./generate.js";
 import { toPipelinePlan } from "./pipeline-plan.js";
 import { dur, renderReport } from "./report.js";
+import { renderCuts } from "./cuts.js";
+import { totals } from "./cost.js";
 import { DraftScenarioSchema, WorkerInputSchema } from "./schema.js";
 
 const USAGE = `사용법:
-  npm run scenarios -- <입력.json> [--next] [--count N] [--no-ideate] [--attempts N]
+  npm run scenarios -- <입력.json> [--next] [--cuts] [--count N] [--no-ideate] [--attempts N]
       유사도 검색 → 시나리오·3D 장면 생성 → 규칙 검사. Claude API 호출(과금).
       --next       이 프로젝트의 다음 회차로 실행 (앞선 회차 시나리오를 피함)
+      --cuts       장면 컷 이미지까지 렌더 (video_test/pipeline 필요, 추가 과금)
       --no-ideate  유사도 검색 단계 건너뛰기
+  npm run cuts -- <project_id> <round>
+      이미 만든 회차의 장면 컷 이미지를 렌더하고 리포트를 갱신. Claude API 호출(과금).
   npm run report -- <project_id>
       out/<project_id>/ 의 회차 기록으로 report.html 다시 만들기. API 호출 없음.
   npm run check -- <시나리오응답.json> [--input <입력.json>]
@@ -43,6 +48,26 @@ function writeReport(projectId: string, productName: string): string {
   return path;
 }
 
+async function attachCuts(run: RunRecord, projectId: string): Promise<RunRecord> {
+  const { cuts, steps } = await renderCuts(run.response.scenarios, {
+    projectDir: join(OUT, projectId),
+    round: run.response.round,
+    log: (m) => console.error(m),
+  });
+  const kept = run.steps.filter((s) => !s.step.startsWith("컷:")); // 다시 렌더하면 이전 컷 비용을 대체
+  const allSteps = [...kept, ...steps];
+  return { ...run, cuts, steps: allSteps, total: totals(allSteps) };
+}
+
+function printCuts(run: RunRecord) {
+  for (const c of run.cuts ?? []) {
+    const ok = c.beats.filter((b) => b.ok).length;
+    console.log(`\n컷 ${c.scenario_id}: 장면 ${ok}/${c.beats.length}개 생성 성공`);
+    for (const b of c.beats)
+      console.log(`  장면 ${b.order} ${b.ok ? "✓" : "✗ 기본 도형"} (시도 ${b.tries}회) ${b.images.length}컷${b.error ? " — " + b.error.split("\n")[0].slice(0, 100) : ""}`);
+  }
+}
+
 function printChecks(rows: { title: string; errors: string[]; warnings: string[] }[]): boolean {
   let ok = true;
   for (const r of rows) {
@@ -70,6 +95,28 @@ async function main() {
       return { title: s.hook_title, ...checkScenario(s, input.product_info) };
     });
     process.exit(printChecks(rows) ? 0 : 2);
+  }
+
+  if (cmd === "cuts") {
+    const round = Number(process.argv[4]);
+    const recordPath = join(OUT, file, `round-${round}.json`);
+    if (!round || !existsSync(recordPath)) {
+      console.error(`${recordPath} 가 없습니다. 사용법: npm run cuts -- <project_id> <round>`);
+      process.exit(1);
+    }
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error("ANTHROPIC_API_KEY가 없습니다. b/.env를 확인하세요.");
+      process.exit(1);
+    }
+    const run = readJson(recordPath) as RunRecord & { product_name?: string };
+    const updated = await attachCuts(run, file);
+    writeFileSync(recordPath, JSON.stringify(updated, null, 2) + "\n", "utf8");
+    const reportPath = writeReport(file, run.product_name ?? file);
+    printCuts(updated);
+    const cutSteps = updated.steps.filter((s) => s.step.startsWith("컷:"));
+    const t = totals(cutSteps);
+    console.log(`\n컷 비용 $${t.costUsd.toFixed(4)} · ⏱ ${dur(t.ms)}\n리포트: ${reportPath}`);
+    return;
   }
 
   if (cmd === "report") {
@@ -102,11 +149,12 @@ async function main() {
       process.exit(1);
     }
 
-    const run = await generateScenarios(input, {
+    let run = await generateScenarios(input, {
       ideate: !has("--no-ideate"),
       maxAttempts: arg("--attempts") ? Number(arg("--attempts")) : undefined,
       log: (m) => console.error(m),
     });
+    if (has("--cuts")) run = await attachCuts(run, input.project_id);
 
     mkdirSync(join(dir, `round-${input.round}`), { recursive: true });
     writeFileSync(recordPath, JSON.stringify({ ...run, product_name: input.product_info.name }, null, 2) + "\n", "utf8");
@@ -115,6 +163,7 @@ async function main() {
     const reportPath = writeReport(input.project_id, input.product_info.name);
 
     const ok = printChecks(run.response.scenarios.map((s, i) => ({ title: s.hook_title, ...run.checks[i] })));
+    printCuts(run);
     console.log(`\n${run.response.round}회차 · 시나리오 ${run.response.scenarios.length}개`);
     console.log("비용:");
     for (const s of run.steps)

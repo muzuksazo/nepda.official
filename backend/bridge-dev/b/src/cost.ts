@@ -16,6 +16,8 @@ export interface StepUsage {
   outputTokens: number;
   costUsd: number | null;
   ms: number;
+  /** 같은 group 끼리는 동시에 실행됨 → 소요 시간 합계에는 가장 긴 것만 더한다 */
+  group?: string;
 }
 
 export function priceOf(model: string, inputTokens: number, outputTokens: number): number | null {
@@ -26,13 +28,16 @@ export function priceOf(model: string, inputTokens: number, outputTokens: number
 
 export function totals(steps: StepUsage[]) {
   const t = { inputTokens: 0, outputTokens: 0, costUsd: 0, ms: 0, unknownPrice: false };
+  const groupMax = new Map<string, number>();
   for (const s of steps) {
     t.inputTokens += s.inputTokens;
     t.outputTokens += s.outputTokens;
-    t.ms += s.ms;
+    if (s.group) groupMax.set(s.group, Math.max(groupMax.get(s.group) ?? 0, s.ms));
+    else t.ms += s.ms;
     if (s.costUsd === null) t.unknownPrice = true;
     else t.costUsd += s.costUsd;
   }
+  for (const ms of groupMax.values()) t.ms += ms;
   return t;
 }
 

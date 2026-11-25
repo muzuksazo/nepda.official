@@ -52,7 +52,7 @@ function scene3dBlock(sc: Scene3D | undefined) {
 function roundBlock(run: RunRecord, open: boolean) {
   const r = run.response;
   const allOk = run.checks.every((c) => c.errors.length === 0);
-  const t = run.total;
+  const t = totals(run.steps); // 저장된 합계 대신 단계에서 다시 계산(병렬 단계 시간 규칙 반영)
 
   const costRows = run.steps
     .map((s) => `<tr><td>${esc(s.step)}</td><td class="mono">${esc(s.model)}</td><td class="num">${num(s.inputTokens)}</td><td class="num">${num(s.outputTokens)}</td><td class="num">${usd(s.costUsd)}</td><td class="num">${s.ms ? dur(s.ms) : "—"}</td></tr>`)
@@ -83,11 +83,30 @@ function roundBlock(run: RunRecord, open: boolean) {
   const cards = r.scenarios
     .map((s, i) => {
       const c = run.checks[i] ?? { errors: [], warnings: [] };
+      const sc = run.cuts?.find((x) => x.scenario_id === s.scenario_id);
+      const cutOf = (order: number) => sc?.beats.find((b) => b.order === order);
+      const thumbs = (order: number) => {
+        const cb = cutOf(order);
+        if (!cb) return "";
+        const imgs = cb.images.map((p) => `<a href="${esc(p)}" target="_blank"><img src="${esc(p)}" alt="장면 ${order} 컷" loading="lazy"></a>`).join("");
+        const tag = cb.ok ? "" : `<div class="cutfail">생성 실패 → 기본 도형${cb.error ? `: ${esc(cb.error.split("\n")[0].slice(0, 120))}` : ""}</div>`;
+        return `<div class="cuts">${imgs}</div>${tag}${cb.code ? `<a class="muted codelink" href="${esc(cb.code)}" target="_blank">장면 코드</a>` : ""}`;
+      };
+      const strip = sc
+        ? `<div class="strip">${[...s.beats]
+            .sort((a, b) => a.order - b.order)
+            .map((b) => {
+              const cb = cutOf(b.order);
+              const mid = cb?.images[1] ?? cb?.images[0];
+              return mid ? `<figure><img src="${esc(mid)}" alt="장면 ${b.order}" loading="lazy"><figcaption>${b.order}. ${esc(b.role)} · ${b.duration_sec}초${cb && !cb.ok ? " ⚠" : ""}</figcaption></figure>` : "";
+            })
+            .join("")}</div>`
+        : "";
       const beats = [...s.beats]
         .sort((a, b) => a.order - b.order)
         .map(
           (b) => `<tr><td class="num">${b.order}</td><td><b>${esc(b.role)}</b><br><span class="muted">${b.duration_sec}초</span></td>
-            <td>${nl(b.narration)}</td><td class="cap">${nl(b.caption)}</td><td>${esc(b.visual)}${scene3dBlock(b.scene3d)}</td></tr>`
+            <td>${nl(b.narration)}</td><td class="cap">${nl(b.caption)}</td><td>${esc(b.visual)}${thumbs(b.order)}${scene3dBlock(b.scene3d)}</td></tr>`
         )
         .join("");
       const checks =
@@ -100,6 +119,7 @@ function roundBlock(run: RunRecord, open: boolean) {
       return `<details class="card" open><summary><span class="title">${esc(s.hook_title)}</span>
           <span class="meta">${s.hook_duration_sec}초 · 장면 ${s.beats.length}개 · <span class="mono">${esc(s.scenario_id)}</span></span>
           <span class="badge ${c.errors.length ? "bad" : "good"}">${c.errors.length ? `위반 ${c.errors.length}` : "통과"}</span></summary>
+        ${strip}
         ${pathChips(s.ad_spec.bridge_path, s.ad_spec.anchor)}
         <p class="muted">시작 유사도 ${s.ad_spec.hook_similarity_score.toFixed(2)} · 인접 최소 ${s.ad_spec.adjacent_min_sim.toFixed(2)} · 숫자 실 ${esc(s.ad_spec.number_thread)} · ${esc(s.replacement_test_note)}</p>
         <div class="scroll"><table class="beats"><thead><tr><th>#</th><th>장면</th><th>나레이션</th><th>자막</th><th>화면 · 3D</th></tr></thead><tbody>${beats}</tbody></table></div>
@@ -169,6 +189,11 @@ tr.total td{font-weight:700}tr.picked td{background:var(--goodbg)}
 .sub{margin:10px 0}.sub>summary{font-weight:600;font-size:14px;padding:6px 0}.sub h4{margin:12px 0 4px;font-size:13px;color:var(--muted)}
 .facts{padding-left:0;list-style:none}.facts li{margin:4px 0;font-size:13px}.tag{font-size:11px;border-radius:4px;padding:1px 6px;background:var(--chip)}.tag.warn{background:var(--warnbg);color:var(--warn)}
 footer{color:var(--muted);font-size:12px;margin-top:24px}
+.strip{display:flex;gap:10px;overflow-x:auto;padding:4px 0 10px}.strip figure{margin:0;flex:none;width:150px}
+.strip img{width:150px;aspect-ratio:9/16;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block;background:#000}
+.strip figcaption{font-size:12px;color:var(--muted);margin-top:4px}
+.cuts{display:flex;gap:6px;margin:8px 0 2px}.cuts img{width:64px;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block;background:#000}
+.cutfail{font-size:12px;color:var(--warn);background:var(--warnbg);border-radius:6px;padding:2px 8px;margin:4px 0}.codelink{font-size:12px}
 </style></head><body><main>
 <header><h1>B 훅 시나리오 — ${esc(productName)}</h1><p class="mono">${esc(project)}</p></header>
 <div class="stats">

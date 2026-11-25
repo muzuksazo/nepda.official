@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { MockLanguageModelV4 } from "ai/test";
+import { checkScenario } from "../src/check.js";
 import { generateScenarios } from "../src/generate.js";
 import { pickDistinct, searchPaths, type ScoredWord } from "../src/ideate.js";
 import { toPipelinePlan } from "../src/pipeline-plan.js";
@@ -82,13 +83,13 @@ const s3d = (fact: string, counter: { from: number; to: number; unit: string } |
 });
 const good = {
   hook_title: "꿀벌은 춤 각도로 길을 알려 줍니다",
-  hook_duration_sec: 12,
+  hook_duration_sec: 17,
   body_duration_sec: 18,
   replacement_test_note: "제품 전환 장면만 바꾸면 다른 제품에도 붙일 수 있어 B",
   beats: [
-    { order: 1, role: "어긋난 시작", duration_sec: 4, visual: "꿀벌 8자 춤", narration: "꿀벌은 춤의 각도로 꽃이 있는 방향을 알려 준다고 합니다.", caption: "꿀벌 춤 각도\n= 꽃 방향", scene3d: s3d("춤 각도 = 방향") },
-    { order: 2, role: "브리지 1", duration_sec: 4, visual: "원 360도", narration: "한 바퀴는 삼백육십 도입니다.", caption: "한 바퀴\n360도", scene3d: s3d("원 = 360도", { from: 0, to: 360, unit: "°" }) },
-    { order: 3, role: "반전: 제품 첫 등장", duration_sec: 4, visual: "제품", narration: "그래서 비주얼 타이머는 남은 시간을 빨간 원판으로 보여 줍니다.", caption: "남은 시간\n한눈에", scene3d: s3d("빨간 원판이 줄어든다") },
+    { order: 1, role: "어긋난 시작", duration_sec: 6, visual: "꿀벌 8자 춤", narration: "꿀벌은 춤의 각도로 꽃이 있는 방향을 알려 준다고 합니다.", caption: "꿀벌 춤 각도\n= 꽃 방향", scene3d: s3d("춤 각도 = 방향") },
+    { order: 2, role: "브리지 1", duration_sec: 5, visual: "원 360도", narration: "한 바퀴는 삼백육십 도입니다.", caption: "한 바퀴\n360도", scene3d: s3d("원 = 360도", { from: 0, to: 360, unit: "°" }) },
+    { order: 3, role: "반전: 제품 첫 등장", duration_sec: 6, visual: "제품", narration: "그래서 비주얼 타이머는 남은 시간을 빨간 원판으로 보여 줍니다.", caption: "남은 시간\n한눈에", scene3d: s3d("빨간 원판이 줄어든다") },
   ],
   ad_spec: {
     track_archetype: "B_info_hook_offset",
@@ -132,7 +133,16 @@ const plan = toPipelinePlan(s);
 assert.equal(plan.scenes.length, 3);
 assert.equal(plan.scenes[1].counter?.to, 360);
 assert.ok(plan.scenes[0].visual.includes("MOTION") && plan.scenes[0].say.endsWith("합니다."));
-assert.equal(plan.hookSeconds, 12);
+assert.equal(plan.hookSeconds, 17);
+
+// 길이 15~20초: 14초·21초는 위반, 15·20초는 통과
+for (const [sec, ok] of [[14, false], [15, true], [20, true], [21, false]] as const) {
+  const d = structuredClone(good);
+  d.hook_duration_sec = sec;
+  d.beats[2].duration_sec = sec - 11;
+  const hit = checkScenario(d as never, input.product_info).errors.some((e) => e.includes("hook_duration_sec"));
+  assert.equal(hit, !ok, `${sec}초 판정`);
+}
 
 const run2 = { ...run, response: { ...run.response, round: 2 }, createdAt: new Date().toISOString() };
 const html = renderReport([run, run2], input.product_info.name);

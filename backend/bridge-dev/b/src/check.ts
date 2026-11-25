@@ -11,7 +11,9 @@ export interface CheckResult {
 const SIM_MIN = 0.4;
 const SIM_MAX = 0.6;
 const ADJ_MIN = 0.7;
-const MAX_HOOK_SEC = 15;
+/** B 훅 길이: 15~20초 안에서 내용에 맞게 (공통 문서의 15초 이하와 다름, B 전용) */
+const MIN_HOOK_SEC = 15;
+const MAX_HOOK_SEC = 20;
 const CAPTION_LINE_WARN = 10;
 const REVEAL_MAX_CHARS = 35;
 const ANCHOR_WARN_CHARS = 30;
@@ -35,7 +37,8 @@ export function checkScenario(s: DraftScenario, product: ProductInfo): CheckResu
 
   // 길이
   const sum = Math.round(beats.reduce((acc, b) => acc + b.duration_sec, 0) * 100) / 100;
-  if (s.hook_duration_sec > MAX_HOOK_SEC) errors.push(`hook_duration_sec ${s.hook_duration_sec}초 > ${MAX_HOOK_SEC}초`);
+  if (s.hook_duration_sec < MIN_HOOK_SEC || s.hook_duration_sec > MAX_HOOK_SEC)
+    errors.push(`hook_duration_sec ${s.hook_duration_sec}초 (${MIN_HOOK_SEC}~${MAX_HOOK_SEC}초여야 함)`);
   if (Math.abs(sum - s.hook_duration_sec) > 0.05) errors.push(`장면 길이 합 ${sum}초 ≠ hook_duration_sec ${s.hook_duration_sec}초`);
   if (beats.length < 3 || beats.length > 5) errors.push(`장면 수 ${beats.length}개 (3~5개여야 함)`);
 

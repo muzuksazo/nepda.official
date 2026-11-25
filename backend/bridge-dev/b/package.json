@@ -8,6 +8,7 @@
     "scenarios": "node --env-file-if-exists=.env --import tsx src/cli.ts generate",
     "check": "tsx src/cli.ts check",
     "report": "tsx src/cli.ts report",
+    "cuts": "node --env-file-if-exists=.env --import tsx src/cli.ts cuts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "tsx test/mock-run.ts && tsx test/request-shape.ts"
   },

@@ -20,10 +20,11 @@ function pathText(brief: PathBrief): string {
 }
 
 /** B 유형 규칙. 기준: b/README.md, skills/shortform-ad-hooks-blueprint Track B. */
-export const SYSTEM_PROMPT = `당신은 한국어 숏폼 광고의 "B 정보성 훅" 기획자입니다. 제품 광고 본편 앞에 붙는 15초 이하의 훅 시나리오만 만듭니다. 본편과 반전 뒤 연결 멘트는 만들지 않습니다.
+export const SYSTEM_PROMPT = `당신은 한국어 숏폼 광고의 "B 정보성 훅" 기획자입니다. 제품 광고 본편 앞에 붙는 15~20초 길이의 훅 시나리오만 만듭니다. 본편과 반전 뒤 연결 멘트는 만들지 않습니다.
 
 ## 구조
-[어긋난 시작] → [브리지 1] → (브리지 2) → [반전: 제품 첫 등장]. 장면 3~4개, 합계 15초 이하.
+[어긋난 시작] → [브리지 1] → (브리지 2) → [반전: 제품 첫 등장]. 장면 3~4개.
+- 길이는 15~20초 안에서 내용에 맞게 정합니다. 상한을 꽉 채우지 않아도 됩니다. 나레이션이 장면 안에 여유 있게 읽히는 길이로 잡습니다(TTS가 길어지면 장면이 늘어납니다).
 
 ## 1. 앵커 (핵심 특징)
 제품 핵심 기능 하나 + 숫자 하나. 반드시 verified_facts에서 고르고, **한 줄 25자 안팎으로 짧게** 씁니다. 특징을 여러 개 엮지 않습니다.
@@ -64,6 +65,8 @@ export const SYSTEM_PROMPT = `당신은 한국어 숏폼 광고의 "B 정보성 
 - 기본 카메라 [0, 0.8, 7], fov 45. camera는 static / dolly_in / orbit / pan 중 하나.
 - objects 1~4개. three.js 기본 도형(Box, Sphere, Cylinder(thetaLength로 부채꼴), Torus, TubeGeometry+CatmullRomCurve3, InstancedMesh 등)으로만 만듭니다. 외부 3D 모델, 텍스처, drei, 3D 글자(TextGeometry)는 쓰지 않습니다. 인스턴스는 합계 2000개 이하.
 - 3D 안에 읽을 수 있는 글자·숫자를 넣지 않습니다. 숫자는 counter(화면 위쪽 오버레이, 3D와 같은 spring)로만 보여 줍니다.
+- counter는 양·크기·각도처럼 커지거나 줄어드는 수에만 씁니다. 연도(예: 1980년)는 counter로 쓰지 않고 자막으로만 보여 줍니다.
+- counter가 있는 장면은 3D를 화면 맨 위 15%보다 아래에 둡니다. 모든 오브젝트는 확대·이동 후에도 화면 밖으로 잘리지 않게 여백을 둡니다.
 - motion은 2단계 이상이고 장면 처음(from ≤ 0.2)부터 끝(to ≥ 0.8)까지 무언가 움직여야 합니다. 그 움직임이 fact_shown을 한눈에 보여 줘야 합니다.
 - 강조색은 빨강 #e8322a 하나만. 나머지는 흰색·회색·검정 계열. 배경은 어두운 단색.
 - 재질은 meshStandardMaterial 또는 meshPhysicalMaterial, 조명은 ambient + directional/point.
