@@ -1,0 +1,11 @@
+{
+  "detail": {
+    "error": {
+      "code": "PRODUCT_INFO_NOT_FOUND",
+      "message": "product_info_id 가 없거나 캐시가 만료되었습니다",
+      "details": {
+        "product_info_id": "pinfo_demo01"
+      }
+    }
+  }
+}

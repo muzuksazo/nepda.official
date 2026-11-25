@@ -95,6 +95,7 @@
 ```text
 frontend/                   PRD 가이드 먼저형 UI 개발 위치
 backend/                    FastAPI API·미디어 워커
+  bridge-dev/               ABC 훅 작업자용 API 더미 HTML·가이드 ([PRD v0.2](backend/bridge-dev/PRD.md))
 contracts/                  프론트·백엔드 공통 API 명세·OpenAPI 스키마
 libraries/                  재사용 API·라이브러리
   planner-api/              TypeScript 기획 API·스키마·워커 연결

@@ -1,0 +1,12 @@
+{
+  "detail": {
+    "error": {
+      "code": "INVALID_STATE",
+      "message": "먼저 해당 시나리오를 select 해야 합니다",
+      "details": {
+        "scenario_id": "sc_demo_B2",
+        "selected_scenario_id": "sc_demo_B1"
+      }
+    }
+  }
+}

@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAPDA bridge-dev · ABC 훅 작업자 API 더미 (v0.2)</title>
+<style>
+:root{--bg:#f6f6f4;--card:#fff;--ink:#1b1b1b;--sub:#6b6b66;--line:#e2e2dc;--acc:#e8322a;--ok:#1a7f4b;--warn:#b26a00;--bad:#c0281f;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif}
+header{padding:14px 16px;background:#111;color:#fff}
+header h1{margin:0;font-size:17px}
+header p{margin:2px 0 0;font-size:12px;color:#bbb}
+main{max-width:980px;margin:0 auto;padding:12px;display:grid;gap:12px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+section h2{margin:0 0 10px;font-size:15px}
+section h2 small{font-weight:400;color:var(--sub);margin-left:6px}
+label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+textarea{min-height:92px;resize:vertical}
+.row{display:grid;gap:10px;grid-template-columns:1fr}
+@media(min-width:700px){.row.two{grid-template-columns:1fr 1fr}.row.three{grid-template-columns:2fr 2fr 1fr}}
+.types{display:flex;gap:8px}
+.types label{flex:1;margin:0;text-align:center;border:1px solid var(--line);border-radius:8px;padding:10px 4px;cursor:pointer;color:var(--ink);font-size:14px}
+.types input{display:none}
+.types input:checked+span{font-weight:700;color:var(--acc)}
+.types label:has(input:checked){border-color:var(--acc);background:#fff4f3}
+.types small{display:block;color:var(--sub);font-size:11px}
+button{font:inherit;border:1px solid #111;background:#111;color:#fff;border-radius:8px;padding:10px 12px;cursor:pointer}
+button.ghost{background:#fff;color:#111}
+button.sm{padding:4px 8px;font-size:12px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.steps{display:grid;gap:8px;grid-template-columns:1fr 1fr}
+@media(min-width:700px){.steps{grid-template-columns:repeat(5,1fr)}}
+.cycle{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.cycle input{width:70px}
+.chk{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--ink)}
+.chk input{width:auto}
+.dis{opacity:.55;border-style:dashed;background:#fafaf8}
+.dis h2::after{content:" · 별도 트랙·미구현";font-weight:400;color:var(--sub);font-size:12px}
+.badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;background:#eee;color:#444;margin-right:4px}
+.badge.mock{background:#fff1d6;color:var(--warn)}
+.badge.live{background:#d9f2e3;color:var(--ok)}
+.status{font-size:13px;color:var(--sub);margin-top:8px}
+.result{display:grid;gap:10px}
+.round{border:1px solid var(--line);border-radius:8px;padding:10px}
+.round h3{margin:0 0 6px;font-size:14px}
+.beat{font-size:13px;border-top:1px dashed var(--line);padding:4px 0}
+.frames{display:flex;gap:6px;overflow-x:auto;margin:6px 0}
+.frames img{width:72px;height:128px;object-fit:cover;border:1px solid var(--line);border-radius:6px;flex:none;background:#eee}
+.files{font:12px var(--mono);color:#333;word-break:break-all}
+#log{display:grid;gap:8px;max-height:560px;overflow:auto}
+.entry{border:1px solid var(--line);border-radius:8px;font-size:12px;background:#fcfcfb}
+.entry>summary{padding:7px 9px;cursor:pointer;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.entry .m{font:700 11px var(--mono);padding:1px 6px;border-radius:4px;background:#111;color:#fff}
+.entry .code{font:700 12px var(--mono)}
+.entry .code.ok{color:var(--ok)}.entry .code.bad{color:var(--bad)}.entry .code.warn{color:var(--warn)}
+.entry .url{font-family:var(--mono);word-break:break-all}
+.entry .ms{color:var(--sub);margin-left:auto}
+.entry .body{padding:0 9px 9px}
+.entry pre{margin:4px 0;padding:8px;background:#f1f1ee;border-radius:6px;overflow:auto;max-height:240px;font:11px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word}
+.entry .note{padding:6px 9px;color:var(--bad);font-weight:600}
+.hint{font-size:12px;color:var(--sub)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>NAPDA bridge-dev <span class="badge" id="modeBadge"></span></h1>
+  <p>ABC 훅 작업자용 API 더미 · 계약 v0.2 · 이 화면이 보내는 요청이 백엔드 구현 기준입니다</p>
+</header>
+<main>
+
+<section id="cfg">
+  <h2>설정</h2>
+  <div class="row two">
+    <div><label for="base">Base URL</label><input id="base" value="http://127.0.0.1:8080" autocomplete="off"></div>
+    <div><label for="token">Bearer 토큰 (세션 토큰, <code>backend/bridge-dev/dev_token.py</code> 로 발급)</label><input id="token" type="password" placeholder="비워두면 Authorization 헤더 없이 전송" autocomplete="off"></div>
+  </div>
+  <div class="row two">
+    <div><label for="voice">TTS voice (선택)</label><input id="voice" placeholder="예: ko-KR-SunHiNeural"></div>
+    <div><label for="mockLatency">Mock 지연(ms)</label><input id="mockLatency" type="number" value="150" min="0" max="5000"></div>
+  </div>
+  <label class="chk"><input type="checkbox" id="mock" checked> Mock 모드 (백엔드 없이 명세 형태의 가짜 응답으로 끝까지 진행)</label>
+</section>
+
+<section id="typeSec">
+  <h2>훅 유형 <small>작업자별 1개</small></h2>
+  <div class="types" id="types">
+    <label><input type="radio" name="htype" value="A"><span>A</span><small>제품 무관</small></label>
+    <label><input type="radio" name="htype" value="B" checked><span>B</span><small>정보성·약한 암시</small></label>
+    <label><input type="radio" name="htype" value="C"><span>C</span><small>제품 직결</small></label>
+  </div>
+</section>
+
+<section id="prodSec">
+  <h2>제품 정보 <small>FR-001 · 기본값: 뽀모도로 타이머 (검증된 사실만)</small></h2>
+  <div class="row two">
+    <div><label for="pname">제품명 *</label><input id="pname"></div>
+    <div><label for="pcat">카테고리 *</label>
+      <select id="pcat"><option value="living">living</option><option value="kitchen">kitchen</option><option value="stationery" selected>stationery</option></select></div>
+  </div>
+  <label for="pfacts">핵심 특징 verified_facts (한 줄에 하나, 최대 20)</label>
+  <textarea id="pfacts"></textarea>
+  <div class="row two">
+    <div><label for="pprice">가격/혜택 price_or_offer (선택)</label><input id="pprice"></div>
+    <div><label for="ptarget">타깃 target_audience (선택)</label><input id="ptarget"></div>
+  </div>
+  <label for="psrc">source_url (선택)</label><input id="psrc" placeholder="https://...">
+</section>
+
+<section id="flowSec">
+  <h2>실행 흐름</h2>
+  <div class="steps">
+    <button id="b1">① 정보 가져오기<br><small>POST /v1/product-info</small></button>
+    <button id="b2">② 프로젝트+시나리오<br><small>POST /projects, /scenarios</small></button>
+    <button id="b3">③ 콘티<br><small>POST …/storyboard</small></button>
+    <button id="b4">④ 선택<br><small>POST …/select</small></button>
+    <button id="b5">⑤ 훅+TTS<br><small>POST /hooks → 폴링</small></button>
+  </div>
+  <div class="cycle">
+    <button id="bAll" class="ghost">처음부터 끝까지 (1회)</button>
+    <span>시나리오 더 뽑기</span>
+    <input id="nCycle" type="number" min="1" max="10" value="2">
+    <span>회</span>
+    <button id="bCycle">사이클 실행</button>
+    <button id="bReset" class="ghost sm">초기화</button>
+  </div>
+  <p class="hint">사이클 = 시나리오(append) → 콘티 → 선택 → 훅+TTS. 서버에 사이클 전용 API는 없고 이 화면이 반복 호출합니다. 프로젝트가 없으면 ①②를 먼저 자동 실행합니다.</p>
+  <div class="status" id="status">대기 중</div>
+</section>
+
+<section id="resSec">
+  <h2>결과 <small>회차별 시나리오·콘티·선택·훅</small></h2>
+  <div class="bar"><button id="bSave" class="ghost">결과 저장 (JSON 다운로드)</button><span class="hint" id="resSummary"></span></div>
+  <div class="result" id="results"><span class="hint">아직 결과가 없습니다.</span></div>
+</section>
+
+<section class="dis"><h2>FR-009 원본영상 만들기(편집)+TTS</h2>
+  <button disabled>원본영상 편집 + TTS</button> <span class="hint">파이프라인 미구현. 별도 트랙.</span></section>
+<section class="dis"><h2>FR-010 훅 합치기</h2>
+  <button disabled>훅 + 본편 합치기</button> <span class="hint">이번 흐름 밖(후속). 기존 <code>POST /v1/projects/{id}/renders</code> 유지.</span></section>
+
+<section id="logSec">
+  <h2>요청/응답 로그 <small>백엔드 구현 기준 · 각 요청에 curl 복사</small></h2>
+  <div class="bar"><button id="bClear" class="ghost sm">로그 지우기</button><button id="bCopyAll" class="ghost sm">전체 로그 복사(JSON)</button></div>
+  <div id="log"></div>
+</section>
+
+</main>
+<script>
+"use strict";
+/* ============================== 상태 ============================== */
+var S = {
+  productInfo: null,
+  project: null,
+  rounds: [],        // { round, scenario, storyboard, selected_scenario_id, hook_start, hook }
+  logs: [],
+  busy: false
+};
+var $ = function (id) { return document.getElementById(id); };
+var DEFAULT_FACTS = [
+  "60분형 아날로그 비주얼 타이머 (다이얼에 60 Min 표기, 0~55 숫자, 1분 단위 눈금)",
+  "다이얼을 시계 방향으로 돌리면 설정한 분만큼 빨간 부채꼴 원판이 채워진다",
+  "빨간 원판이 0 방향으로 서서히 줄어들어 숫자를 읽지 않아도 남은 시간이 한눈에 보인다",
+  "한 손에 들어오는 콤팩트한 사각형 흰색 전면 베젤과 둥근 매트 블랙 후면 하우징",
+  "뽀모도로 25분 집중"
+];
+function ptype() { return document.querySelector('input[name=htype]:checked').value; }
+function isMock() { return $("mock").checked; }
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function nowIso() { return new Date().toISOString(); }
+
+/* ============================== 폼 ============================== */
+function initForm() {
+  $("pname").value = "60분 비주얼 아날로그 타이머 (뽀모도로 타이머)";
+  $("pcat").value = "stationery";
+  $("pfacts").value = DEFAULT_FACTS.join("\n");
+  $("modeBadge").className = "badge mock"; $("modeBadge").textContent = "MOCK";
+}
+function readProduct() {
+  var facts = $("pfacts").value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+  var p = { name: $("pname").value.trim(), category: $("pcat").value, verified_facts: facts };
+  if ($("pprice").value.trim()) p.price_or_offer = $("pprice").value.trim();
+  if ($("ptarget").value.trim()) p.target_audience = $("ptarget").value.trim();
+  return p;
+}
+function refreshBadge() {
+  var b = $("modeBadge");
+  b.className = "badge " + (isMock() ? "mock" : "live");
+  b.textContent = isMock() ? "MOCK" : "LIVE";
+}
+
+/* ============================== 로그 / curl ============================== */
+function curlFor(method, url, body, hasAuth) {
+  var c = "curl -sS -X " + method + " '" + url + "'";
+  if (hasAuth) c += " -H 'Authorization: Bearer '\"$NAPDA_TOKEN\"";
+  if (body !== undefined && body !== null) {
+    c += " -H 'Content-Type: application/json' -d '" + JSON.stringify(body).replace(/'/g, "'\\''") + "'";
+  }
+  return c;
+}
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function addLog(e) {
+  S.logs.push(e);
+  var d = document.createElement("details");
+  d.className = "entry";
+  var cls = e.status >= 200 && e.status < 300 ? "ok" : (e.status === 0 || e.status >= 500 || e.status === 404 ? "bad" : "warn");
+  var sum = document.createElement("summary");
+  sum.innerHTML = '<span class="m">' + e.method + '</span><span class="code ' + cls + '">' + (e.status || "ERR") + '</span>' +
+    '<span class="url">' + esc(e.url) + '</span>' + (e.mock ? '<span class="badge mock">mock</span>' : '') +
+    '<span class="ms">' + e.ms + ' ms</span>';
+  d.appendChild(sum);
+  if (e.note) { var n = document.createElement("div"); n.className = "note"; n.textContent = e.note; d.appendChild(n); }
+  var b = document.createElement("div"); b.className = "body";
+  b.innerHTML = '<div>요청 body</div><pre>' + esc(e.request === undefined ? "(없음)" : JSON.stringify(e.request, null, 2)) + '</pre>' +
+    '<div>응답 JSON</div><pre>' + esc(e.response === undefined ? "(없음)" : (typeof e.response === "string" ? e.response : JSON.stringify(e.response, null, 2))) + '</pre>';
+  var btn = document.createElement("button"); btn.className = "ghost sm"; btn.textContent = "curl 복사";
+  btn.onclick = function () { copyText(e.curl, btn); };
+  b.appendChild(btn);
+  d.appendChild(b);
+  var log = $("log");
+  log.insertBefore(d, log.firstChild);
+}
+function copyText(t, btn) {
+  var done = function () { var o = btn.textContent; btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = o; }, 1200); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { fallbackCopy(t); done(); });
+  else { fallbackCopy(t); done(); }
+}
+function fallbackCopy(t) {
+  var ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); } catch (x) { /* ignore */ } document.body.removeChild(ta);
+}
+
+/* ============================== API 호출 ============================== */
+function setStatus(t) { $("status").textContent = t; }
+
+async function api(method, path, body) {
+  var base = $("base").value.trim().replace(/\/+$/, "");
+  var url = base + path;
+  var token = $("token").value.trim();
+  var t0 = performance.now();
+  var entry = { time: nowIso(), method: method, url: url, request: body, mock: isMock(), curl: curlFor(method, url, body, !!token) };
+  var status = 0, data;
+  if (isMock()) {
+    await sleep(Number($("mockLatency").value) || 0);
+    var r = Mock.handle(method, path, body);
+    status = r.status; data = r.body;
+  } else {
+    try {
+      var init = { method: method, headers: {} };
+      if (token) init.headers["Authorization"] = "Bearer " + token;
+      if (body !== undefined) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(body); }
+      var res = await fetch(url, init);
+      status = res.status;
+      var text = await res.text();
+      try { data = text ? JSON.parse(text) : null; } catch (x) { data = text; }
+      if (status === 404 || status === 501) entry.note = status + " — 이 엔드포인트가 백엔드에 아직 구현되지 않았거나 경로가 다릅니다 (명세: contracts/api-spec.md v0.2).";
+      else if (status === 401) entry.note = "401 — 토큰이 없거나 틀렸습니다. backend/bridge-dev/README.md 의 '인증' 절 참고.";
+      else if (status === 405) entry.note = "405 — 이 경로에 해당 HTTP 메서드가 아직 구현되지 않았습니다.";
+    } catch (err) {
+      status = 0; data = String(err && err.message || err);
+      entry.note = "네트워크 오류 — 서버가 꺼져 있거나 CORS 차단일 수 있습니다. 백엔드는 이 origin(" + location.origin + ")을 CORS 허용해야 합니다 (backend/bridge-dev/README.md 참고).";
+    }
+  }
+  entry.status = status; entry.response = data; entry.ms = Math.round(performance.now() - t0);
+  addLog(entry);
+  if (status < 200 || status >= 300) {
+    var err2 = new Error(method + " " + path + " → " + (status || "네트워크 오류"));
+    err2.status = status; err2.data = data; throw err2;
+  }
+  return data;
+}
+
+/* ============================== 단계 ============================== */
+async function step1() {
+  var p = readProduct();
+  if (!p.name) throw new Error("제품명을 입력하세요");
+  var body = { product: p };
+  if ($("psrc").value.trim()) body.source_url = $("psrc").value.trim();
+  setStatus("① 정보 가져오기…");
+  S.productInfo = await api("POST", "/v1/product-info", body);
+  setStatus("① 완료 — product_info_id=" + S.productInfo.product_info_id + (S.productInfo.cached ? " (캐시 적중)" : " (신규)"));
+  renderResults();
+}
+async function ensureProject() {
+  if (S.project) return;
+  if (!S.productInfo) await step1();
+  setStatus("② 프로젝트 생성…");
+  S.project = await api("POST", "/v1/projects", {
+    product_info_id: S.productInfo.product_info_id,
+    selected_types: [ptype()],
+    flow_mode: "guide_first"
+  });
+}
+async function newScenarioRound() {
+  await ensureProject();
+  var pid = S.project.project_id;
+  setStatus("시나리오 생성(append)…");
+  var res = await api("POST", "/v1/projects/" + pid + "/scenarios", { types: [ptype()], count: 1 });
+  var round = res.round;
+  var list = res.scenarios || [];
+  var mine = list.filter(function (s) { return s.round === round; });
+  var sc = (mine.length ? mine : list.slice(-1))[0];
+  if (!sc) throw new Error("응답 scenarios 가 비어 있습니다");
+  var rd = { round: round, scenario: sc, storyboard: null, selected_scenario_id: null, hook_start: null, hook: null };
+  S.rounds.push(rd);
+  renderResults();
+  return rd;
+}
+function lastRound() { return S.rounds[S.rounds.length - 1]; }
+async function stepStoryboard(rd) {
+  setStatus("③ 콘티 생성 (회차 " + rd.round + ")…");
+  rd.storyboard = await api("POST", "/v1/projects/" + S.project.project_id + "/scenarios/" + rd.scenario.scenario_id + "/storyboard", { visual_style: "default" });
+  renderResults();
+}
+async function stepSelect(rd) {
+  setStatus("④ 시나리오 선택 (회차 " + rd.round + ")…");
+  var r = await api("POST", "/v1/projects/" + S.project.project_id + "/scenarios/" + rd.scenario.scenario_id + "/select");
+  rd.selected_scenario_id = r.selected_scenario_id;
+  renderResults();
+}
+async function stepHook(rd) {
+  setStatus("⑤ 훅+TTS 요청 (회차 " + rd.round + ")…");
+  var tts = { enabled: true };
+  if ($("voice").value.trim()) tts.voice = $("voice").value.trim();
+  rd.hook_start = await api("POST", "/v1/projects/" + S.project.project_id + "/hooks", { scenario_id: rd.scenario.scenario_id, tts: tts });
+  renderResults();
+  var hid = rd.hook_start.hook_id;
+  for (var i = 0; i < 120; i++) {
+    var h = await api("GET", "/v1/projects/" + S.project.project_id + "/hooks/" + hid);
+    rd.hook = h; renderResults();
+    setStatus("⑤ 훅 상태: " + h.status + " (회차 " + rd.round + ", 폴링 " + (i + 1) + ")");
+    if (h.status === "done") return;
+    if (h.status === "failed") throw new Error("훅 생성 실패 (hook_id=" + hid + ")");
+    await sleep(isMock() ? 200 : 2000);
+  }
+  throw new Error("훅 폴링 시간 초과 (4분)");
+}
+async function oneCycle() {
+  var rd = await newScenarioRound();
+  await stepStoryboard(rd);
+  await stepSelect(rd);
+  await stepHook(rd);
+  return rd;
+}
+
+/* ============================== 버튼 핸들러 ============================== */
+async function run(fn) {
+  if (S.busy) return;
+  S.busy = true; setBusy(true);
+  try { await fn(); }
+  catch (e) { setStatus("오류: " + e.message + " — 로그 패널 확인"); }
+  finally { S.busy = false; setBusy(false); }
+}
+function setBusy(b) {
+  ["b1", "b2", "b3", "b4", "b5", "bAll", "bCycle"].forEach(function (id) { $(id).disabled = b; });
+}
+$("b1").onclick = function () { run(step1); };
+$("b2").onclick = function () { run(async function () { await newScenarioRound(); setStatus("② 완료 — 회차 " + lastRound().round + " 시나리오 " + lastRound().scenario.scenario_id); }); };
+$("b3").onclick = function () { run(async function () { var rd = lastRound(); if (!rd) throw new Error("먼저 ②를 실행하세요"); await stepStoryboard(rd); setStatus("③ 완료"); }); };
+$("b4").onclick = function () { run(async function () { var rd = lastRound(); if (!rd) throw new Error("먼저 ②를 실행하세요"); await stepSelect(rd); setStatus("④ 완료 — selected_scenario_id=" + rd.selected_scenario_id); }); };
+$("b5").onclick = function () { run(async function () { var rd = lastRound(); if (!rd) throw new Error("먼저 ②를 실행하세요"); await stepHook(rd); setStatus("⑤ 완료 — 훅 저장 위치: " + (rd.hook.output_dir || "?")); }); };
+$("bAll").onclick = function () { run(async function () { await step1(); await oneCycle(); setStatus("1회 완료 — 결과 저장 가능"); }); };
+$("bCycle").onclick = function () {
+  var n = Math.max(1, Math.min(10, parseInt($("nCycle").value, 10) || 1));
+  $("nCycle").value = n;
+  run(async function () {
+    if (!S.productInfo) await step1();
+    for (var i = 0; i < n; i++) { setStatus("사이클 " + (i + 1) + "/" + n + " 실행 중…"); await oneCycle(); }
+    setStatus("사이클 " + n + "회 완료 — 총 " + S.rounds.length + "회차");
+  });
+};
+$("bReset").onclick = function () { if (S.busy) return; S.productInfo = null; S.project = null; S.rounds = []; Mock.reset(); renderResults(); setStatus("초기화됨 (로그는 유지)"); };
+$("bClear").onclick = function () { S.logs = []; $("log").innerHTML = ""; };
+$("bCopyAll").onclick = function () { copyText(JSON.stringify(S.logs, null, 2), $("bCopyAll")); };
+$("mock").onchange = refreshBadge;
+$("bSave").onclick = function () {
+  var out = {
+    exported_at: nowIso(), mode: isMock() ? "mock" : "live", base_url: $("base").value.trim(), hook_type: ptype(),
+    product_info: S.productInfo, project: S.project,
+    rounds: S.rounds.map(function (r) {
+      return { round: r.round, scenario: r.scenario, storyboard: r.storyboard, selected_scenario_id: r.selected_scenario_id, hook_request: r.hook_start, hook: r.hook };
+    })
+  };
+  var blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "napda-hook-" + ptype() + "-" + new Date().toISOString().replace(/[:.]/g, "-") + ".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+};
+
+/* ============================== 결과 렌더 ============================== */
+function renderResults() {
+  var box = $("results");
+  var head = "";
+  if (S.productInfo) head += '<div class="round"><h3>제품 정보 <span class="badge ' + (S.productInfo.cached ? "mock" : "live") + '">' + (S.productInfo.cached ? "캐시" : "신규") + '</span></h3><div class="files">product_info_id: ' + esc(S.productInfo.product_info_id) + '<br>expires_at: ' + esc(S.productInfo.expires_at) + '</div></div>';
+  var body = S.rounds.map(function (r) {
+    var sc = r.scenario;
+    var h = '<div class="round"><h3>회차 ' + r.round + " · " + esc(sc.type) + " · " + esc(sc.hook_title || "") + '</h3>';
+    h += '<div class="hint">scenario_id: ' + esc(sc.scenario_id) + " · 훅 " + esc(sc.hook_duration_sec) + 's</div>';
+    (sc.beats || []).forEach(function (b) {
+      h += '<div class="beat"><b>' + esc(b.order) + ". " + esc(b.role) + "</b> (" + esc(b.duration_sec) + "s) " + esc(b.visual) +
+        (b.caption ? "<br>자막: " + esc(b.caption) : "") + (b.narration ? "<br>나레이션: " + esc(b.narration) : "") + "</div>";
+    });
+    if (r.storyboard && r.storyboard.frames) {
+      h += '<div class="frames">' + r.storyboard.frames.map(function (f) { return '<img alt="콘티 ' + esc(f.beat_order) + '" src="' + esc(f.image_url) + '">'; }).join("") + "</div>";
+    }
+    h += '<div class="hint">선택: ' + (r.selected_scenario_id ? "✅ " + esc(r.selected_scenario_id) : "—") + "</div>";
+    if (r.hook) {
+      h += '<div class="hint">훅: <b>' + esc(r.hook.status) + "</b> · hook_id " + esc(r.hook.hook_id) + "</div>";
+      if (r.hook.output_dir) h += '<div class="files">output_dir: ' + esc(r.hook.output_dir) + "</div>";
+      if (r.hook.files) h += '<div class="files">' + Object.keys(r.hook.files).map(function (k) {
+        var v = r.hook.files[k]; return esc(k) + ": " + esc(Array.isArray(v) ? v.length + "개" : v);
+      }).join("<br>") + "</div>";
+    } else if (r.hook_start) h += '<div class="hint">훅: ' + esc(r.hook_start.status) + " (접수)</div>";
+    return h + "</div>";
+  }).join("");
+  box.innerHTML = (head + body) || '<span class="hint">아직 결과가 없습니다.</span>';
+  $("resSummary").textContent = S.rounds.length + "회차";
+}
+
+/* ============================== Mock 백엔드 ============================== */
+var Mock = (function () {
+  var db;
+  function reset() { db = { infos: {}, projects: {}, hooks: {}, seq: 0 }; }
+  reset();
+  function id(p) { db.seq++; return p + "_" + Math.random().toString(36).slice(2, 8) + db.seq; }
+  function hash(o) { var s = JSON.stringify(o), h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(16); }
+  function r(status, body) { return { status: status, body: body }; }
+  function err(status, code, msg) { return r(status, { detail: { error: { code: code, message: msg, details: {} } } }); }
+  function plusSec(n) { return new Date(Date.now() + n * 1000).toISOString(); }
+  function svg(label, n) {
+    var s = '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320"><rect width="180" height="320" fill="#222"/><circle cx="90" cy="130" r="48" fill="#e8322a"/><text x="90" y="250" fill="#fff" font-size="14" text-anchor="middle" font-family="sans-serif">' + label + '</text><text x="90" y="280" fill="#aaa" font-size="12" text-anchor="middle" font-family="sans-serif">컷 ' + n + '</text></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s);
+  }
+  var SCRIPTS = {
+    A: [["어긋난 시작", "무관한 장면: 하품하는 고양이 클로즈업", "자막 없음", "고양이는 하루의 칠십 퍼센트를 잡니다."], ["전환", "화면이 급히 뒤집힘", "잠깐, 다시 집중!", "그런데 사람은 집중하기가 더 어렵습니다."], ["반전", "빨간 원판 타이머 클로즈업", "남은 시간이 보여요", "이 타이머는 남은 시간을 빨간 원판으로 보여 줍니다."]],
+    B: [["어긋난 시작", "사실 카드: 사람의 집중은 평균 몇 분?", "집중은 몇 분일까?", "사람이 한 번에 몰입하는 시간은 길지 않다고 합니다."], ["브리지 1", "시간 눈금이 한 칸씩 채워짐", "25분 단위로 끊으면", "그래서 이십오 분씩 끊어 집중하는 방법이 있습니다."], ["브리지 2", "숫자 대신 면적이 줄어드는 모습", "숫자 없이 면적으로", "남은 시간을 숫자가 아닌 면적으로 보면 더 빨리 알아챕니다."], ["반전", "빨간 원판 타이머가 0으로 줄어듦", "60분 비주얼 타이머", "이 타이머는 빨간 원판이 줄어들어 남은 시간이 한눈에 보입니다."]],
+    C: [["문제", "시계를 힐끗거리다 집중이 끊김", "또 시계 봤죠?", "공부 중에 시계를 자꾸 보게 됩니다."], ["증명", "다이얼을 돌려 빨간 원판이 채워짐", "돌리면 빨갛게", "다이얼을 돌리면 설정한 시간만큼 빨간 원판이 채워집니다."], ["반전", "원판이 줄어드는 클로즈업", "줄어드는 게 보여요", "숫자를 읽지 않아도 남은 시간이 한눈에 보입니다."]]
+  };
+  function handle(method, path, body) {
+    var m;
+    if (method === "POST" && path === "/v1/product-info") {
+      if (!body || !body.product || !body.product.name || !body.product.category) return err(422, "VALIDATION_ERROR", "product.name, product.category 는 필수입니다");
+      var norm = { n: body.product.name.trim(), c: body.product.category, f: body.product.verified_facts || [], p: body.product.price_or_offer || null, t: body.product.target_audience || null };
+      var key = hash(norm);
+      var hit = db.infos[key] && new Date(db.infos[key].expires_at) > new Date();
+      if (!hit) db.infos[key] = { product_info_id: id("pinfo"), product: body.product, cached_at: nowIso(), expires_at: plusSec(3600) };
+      var rec = db.infos[key];
+      return r(200, { product_info_id: rec.product_info_id, product: rec.product, cached: !!hit, cached_at: rec.cached_at, expires_at: rec.expires_at });
+    }
+    if (method === "POST" && path === "/v1/projects") {
+      if (!body || (!body.product && !body.product_info_id)) return err(422, "VALIDATION_ERROR", "product 또는 product_info_id 중 하나가 필요합니다");
+      var prod = body.product;
+      if (!prod) {
+        var found = null; Object.keys(db.infos).forEach(function (k) { if (db.infos[k].product_info_id === body.product_info_id) found = db.infos[k]; });
+        if (!found) return err(404, "PRODUCT_INFO_NOT_FOUND", "product_info_id 가 없거나 캐시가 만료되었습니다");
+        prod = found.product;
+      }
+      var pid = id("proj");
+      db.projects[pid] = { scenarios: [], round: 0, selected: null, product: prod, types: body.selected_types };
+      return r(201, { project_id: pid, status: "PRODUCT_SAVED", flow_mode: body.flow_mode || "guide_first", product_name: prod.name, category: prod.category, selected_types: body.selected_types, selected_scenario_id: null, latest_job_id: null, expires_at: plusSec(7 * 86400), created_at: nowIso(), updated_at: nowIso() });
+    }
+    if ((m = path.match(/^\/v1\/projects\/([^/]+)\/scenarios$/)) && method === "POST") {
+      var p = db.projects[m[1]]; if (!p) return err(404, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다");
+      var cnt = Math.max(1, Math.min(5, (body && body.count) || 1));
+      p.round++;
+      var types = (body && body.types) || p.types;
+      for (var i = 0; i < cnt; i++) {
+        var t = types[i % types.length], sc = SCRIPTS[t];
+        p.scenarios.push({
+          scenario_id: id("sc"), type: t, round: p.round,
+          hook_title: "[mock " + t + " #" + p.round + "] " + p.product.name,
+          hook_duration_sec: 12, body_duration_sec: 18,
+          replacement_test_note: "mock: 교체 테스트 메모",
+          beats: sc.map(function (b, k) { return { order: k + 1, role: b[0], duration_sec: Math.round(12 / sc.length * 10) / 10, visual: b[1], caption: b[2], narration: b[3] }; })
+        });
+      }
+      return r(200, { project_id: m[1], status: "SCENARIOS_READY", round: p.round, scenarios: p.scenarios });
+    }
+    if ((m = path.match(/^\/v1\/projects\/([^/]+)\/scenarios\/([^/]+)\/storyboard$/)) && method === "POST") {
+      var p2 = db.projects[m[1]]; if (!p2) return err(404, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다");
+      var s2 = p2.scenarios.filter(function (x) { return x.scenario_id === m[2]; })[0]; if (!s2) return err(404, "SCENARIO_NOT_FOUND", "시나리오를 찾을 수 없습니다");
+      return r(200, { project_id: m[1], scenario_id: m[2], status: "STORYBOARD_READY", frames: s2.beats.map(function (b) { return { beat_order: b.order, image_url: svg(b.role, b.order), caption: b.caption }; }) });
+    }
+    if ((m = path.match(/^\/v1\/projects\/([^/]+)\/scenarios\/([^/]+)\/select$/)) && method === "POST") {
+      var p3 = db.projects[m[1]]; if (!p3) return err(404, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다");
+      if (!p3.scenarios.some(function (x) { return x.scenario_id === m[2]; })) return err(404, "SCENARIO_NOT_FOUND", "시나리오를 찾을 수 없습니다");
+      p3.selected = m[2];
+      return r(200, { project_id: m[1], selected_scenario_id: m[2] });
+    }
+    if ((m = path.match(/^\/v1\/projects\/([^/]+)\/hooks$/)) && method === "POST") {
+      var p4 = db.projects[m[1]]; if (!p4) return err(404, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다");
+      if (!body || !body.scenario_id) return err(422, "VALIDATION_ERROR", "scenario_id 가 필요합니다");
+      if (p4.selected !== body.scenario_id) return err(409, "INVALID_STATE", "먼저 해당 시나리오를 select 해야 합니다");
+      var hid = id("hook");
+      db.hooks[hid] = { project: m[1], scenario: body.scenario_id, polls: 0, tts: body.tts || { enabled: true } };
+      return r(202, { hook_id: hid, job_id: id("job"), status: "queued" });
+    }
+    if ((m = path.match(/^\/v1\/projects\/([^/]+)\/hooks\/([^/]+)$/)) && method === "GET") {
+      var h = db.hooks[m[2]]; if (!h || h.project !== m[1]) return err(404, "HOOK_NOT_FOUND", "훅을 찾을 수 없습니다");
+      h.polls++;
+      var dir = "output/" + m[1] + "/" + m[2];
+      if (h.polls === 1) return r(200, { hook_id: m[2], status: "queued", files: {}, output_dir: dir });
+      if (h.polls === 2) return r(200, { hook_id: m[2], status: "running", files: {}, output_dir: dir });
+      var sf = db.projects[m[1]].scenarios.filter(function (x) { return x.scenario_id === h.scenario; })[0];
+      return r(200, { hook_id: m[2], status: "done", output_dir: dir, files: { hook_video: dir + "/hook.mp4", tts_audio: dir + "/tts.mp3", subtitles_srt: dir + "/hook.srt", scenario_json: dir + "/scenario.json", storyboard_images: sf.beats.map(function (b) { return dir + "/storyboard_" + (b.order < 10 ? "0" : "") + b.order + ".png"; }) } });
+    }
+    if ((m = path.match(/^\/v1\/projects\/([^/]+)\/outputs$/)) && method === "GET") {
+      var p5 = db.projects[m[1]]; if (!p5) return err(404, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다");
+      var outs = Object.keys(db.hooks).filter(function (k) { return db.hooks[k].project === m[1]; }).map(function (k) { return { hook_id: k, output_dir: "output/" + m[1] + "/" + k }; });
+      return r(200, { project_id: m[1], outputs: outs });
+    }
+    return err(404, "NOT_FOUND", "mock: 정의되지 않은 경로 " + method + " " + path);
+  }
+  return { handle: handle, reset: reset };
+})();
+
+initForm();
+refreshBadge();
+renderResults();
+// 테스트/자동화용 노출
+window.__bridge = { state: S, oneCycle: oneCycle, step1: step1 };
+</script>
+</body>
+</html>

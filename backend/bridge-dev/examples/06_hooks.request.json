@@ -1,0 +1,7 @@
+{
+  "scenario_id": "sc_demo_B1",
+  "tts": {
+    "enabled": true,
+    "voice": "ko-KR-SunHiNeural"
+  }
+}

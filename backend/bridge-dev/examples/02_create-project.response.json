@@ -1,0 +1,15 @@
+{
+  "project_id": "proj_demo01",
+  "status": "PRODUCT_SAVED",
+  "flow_mode": "guide_first",
+  "product_name": "60분 비주얼 아날로그 타이머 (뽀모도로 타이머)",
+  "category": "stationery",
+  "selected_types": [
+    "B"
+  ],
+  "selected_scenario_id": null,
+  "latest_job_id": null,
+  "expires_at": "2026-12-02T10:00:00+00:00",
+  "created_at": "2026-11-25T10:00:00+00:00",
+  "updated_at": "2026-11-25T10:00:00+00:00"
+}

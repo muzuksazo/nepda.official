@@ -1,0 +1,27 @@
+{
+  "project_id": "proj_demo01",
+  "scenario_id": "sc_demo_A1",
+  "status": "STORYBOARD_READY",
+  "frames": [
+    {
+      "beat_order": 1,
+      "image_url": "output/proj_demo01/sc_demo_A1/storyboard_01.png",
+      "caption": "피고 입정"
+    },
+    {
+      "beat_order": 2,
+      "image_url": "output/proj_demo01/sc_demo_A1/storyboard_02.png",
+      "caption": "어제도 그제도 같은 말"
+    },
+    {
+      "beat_order": 3,
+      "image_url": "output/proj_demo01/sc_demo_A1/storyboard_03.png",
+      "caption": "땅!"
+    },
+    {
+      "beat_order": 4,
+      "image_url": "output/proj_demo01/sc_demo_A1/storyboard_04.png",
+      "caption": "빨간 면적이 줄어듭니다"
+    }
+  ]
+}

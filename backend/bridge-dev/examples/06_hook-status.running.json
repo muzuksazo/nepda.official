@@ -1,0 +1,9 @@
+{
+  "hook_id": "hook_demo_B1",
+  "status": "running",
+  "files": {
+    "storyboard_images": []
+  },
+  "output_dir": "output/proj_demo01/hook_demo_B1",
+  "error": null
+}
