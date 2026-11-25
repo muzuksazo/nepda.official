@@ -1,0 +1,4 @@
+/* 서체(Pretendard, Black Han Sans)는 index.html / .storybook/preview-head.html 의 <link>로 불러온다 */
+@import './styles/tokens.css';
+@import './styles/base.css';
+@import './styles/components.css';

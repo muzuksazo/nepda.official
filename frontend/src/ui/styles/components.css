@@ -1,0 +1,773 @@
+/* 냅다 컴포넌트 — 규격은 /DESIGN.md Components 절 */
+
+/* ---------- 레이아웃 도우미 ---------- */
+.n-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.n-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+/* ---------- 글자 ---------- */
+.n-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1.22;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+
+.n-display--xl {
+  font-size: 32px;
+}
+
+.n-title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 24px;
+  letter-spacing: -0.2px;
+}
+
+.n-body {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.n-small {
+  font-size: 14px;
+  line-height: 21px;
+}
+
+.n-caption {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.n-muted {
+  color: var(--text-3);
+}
+
+.n-bold {
+  font-weight: 700;
+}
+
+.n-semibold {
+  font-weight: 600;
+}
+
+.n-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 화면당 한 단어만 쓰는 라임 강조 마커 */
+.n-mark {
+  padding-inline: 3px;
+  background: linear-gradient(transparent 58%, var(--napda-lime) 58%, var(--napda-lime) 90%, transparent 90%);
+}
+
+[data-theme='dark'] .n-mark {
+  background: none;
+  color: var(--napda-lime);
+}
+
+/* ---------- 버튼 ---------- */
+.n-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 44px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.n-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.n-btn--lg {
+  height: 52px;
+  padding-inline: 20px;
+  font-size: 16px;
+}
+
+.n-btn--md {
+  height: 44px;
+  padding-inline: 16px;
+  font-size: 15px;
+  border-radius: 12px;
+}
+
+.n-btn--sm {
+  height: 36px;
+  padding-inline: 12px;
+  font-size: 14px;
+  border-radius: var(--radius-md);
+}
+
+.n-btn--block {
+  width: 100%;
+}
+
+.n-btn--primary {
+  background: var(--inverse);
+  color: var(--on-inverse);
+}
+
+.n-btn--primary:hover:not(:disabled) {
+  background: var(--inverse-hover);
+}
+
+.n-btn--secondary {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--border-strong);
+}
+
+.n-btn--secondary:hover:not(:disabled),
+.n-btn--ghost:hover:not(:disabled) {
+  background: var(--surface-weak);
+}
+
+.n-btn--ghost {
+  background: transparent;
+  color: var(--text);
+}
+
+/* 비활성은 회색 면 + 흐린 글자 + 금지 커서: 활성처럼 보이지 않게 */
+.n-btn:disabled {
+  background: var(--surface);
+  color: var(--text-weak);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.n-btn--ghost:disabled {
+  background: transparent;
+}
+
+.n-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-icon-btn:hover {
+  background: var(--surface-weak);
+}
+
+.n-icon-btn--solid {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--napda-white);
+  color: var(--napda-black);
+}
+
+.n-icon-btn--solid:hover {
+  background: #e5e5e5;
+}
+
+/* ---------- 입력 ---------- */
+.n-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.n-field__label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--text);
+}
+
+.n-field__hint {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.n-field__desc {
+  margin-top: -4px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.n-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  font-size: 16px;
+  line-height: 22px;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.n-input::placeholder {
+  color: var(--text-weak);
+}
+
+.n-input:hover {
+  border-color: var(--text-3);
+}
+
+.n-input:focus-visible {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+textarea.n-input {
+  resize: vertical;
+}
+
+.n-input-wrap {
+  position: relative;
+}
+
+.n-input-wrap .n-input {
+  padding-right: 48px;
+}
+
+.n-input-clear {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+}
+
+/* ---------- 칩 (하나만 고르기) ---------- */
+.n-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.n-chip {
+  position: relative;
+}
+
+.n-chip input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  cursor: pointer;
+}
+
+.n-chip span {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding-inline: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 15px;
+  font-weight: 600;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.n-chip:hover span {
+  border-color: var(--text-3);
+}
+
+.n-chip input:checked + span {
+  background: var(--accent-fill);
+  border-color: var(--accent-edge);
+  box-shadow: inset 0 0 0 0.5px var(--accent-edge);
+  color: var(--on-accent-fill);
+}
+
+.n-chip input:focus-visible + span {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---------- 카드 ---------- */
+.n-card {
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  box-shadow: var(--shadow-card);
+}
+
+[data-theme='dark'] .n-card {
+  background: var(--surface-weak);
+}
+
+/* 선택형 카드: 카드 전체가 체크박스 라벨 */
+.n-select-card {
+  position: relative;
+  display: block;
+  padding: 12px;
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.n-select-card:hover {
+  border-color: var(--border);
+}
+
+.n-select-card input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.n-select-card:has(input:checked) {
+  border-color: var(--border-strong);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  background: var(--bg-weak);
+}
+
+[data-theme='dark'] .n-select-card:has(input:checked) {
+  background: var(--surface-weak);
+}
+
+.n-select-card:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* 체크 표시: 선택되면 검정 원 + 라임 체크 (라임을 쓰는 몇 안 되는 자리) */
+.n-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.n-select-card:has(input:checked) .n-check {
+  border-color: var(--accent-edge);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+[data-theme='dark'] .n-select-card:has(input:checked) .n-check {
+  border-color: var(--accent-fill);
+}
+
+/* ---------- 배지 ---------- */
+.n-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 24px;
+  padding-inline: 9px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.n-badge--neutral {
+  background: var(--surface);
+  color: var(--text-2);
+}
+
+/* 브랜드 배지: 검정 면 + 라임 글자 */
+.n-badge--brand {
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+  box-shadow: inset 0 0 0 1px var(--accent-edge);
+}
+
+/* 미정 표시: 와이어프레임의 점선 주석을 그대로 잇는 회색 점선 (출시 전 모두 사라질 개발용 표시) */
+.n-badge--pending {
+  background: transparent;
+  border: 1px dashed var(--text-weak);
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+/* ---------- 진행 막대 ---------- */
+.n-progress {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+}
+
+.n-progress__seg {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface);
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+.n-progress__seg.is-on {
+  background: var(--accent-fill);
+}
+
+/* ---------- 스켈레톤 ---------- */
+.n-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.n-skeleton span {
+  display: block;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--surface-weak), var(--surface), var(--surface-weak));
+  background-size: 200% 100%;
+  animation: n-shimmer 1.6s linear infinite;
+}
+
+@keyframes n-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------- 안내 상자 (회색) ---------- */
+.n-note {
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-weak);
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 21px;
+}
+
+.n-note svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text-3);
+}
+
+/* ---------- 파일 선택 ---------- */
+.n-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 220px;
+  padding: 24px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-xl);
+  text-align: center;
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.n-drop:hover,
+.n-drop.is-over {
+  border-color: var(--border-strong);
+  background: var(--bg-weak);
+}
+
+.n-drop.is-filled {
+  border-style: solid;
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.n-drop:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.n-drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.n-drop--compact {
+  flex-direction: row;
+  justify-content: flex-start;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  font-size: 15px;
+}
+
+/* ---------- 영상 프레임 (9:16, 검정) ---------- */
+.n-video {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: #000;
+  color: #fff;
+}
+
+[data-theme='dark'] .n-video {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.n-video--sm {
+  border-radius: var(--radius-md);
+}
+
+.n-video__top {
+  position: absolute;
+  top: 14%;
+  inset-inline: 12px;
+  text-align: center;
+}
+
+.n-video__bottom {
+  position: absolute;
+  bottom: 14px;
+  inset-inline: 10px;
+  text-align: center;
+  font-size: 12px;
+  color: rgb(255 255 255 / 0.7);
+}
+
+/* 썸네일 미리보기 글자: 흰 디스플레이체 + 검은 띠 */
+.n-thumb-caption {
+  display: inline;
+  padding: 2px 8px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.55;
+  color: #fff;
+  background: rgb(0 0 0 / 0.85);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.n-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--surface-weak);
+  color: var(--text-weak);
+}
+
+/* ---------- 번호 원 + 연결선 ---------- */
+.n-steps__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  column-gap: 14px;
+  align-items: start;
+  padding-bottom: 22px;
+}
+
+.n-steps__item:last-child {
+  padding-bottom: 0;
+}
+
+.n-steps__item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 34px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--border-weak);
+}
+
+.n-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 훅/본편 길이 ---------- */
+/* 훅/본편 길이: 15칸 점선 게이지 (한 칸 ≈ 2초) */
+.n-timeline {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  gap: 4px;
+}
+
+.n-timeline__seg {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.n-timeline__seg--hook {
+  background: var(--accent-fill);
+}
+
+.n-timeline__label--hook {
+  grid-column: 1 / span 6;
+}
+
+.n-timeline__label--main {
+  grid-column: 7 / span 9;
+}
+
+/* ---------- 마스코트 ---------- */
+.n-mascot {
+  height: auto;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ---------- 화면 틀 ---------- */
+.n-screen {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  min-height: 100dvh;
+  margin-inline: auto;
+  background: var(--bg);
+}
+
+.n-screen__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+}
+
+.n-screen__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 8px 20px 32px;
+}
+
+.n-screen__footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 20px calc(24px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border-weak);
+  background: var(--bg);
+  box-shadow: var(--shadow-sheet);
+}
+
+.n-screen__summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-bottom: 4px;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.n-brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  padding-inline: 20px;
+}
+
+.n-wordmark {
+  height: 36px;
+  width: auto;
+}
+
+[data-theme='dark'] .n-wordmark--light,
+[data-theme='light'] .n-wordmark--dark {
+  display: none;
+}
+
+.n-flow-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 20px 12px 8px;
+}
+
+.n-flow-header__step {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.n-flow-header__step b {
+  color: var(--text);
+}
+
+/* ---------- 스토리북 기기 틀 (390×844) ---------- */
+.n-device {
+  width: 390px;
+  height: 844px;
+  margin: 24px auto;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 32px;
+  background: var(--bg);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.12);
+}
+
+.n-device .n-screen {
+  min-height: 100%;
+}
