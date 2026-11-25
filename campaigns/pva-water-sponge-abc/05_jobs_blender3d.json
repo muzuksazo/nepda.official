@@ -1,0 +1,140 @@
+{
+  "project_id": "pva-water-sponge-abc-blender3d",
+  "aspect_ratio": "9:16",
+  "resolution": "720p",
+  "visual_styles": [
+    "blender_clay_diorama",
+    "blender_3d_cutaway"
+  ],
+  "anchors": [],
+  "references": [
+    {
+      "id": "R_A1_b3d",
+      "file": "refs/R_A1_b3d.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Stylized Blender Cycles 3D matte polymer-clay miniature diorama still render (subtle tactile clay fingerprint micro-texture, sculpted miniature props, tilt-shift shallow depth of field, zero photorealistic human skin or real photography). Noir interrogation bathroom diorama: a stylized matte polymer-clay miniature detective character in a charcoal clay trench coat and fedora crouching beside a miniature white ceramic sink vanity diorama, holding a chunky silver clay flashlight whose beam illuminates a completely bone-dry spotless white miniature tiled bathroom floor where moisture vanished without a trace, moody chiaroscuro studio rim lighting, 9:16 vertical frame. No camera cuts, zero readable text, no typography, no subtitles, no watermarks, no logos, no music."
+    },
+    {
+      "id": "R_A2_b3d",
+      "file": "refs/R_A2_b3d.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Stylized Blender Cycles 3D matte polymer-clay miniature diorama still render (subtle tactile clay fingerprint micro-texture, sculpted miniature props, tilt-shift shallow depth of field, zero photorealistic human skin or real photography). Matching the exact same stylized matte polymer-clay noir detective character and aesthetic from the attached reference: dark miniature clay interrogation desk under one glowing warm overhead cone desk lamp, showcasing a clean bone-dry miniature porcelain tile evidence tray at center frame while the chunky clay detective leans in raising gloved clay hands in theatrical comic disbelief, 9:16 vertical frame. No camera cuts, zero readable text, no typography, no subtitles, no watermarks, no logos, no music.",
+      "attach_ids": [
+        "R_A1_b3d"
+      ]
+    },
+    {
+      "id": "R_B1_b3d",
+      "file": "refs/R_B1_b3d.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Clean Blender Cycles 3D scientific educational cutaway render on matte ceramic/clay materials with translucent volumetric fluid/airflow shaders, soft studio rim lighting, zero live-action photography or human faces. 3D underwater coral reef pedestal diorama: a sculpted matte ochre-gold sea sponge specimen resting on a clean turquoise mineral seabed base with crisp stylized circular pores drawing luminous translucent sky-blue volumetric water micro-currents gently inward under soft studio underwater shafts, 9:16 vertical frame. No camera cuts, zero readable text, no typography, no subtitles, no watermarks, no logos, no music."
+    },
+    {
+      "id": "R_B2_b3d",
+      "file": "refs/R_B2_b3d.png",
+      "model": "nano_banana_2_lite",
+      "count": 1,
+      "settings": {
+        "aspect_ratio": "9:16"
+      },
+      "prompt": "Clean Blender Cycles 3D scientific educational cutaway render on matte ceramic/clay materials with translucent volumetric fluid/airflow shaders, soft studio rim lighting, zero live-action photography or human faces. Clean architectural 3D cutaway cross-section of a matte charcoal-grey honeycomb porous block resting on a bright minimal ceramic pedestal: crisp flat cutaway face revealing dense interconnected vertical capillary tubes inside the block, while glossy translucent cobalt-blue water spheres rest at top pore openings starting to sink downward, soft studio rim light, 9:16 vertical frame. No camera cuts, zero readable text, no typography, no subtitles, no watermarks, no logos, no music.",
+      "attach_ids": [
+        "R_B1_b3d"
+      ]
+    }
+  ],
+  "units": [
+    {
+      "id": "A1_b3d",
+      "variant": "ad_A_noir_sponge_b3d",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A1_b3d"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A1_b3d.mp4"
+      ],
+      "prompt": "Stylized Blender Cycles 3D matte clay stop-motion-feel animation render (smooth 3D miniature character and diorama physics, soft global illumination, zero photorealistic human faces or uncanny live-action artifacts). One continuous slow miniature camera push-in (strictly no camera cuts), 9:16 vertical frame: matching the stylized matte polymer-clay noir detective miniature diorama from the attached reference, the clay detective sweeps the flashlight beam left-to-right across the completely dry white miniature tiles and freezes in stylized bewildered focus. Soft miniature room tone and gentle mechanical click only. No dialogue, no music. No camera cuts, zero readable text, no typography, no subtitles, no watermarks, no logos, no music."
+    },
+    {
+      "id": "A2_b3d",
+      "variant": "ad_A_noir_sponge_b3d",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_A2_b3d"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/A2_b3d.mp4"
+      ],
+      "prompt": "Stylized Blender Cycles 3D matte clay stop-motion-feel animation render (smooth 3D miniature character and diorama physics, soft global illumination, zero photorealistic human faces or uncanny live-action artifacts). One continuous slow noir tilt-up shot (strictly no camera cuts), 9:16 vertical frame: matching the clay miniature interrogation table diorama from the attached reference, the detective sweeps his silver flashlight beam across the completely dry porcelain tile tray searching for moisture, then raises both stylized clay hands in comical disbelief. Subtle warm lamp hum and tense room tone only. No dialogue, no music. No camera cuts, zero readable text, no typography, no subtitles, no watermarks, no logos, no music."
+    },
+    {
+      "id": "B1_b3d",
+      "variant": "ad_B_sponge_science_b3d",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B1_b3d"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B1_b3d.mp4"
+      ],
+      "prompt": "Smooth Blender Cycles 3D isometric scientific cutaway animation render (clean matte 3D geometry, physically clear translucent fluid particles, crisp studio lighting, zero photorealistic humans). Smooth slow macro camera push-in orbit (strictly no camera cuts), 9:16 vertical frame: matching the 3D marine sea sponge diorama from the attached reference, luminous translucent blue water particle streams glide smoothly inward into the golden sponge surface pores like a clean 3D biology explainer. Faint serene underwater ambient tone only. No dialogue, no music. No camera cuts, zero readable text, no typography, no subtitles, no watermarks, no logos, no music."
+    },
+    {
+      "id": "B2_b3d",
+      "variant": "ad_B_sponge_science_b3d",
+      "mode": "ingredients",
+      "model": "omni_1_2_flash",
+      "count": 1,
+      "reference_ids": [
+        "R_B2_b3d"
+      ],
+      "settings": {
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "duration_sec": 5
+      },
+      "est_credits": 15,
+      "outputs": [
+        "clips/B2_b3d.mp4"
+      ],
+      "prompt": "Smooth Blender Cycles 3D isometric scientific cutaway animation render (clean matte 3D geometry, physically clear translucent fluid particles, crisp studio lighting, zero photorealistic humans). Smooth slow isometric cutaway push-in (strictly no camera cuts), 9:16 vertical frame: matching the 3D cross-section porous cube from the attached reference, crystal-clear translucent blue water spheres are drawn rapidly downward into the internal honeycomb capillary channels without spreading sideways. Clean subtle studio ambience only. No dialogue, no music. No camera cuts, zero readable text, no typography, no subtitles, no watermarks, no logos, no music."
+    }
+  ]
+}

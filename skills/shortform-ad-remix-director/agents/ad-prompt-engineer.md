@@ -19,6 +19,7 @@ model: sonnet
      --res 360p
    ```
 3. `05_package.md` 에 A/B/C 훅 프롬프트와 `REF_PRODUCT`/`BRIDGE_*` 첨부 구조를 정리한다:
+   - **Blender 3D 안티-AI-슬롭 프리셋 (`visual_style`)**: 실사 인물/공간 AI 티를 피할 때는 `05_ad_spec.json` 에 `visual_style` (`blender_clay_diorama` · `blender_3d_cutaway` · `blender_isometric_toy`) 을 지정해 `ad_flow_jobs.py` 가 `R_*.png` 와 `Omni 1.2 Flash` 프롬프트에 Blender Cycles 3D 셰이더·라이팅 락인을 자동 주입하도록 한다.
    - **무문자 잠금**: 모든 Flow 프롬프트 끝에는 `No camera cuts, zero readable text, no typography, no subtitles, no watermarks, no logos, no music.` 를 포함한다.
    - **Zero-Digit AI 소품 규칙**: 이미지 첨부 없이 타이머·시계·계기판·디스플레이가 나오는 AI 라이프스타일 컷을 생성할 때는 반드시 `"completely blank smooth unmarked face with strictly ZERO numbers, ZERO digits, ZERO text marks"` 를 프롬프트에 명시해 뭉개진 가짜 숫자를 원천 차단한다.
    - **한글 음독 보이스오버 템플릿**: Flow 한국어 VO 프롬프트는 `15s` 당 한글 **90~96자 이하**로 제한하고 숫자는 전부 **한글 음독**(`이십오 분`, `육십 분`, `단 삼 초`)으로 표기하며 `"Starting promptly without delay..."` ~ `"...finishes cleanly with 2.0 seconds of quiet room silence at the end"` 로 감싼다.

@@ -32,7 +32,9 @@ class CreateJobRequest(BaseModel):
     source_video: Optional[str] = None
     source_object_key: Optional[str] = None
     facts_path: Optional[str] = None
+    facts_markdown: Optional[str] = None
     spec_path: Optional[str] = None
+    spec_data: Optional[Dict[str, Any]] = None
     compare_abc_specs: Optional[List[str]] = None
     thumbs_spec_path: Optional[str] = None
     vo_manifest_path: Optional[str] = None

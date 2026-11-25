@@ -28,7 +28,9 @@ class CampaignRequest:
     source_video: Optional[str] = None
     source_object_key: Optional[str] = None
     facts_path: Optional[str] = None
+    facts_markdown: Optional[str] = None
     spec_path: Optional[str] = None
+    spec_data: Optional[Dict[str, Any]] = None
     compare_abc_specs: Optional[List[str]] = None
     thumbs_spec_path: Optional[str] = None
     vo_manifest_path: Optional[str] = None
@@ -132,18 +134,28 @@ class ProductionPipeline:
 
             # Resolve product facts ledger
             facts_target = work_dir / "00_product_facts.md"
-            if req.facts_path:
+            if req.facts_markdown:
+                facts_target.write_text(req.facts_markdown, encoding="utf-8")
+            elif req.facts_path:
                 fp = Path(req.facts_path).expanduser().resolve()
                 if not fp.exists():
                     raise FileNotFoundError(f"Product facts file not found: {fp}")
                 shutil.copy2(fp, facts_target)
             elif not facts_target.exists():
-                raise ValueError("facts_path is required to ground claims in 00_product_facts.md")
+                raise ValueError(
+                    "facts_path or facts_markdown is required to ground claims in 00_product_facts.md"
+                )
 
             # Stage 2: PLANNING
             self.store.update_job(jid, status="RUNNING", stage="PLANNING")
             spec_target = work_dir / "05_ad_spec.json"
-            if req.spec_path:
+            if req.spec_data is not None:
+                spec_data = dict(req.spec_data)
+                spec_target.write_text(
+                    json.dumps(spec_data, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+                spec_base_dir = work_dir
+            elif req.spec_path:
                 sp = Path(req.spec_path).expanduser().resolve()
                 if not sp.exists():
                     raise FileNotFoundError(f"Spec JSON not found: {sp}")

@@ -178,13 +178,22 @@ def close_overlays(tab_id: int) -> None:
                 "document.querySelector('.cdk-overlay-backdrop')?.click(); "
                 "document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}))",
             )
-            try:
-                press_key(tab_id, "Escape")
-            except RuntimeError as exc:
-                msg = str(exc)
-                if "stale_ref" not in msg and "obscured" not in msg:
-                    raise
-            time.sleep(0.45)
+            time.sleep(0.25)
+            still_open = bool(
+                evaluate_js(
+                    tab_id,
+                    "!!document.querySelector('.cdk-overlay-backdrop, [role=\"dialog\"], [role=\"menu\"]')",
+                )
+            )
+            if still_open:
+                ensure_tab_active(tab_id)
+                try:
+                    press_key(tab_id, "Escape")
+                except RuntimeError as exc:
+                    msg = str(exc)
+                    if "stale_ref" not in msg and "obscured" not in msg:
+                        raise
+                time.sleep(0.45)
         else:
             break
 
@@ -1345,6 +1354,7 @@ def generate_ref(
     raw_prompt = prompt_override if prompt_override is not None else ref_obj["prompt"]
     prompt = clean_prompt_text(raw_prompt, ar, strip_face_anchors)
 
+    ensure_tab_active(tab_id)
     ensure_grid_view(tab_id)
     scroll_grid_top(tab_id)
     prev_state = get_media_state(tab_id)
@@ -1362,6 +1372,7 @@ def generate_ref(
     attach_ids = eff_attach
 
     prompt = re.sub(r"\s*\n+\s*", " ", prompt).strip()
+    ensure_tab_active(tab_id)
     dom = read_dom(tab_id)
     tb = require_ref(dom, role="textbox", name="무엇을 만들고 싶으신가요?", label="prompt textbox")
     ugot("type", {"backend": DEFAULT_BACKEND, "tabId": tab_id, "ref": tb, "text": prompt, "clear": False})

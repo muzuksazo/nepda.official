@@ -33,6 +33,13 @@ Isolate **one fair scientific variable** when testing multiple cold openings ato
      - Classic bright unpolished POV pain opener -> immediate physical reset -> jump straight into the real product's **strongest kinetic proof cut FIRST** + 2–3 verified `[F##]` benefits + CTA. Keep PAS and spec persuasion strictly inside Track C.
 - **Controlled Body (`5.0–25.0s` in `abc_remix`, or shared payoff cuts in `narrative_master`)**: Keep product proof honest & factual across `A`, `B`, `C`. Build/QC in order **`C -> B -> A`**.
 
+#### Anti-AI-Slop Visual Style Presets — Blender 3D Default Option (`visual_style`)
+
+To eliminate photorealistic AI "uncanny valley" artifacts (plastic skin, warped hands, awkward real-world physics) in `0–12s` cold openers, set `"visual_style"` on the spec, variant, or segment so `ad_flow_jobs.py` locks a stylized **Blender Cycles 3D** render look in both `R_*.png` (`0 cr`) and `Omni 1.2 Flash` motion units — followed by a crisp match-cut into real client product footage:
+- **`blender_clay_diorama`** *(Default for Track A `A_bgrade_reversal`)*: Stylized matte polymer-clay / vinyl miniature diorama with tactile micro-texture, miniature sculpted props, and tilt-shift studio lighting. Turns absurd genre stakes (e.g., clay noir detective, tilting 90° clay dining table) into charming intentional animation rather than cheap live-action AI.
+- **`blender_3d_cutaway`** *(Default for Track B `B_info_hook_offset`)*: Clean Blender Cycles 3D scientific cutaway / cellular cross-section with matte ceramic solids and clear translucent volumetric fluid/air shaders. Matches high-retention science explainer reels without AI nature/lab artifacts.
+- **`blender_isometric_toy`** *(Optional stylized interior/desk alternative)*: Clean beveled isometric vinyl-toy miniature room with soft studio shadows and snappy 3D motion.
+
 ### Mode 1B — 30-Second 3-Stage Narrative Escalation Master (`v2_narrative_master`, ~30s)
 
 Use whenever a `2–3s` hook feels abrupt, gimmicky, or context-starved — when viewers need **earned empathy and escalation** before seeing the product solution:

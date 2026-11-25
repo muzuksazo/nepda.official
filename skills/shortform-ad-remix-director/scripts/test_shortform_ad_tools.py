@@ -24,6 +24,7 @@ if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
 
 import ad_audio_prep  # noqa: E402
+import ad_flow_jobs  # noqa: E402
 import ad_gate_a_lint  # noqa: E402
 import ad_source_analyzer  # noqa: E402
 import ad_thumbnail_builder  # noqa: E402
@@ -648,6 +649,60 @@ class TestFlowAutomatorSpeedAndFocus(unittest.TestCase):
             self.assertEqual(cost, 15)
             self.assertEqual(m_settings.call_count, 0)
             m_focus.assert_called_once_with(123)
+
+
+class TestFlowJobsVisualStyle(unittest.TestCase):
+    def test_visual_style_presets_inject_blender_3d_for_timeline_and_variants(self) -> None:
+        timeline_spec = {
+            "project_id": "test-b3d-tl",
+            "mode": "narrative_master",
+            "aspect_ratio": "9:16",
+            "visual_style": "blender_clay_diorama",
+            "timeline": [
+                {
+                    "id": "A1_b3d",
+                    "type": "flow_video",
+                    "flow_unit_id": "A1_b3d",
+                    "flow_ref_id": "R_A1_b3d",
+                    "duration": 5.0,
+                    "flow_ref_prompt": "Miniature noir detective beside dry bathroom tiles.",
+                    "flow_video_prompt": "Slow camera push across bone-dry clay floor.",
+                },
+                {"id": "STOP", "type": "silence_gap", "duration": 0.25},
+            ],
+        }
+        jobs_tl = ad_flow_jobs.build_flow_jobs(timeline_spec, res="720p")
+        self.assertEqual(jobs_tl["visual_style"], "blender_clay_diorama")
+        self.assertEqual(len(jobs_tl["references"]), 1)
+        self.assertEqual(len(jobs_tl["units"]), 1)
+        self.assertIn("Blender Cycles 3D", jobs_tl["references"][0]["prompt"])
+        self.assertIn("zero readable text", jobs_tl["references"][0]["prompt"].lower())
+        self.assertIn("Blender Cycles 3D", jobs_tl["units"][0]["prompt"])
+        self.assertEqual(jobs_tl["units"][0]["est_credits"], 15)
+
+        var_spec = {
+            "project_id": "test-b3d-var",
+            "aspect_ratio": "9:16",
+            "variants": {
+                "B": {
+                    "visual_style": "blender_3d_cutaway",
+                    "hook_segments": [
+                        {
+                            "type": "flow_video",
+                            "flow_unit_id": "G_B",
+                            "flow_ref_id": "R_B",
+                            "duration": 5.0,
+                            "flow_ref_prompt": "Porous cube cross-section with blue water droplets.",
+                            "flow_video_prompt": "Already authored Blender 3D orbit push-in.",
+                        }
+                    ],
+                }
+            },
+        }
+        jobs_var = ad_flow_jobs.build_flow_jobs(var_spec, res="360p")
+        self.assertIn("Blender Cycles 3D scientific", jobs_var["references"][0]["prompt"])
+        # Idempotent when prompt already mentions Blender
+        self.assertTrue(jobs_var["units"][0]["prompt"].startswith("Already authored Blender"))
 
 
 if __name__ == "__main__":

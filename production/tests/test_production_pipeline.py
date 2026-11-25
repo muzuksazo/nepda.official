@@ -533,6 +533,34 @@ class TestProductionPipelineAndAPI(unittest.TestCase):
             self.assertEqual(final_job["status"], "DRY_RUN_READY", final_job)
             self.assertTrue(final_job["lint"]["passed"])
 
+            # Inline spec_data + facts_markdown handoff (from planner-ai-sdk)
+            inline_spec = json.loads(spec.read_text(encoding="utf-8"))
+            inline_spec["project_id"] = "ai-sdk-inline-camp"
+            inline_spec["a_genre_archetype"] = "courtroom_trial"
+            post_inline = client.post(
+                "/v1/jobs",
+                headers=headers,
+                json={
+                    "campaign_id": "ai-sdk-inline-camp",
+                    "source_video": str(src),
+                    "facts_markdown": facts.read_text(encoding="utf-8"),
+                    "spec_data": inline_spec,
+                    "dry_run": True,
+                },
+            )
+            self.assertEqual(post_inline.status_code, 202, post_inline.text)
+            inline_jid = post_inline.json()["job_id"]
+            inline_job = None
+            for _ in range(80):
+                g2 = client.get(f"/v1/jobs/{inline_jid}", headers=headers)
+                inline_job = g2.json()
+                if inline_job["status"] in {"DRY_RUN_READY", "QC_READY", "FAILED"}:
+                    break
+                time.sleep(0.1)
+            self.assertIsNotNone(inline_job)
+            self.assertEqual(inline_job["status"], "DRY_RUN_READY", inline_job)
+            self.assertTrue(inline_job["lint"]["passed"])
+
 
 if __name__ == "__main__":
     unittest.main()

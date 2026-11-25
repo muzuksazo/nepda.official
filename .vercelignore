@@ -1,4 +1,6 @@
 skills/
 campaigns/
 production/
+planner-ai-sdk/
+Makefile
 .git/

@@ -3,9 +3,12 @@
 .env.*
 !.env.example
 !production/.env.example
+!planner-ai-sdk/.env.example
 __pycache__/
 *.pyc
 .DS_Store
+node_modules/
+planner-ai-sdk/dist/
 *.mp4
 *.mov
 *.MOV

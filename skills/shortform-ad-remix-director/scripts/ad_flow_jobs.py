@@ -23,6 +23,55 @@ ZERO_TEXT_TAIL = (
 
 NO_SIGH_TAIL = "Calm grounded hands and natural neutral posture."
 
+VISUAL_STYLE_PRESETS: Dict[str, Dict[str, str]] = {
+    "blender_clay_diorama": {
+        "ref_prefix": (
+            "Stylized Blender Cycles 3D matte polymer-clay miniature diorama still render "
+            "(subtle tactile clay fingerprint micro-texture, sculpted miniature props, "
+            "tilt-shift shallow depth of field, zero photorealistic human skin or real photography)."
+        ),
+        "video_prefix": (
+            "Stylized Blender Cycles 3D matte clay stop-motion-feel animation render "
+            "(smooth 3D miniature character and diorama physics, soft global illumination, "
+            "zero photorealistic human faces or uncanny live-action artifacts)."
+        ),
+    },
+    "blender_3d_cutaway": {
+        "ref_prefix": (
+            "Clean Blender Cycles 3D scientific educational cutaway render on matte "
+            "ceramic/clay materials with translucent volumetric fluid/airflow shaders, "
+            "soft studio rim lighting, zero live-action photography or human faces."
+        ),
+        "video_prefix": (
+            "Smooth Blender Cycles 3D isometric scientific cutaway animation render "
+            "(clean matte 3D geometry, physically clear translucent fluid particles, "
+            "crisp studio lighting, zero photorealistic humans)."
+        ),
+    },
+    "blender_isometric_toy": {
+        "ref_prefix": (
+            "Stylized Blender Cycles 3D isometric vinyl-toy miniature room render "
+            "(clean beveled pastel/matte geometry, soft studio area lights, "
+            "zero photorealistic human skin or messy live-action clutter)."
+        ),
+        "video_prefix": (
+            "Smooth Blender Cycles 3D isometric vinyl-toy miniature animation render "
+            "(snappy stylized 3D motion, clean soft studio shadows, "
+            "zero photorealistic human actors)."
+        ),
+    },
+}
+
+
+def _apply_visual_style(prompt: str, visual_style: Optional[str], kind: str) -> str:
+    p = (prompt or "").strip()
+    if not visual_style or visual_style not in VISUAL_STYLE_PRESETS:
+        return p
+    if "blender" in p.lower():
+        return p
+    prefix = VISUAL_STYLE_PRESETS[visual_style][f"{kind}_prefix"]
+    return f"{prefix} {p}".strip()
+
 
 def _ensure_zero_text(prompt: str, *, include_no_sigh: bool = False) -> str:
     p = (prompt or "").strip()
@@ -43,6 +92,7 @@ def _seg_dur(seg: Dict[str, Any]) -> float:
 
 def build_flow_jobs(spec: Dict[str, Any], *, res: str = "360p") -> Dict[str, Any]:
     ar = spec.get("aspect_ratio", "9:16") or "9:16"
+    spec_style = spec.get("visual_style")
     per_sec_cr = 1 if res == "360p" else 3
     refs: List[Dict[str, Any]] = []
     units: List[Dict[str, Any]] = []
@@ -50,59 +100,73 @@ def build_flow_jobs(spec: Dict[str, Any], *, res: str = "360p") -> Dict[str, Any
     anchors = spec.get("flow_anchors") or []
     seen_ref_ids = set()
 
-    for vk, v in (spec.get("variants") or {}).items():
-        if not isinstance(v, dict):
-            continue
-        for seg in v.get("hook_segments") or []:
-            if seg.get("type") != "flow_video":
+    def _collect_segments() -> List[Tuple[str, Optional[str], Dict[str, Any]]]:
+        items: List[Tuple[str, Optional[str], Dict[str, Any]]] = []
+        for vk, v in (spec.get("variants") or {}).items():
+            if not isinstance(v, dict):
                 continue
-            uid = seg.get("flow_unit_id") or f"G_{vk}"
-            ref_id = seg.get("flow_ref_id") or f"R_{vk}"
-            ref_prompt = seg.get("flow_ref_prompt") or ""
-            vid_prompt = seg.get("flow_video_prompt") or ""
-            attach_ids = list(seg.get("attach_ids") or [])
-            human_present = bool(seg.get("human_present", False))
+            v_style = v.get("visual_style") or spec_style
+            for seg in v.get("hook_segments") or []:
+                items.append((vk, v_style, seg))
+        if spec.get("timeline"):
+            t_vk = spec.get("output_stem") or spec.get("project_id") or "master"
+            for seg in spec.get("timeline") or []:
+                items.append((t_vk, spec_style, seg))
+        return items
 
-            if ref_prompt and ref_id not in seen_ref_ids:
-                seen_ref_ids.add(ref_id)
-                ref_entry: Dict[str, Any] = {
-                    "id": ref_id,
-                    "file": f"refs/{ref_id}.png",
-                    "model": "nano_banana_2_lite",
-                    "count": 1,
-                    "settings": {"aspect_ratio": ar},
-                    "prompt": _ensure_zero_text(ref_prompt, include_no_sigh=human_present),
-                }
-                if attach_ids:
-                    ref_entry["attach_ids"] = attach_ids
-                refs.append(ref_entry)
+    for vk, parent_style, seg in _collect_segments():
+        if not isinstance(seg, dict) or seg.get("type") != "flow_video":
+            continue
+        seg_style = seg.get("visual_style") or parent_style
+        uid = seg.get("flow_unit_id") or seg.get("id") or f"G_{vk}"
+        ref_id = seg.get("flow_ref_id") or f"R_{uid}"
+        ref_prompt = seg.get("flow_ref_prompt") or ""
+        vid_prompt = seg.get("flow_video_prompt") or ""
+        attach_ids = list(seg.get("attach_ids") or [])
+        human_present = bool(seg.get("human_present", False))
 
-            raw_d = _seg_dur(seg)
-            req_dur = int(seg.get("flow_duration_sec") or max(3, min(15, int(math.ceil(raw_d)))))
-            req_dur = max(3, min(15, req_dur))
-            mode = seg.get("flow_mode") or "ingredients"
-            unit_entry: Dict[str, Any] = {
-                "id": uid,
-                "variant": vk,
-                "mode": mode,
-                "model": "omni_1_2_flash",
+        if ref_prompt and ref_id not in seen_ref_ids:
+            seen_ref_ids.add(ref_id)
+            styled_ref = _apply_visual_style(ref_prompt, seg_style, "ref")
+            ref_entry: Dict[str, Any] = {
+                "id": ref_id,
+                "file": f"refs/{ref_id}.png",
+                "model": "nano_banana_2_lite",
                 "count": 1,
-                "reference_ids": [ref_id] if ref_id in seen_ref_ids or any(a.get("id") == ref_id for a in anchors) else attach_ids,
-                "settings": {"aspect_ratio": ar, "resolution": res, "duration_sec": req_dur},
-                "est_credits": req_dur * per_sec_cr,
-                "outputs": [seg.get("path") or f"clips/{uid}_t1.mp4"],
-                "prompt": _ensure_zero_text(vid_prompt, include_no_sigh=human_present),
+                "settings": {"aspect_ratio": ar},
+                "prompt": _ensure_zero_text(styled_ref, include_no_sigh=human_present),
             }
-            if mode == "frames":
-                if seg.get("first_frame"):
-                    unit_entry["first_frame"] = seg["first_frame"]
-                elif ref_id:
-                    unit_entry["first_frame"] = ref_id
-                if seg.get("last_frame"):
-                    unit_entry["last_frame"] = seg["last_frame"]
-            units.append(unit_entry)
+            if attach_ids:
+                ref_entry["attach_ids"] = attach_ids
+            refs.append(ref_entry)
 
-    return {
+        raw_d = _seg_dur(seg)
+        req_dur = int(seg.get("flow_duration_sec") or max(3, min(15, int(math.ceil(raw_d)))))
+        req_dur = max(3, min(15, req_dur))
+        mode = seg.get("flow_mode") or "ingredients"
+        styled_vid = _apply_visual_style(vid_prompt, seg_style, "video")
+        unit_entry: Dict[str, Any] = {
+            "id": uid,
+            "variant": vk,
+            "mode": mode,
+            "model": "omni_1_2_flash",
+            "count": 1,
+            "reference_ids": [ref_id] if ref_id in seen_ref_ids or any(a.get("id") == ref_id for a in anchors) else attach_ids,
+            "settings": {"aspect_ratio": ar, "resolution": res, "duration_sec": req_dur},
+            "est_credits": req_dur * per_sec_cr,
+            "outputs": [seg.get("path") or f"clips/{uid}_t1.mp4"],
+            "prompt": _ensure_zero_text(styled_vid, include_no_sigh=human_present),
+        }
+        if mode == "frames":
+            if seg.get("first_frame"):
+                unit_entry["first_frame"] = seg["first_frame"]
+            elif ref_id:
+                unit_entry["first_frame"] = ref_id
+            if seg.get("last_frame"):
+                unit_entry["last_frame"] = seg["last_frame"]
+        units.append(unit_entry)
+
+    out: Dict[str, Any] = {
         "project_id": spec.get("project_id", ""),
         "aspect_ratio": ar,
         "resolution": res,
@@ -110,6 +174,9 @@ def build_flow_jobs(spec: Dict[str, Any], *, res: str = "360p") -> Dict[str, Any
         "references": refs,
         "units": units,
     }
+    if spec_style:
+        out["visual_style"] = spec_style
+    return out
 
 
 def format_credit_quote(jobs: Dict[str, Any], spec: Dict[str, Any]) -> str:
