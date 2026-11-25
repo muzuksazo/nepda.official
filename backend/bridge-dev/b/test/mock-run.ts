@@ -89,7 +89,7 @@ const good = {
   beats: [
     { order: 1, role: "어긋난 시작", duration_sec: 6, visual: "꿀벌 8자 춤", narration: "꿀벌은 춤의 각도로 꽃이 있는 방향을 알려 준다고 합니다.", caption: "꿀벌 춤 각도\n= 꽃 방향", scene3d: s3d("춤 각도 = 방향") },
     { order: 2, role: "브리지 1", duration_sec: 5, visual: "원 360도", narration: "한 바퀴는 삼백육십 도입니다.", caption: "한 바퀴\n360도", scene3d: s3d("원 = 360도", { from: 0, to: 360, unit: "°" }) },
-    { order: 3, role: "반전: 제품 첫 등장", duration_sec: 6, visual: "제품", narration: "그래서 비주얼 타이머는 남은 시간을 빨간 원판으로 보여 줍니다.", caption: "남은 시간\n한눈에", scene3d: s3d("빨간 원판이 줄어든다") },
+    { order: 3, role: "반전: 제품 첫 등장", duration_sec: 6, visual: "제품", narration: "비주얼 타이머는 남은 시간을 빨간 원판으로 보여 줍니다. 그래서 비주얼 타이머가 뭐냐고요?", caption: "남은 시간\n한눈에", scene3d: s3d("빨간 원판이 줄어든다") },
   ],
   ad_spec: {
     track_archetype: "B_info_hook_offset",
@@ -134,6 +134,17 @@ assert.equal(plan.scenes.length, 3);
 assert.equal(plan.scenes[1].counter?.to, 360);
 assert.ok(plan.scenes[0].visual.includes("MOTION") && plan.scenes[0].say.endsWith("합니다."));
 assert.equal(plan.hookSeconds, 17);
+
+// 템플릿: 질문형 시작은 위반, 반전이 "그래서 ~뭐냐고요?"로 안 끝나면 위반
+{
+  const q = structuredClone(good);
+  q.beats[0].narration = "꿀벌이 춤으로 길을 알려 준다는 사실, 알고 계셨나요?";
+  assert.ok(checkScenario(q as never, input.product_info).errors.some((e) => e.includes("질문형")), "질문형 시작은 위반");
+  const r = structuredClone(good);
+  r.beats[2].narration = "그래서 비주얼 타이머는 남은 시간을 빨간 원판으로 보여 줍니다.";
+  assert.ok(checkScenario(r as never, input.product_info).errors.some((e) => e.includes("템플릿")), "반전 템플릿 위반");
+  assert.equal(checkScenario(good as never, input.product_info).errors.length, 0, JSON.stringify(checkScenario(good as never, input.product_info).errors));
+}
 
 // 길이 15~20초: 14초·21초는 위반, 15·20초는 통과
 for (const [sec, ok] of [[14, false], [15, true], [20, true], [21, false]] as const) {

@@ -74,12 +74,18 @@ export function checkScenario(s: DraftScenario, product: ProductInfo): CheckResu
   if (last && !productNameTokens(product.name).some((w) => last.narration.includes(w)))
     errors.push(`반전 장면 나레이션에 제품 이름이 없음`);
 
-  // 핵심 특징은 1~2줄로 짧게
+  // 반전 템플릿: "<제품>은 <특징>합니다. 그래서 <제품>이 뭐냐고요?"
   if (last) {
-    const len = [...last.narration.replace(/\s/g, "")].length;
-    if (len > REVEAL_MAX_CHARS) errors.push(`반전 나레이션 ${len}자 (공백 제외 ${REVEAL_MAX_CHARS}자 이내, 핵심 특징 하나만)`);
-    const sentences = last.narration.split(/(?<=[.!?])\s+/).filter((x) => x.trim()).length;
-    if (sentences > 1) warnings.push(`반전 나레이션이 ${sentences}문장 (한 문장 권장)`);
+    const sentences = last.narration.split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean);
+    const [feature, question] = sentences;
+    if (sentences.length !== 2 || !question || !/^그래서 .+뭐냐고요\?$/.test(question))
+      errors.push(`반전 나레이션 템플릿 위반: "<제품>은 <특징>합니다. 그래서 <제품>이 뭐냐고요?" 두 문장이어야 함`);
+    if (feature) {
+      const len = [...feature.replace(/\s/g, "")].length;
+      if (len > REVEAL_MAX_CHARS) errors.push(`반전 특징 문장 ${len}자 (공백 제외 ${REVEAL_MAX_CHARS}자 이내, 핵심 특징 하나만)`);
+      if (!/니다\.?$/.test(feature)) errors.push(`반전 특징 문장이 '~합니다'로 끝나지 않음`);
+      if (/^그래서/.test(feature)) warnings.push(`반전 특징 문장은 "그래서" 없이 제품명으로 시작`);
+    }
   }
   if ([...spec.anchor.replace(/\s/g, "")].length > ANCHOR_WARN_CHARS)
     warnings.push(`앵커(핵심 특징)가 김: ${[...spec.anchor.replace(/\s/g, "")].length}자`);
@@ -94,13 +100,18 @@ export function checkScenario(s: DraftScenario, product: ProductInfo): CheckResu
   if (first) {
     const pas = PAS_OPENERS.filter((p) => first.narration.includes(p) || first.caption.includes(p));
     if (pas.length) errors.push(`시작 장면에 PAS형 도입: ${pas.join(", ")}`);
+    // 지식 설명형 평서문으로 시작 ("뉴턴은 ~했습니다."), 질문형 금지
+    const opener = first.narration.trim().split(/(?<=[.!?])\s+/)[0] ?? "";
+    if (/\?/.test(opener) || /알고 계셨|아시나요|아세요|일까요/.test(opener))
+      errors.push(`시작이 질문형임: "${opener}" (지식 설명 평서문 "<주어>는 ~했습니다."로)`);
     if (!/\d/.test(first.caption) && !/[일이삼사오육칠팔구십백천만]/.test(first.narration))
       warnings.push(`시작 장면에 숫자가 안 보임`);
   }
 
   // 나레이션·자막
   for (const b of beats) {
-    if (!/니다[.!?]?$/.test(b.narration.trim())) errors.push(`장면 ${b.order} 나레이션이 '~습니다'체로 끝나지 않음`);
+    const isReveal = last && b.order === last.order; // 반전은 "뭐냐고요?"로 끝남 (위에서 따로 검사)
+    if (!isReveal && !/니다[.!?]?$/.test(b.narration.trim())) errors.push(`장면 ${b.order} 나레이션이 '~습니다'체로 끝나지 않음`);
     if (/\d/.test(b.narration)) warnings.push(`장면 ${b.order} 나레이션에 아라비아 숫자 (한글로 읽히게 써야 함)`);
     const lines = b.caption.split("\n");
     if (lines.length > 2) errors.push(`장면 ${b.order} 자막 ${lines.length}줄 (2줄 이내)`);
