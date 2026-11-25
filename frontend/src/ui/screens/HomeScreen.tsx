@@ -41,7 +41,7 @@ export function HomeScreen({ inProgress, completed, onCreate, onContinue, onDown
   if (isEmpty) {
     return (
       <MobileScreen header={<BrandHeader />} footer={createButton}>
-        <Stack gap={16} align="center" style={{ paddingTop: 48, textAlign: 'center' }}>
+        <Stack gap={16} align="center" justify="center" style={{ flex: 1, textAlign: 'center', paddingBottom: 24 }}>
           <Mascot src={brand.mascot.clapboard} width={140} />
           <Stack gap={8} align="center">
             <h2 className="n-display">
