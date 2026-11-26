@@ -9,12 +9,13 @@ let google: ReturnType<typeof createGoogleGenerativeAI> | null = null;
 
 /**
  * B_LLM 하나로 모든 LLM 단계 모델을 바꾼다 (예: B_LLM=gemini-4-hydrogen → Claude API 없이).
- * 단계별 변수(B_MODEL·B_IDEA_MODEL·B_SCENE_MODEL·B_QA_MODEL·B_BODY_MODEL·B_RESEARCH_MODEL)가 따로 있으면 그것이 우선.
+ * 켜면 .env 의 단계별 값(B_MODEL 등)보다 우선한다. 한 단계만 다르게 하려면 B_LLM_KEEP=B_QA_MODEL 처럼 그 이름을 적는다.
  */
 export function applyLlmSwitch(): void {
   const m = process.env.B_LLM?.trim();
   if (!m) return;
-  for (const k of ["B_MODEL", "B_IDEA_MODEL", "B_SCENE_MODEL", "B_QA_MODEL", "B_BODY_MODEL", "B_RESEARCH_MODEL"]) if (!process.env[k]?.trim()) process.env[k] = m;
+  const keep = new Set((process.env.B_LLM_KEEP ?? "").split(",").map((x) => x.trim()).filter(Boolean));
+  for (const k of ["B_MODEL", "B_IDEA_MODEL", "B_SCENE_MODEL", "B_QA_MODEL", "B_BODY_MODEL", "B_RESEARCH_MODEL"]) if (!keep.has(k)) process.env[k] = m;
 }
 
 export function isGemini(modelId: string): boolean {
