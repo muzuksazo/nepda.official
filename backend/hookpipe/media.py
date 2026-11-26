@@ -203,3 +203,21 @@ VIDEO_ENCODE_ARGS = [
     "-r", str(OUT_FPS), "-movflags", "+faststart",
 ]
 AUDIO_ENCODE_ARGS = ["-c:a", "aac", "-b:a", "192k", "-ar", str(AUDIO_RATE), "-ac", "2"]
+
+
+MAX_BOOST_DB = 20.0  # 조용한 촬영본의 배경 잡음까지 끌어올리지 않도록 두는 증폭 상한
+
+
+def gain_to_target(measured: Optional[float], target: float = TARGET_LUFS, max_boost: float = MAX_BOOST_DB) -> float:
+    """측정 음량을 목표에 맞추는 증폭량(dB). 잴 수 없으면(무음) 0, 올리는 쪽은 max_boost 까지만."""
+    if measured is None:
+        return 0.0
+    return round(max(-30.0, min(max_boost, target - measured)), 2)
+
+
+def gain_filter(tools: MediaTools, gain_db: float) -> str:
+    """증폭 + 피크 제한(-1.5 dBFS). 한 번에 도는 loudnorm 과 달리 무음 구간이 있어도 결과가 흔들리지 않는다."""
+    chain = f"volume={gain_db:.2f}dB"
+    if tools.has_filter("alimiter"):
+        chain += ",alimiter=limit=0.84:level=0"
+    return chain

@@ -8,14 +8,17 @@
     storyboard_NN.png  장면별 대표 화면
 
 어느 유형(A·B·C) 시나리오든 같은 길로 만든다. 유형별 차이는 prompts.py 의 화면 톤과 제품 장면 판정뿐이다.
+
+과금으로 받은 파일(나레이션, 참고 이미지, 클립)은 cache_dir 에 내용 해시 이름으로 둔다.
+같은 문장·목소리·프롬프트·길이·참고 이미지면 다시 사지 않고, 하나라도 바뀌면 새로 만든다.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
-import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
@@ -24,12 +27,13 @@ from .captions import build_srt
 from .media import (
     AUDIO_ENCODE_ARGS,
     AUDIO_RATE,
-    TARGET_LUFS,
     VIDEO_ENCODE_ARGS,
     MediaError,
     MediaTools,
     fill_filter,
     find_tools,
+    gain_filter,
+    gain_to_target,
     measure_lufs,
     probe,
     run_ffmpeg,
@@ -51,6 +55,7 @@ class HookRenderError(RuntimeError):
 @dataclass
 class BeatPlan:
     order: int
+    beat: Dict[str, Any]
     role: str
     caption: str
     narration: str
@@ -64,6 +69,7 @@ class BeatPlan:
     tempo: float = 1.0
     clip_path: Optional[Path] = None
     prompt: str = ""
+    reused: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -78,7 +84,7 @@ class HookRenderResult:
 
 
 def write_scenario_and_srt(scenario: Dict[str, Any], out_dir: Path) -> Dict[str, Any]:
-    """과금 호출 없이 만들 수 있는 두 파일만 쓴다 (dry_run 모드에서도 사용)."""
+    """과금 호출 없이 만들 수 있는 두 파일만 쓴다 (dry_run 모드와 planner-api 시나리오에서 사용)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "scenario.json").write_text(json.dumps(scenario, ensure_ascii=False, indent=2), encoding="utf-8")
     cues = []
@@ -135,20 +141,41 @@ def extract_reference_frames(
     return frames
 
 
+def _digest(*parts: Any) -> str:
+    joined = "\x1f".join(str(p) for p in parts)
+    return hashlib.sha1(joined.encode("utf-8")).hexdigest()[:16]
+
+
+def _file_digest(path: Path) -> str:
+    return hashlib.sha1(path.read_bytes()).hexdigest()[:12]
+
+
+def _ready(path: Path) -> bool:
+    return path.is_file() and path.stat().st_size > 0
+
+
+def _clip_seconds(duration: float) -> int:
+    return max(MIN_CLIP_SEC, min(MAX_CLIP_SEC, math.ceil(duration - 1e-6)))
+
+
 def _plan_beats(scenario: Dict[str, Any], max_hook_sec: float) -> List[BeatPlan]:
     beats = ordered_beats(scenario)
     if not beats:
         raise HookRenderError("시나리오에 장면(beats)이 없습니다.")
+    orders = [b.get("order") for b in beats]
+    if any(not isinstance(o, int) or isinstance(o, bool) or o < 1 for o in orders) or len(set(orders)) != len(orders):
+        raise HookRenderError(f"장면 번호(order)는 1 이상의 서로 다른 정수여야 합니다: {orders}")
     product_orders = set(product_beat_orders(scenario))
     plans: List[BeatPlan] = []
     for beat in beats:
         dur = float(beat.get("duration_sec") or 0.0)
         if dur <= 0:
             raise HookRenderError(f"장면 {beat.get('order')} 의 길이가 0초 이하입니다.")
-        order = int(beat.get("order") or len(plans) + 1)
+        order = int(beat["order"])
         plans.append(
             BeatPlan(
                 order=order,
+                beat=beat,
                 role=str(beat.get("role") or ""),
                 caption=str(beat.get("caption") or "").strip(),
                 narration=str(beat.get("narration") or "").strip(),
@@ -161,6 +188,14 @@ def _plan_beats(scenario: Dict[str, Any], max_hook_sec: float) -> List[BeatPlan]
     if total > max_hook_sec + 0.05:
         raise HookRenderError(f"훅 길이 {total:.1f}초가 상한 {max_hook_sec:.0f}초를 넘습니다.")
     return plans
+
+
+def _check_clip_budget(requested: int, limit: int) -> None:
+    if requested > limit:
+        raise HookRenderError(
+            f"영상 모델에 요청할 클립 길이 합({requested}초)이 상한({limit}초)을 넘습니다. "
+            "장면 수나 길이를 줄이거나 HOOK_MAX_CLIP_SEC_PER_HOOK 을 올려 주세요."
+        )
 
 
 def _fit_timing(plans: List[BeatPlan], max_hook_sec: float, warnings: List[str]) -> None:
@@ -191,7 +226,7 @@ def _fit_timing(plans: List[BeatPlan], max_hook_sec: float, warnings: List[str])
         plan.duration = round(plan.duration, 3)
         plan.start = round(cursor, 3)
         cursor += plan.duration
-        plan.clip_sec = max(MIN_CLIP_SEC, min(MAX_CLIP_SEC, math.ceil(plan.duration - 1e-6)))
+        plan.clip_sec = _clip_seconds(plan.duration)
 
 
 def _subtitle_style() -> str:
@@ -202,12 +237,44 @@ def _subtitle_style() -> str:
     )
 
 
+def _mix_narration(plans: List[BeatPlan], work: Path, tools: MediaTools, total: float) -> Optional[Path]:
+    """장면별 나레이션을 제자리에 놓은 한 줄 트랙(wav). 나레이션이 없으면 None."""
+    narrated = [p for p in plans if p.narration_path is not None]
+    if not narrated:
+        return None
+    args: List[str] = []
+    filters = [f"anullsrc=r={AUDIO_RATE}:cl=stereo,atrim=0:{total:.3f}[base]"]
+    labels = ["[base]"]
+    for index, plan in enumerate(narrated):
+        args += ["-i", str(plan.narration_path)]
+        steps = []
+        if plan.tempo > 1.001:
+            steps.append(f"atempo={plan.tempo:.4f}")
+        steps += [
+            f"atrim=0:{plan.duration:.3f}",
+            f"aresample={AUDIO_RATE}",
+            "aformat=channel_layouts=stereo",
+            f"adelay={int(round(plan.start * 1000))}:all=1",
+        ]
+        filters.append(f"[{index}:a]{','.join(steps)}[n{index}]")
+        labels.append(f"[n{index}]")
+    filters.append(f"{''.join(labels)}amix=inputs={len(labels)}:duration=first:normalize=0[mix]")
+    target = work / "narration_mix.wav"
+    run_ffmpeg(
+        tools,
+        [*args, "-filter_complex", ";".join(filters), "-map", "[mix]", "-c:a", "pcm_s16le",
+         "-ar", str(AUDIO_RATE), "-t", f"{total:.3f}", str(target)],
+    )
+    return target
+
+
 def _assemble(
     plans: List[BeatPlan],
     out_dir: Path,
     tools: MediaTools,
     *,
     burn_captions: bool,
+    narration_mix: Optional[Path],
 ) -> bool:
     """클립과 나레이션을 hook.mp4 로 합친다. 자막을 구웠으면 True."""
     total = sum(p.duration for p in plans)
@@ -216,7 +283,6 @@ def _assemble(
     for index, plan in enumerate(plans):
         args += ["-i", str(plan.clip_path)]
         info = probe(tools, plan.clip_path)  # type: ignore[arg-type]
-        chain = f"[{index}:v]"
         short = plan.duration - info.duration
         steps: List[str] = []
         if short > 0.02:
@@ -226,7 +292,7 @@ def _assemble(
                 steps.append(f"setpts={plan.duration / max(info.duration, 0.1):.4f}*PTS")
         steps.append(f"trim=0:{plan.duration:.3f}")
         steps.append("setpts=PTS-STARTPTS")
-        filters.append(f"{chain}{','.join(steps)}[t{index}]")
+        filters.append(f"[{index}:v]{','.join(steps)}[t{index}]")
         filters.append(fill_filter(f"t{index}", f"v{index}"))
     concat_in = "".join(f"[v{i}]" for i in range(len(plans)))
     filters.append(f"{concat_in}concat=n={len(plans)}:v=1:a=0[vcat]")
@@ -242,42 +308,25 @@ def _assemble(
         else:
             logger.warning("이 ffmpeg 에는 subtitles 필터가 없어 자막을 굽지 않습니다 (hook.srt 는 그대로 저장).")
 
-    narrated = [p for p in plans if p.narration_path is not None]
-    base_index = len(plans)
-    args += ["-f", "lavfi", "-t", f"{total:.3f}", "-i", f"anullsrc=r={AUDIO_RATE}:cl=stereo"]
-    mix_inputs = [f"[{base_index}:a]"]
-    for offset, plan in enumerate(narrated):
-        input_index = base_index + 1 + offset
-        args += ["-i", str(plan.narration_path)]
-        steps = []
-        if plan.tempo > 1.001:
-            steps.append(f"atempo={plan.tempo:.4f}")
-        steps.append(f"atrim=0:{plan.duration:.3f}")
-        steps.append(f"aresample={AUDIO_RATE}")
-        steps.append("aformat=channel_layouts=stereo")
-        steps.append(f"adelay={int(round(plan.start * 1000))}:all=1")
-        filters.append(f"[{input_index}:a]{','.join(steps)}[n{offset}]")
-        mix_inputs.append(f"[n{offset}]")
-    if narrated:
-        filters.append(f"{''.join(mix_inputs)}amix=inputs={len(mix_inputs)}:duration=first:normalize=0[narr]")
-        filters.append("[narr]asplit=2[narr_a][narr_b]")
-        filters.append(f"[narr_a]loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=11,aresample={AUDIO_RATE}[aout]")
-        audio_label = "aout"
+    audio_index = len(plans)
+    if narration_mix is not None:
+        # 한 번 재고 그 차이만큼만 올린다: 나레이션이 일부 장면에만 있어도 -14 LUFS 에 맞는다
+        gain = gain_to_target(measure_lufs(tools, narration_mix))
+        args += ["-i", str(narration_mix)]
+        filters.append(f"[{audio_index}:a]{gain_filter(tools, gain)},aresample={AUDIO_RATE},asplit=2[aout][narr_b]")
+        audio_map = "[aout]"
     else:
-        audio_label = f"{base_index}:a"
+        args += ["-f", "lavfi", "-t", f"{total:.3f}", "-i", f"anullsrc=r={AUDIO_RATE}:cl=stereo"]
+        audio_map = f"{audio_index}:a"
 
-    cmd = [*args, "-filter_complex", ";".join(filters), "-map", f"[{video_label}]"]
-    cmd += ["-map", f"[{audio_label}]" if narrated else audio_label]
+    cmd = [*args, "-filter_complex", ";".join(filters), "-map", f"[{video_label}]", "-map", audio_map]
     cmd += [*VIDEO_ENCODE_ARGS, *AUDIO_ENCODE_ARGS, "-t", f"{total:.3f}", "hook.mp4"]
-    if narrated:
+    if narration_mix is not None:
         mp3_codec = ["-c:a", "libmp3lame", "-q:a", "3"] if tools.has_encoder("libmp3lame") else ["-c:a", "mp3"]
         cmd += ["-map", "[narr_b]", *mp3_codec, "-ar", str(AUDIO_RATE), "-t", f"{total:.3f}", "tts.mp3"]
 
-    def attempt(command: List[str]) -> None:
-        run_ffmpeg(tools, command, cwd=out_dir)
-
     try:
-        attempt(cmd)
+        run_ffmpeg(tools, cmd, cwd=out_dir)
     except MediaError:
         if not burned:
             raise
@@ -285,7 +334,7 @@ def _assemble(
         logger.warning("자막을 구운 인코딩이 실패해 자막 없이 다시 만듭니다.")
         retry = list(cmd)
         retry[retry.index("-filter_complex") + 1] = ";".join(f for f in filters if "subtitles=" not in f)
-        attempt([("[vcat]" if a == "[vsub]" else a) for a in retry])
+        run_ffmpeg(tools, [("[vcat]" if a == "[vsub]" else a) for a in retry], cwd=out_dir)
         burned = False
     return burned
 
@@ -316,65 +365,78 @@ def render_hook(
     voice: Optional[str] = None,
     product_refs: Sequence[str | Path] = (),
     tools: Optional[MediaTools] = None,
+    cache_dir: Optional[str | Path] = None,
     progress: Optional[Callable[[str], None]] = None,
 ) -> HookRenderResult:
-    """훅 하나를 만든다. provider 는 `app.genai_provider.GenAIMediaProvider` (또는 같은 모양의 대역)."""
+    """훅 하나를 만든다. provider 는 `app.genai_provider.GenAIMediaProvider` (또는 같은 모양의 대역).
+
+    cache_dir: 과금으로 받은 파일을 두는 곳. 같은 시나리오를 다시 만들 때 같은 곳을 주면 이미 받은 것은 다시 사지 않는다.
+    """
     target = Path(out_dir)
     work = target / "_work"
     work.mkdir(parents=True, exist_ok=True)
+    cache = Path(cache_dir) if cache_dir else work / "cache"
+    cache.mkdir(parents=True, exist_ok=True)
     media = tools or find_tools(getattr(settings, "ffmpeg_bin", None), getattr(settings, "ffprobe_bin", None))
     say = progress or (lambda _msg: None)
     warnings: List[str] = []
     max_hook_sec = float(getattr(settings, "hook_max_sec", 20.0))
+    clip_limit = int(getattr(settings, "hook_max_clip_sec_per_hook", 45))
 
     plans = _plan_beats(scenario, max_hook_sec)
+    # 과금 방어 1: 시나리오 길이만으로도 상한을 넘으면 나레이션을 사기 전에 멈춘다
+    _check_clip_budget(sum(_clip_seconds(p.scenario_sec) for p in plans), clip_limit)
     (target / "scenario.json").write_text(json.dumps(scenario, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 같은 폴더로 다시 만들 때 예전 결과가 섞이지 않게 지운다
+    for stale in [target / "hook.mp4", target / "tts.mp3", *target.glob("storyboard_*.png")]:
+        stale.unlink(missing_ok=True)
 
     # 1) 나레이션 먼저 (싸고, 장면 길이를 정하는 데 필요하다)
     if tts_enabled:
         say("TTS")
+        voice_name = voice or getattr(settings, "tts_default_voice", None)
         for plan in plans:
             if not plan.narration:
                 continue
-            wav = work / f"narration_{plan.order:02d}.wav"
-            provider.generate_tts_beat(plan.narration, wav, voice_name=voice or None)
+            wav = cache / f"tts_{_digest(plan.narration, voice_name, getattr(settings, 'tts_model', ''))}.wav"
+            if _ready(wav):
+                plan.reused.append("tts")
+            else:
+                provider.generate_tts_beat(plan.narration, wav, voice_name=voice_name)
             info = probe(media, wav)
             if info.duration <= 0:
                 raise HookRenderError(f"장면 {plan.order} 나레이션 음성이 비어 있습니다.")
             plan.narration_path, plan.narration_sec = wav, info.duration
     _fit_timing(plans, max_hook_sec, warnings)
 
-    # 2) 과금 방어: 요청할 클립 길이 합이 상한을 넘으면 영상 모델을 부르기 전에 멈춘다
+    # 과금 방어 2: 나레이션에 맞춰 장면이 늘어난 뒤의 클립 길이 합
     requested = sum(p.clip_sec for p in plans)
-    limit = int(getattr(settings, "hook_max_clip_sec_per_hook", 45))
-    if requested > limit:
-        raise HookRenderError(
-            f"영상 모델에 요청할 클립 길이 합({requested}초)이 상한({limit}초)을 넘습니다. "
-            "장면 수나 길이를 줄이거나 HOOK_MAX_CLIP_SEC_PER_HOOK 을 올려 주세요."
-        )
+    _check_clip_budget(requested, clip_limit)
 
-    # 3) 참고 이미지: 제품 장면은 촬영본에서 뽑은 컷, 나머지는 톤·주인공 참고 이미지 한 장
+    # 2) 참고 이미지: 제품 장면은 촬영본에서 뽑은 컷, 나머지는 톤·주인공 참고 이미지 한 장
     refs = [Path(p) for p in product_refs if Path(p).is_file()]
     style_ref: Optional[Path] = None
     if any(not p.shows_product or not refs for p in plans):
         say("REFERENCE")
-        candidate = work / "style_ref.png"
+        ref_prompt = reference_image_prompt(scenario)
+        candidate = cache / f"style_{_digest(ref_prompt, getattr(settings, 'image_model', ''))}.png"
         try:
-            provider.generate_reference_image(reference_image_prompt(scenario), candidate, aspect_ratio="9:16")
-            if candidate.is_file() and candidate.stat().st_size > 0:
+            if not _ready(candidate):
+                provider.generate_reference_image(ref_prompt, candidate, aspect_ratio="9:16")
+            if _ready(candidate):
                 style_ref = candidate
         except Exception as exc:  # 참고 이미지는 품질 보조라, 실패해도 클립 생성은 계속한다
             warnings.append(f"톤 참고 이미지를 만들지 못해 참고 이미지 없이 진행했습니다: {exc}")
 
-    # 4) 장면 클립
+    # 3) 장면 클립
     resolution = str(getattr(settings, "hook_clip_resolution", "720p"))
+    video_model = getattr(settings, "video_model", "")
     for index, plan in enumerate(plans, start=1):
         say(f"CLIP {index}/{len(plans)}")
         use_product_refs = plan.shows_product and bool(refs)
-        beat = next(b for b in ordered_beats(scenario) if int(b.get("order") or 0) == plan.order)
         plan.prompt = beat_prompt(
             scenario,
-            beat,
+            plan.beat,
             index,
             len(plans),
             product=product,
@@ -382,31 +444,45 @@ def render_hook(
             has_product_reference=use_product_refs,
             has_style_reference=style_ref is not None,
         )
-        clip = work / f"beat_{plan.order:02d}.mp4"
         reference_paths = refs if use_product_refs else ([style_ref] if style_ref else [])
-        provider.generate_video_clip(
-            plan.prompt,
-            clip,
-            aspect_ratio="9:16",
-            duration_sec=plan.clip_sec,
-            resolution=resolution,
-            reference_paths=reference_paths,
-        )
+        key = _digest(plan.prompt, plan.clip_sec, resolution, video_model, *[_file_digest(p) for p in reference_paths])
+        clip = cache / f"clip_{key}.mp4"
+        if _ready(clip):
+            plan.reused.append("clip")
+        else:
+            provider.generate_video_clip(
+                plan.prompt,
+                clip,
+                aspect_ratio="9:16",
+                duration_sec=plan.clip_sec,
+                resolution=resolution,
+                reference_paths=reference_paths,
+            )
         info = probe(media, clip)
         if not info.has_video or info.duration <= 0:
             raise HookRenderError(f"장면 {plan.order} 클립에 영상이 없습니다.")
         plan.clip_path = clip
 
-    # 5) 자막 → 조립 → 콘티 이미지
+    # 4) 자막 → 조립 → 콘티 이미지
+    total = sum(p.duration for p in plans)
     cues = [(p.start, p.start + p.duration, p.caption or p.narration) for p in plans]
     (target / "hook.srt").write_text(build_srt(cues), encoding="utf-8")
     say("ASSEMBLE")
-    burned = _assemble(plans, target, media, burn_captions=bool(getattr(settings, "hook_burn_captions", True)))
+    narration_mix = _mix_narration(plans, work, media, total)
+    burned = _assemble(
+        plans,
+        target,
+        media,
+        burn_captions=bool(getattr(settings, "hook_burn_captions", True)),
+        narration_mix=narration_mix,
+    )
     storyboards = _write_storyboards(plans, target, media)
 
     final = probe(media, target / "hook.mp4")
-    has_tts = (target / "tts.mp3").is_file()
+    has_tts = narration_mix is not None
     lufs = measure_lufs(media, target / "hook.mp4") if has_tts else None
+    if narration_mix is not None:
+        narration_mix.unlink(missing_ok=True)
     beats_meta = [
         {
             "order": p.order,
@@ -416,6 +492,7 @@ def render_hook(
             "shows_product": p.shows_product,
             "narration_sec": round(p.narration_sec, 3),
             "tempo": round(p.tempo, 3),
+            "reused": p.reused,
             "prompt": p.prompt,
         }
         for p in plans
@@ -423,7 +500,7 @@ def render_hook(
     meta = {
         "scenario_id": scenario.get("scenario_id"),
         "type": scenario.get("type"),
-        "video_model": getattr(settings, "video_model", None),
+        "video_model": video_model or None,
         "tts_model": getattr(settings, "tts_model", None) if has_tts else None,
         "duration_sec": round(final.duration, 3),
         "lufs": lufs,
@@ -452,8 +529,3 @@ def render_hook(
         beats=beats_meta,
         warnings=warnings,
     )
-
-
-def clean_work_dir(out_dir: str | Path) -> None:
-    """중간 파일(_work)을 지운다. 다시 만들 때 클립을 재사용하려면 지우지 않는다."""
-    shutil.rmtree(Path(out_dir) / "_work", ignore_errors=True)

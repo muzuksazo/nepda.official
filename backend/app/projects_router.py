@@ -632,7 +632,8 @@ def build_projects_router(
         seen_ids = {s["scenario_id"] for s in project_store.list_scenarios(project_id)}
         new_items: List[Dict[str, Any]] = []
         for _ in range(body.count):
-            batch = gen_scenarios(proj, target_types, body.provider)
+            # 이번 요청에서 먼저 만든 것도 "이전 시나리오"로 넘겨, 여러 개를 뽑을 때 같은 소재가 반복되지 않게 한다
+            batch = gen_scenarios({**proj, "pending_scenarios": list(new_items)}, target_types, body.provider)
             for item in batch:
                 cand = dict(item)
                 sid = str(cand.get("scenario_id") or f"scn_{cand.get('type', 'A')}_{uuid.uuid4().hex[:6]}")
@@ -936,7 +937,7 @@ def build_projects_router(
                 )
                 project_store.record_render_usage(user.user_id, project_id, jid)
                 project_store.update_project(project_id, status="RENDERING", latest_job_id=jid)
-                if body.dry_run:
+                if body.dry_run or hooks.is_dry_run():
                     job_store.update_job(
                         jid, status="DRY_RUN_READY", stage="DRY_RUN_READY", artifacts={"pipeline": "hookpipe"}
                     )
@@ -1083,6 +1084,24 @@ def build_projects_router(
                 "선택된 시나리오만 훅 생성을 요청할 수 있습니다. 먼저 시나리오를 선택해 주세요.",
             )
 
+        tts_payload = body.tts.model_dump()
+        paid = hooks.uses_video_model(scn)
+        if paid:
+            # 영상 모델을 부르는 훅: 같은 시나리오·같은 목소리로 이미 만들었거나 만드는 중이면 그것을 돌려준다
+            existing = hooks.find_existing_hook(project_id, body.scenario_id, tts_payload, include_active=True)
+            if existing:
+                return CreateHookResponse(
+                    hook_id=existing["hook_id"], job_id=existing["job_id"], status=existing["status"]
+                )
+            quota_before = _quota(user.user_id)
+            if quota_before.remaining_today <= 0:
+                raise _api_error(
+                    status.HTTP_429_TOO_MANY_REQUESTS,
+                    "DAILY_QUOTA_EXCEEDED",
+                    f"무료 베타 일일 생성 한도({quota_before.daily_limit}회)를 모두 사용했습니다.",
+                    quota_before.model_dump(),
+                )
+
         hook_id = f"hook_{uuid.uuid4().hex[:10]}"
         job_id = f"job_{uuid.uuid4().hex[:12]}"
         out_dir = Path(settings.output_dir).resolve() / project_id / hook_id
@@ -1092,12 +1111,14 @@ def build_projects_router(
             user_id=user.user_id,
             scenario_id=body.scenario_id,
             job_id=job_id,
-            tts=body.tts.model_dump(),
+            tts=tts_payload,
             output_dir=str(out_dir),
             status="queued",
         )
+        if paid:
+            project_store.record_render_usage(user.user_id, project_id, job_id)
         project_store.update_project(project_id, status="HOOK_RENDERING", latest_job_id=job_id)
-        background_tasks.add_task(hooks.process_hook, project_id, hook_id, scn, out_dir, body.tts.model_dump())
+        background_tasks.add_task(hooks.process_hook, project_id, hook_id, scn, out_dir, tts_payload)
         return CreateHookResponse(hook_id=hook_id, job_id=job_id, status="queued")
 
     @router.get(

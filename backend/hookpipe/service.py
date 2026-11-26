@@ -3,14 +3,22 @@
 - process_hook: POST /hooks 의 백그라운드 작업. 훅 하나를 만들어 OUTPUT_DIR/{project_id}/{hook_id}/ 에 둔다.
 - process_render: POST /renders 의 백그라운드 작업. 훅(있으면 재사용) 뒤에 올린 본편을 붙여 최종 영상을 만든다.
 DB 갱신과 파일 올리기는 코어의 저장소 객체(project_store, job_store, storage)를 그대로 쓴다.
+
+과금 방어:
+- 같은 시나리오·같은 목소리의 완성된 훅은 다시 만들지 않는다.
+- 같은 시나리오의 훅 생성은 한 번에 하나만 돈다 (겹친 요청은 기다렸다가 완성본을 쓴다).
+- 받은 클립·음성은 시나리오 단위 폴더에 모아 둬서, 중간에 실패한 뒤 다시 요청해도 이미 받은 것은 다시 사지 않는다.
 """
 
 from __future__ import annotations
 
 import logging
+import shutil
+import threading
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .body import attach_body
 from .media import MediaTools, find_tools
@@ -19,6 +27,7 @@ from .render import HookRenderResult, extract_reference_frames, render_hook, wri
 logger = logging.getLogger("hookpipe.service")
 
 ProviderFactory = Callable[[Any], Any]
+ACTIVE_HOOK_MAX_AGE = timedelta(minutes=30)  # 이보다 오래 queued/running 인 훅은 멈춘 것으로 본다
 
 EMPTY_FILES: Dict[str, Any] = {
     "hook_video": None,
@@ -54,6 +63,8 @@ class HookPipeline:
         self.storage = storage
         self._provider_factory = provider_factory
         self._tools = tools
+        self._locks: Dict[Tuple[str, str], threading.Lock] = {}
+        self._locks_guard = threading.Lock()
 
     # ---- 공통 도우미 -------------------------------------------------
 
@@ -71,11 +82,32 @@ class HookPipeline:
             )
         return self._tools
 
+    def _lock(self, project_id: str, scenario_id: str) -> threading.Lock:
+        with self._locks_guard:
+            return self._locks.setdefault((project_id, scenario_id), threading.Lock())
+
+    def is_dry_run(self) -> bool:
+        return getattr(self.settings, "hook_render_mode", "video_model") == "dry_run"
+
+    def uses_video_model(self, scenario: Optional[Dict[str, Any]]) -> bool:
+        """이 시나리오로 훅을 만들면 과금 호출이 나가는지."""
+        return is_worker_scenario(scenario) and not self.is_dry_run()
+
     def hook_dir(self, project_id: str, hook_id: str) -> Path:
         return Path(self.settings.output_dir).resolve() / project_id / hook_id
 
+    def cache_dir(self, project_id: str, scenario_id: str) -> Path:
+        safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in scenario_id) or "scenario"
+        return Path(self.settings.output_dir).resolve() / project_id / "_cache" / safe
+
+    def _tts_key(self, tts: Optional[Dict[str, Any]]) -> Tuple[bool, Optional[str]]:
+        tts = tts or {}
+        enabled = bool(tts.get("enabled", True))
+        voice = (tts.get("voice") or getattr(self.settings, "tts_default_voice", None)) if enabled else None
+        return enabled, voice
+
     def _upload_clip_paths(self, project: Dict[str, Any], work_dir: Path) -> List[Path]:
-        """올린 본편 클립을 촬영 순서(shot_no)대로 로컬 경로로 돌려준다. 저장소에만 있으면 내려받는다."""
+        """올린 본편 클립을 촬영 순서(shot_no)대로 로컬 경로로 돌려준다. 저장소에만 있으면 매번 새로 내려받는다."""
         uploads = project.get("uploads") or {}
         clips = sorted(uploads.get("clips") or [], key=lambda c: int(c.get("shot_no") or 0))
         paths: List[Path] = []
@@ -90,8 +122,8 @@ class HookPipeline:
             suffix = Path(str(key)).suffix or ".mp4"
             dest = work_dir / f"upload_{index:02d}{suffix}"
             try:
-                if not dest.is_file():
-                    self.storage.download_file(key, dest)
+                dest.unlink(missing_ok=True)  # 예전에 받은 파일을 다시 쓰지 않는다 (다시 올린 영상 반영)
+                self.storage.download_file(key, dest)
             except Exception as exc:
                 logger.warning("업로드 클립을 내려받지 못했습니다 (%s): %s", key, exc)
                 continue
@@ -105,23 +137,58 @@ class HookPipeline:
         scenario: Dict[str, Any],
         out_dir: Path,
         tts: Dict[str, Any],
+        clips: List[Path],
         progress: Optional[Callable[[str], None]] = None,
     ) -> HookRenderResult:
         media = self._media()
-        clips = self._upload_clip_paths(project, out_dir / "_work" / "uploads")
         refs = extract_reference_frames(clips, out_dir / "_work" / "refs", media) if clips else []
+        enabled, voice = self._tts_key(tts)
         return render_hook(
             scenario,
             project.get("product") or {},
             out_dir,
             provider=self._provider(),
             settings=self.settings,
-            tts_enabled=bool(tts.get("enabled", True)),
-            voice=tts.get("voice") or None,
+            tts_enabled=enabled,
+            voice=voice,
             product_refs=refs,
             tools=media,
+            cache_dir=self.cache_dir(str(project["project_id"]), str(scenario.get("scenario_id") or "scenario")),
             progress=progress,
         )
+
+    # ---- 훅 재사용 ---------------------------------------------------
+
+    def _is_active(self, hook: Dict[str, Any]) -> bool:
+        if hook.get("status") not in ("queued", "running"):
+            return False
+        try:
+            updated = datetime.fromisoformat(str(hook.get("updated_at")))
+        except ValueError:
+            return False
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) - updated < ACTIVE_HOOK_MAX_AGE
+
+    def find_existing_hook(
+        self,
+        project_id: str,
+        scenario_id: str,
+        tts: Optional[Dict[str, Any]],
+        *,
+        include_active: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """같은 시나리오·같은 목소리 설정으로 이미 만든 훅(include_active 면 만드는 중인 훅도)."""
+        wanted = self._tts_key(tts)
+        for hook in self.project_store.list_hooks_for_project(project_id):
+            if hook.get("scenario_id") != scenario_id or self._tts_key(hook.get("tts")) != wanted:
+                continue
+            if hook.get("status") == "done":
+                if (hook.get("files") or {}).get("hook_video") and (Path(hook["output_dir"]) / "hook.mp4").is_file():
+                    return hook
+            elif include_active and self._is_active(hook):
+                return hook
+        return None
 
     # ---- POST /hooks -------------------------------------------------
 
@@ -136,7 +203,8 @@ class HookPipeline:
         try:
             self.project_store.update_hook(hook_id, status="running")
             files = dict(EMPTY_FILES)
-            if getattr(self.settings, "hook_render_mode", "video_model") == "dry_run":
+            if not self.uses_video_model(scenario):
+                # dry_run 이거나 planner-api 시나리오: 과금 호출 없이 scenario.json 과 자막만 쓴다
                 files.update(write_scenario_and_srt(scenario, out_dir))
                 files["storyboard_images"] = [
                     str(f["image_url"])
@@ -147,23 +215,18 @@ class HookPipeline:
                 project = self.project_store.get_project(project_id)
                 if not project:
                     raise RuntimeError("프로젝트를 찾을 수 없습니다.")
-                files.update(self._render(project, scenario, out_dir, tts or {}).files)
+                with self._lock(project_id, str(scenario.get("scenario_id"))):
+                    clips = self._upload_clip_paths(project, out_dir / "_work" / "uploads")
+                    files.update(self._render(project, scenario, out_dir, tts or {}, clips).files)
+                shutil.rmtree(out_dir / "_work" / "uploads", ignore_errors=True)
             self.project_store.update_hook(hook_id, status="done", files=files)
             self.project_store.update_project(project_id, status="HOOK_READY")
         except Exception as exc:
             logger.exception("훅 생성 실패 (%s/%s)", project_id, hook_id)
-            self.project_store.update_hook(hook_id, status="failed", error=str(exc))
+            self.project_store.update_hook(hook_id, status="failed", error=str(exc) or type(exc).__name__)
             self.project_store.update_project(project_id, status="FAILED")
 
     # ---- POST /renders -----------------------------------------------
-
-    def _reusable_hook(self, project_id: str, scenario_id: str) -> Optional[Dict[str, Any]]:
-        for hook in self.project_store.list_hooks_for_project(project_id):
-            if hook.get("scenario_id") != scenario_id or hook.get("status") != "done":
-                continue
-            if (hook.get("files") or {}).get("hook_video") and (Path(hook["output_dir"]) / "hook.mp4").is_file():
-                return hook
-        return None
 
     def process_render(
         self,
@@ -175,53 +238,62 @@ class HookPipeline:
     ) -> None:
         """훅 + 본편 → 최종 영상. 결과는 기존 /deliverables 가 읽는 모양(artifacts.rendered[0])으로 남긴다."""
         store = self.job_store
+        job_dir: Optional[Path] = None
         try:
             project = self.project_store.get_project(project_id)
             if not project:
                 raise RuntimeError("프로젝트를 찾을 수 없습니다.")
-            store.update_job(job_id, status="RUNNING", stage="HOOK")
+            scenario_id = str(scenario["scenario_id"])
+            tts = {"enabled": True, "voice": voice}
+            store.update_job(job_id, status="RUNNING", stage="UPLOADS")
 
-            hook = self._reusable_hook(project_id, str(scenario["scenario_id"]))
-            if hook:
-                hook_id, out_dir = hook["hook_id"], Path(hook["output_dir"])
-            else:
-                hook_id = f"hook_{uuid.uuid4().hex[:10]}"
-                out_dir = self.hook_dir(project_id, hook_id)
-                tts = {"enabled": True, "voice": voice}
-                self.project_store.create_hook(
-                    hook_id=hook_id,
-                    project_id=project_id,
-                    user_id=user_id,
-                    scenario_id=str(scenario["scenario_id"]),
-                    job_id=job_id,
-                    tts=tts,
-                    output_dir=str(out_dir),
-                    status="running",
-                )
-                try:
-                    result = self._render(
-                        project,
-                        scenario,
-                        out_dir,
-                        tts,
-                        progress=lambda stage: store.update_job(job_id, stage=f"HOOK:{stage}"),
-                    )
-                except Exception as exc:
-                    self.project_store.update_hook(hook_id, status="failed", error=str(exc))
-                    raise
-                self.project_store.update_hook(hook_id, status="done", files={**EMPTY_FILES, **result.files})
-
-            store.update_job(job_id, status="RUNNING", stage="BODY")
-            media = self._media()
-            clips = self._upload_clip_paths(project, out_dir / "_work" / "uploads")
+            # 본편 파일을 먼저 확보한다: 못 찾으면 훅에 돈을 쓰기 전에 멈춘다
+            job_dir = Path(self.settings.output_dir).resolve() / project_id / "_renders" / job_id
+            clips = self._upload_clip_paths(project, job_dir / "uploads")
             if not clips:
                 raise RuntimeError("붙일 본편 영상을 찾지 못했습니다. 영상을 다시 올려 주세요.")
+
+            store.update_job(job_id, status="RUNNING", stage="HOOK")
+            with self._lock(project_id, scenario_id):
+                hook = self.find_existing_hook(project_id, scenario_id, tts)
+                if hook:
+                    hook_id, out_dir = hook["hook_id"], Path(hook["output_dir"])
+                else:
+                    hook_id = f"hook_{uuid.uuid4().hex[:10]}"
+                    out_dir = self.hook_dir(project_id, hook_id)
+                    self.project_store.create_hook(
+                        hook_id=hook_id,
+                        project_id=project_id,
+                        user_id=user_id,
+                        scenario_id=scenario_id,
+                        job_id=job_id,
+                        tts=tts,
+                        output_dir=str(out_dir),
+                        status="running",
+                    )
+                    try:
+                        result = self._render(
+                            project,
+                            scenario,
+                            out_dir,
+                            tts,
+                            clips,
+                            progress=lambda stage: store.update_job(job_id, stage=f"HOOK:{stage}"),
+                        )
+                    except Exception as exc:
+                        self.project_store.update_hook(hook_id, status="failed", error=str(exc) or type(exc).__name__)
+                        raise
+                    self.project_store.update_hook(hook_id, status="done", files={**EMPTY_FILES, **result.files})
+
+            store.update_job(job_id, status="RUNNING", stage="BODY")
             guide = project.get("filming_guide") or {}
             target_sec = float(guide.get("target_body_duration_sec") or 0.0)
-            limit = min(float(self.settings.body_max_sec), target_sec) if target_sec > 0 else float(self.settings.body_max_sec)
-            final_path = out_dir / "final.mp4"
+            body_max = float(self.settings.body_max_sec)
+            limit = min(body_max, target_sec) if target_sec > 0 else body_max
+            # 최종 파일은 작업마다 다른 폴더에 쓴다 (같은 훅으로 겹쳐 만들어도 서로 덮어쓰지 않는다)
+            final_path = job_dir / "final.mp4"
             joined = attach_body(
-                out_dir / "hook.mp4", clips, final_path, tools=media, limit_sec=limit, hook_srt=out_dir / "hook.srt"
+                out_dir / "hook.mp4", clips, final_path, tools=self._media(), limit_sec=limit, hook_srt=out_dir / "hook.srt"
             )
 
             prefix = f"projects/{project_id}/renders/{job_id}"
@@ -244,6 +316,7 @@ class HookPipeline:
                 artifacts={
                     "pipeline": "hookpipe",
                     "hook_id": hook_id,
+                    "local_dir": str(job_dir),
                     "rendered": [entry],
                     "thumbnails": [],
                     "warnings": joined.warnings,
@@ -253,5 +326,15 @@ class HookPipeline:
         except Exception as exc:
             logger.exception("최종 영상 생성 실패 (%s/%s)", project_id, job_id)
             job = store.get_job(job_id)
-            store.update_job(job_id, status="FAILED", stage=(job or {}).get("stage") or "FAILED", error=str(exc))
+            store.update_job(
+                job_id,
+                status="FAILED",
+                stage=(job or {}).get("stage") or "FAILED",
+                error=str(exc) or type(exc).__name__,
+            )
             self.project_store.update_project(project_id, status="FAILED")
+        finally:
+            if job_dir is not None:
+                # 내려받은 업로드 사본과 중간 본편은 지운다 (최종 파일은 남긴다)
+                shutil.rmtree(job_dir / "uploads", ignore_errors=True)
+                (job_dir / "final_body.mp4").unlink(missing_ok=True)

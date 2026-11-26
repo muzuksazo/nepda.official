@@ -18,11 +18,12 @@ from .media import (
     OUT_FPS,
     OUT_H,
     OUT_W,
-    TARGET_LUFS,
     VIDEO_ENCODE_ARGS,
     MediaError,
     MediaTools,
     fill_filter,
+    gain_filter,
+    gain_to_target,
     measure_lufs,
     probe,
     run_ffmpeg,
@@ -50,13 +51,31 @@ class BodyAttachResult:
 
 
 def plan_body_segments(durations: Sequence[float], limit_sec: Optional[float]) -> List[float]:
-    """클립마다 쓸 길이. 합이 limit 을 넘으면 각 클립의 앞부분을 같은 비율로 줄인다."""
+    """클립마다 쓸 길이(0 이면 그 클립은 뺀다). 합이 limit 을 넘을 때만 줄인다.
+
+    짧은 컷이 통째로 사라지지 않게 클립마다 1초(원래 더 짧으면 그 길이)를 먼저 보장하고,
+    남는 길이를 나머지 길이 비율로 나눈다. 1초씩만 줘도 넘치면 뒤쪽 클립부터 뺀다.
+    """
     usable = [max(0.0, float(d)) for d in durations]
     total = sum(usable)
     if not limit_sec or limit_sec <= 0 or total <= limit_sec:
         return usable
-    ratio = limit_sec / total
-    return [round(d * ratio, 3) for d in usable]
+    floors = [min(d, MIN_SEGMENT_SEC) for d in usable]
+    kept = [True] * len(usable)
+    running = 0.0
+    for index, floor in enumerate(floors):
+        if running + floor > limit_sec + 1e-9 and index > 0:
+            kept[index] = False
+        else:
+            running += floor
+    spare = max(0.0, limit_sec - running)
+    extras = [(d - f) if keep else 0.0 for d, f, keep in zip(usable, floors, kept)]
+    extra_total = sum(extras)
+    scale = min(1.0, spare / extra_total) if extra_total > 0 else 0.0
+    lengths = [round(f + e * scale, 3) if keep else 0.0 for f, e, keep in zip(floors, extras, kept)]
+    if lengths and lengths[0] > limit_sec:
+        lengths[0] = round(limit_sec, 3)
+    return lengths
 
 
 def _video_chain(index: int, seconds: float, landscape: bool, tools: MediaTools) -> List[str]:
@@ -79,7 +98,7 @@ def build_body(
     tools: MediaTools,
     limit_sec: Optional[float] = None,
 ) -> BodyAttachResult:
-    """촬영 클립들을 1080x1920 30fps, -14 LUFS 본편 하나로 만든다."""
+    """촬영 클립들을 1080x1920 30fps 본편 하나로 잇는다 (소리 크기는 원본 그대로)."""
     target = Path(out_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     warnings: List[str] = []
@@ -95,16 +114,16 @@ def build_body(
         raise BodyAttachError("붙일 수 있는 본편 영상이 없습니다.")
 
     lengths = plan_body_segments([info.duration for _, info in sources], limit_sec)
-    kept = [(path, info, sec) for (path, info), sec in zip(sources, lengths) if sec >= MIN_SEGMENT_SEC]
-    if not kept:
-        kept = [(sources[0][0], sources[0][1], min(sources[0][1].duration, limit_sec or sources[0][1].duration))]
+    kept = [(path, info, sec) for (path, info), sec in zip(sources, lengths) if sec > 0.05]
+    dropped = [path.name for (path, _), sec in zip(sources, lengths) if sec <= 0.05]
+    if dropped:
+        warnings.append(f"길이 제한 때문에 뺀 클립: {', '.join(dropped)}")
     if sum(lengths) < sum(info.duration for _, info in sources) - 0.05:
         warnings.append(f"본편을 {sum(sec for _, _, sec in kept):.1f}초로 줄였습니다 (각 클립의 앞부분 사용).")
 
     args: List[str] = []
     filters: List[str] = []
     segments: List[dict] = []
-    has_any_audio = any(info.has_audio for _, info, _ in kept)
     for index, (path, info, seconds) in enumerate(kept):
         args += ["-i", str(path)]
         landscape = info.height > 0 and (info.width / info.height) > LANDSCAPE_RATIO
@@ -119,11 +138,8 @@ def build_body(
             filters.append(f"anullsrc=r={AUDIO_RATE}:cl=stereo,atrim=0:{seconds:.3f}[a{index}]")
         segments.append({"file": path.name, "seconds": round(seconds, 3), "landscape": landscape, "has_audio": info.has_audio})
     pairs = "".join(f"[v{i}][a{i}]" for i in range(len(kept)))
-    filters.append(f"{pairs}concat=n={len(kept)}:v=1:a=1[vout][acat]")
-    if has_any_audio:
-        filters.append(f"[acat]loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=11,aresample={AUDIO_RATE}[aout]")
-    else:
-        filters.append("[acat]anull[aout]")
+    # 소리 크기는 여기서 건드리지 않는다. 훅과 붙일 때 한 번 재서 맞춘다 (join_hook_and_body).
+    filters.append(f"{pairs}concat=n={len(kept)}:v=1:a=1[vout][aout]")
     total = sum(sec for _, _, sec in kept)
     run_ffmpeg(
         tools,
@@ -136,7 +152,7 @@ def build_body(
         duration_sec=round(info.duration, 3),
         hook_sec=0.0,
         body_sec=round(info.duration, 3),
-        lufs=measure_lufs(tools, target) if has_any_audio else None,
+        lufs=None,  # 음량은 훅과 붙일 때 잰다
         segments=segments,
         warnings=warnings,
     )
@@ -149,17 +165,23 @@ def join_hook_and_body(
     *,
     tools: MediaTools,
 ) -> BodyAttachResult:
-    """훅 + 본편 → 최종 영상. 두 영상 모두 다시 인코딩해 규격을 하나로 맞춘다."""
+    """훅 + 본편 → 최종 영상. 두 영상 모두 다시 인코딩해 규격을 하나로 맞춘다.
+
+    본편 소리는 먼저 음량을 재고 훅과 같은 -14 LUFS 가 되도록 올리거나 내린다.
+    올리는 폭에는 상한이 있어, 말소리 없이 조용한 촬영본의 배경 잡음이 크게 부풀지 않는다.
+    """
     hook, body, target = Path(hook_mp4), Path(body_mp4), Path(out_path)
     hook_info, body_info = probe(tools, hook), probe(tools, body)
     if not hook_info.has_video:
         raise BodyAttachError("훅 영상에 화면이 없습니다.")
+    body_gain = gain_to_target(measure_lufs(tools, body)) if body_info.has_audio else 0.0
     filters = [fill_filter("0:v", "v0"), fill_filter("1:v", "v1")]
     args = ["-i", str(hook), "-i", str(body)]
     for index, info in ((0, hook_info), (1, body_info)):
         if info.has_audio:
+            level = f"{gain_filter(tools, body_gain)}," if index == 1 and abs(body_gain) > 0.05 else ""
             filters.append(
-                f"[{index}:a]aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
+                f"[{index}:a]{level}aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
                 f"apad=whole_dur={info.duration:.3f}[a{index}]"
             )
         else:

@@ -5,6 +5,8 @@ import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 from typing import Any, Dict, List
 
 from tests.support.hookpipe import FakeMediaProvider, make_video, tools_or_none, worker_scenario
@@ -65,7 +67,8 @@ class RenderHook(unittest.TestCase):
             self.assertEqual(len(provider.video_calls), 3)
             self.assertEqual([c["duration_sec"] for c in provider.video_calls], [3, 3, 3])
             self.assertEqual(provider.video_calls[2]["reference_paths"], [str(p) for p in refs])
-            self.assertTrue(provider.video_calls[0]["reference_paths"][0].endswith("style_ref.png"))
+            self.assertTrue(Path(provider.video_calls[0]["reference_paths"][0]).name.startswith("style_"))
+            self.assertTrue(result.captions_burned)
             self.assertEqual({c["voice"] for c in provider.tts_calls}, {"Kore"})
             srt = (out / "hook.srt").read_text(encoding="utf-8")
             self.assertIn("00:00:03,000 --> 00:00:06,000\n두 개는 아가미로", srt)
@@ -103,14 +106,58 @@ class RenderHook(unittest.TestCase):
             with self.assertRaises(HookRenderError):
                 render_hook(worker_scenario("B"), PRODUCT, Path(td) / "a", provider=provider,
                             settings=_settings(hook_max_clip_sec_per_hook=8), tools=TOOLS)
-            self.assertEqual(provider.video_calls, [])
 
             too_long = worker_scenario("B")
             too_long["beats"][0]["duration_sec"] = 15.0
             with self.assertRaises(HookRenderError):
                 render_hook(too_long, PRODUCT, Path(td) / "b", provider=provider, settings=_settings(), tools=TOOLS)
-            self.assertEqual(provider.video_calls, [])
-            self.assertEqual(len(provider.tts_calls), 3)  # 첫 시도의 나레이션만, 두 번째는 시작도 하지 않는다
+
+            # 1초 장면도 클립은 최소 3초로 요청된다: 1초 x 10장면 = 30초 요청 → 상한 20초에 걸린다
+            many = worker_scenario("B")
+            many["beats"] = [dict(many["beats"][0], order=i + 1, duration_sec=1.0) for i in range(10)]
+            with self.assertRaises(HookRenderError):
+                render_hook(many, PRODUCT, Path(td) / "c", provider=provider,
+                            settings=_settings(hook_max_clip_sec_per_hook=20), tools=TOOLS)
+
+            duplicated = worker_scenario("B")
+            duplicated["beats"][1]["order"] = 1
+            with self.assertRaises(HookRenderError):
+                render_hook(duplicated, PRODUCT, Path(td) / "d", provider=provider, settings=_settings(), tools=TOOLS)
+
+            # 넷 모두 과금 호출(나레이션·참고 이미지·클립)을 하나도 하지 않고 멈춘다
+            self.assertEqual((provider.tts_calls, provider.image_calls, provider.video_calls), ([], [], []))
+
+    def test_rerender_buys_only_what_changed(self) -> None:
+        with temporary_directory() as td:
+            provider = FakeMediaProvider(TOOLS)
+            cache = Path(td) / "cache"
+            scenario = worker_scenario("B")
+            render_hook(scenario, PRODUCT, Path(td) / "first", provider=provider, settings=_settings(),
+                        tools=TOOLS, cache_dir=cache)
+            counts = (len(provider.tts_calls), len(provider.image_calls), len(provider.video_calls))
+            self.assertEqual(counts, (3, 1, 3))
+
+            # 같은 내용으로 다른 폴더에 다시: 새로 사는 것이 없다
+            again = render_hook(scenario, PRODUCT, Path(td) / "second", provider=provider, settings=_settings(),
+                                tools=TOOLS, cache_dir=cache)
+            self.assertEqual((len(provider.tts_calls), len(provider.image_calls), len(provider.video_calls)), counts)
+            self.assertEqual(again.beats[0]["reused"], ["tts", "clip"])
+            self.assertTrue((Path(td) / "second" / "hook.mp4").is_file())
+
+            # 둘째 장면의 나레이션과 화면만 바꾸면 그 장면의 음성과 클립만 새로 산다
+            changed = worker_scenario("B")
+            changed["beats"][1]["narration"] = "나머지 하나가 온몸으로 보냅니다."
+            changed["beats"][1]["visual"] = "큰 심장 하나가 천천히 뛴다"
+            render_hook(changed, PRODUCT, Path(td) / "third", provider=provider, settings=_settings(),
+                        tools=TOOLS, cache_dir=cache)
+            self.assertEqual((len(provider.tts_calls), len(provider.image_calls), len(provider.video_calls)), (4, 1, 4))
+            self.assertEqual(provider.tts_calls[-1]["text"], "나머지 하나가 온몸으로 보냅니다.")
+
+            # 나레이션을 끄고 같은 폴더에 다시 만들면 예전 tts.mp3 가 남지 않는다
+            silent = render_hook(scenario, PRODUCT, Path(td) / "first", provider=provider, settings=_settings(),
+                                 tts_enabled=False, tools=TOOLS, cache_dir=cache)
+            self.assertIsNone(silent.files["tts_audio"])
+            self.assertFalse((Path(td) / "first" / "tts.mp3").exists())
 
 
 @unittest.skipUnless(TOOLS, "ffmpeg (testsrc·loudnorm 필터 포함)가 필요합니다")
@@ -143,6 +190,37 @@ class AttachBody(unittest.TestCase):
             self.assertAlmostEqual(result.body_sec, 6.0, delta=0.25)
             self.assertAlmostEqual(result.duration_sec, 8.0, delta=0.3)
             self.assertTrue(any("줄였습니다" in w for w in result.warnings))
+
+
+def _client(root: Path, provider: Any, *, scenario_generator: Any = None, **overrides: Any) -> TestClient:
+    settings = Settings(
+        _env_file=None,
+        gemini_api_key="dummy-key",
+        google_client_id="dummy-client-id.apps.googleusercontent.com",
+        session_secret="test-session-secret-32bytes-minimum",
+        work_root=str(root / "work"),
+        output_dir=str(root / "outputs"),
+        db_path=str(root / "napda.db"),
+        **overrides,
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    app = create_app(
+        settings=settings,
+        google_token_verifier=fake_google_verifier,
+        scenario_generator=scenario_generator
+        or (lambda p, types, prov: [worker_scenario(t, f"sc_{t}_01") for t in types]),
+        provider_factory=lambda _s: provider,
+    )
+    client = TestClient(app)
+    login_client(client)
+    return client
+
+
+def _project_with_selected_scenario(client: TestClient, hook_type: str) -> Any:
+    pid = client.post("/v1/projects", json={"product": PRODUCT, "selected_types": [hook_type]}).json()["project_id"]
+    sid = client.post(f"/v1/projects/{pid}/scenarios", json={"count": 1}).json()["scenarios"][0]["scenario_id"]
+    assert client.post(f"/v1/projects/{pid}/scenarios/{sid}/select").status_code == 200
+    return pid, sid
 
 
 def _wait(fetch: Any, done: Any, timeout: float = 120.0) -> Dict[str, Any]:
@@ -210,8 +288,9 @@ class ApiFlow(unittest.TestCase):
             outputs = client.get(f"/v1/projects/{pid}/outputs").json()["outputs"]
             self.assertEqual(len(outputs), 1)
             self.assertEqual(outputs[0]["files"]["hook_video"], "hook.mp4")
-            out_dir = Path(outputs[0]["output_dir"])
-            self.assertTrue((out_dir / "final.mp4").is_file())
+            final_local = Path(url2pathname(urlparse(video["stream_url"]).path))
+            self.assertTrue(final_local.is_file(), final_local)
+            self.assertEqual((probe(TOOLS, final_local).width, probe(TOOLS, final_local).height), (1080, 1920))
             # 올린 촬영본에서 뽑은 컷이 제품 장면의 참고 이미지로 들어갔다
             self.assertTrue(providers[0].video_calls[2]["reference_paths"][0].endswith("product_ref_01.jpg"))
 
@@ -225,53 +304,143 @@ class ApiFlow(unittest.TestCase):
             self.assertEqual(done2["status"], "QC_READY", done2)
             self.assertEqual(sum(len(p.video_calls) for p in providers), calls_before)
             self.assertEqual(len(client.get(f"/v1/projects/{pid}/outputs").json()["outputs"]), 1)
+            self.assertNotEqual(done2["video"]["stream_url"], video["stream_url"])  # 작업마다 다른 최종 파일
 
-    def test_hook_endpoint_renders_video_and_failure_is_reported(self) -> None:
+            # 목소리를 바꾸면 예전 훅을 쓰지 않고 새로 만든다 (클립은 같은 내용이면 다시 사지 않는다)
+            third = client.post(f"/v1/projects/{pid}/renders", json={"scenario_id": sid, "voice_id": "Puck"})
+            jid3 = third.json()["job_id"]
+            done3 = _wait(lambda: client.get(f"/v1/projects/{pid}/deliverables").json(),
+                          lambda d: d.get("job_id") == jid3 and d.get("status") in ("QC_READY", "FAILED"))
+            self.assertEqual(done3["status"], "QC_READY", done3)
+            self.assertEqual(len(client.get(f"/v1/projects/{pid}/outputs").json()["outputs"]), 2)
+            self.assertIn("Puck", {c["voice"] for p in providers for c in p.tts_calls})
+
+    def test_render_failure_is_reported_and_missing_body_stops_before_paying(self) -> None:
         with temporary_directory() as td:
             root = Path(td)
-            state = {"fail": False}
+            provider = FakeMediaProvider(TOOLS)
+            state = {"fail": True}
+            real_clip = provider.generate_video_clip
 
-            class Provider(FakeMediaProvider):
-                def generate_video_clip(self, *args: Any, **kwargs: Any) -> None:
-                    if state["fail"]:
-                        raise RuntimeError("video model quota exceeded")
-                    super().generate_video_clip(*args, **kwargs)
+            def flaky_clip(*args: Any, **kwargs: Any) -> None:
+                if state["fail"]:
+                    raise RuntimeError("video model quota exceeded")
+                real_clip(*args, **kwargs)
 
-            settings = Settings(
-                _env_file=None,
-                gemini_api_key="dummy-key",
-                google_client_id="dummy-client-id.apps.googleusercontent.com",
-                session_secret="test-session-secret-32bytes-minimum",
-                work_root=str(root / "work"),
-                output_dir=str(root / "outputs"),
-                db_path=str(root / "napda.db"),
-            )
-            app = create_app(
-                settings=settings,
-                google_token_verifier=fake_google_verifier,
-                scenario_generator=lambda p, types, prov: [worker_scenario(t, f"sc_{t}_01") for t in types],
-                provider_factory=lambda _s: Provider(TOOLS),
-            )
-            client = TestClient(app)
-            login_client(client)
-            pid = client.post("/v1/projects", json={"product": PRODUCT, "selected_types": ["A"]}).json()["project_id"]
-            sid = client.post(f"/v1/projects/{pid}/scenarios", json={"count": 1}).json()["scenarios"][0]["scenario_id"]
-            client.post(f"/v1/projects/{pid}/scenarios/{sid}/select")
+            provider.generate_video_clip = flaky_clip  # type: ignore[method-assign]
+            client = _client(root, provider)
+            pid, sid = _project_with_selected_scenario(client, "B")
 
-            hk = client.post(f"/v1/projects/{pid}/hooks", json={"scenario_id": sid, "tts": {"enabled": True}})
-            self.assertEqual(hk.status_code, 202, hk.text)
-            body = client.get(f"/v1/projects/{pid}/hooks/{hk.json()['hook_id']}").json()
+            # 본편이 서버에 없는 프로젝트: 훅에 돈을 쓰기 전에 실패한다
+            client.post(f"/v1/projects/{pid}/uploads/complete", json={"clips": [
+                {"shot_no": 1, "object_key": "uploads/missing.mp4", "duration_sec": 6.0, "width": 1080, "height": 1920}]})
+            client.post(f"/v1/projects/{pid}/renders", json={"scenario_id": sid})
+            lost = _wait(lambda: client.get(f"/v1/projects/{pid}/deliverables").json(),
+                         lambda d: d.get("status") in ("QC_READY", "FAILED"))
+            self.assertEqual(lost["status"], "FAILED")
+            self.assertEqual((provider.tts_calls, provider.image_calls), ([], []))
+
+            footage = make_video(TOOLS, root / "shot1.mp4", seconds=5.0)
+            client.post(f"/v1/projects/{pid}/uploads/complete",
+                        json={"clips": [{"shot_no": 1, "object_key": "uploads/shot1.mp4", "local_path": str(footage)}]})
+            jid = client.post(f"/v1/projects/{pid}/renders", json={"scenario_id": sid}).json()["job_id"]
+            failed = _wait(lambda: client.get(f"/v1/projects/{pid}/deliverables").json(),
+                           lambda d: d.get("job_id") == jid and d.get("status") in ("QC_READY", "FAILED"))
+            self.assertEqual(failed["status"], "FAILED")
+            self.assertIsNone(failed["video"])
+            detail = client.get(f"/v1/projects/{pid}").json()
+            self.assertEqual(detail["status"], "FAILED")
+            self.assertIn("quota exceeded", detail["latest_job"]["error"])
+            tts_bought = len(provider.tts_calls)
+            self.assertEqual(tts_bought, 3)
+
+            # 다시 시도하면 이미 받은 나레이션·참고 이미지는 다시 사지 않는다
+            state["fail"] = False
+            jid2 = client.post(f"/v1/projects/{pid}/renders", json={"scenario_id": sid}).json()["job_id"]
+            ok = _wait(lambda: client.get(f"/v1/projects/{pid}/deliverables").json(),
+                       lambda d: d.get("job_id") == jid2 and d.get("status") in ("QC_READY", "FAILED"))
+            self.assertEqual(ok["status"], "QC_READY", ok)
+            self.assertEqual((len(provider.tts_calls), len(provider.image_calls)), (tts_bought, 1))
+
+    def test_planner_scenarios_and_dry_run_mode_never_call_paid_models(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            provider = FakeMediaProvider(TOOLS)
+
+            def planner_like(project: Dict[str, Any], types: List[str], prov: str) -> List[Dict[str, Any]]:
+                items = []
+                for t in types:
+                    item = worker_scenario(t, f"scn_{t}_planner")
+                    item["ad_spec"] = {"timeline": [{"id": "seg1", "type": "source"}], "track_archetype": "x"}
+                    items.append(item)
+                return items
+
+            client = _client(root, provider, scenario_generator=planner_like)
+            pid, sid = _project_with_selected_scenario(client, "C")
+            hk = client.post(f"/v1/projects/{pid}/hooks", json={"scenario_id": sid}).json()
+            body = client.get(f"/v1/projects/{pid}/hooks/{hk['hook_id']}").json()
+            self.assertEqual(body["status"], "done", body)
+            self.assertIsNone(body["files"]["hook_video"])
+            self.assertEqual(body["files"]["scenario_json"], "scenario.json")
+
+            dry = _client(root / "dry", provider, hook_render_mode="dry_run")
+            pid2, sid2 = _project_with_selected_scenario(dry, "B")
+            footage = make_video(TOOLS, root / "shot.mp4", seconds=5.0)
+            dry.post(f"/v1/projects/{pid2}/uploads/complete",
+                     json={"clips": [{"shot_no": 1, "object_key": "uploads/shot.mp4", "local_path": str(footage)}]})
+            self.assertEqual(dry.post(f"/v1/projects/{pid2}/renders", json={"scenario_id": sid2}).status_code, 202)
+            self.assertEqual(dry.get(f"/v1/projects/{pid2}/deliverables").json()["status"], "DRY_RUN_READY")
+            hk2 = dry.post(f"/v1/projects/{pid2}/hooks", json={"scenario_id": sid2}).json()
+            self.assertIsNone(dry.get(f"/v1/projects/{pid2}/hooks/{hk2['hook_id']}").json()["files"]["hook_video"])
+
+            self.assertEqual((provider.tts_calls, provider.image_calls, provider.video_calls), ([], [], []))
+
+    def test_hook_endpoint_renders_once_per_scenario_and_counts_against_the_daily_limit(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            provider = FakeMediaProvider(TOOLS)
+            state = {"fail": True}
+            real_clip = provider.generate_video_clip
+
+            def flaky_clip(*args: Any, **kwargs: Any) -> None:
+                if state["fail"]:
+                    raise RuntimeError("video model quota exceeded")
+                real_clip(*args, **kwargs)
+
+            provider.generate_video_clip = flaky_clip  # type: ignore[method-assign]
+            client = _client(root, provider, daily_render_limit=2)
+            pid, sid = _project_with_selected_scenario(client, "A")
+
+            hk1 = client.post(f"/v1/projects/{pid}/hooks", json={"scenario_id": sid, "tts": {"enabled": True}})
+            self.assertEqual(hk1.status_code, 202, hk1.text)
+            failed = client.get(f"/v1/projects/{pid}/hooks/{hk1.json()['hook_id']}").json()
+            self.assertEqual(failed["status"], "failed")
+            self.assertIn("quota exceeded", failed["error"])
+            self.assertIsNone(failed["files"]["hook_video"])
+            self.assertEqual(client.get(f"/v1/projects/{pid}").json()["status"], "FAILED")
+
+            state["fail"] = False
+            hk2 = client.post(f"/v1/projects/{pid}/hooks", json={"scenario_id": sid, "tts": {"enabled": True}})
+            body = client.get(f"/v1/projects/{pid}/hooks/{hk2.json()['hook_id']}").json()
             self.assertEqual(body["status"], "done", body)
             self.assertEqual(body["files"]["hook_video"], "hook.mp4")
             self.assertEqual(body["files"]["subtitles_srt"], "hook.srt")
             self.assertTrue((Path(body["output_dir"]) / "hook.mp4").is_file())
+            self.assertEqual(len(provider.tts_calls), 3)  # 실패한 첫 시도에서 받은 나레이션을 다시 사지 않았다
 
-            state["fail"] = True
-            hk2 = client.post(f"/v1/projects/{pid}/hooks", json={"scenario_id": sid})
-            failed = client.get(f"/v1/projects/{pid}/hooks/{hk2.json()['hook_id']}").json()
-            self.assertEqual(failed["status"], "failed")
-            self.assertIn("quota exceeded", failed["error"])
-            self.assertIsNone(failed["files"]["hook_video"])
+            # 같은 시나리오·같은 목소리로 또 부르면 이미 만든 훅을 돌려주고 아무것도 새로 만들지 않는다
+            calls = (len(provider.tts_calls), len(provider.image_calls), len(provider.video_calls))
+            hk3 = client.post(f"/v1/projects/{pid}/hooks", json={"scenario_id": sid, "tts": {"enabled": True}})
+            self.assertEqual(hk3.status_code, 202, hk3.text)
+            self.assertEqual(hk3.json()["hook_id"], hk2.json()["hook_id"])
+            self.assertEqual(hk3.json()["status"], "done")
+            self.assertEqual((len(provider.tts_calls), len(provider.image_calls), len(provider.video_calls)), calls)
+            self.assertEqual(client.get(f"/v1/projects/{pid}").json()["quota"]["used_today"], 2)
+
+            # 한도(2회)를 다 썼으므로 새로 만들어야 하는 요청(나레이션 끔)은 거절된다
+            over = client.post(f"/v1/projects/{pid}/hooks", json={"scenario_id": sid, "tts": {"enabled": False}})
+            self.assertEqual(over.status_code, 429, over.text)
+            self.assertEqual(over.json()["detail"]["error"]["code"], "DAILY_QUOTA_EXCEEDED")
 
 
 if __name__ == "__main__":

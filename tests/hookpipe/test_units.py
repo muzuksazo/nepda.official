@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from tests.support.hookpipe import BACKEND, worker_scenario
 
 from hookpipe.body import plan_body_segments
+from hookpipe.media import gain_to_target
 from hookpipe.captions import build_srt, srt_timestamp, wrap_caption
 from hookpipe.prompts import beat_prompt, ordered_beats, product_beat_orders
 from hookpipe.service import is_worker_scenario
@@ -77,7 +78,25 @@ class BodyAndPromptRules(unittest.TestCase):
         self.assertEqual(plan_body_segments([4.0, 6.0], None), [4.0, 6.0])
         cut = plan_body_segments([10.0, 30.0], 13.0)
         self.assertAlmostEqual(sum(cut), 13.0, places=2)
-        self.assertAlmostEqual(cut[0] / cut[1], 10.0 / 30.0, places=2)
+        self.assertLess(cut[0], cut[1])
+
+    def test_short_cuts_survive_shortening_and_overflow_drops_from_the_end(self) -> None:
+        # 긴 컷 하나와 짧은 컷 둘: 짧은 컷이 사라지지 않고 긴 컷에서 더 깎인다
+        cut = plan_body_segments([40.0, 3.0, 2.0], 13.0)
+        self.assertAlmostEqual(sum(cut), 13.0, places=2)
+        self.assertTrue(all(c >= 1.0 for c in cut), cut)
+        # 3초짜리 15개를 13초에: 1초씩 13개까지만 쓰고 뒤의 둘은 뺀다 (첫 컷만 남는 일은 없다)
+        many = plan_body_segments([3.0] * 15, 13.0)
+        self.assertEqual([c > 0 for c in many], [True] * 13 + [False] * 2)
+        self.assertLessEqual(sum(many), 13.0 + 1e-6)
+        # 1초보다 짧은 컷은 제한이 없으면 그대로 둔다
+        self.assertEqual(plan_body_segments([0.8, 5.0], None), [0.8, 5.0])
+
+    def test_gain_is_capped_so_quiet_footage_noise_is_not_blown_up(self) -> None:
+        self.assertEqual(gain_to_target(None), 0.0)
+        self.assertEqual(gain_to_target(-20.0), 6.0)
+        self.assertEqual(gain_to_target(-5.0), -9.0)
+        self.assertEqual(gain_to_target(-55.0), 20.0)
 
     def test_product_beats_by_hook_type(self) -> None:
         b = worker_scenario("B")
@@ -125,8 +144,22 @@ class WorkerConnection(unittest.TestCase):
         good["beats"][0]["scene3d"] = {"fact_shown": "심장 세 개"}
         long = worker_scenario("B", "sc_long")
         long["beats"][0]["duration_sec"] = 18.0
-        items = normalize_scenarios({"scenarios": [good, long, {"scenario_id": "broken"}]}, "B", max_hook_sec=20.0)
-        self.assertEqual([i["scenario_id"] for i in items], ["sc_demo_B1_01"])
+        dup = worker_scenario("B", "sc_dup")
+        dup["beats"][1]["order"] = 1
+        noorder = worker_scenario("B", "sc_noorder")
+        del noorder["beats"][0]["order"]
+        good["rule_violations"] = ["반전 전 제품명 노출"]
+        items = normalize_scenarios(
+            {"scenarios": [good, long, {"scenario_id": "broken"}, dup, noorder]}, "B", max_hook_sec=20.0
+        )
+        self.assertEqual(len(items), 1)
+        # 서버가 꼬리를 붙여 고유하게 만들고, 작업자가 준 ID 와 규칙 위반은 ad_spec 에 남긴다
+        self.assertRegex(items[0]["scenario_id"], r"^sc_demo_B1_01_[0-9a-f]{6}$")
+        self.assertEqual(items[0]["ad_spec"]["worker_scenario_id"], "sc_demo_B1_01")
+        self.assertEqual(items[0]["ad_spec"]["rule_violations"], ["반전 전 제품명 노출"])
+        self.assertNotIn("rule_violations", items[0])
+        again = normalize_scenarios({"scenarios": [worker_scenario("B")]}, "B", max_hook_sec=20.0)
+        self.assertNotEqual(again[0]["scenario_id"], items[0]["scenario_id"])
         self.assertEqual(items[0]["hook_duration_sec"], 9.0)
         self.assertEqual(items[0]["beats"][0]["scene3d"], {"fact_shown": "심장 세 개"})
         self.assertEqual(items[0]["storyboard_frames"], [])
@@ -143,10 +176,32 @@ class WorkerConnection(unittest.TestCase):
         gen = make_scenario_generator(_settings(), _Store([{"type": "A", "scenario_id": "old"}]),
                                       workers={"A": fake_worker, "B": fake_worker})
         items = gen(project, ["A", "B"], "anthropic")
-        self.assertEqual([(i["type"], i["scenario_id"]) for i in items], [("A", "sc_A"), ("B", "sc_B")])
+        self.assertEqual([(i["type"], i["ad_spec"]["worker_scenario_id"]) for i in items], [("A", "sc_A"), ("B", "sc_B")])
         self.assertEqual([w["round"] for w in seen], [3, 3])
         self.assertEqual(len(seen[0]["previous_scenarios"]), 1)
         self.assertEqual(seen[1]["previous_scenarios"], [])
+
+        # 한 요청에서 여러 개를 뽑을 때: 방금 만든 것도 이전 시나리오로 작업자에게 넘어간다
+        seen.clear()
+        gen(dict(project, pending_scenarios=[{"type": "B", "scenario_id": "just_made"}]), ["B"], "anthropic")
+        self.assertEqual([s["scenario_id"] for s in seen[0]["previous_scenarios"]], ["just_made"])
+
+    def test_one_failed_type_does_not_discard_the_types_already_generated(self) -> None:
+        def ok(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
+            return {"scenarios": [worker_scenario("A", "sc_A")]}
+
+        def crash(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
+            raise TypeError("unexpected shape")  # WorkerError 가 아닌 예외도 대체 경로로 간다
+
+        def failing_fallback(project: Dict[str, Any], types: List[str], provider: str) -> List[Dict[str, Any]]:
+            raise HTTPException(status_code=502, detail={"error": {"code": "PLANNER_UNAVAILABLE", "message": "꺼짐"}})
+
+        gen = make_scenario_generator(_settings(), _Store(), fallback=failing_fallback, workers={"A": ok, "C": crash})
+        items = gen(PROJECT, ["A", "C"], "anthropic")
+        self.assertEqual([i["type"] for i in items], ["A"])
+        with self.assertRaises(HTTPException) as ctx:
+            gen(PROJECT, ["C"], "anthropic")
+        self.assertIn("TypeError", ctx.exception.detail["error"]["message"])
 
     def test_worker_failure_falls_back_and_reports_both_errors_when_fallback_fails(self) -> None:
         def broken(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
