@@ -560,6 +560,9 @@ export const CAMERAS = {
   person: { position: [-0.3, 1.75, 6.0] as [number, number, number], lookAt: [-0.3, 0.6, -0.4] as [number, number, number], fov: 40 },
   visual: { position: [0.45, 2.05, 5.7] as [number, number, number], lookAt: [0.45, 0.85, -0.5] as [number, number, number], fov: 40 },
   product: { position: [0, 3.0, 6.9] as [number, number, number], lookAt: [0.2, -0.2, 0.5] as [number, number, number], fov: 40 },
+  // 인물 없는 장면: 핵심 요소(가운데 [0, 1.35, -0.5])를 크게. center = 주변 소품까지, centerClose = 핵심 요소만
+  center: { position: [0, 2.0, 6.8] as [number, number, number], lookAt: [0, 0.75, -0.5] as [number, number, number], fov: 40 },
+  centerClose: { position: [0, 2.0, 5.7] as [number, number, number], lookAt: [0, 0.8, -0.5] as [number, number, number], fov: 40 },
 };
 export type CameraName = keyof typeof CAMERAS;
 type Cam = { position: [number, number, number]; lookAt: [number, number, number]; fov: number };

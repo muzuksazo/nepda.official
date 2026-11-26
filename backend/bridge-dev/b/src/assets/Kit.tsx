@@ -37,7 +37,10 @@ const SLOTS: Record<Slot, { x: number; z: number; maxH: number; maxW: number }> 
 };
 const PERSON: [number, number, number] = [-0.95, FLOOR_Y, -0.1];
 const VIZ_AIR: [number, number, number] = [0.45, 1.4, -0.5];
-const VIZ_SCALE = 0.85; // 단위 상자 1 = 0.85m → 상자 약 1.7m (화면 폭의 절반 이상)
+const VIZ_SCALE = 0.85;
+// 인물 없는 장면: 핵심 요소가 화면 가운데를 크게 차지한다 (상자 약 2.1m)
+const VIZ_SOLO: [number, number, number] = [0, 1.35, -0.5];
+const VIZ_SOLO_SCALE = 1.05; // 단위 상자 1 = 0.85m → 상자 약 1.7m (화면 폭의 절반 이상)
 const PRODUCT_AT: [number, number, number] = [0, FLOOR_Y, 0.6];
 
 /** 바닥·벽 색 밝기 제한: 바닥이 하얗게 날아가거나 벽이 너무 밝아 무대가 밋밋해지지 않게 */
@@ -77,7 +80,12 @@ function placeProps(props: KitPlan['props']) {
 export function KitScene({ plan, durationInFrames: d, children, Product }: { plan: KitPlan; durationInFrames: number; color: string; children?: React.ReactNode; Product?: React.ComponentType<{ height?: number; lidOpen?: number }> }) {
   const f = useCurrentFrame();
   const p = f / Math.max(1, d);
-  const camera = plan.reveal ? CAMERAS.product : cameraAt(plan.shots, p);
+  // 인물이 없으면 인물·시각화 자리 대신 가운데 카메라로 (person → center, wide → center, visual → centerClose)
+  const solo = !plan.character && !plan.reveal;
+  const shots = solo
+    ? plan.shots.map((s) => ({ ...s, view: (s.view === 'visual' ? 'centerClose' : 'center') as CameraName }))
+    : plan.shots;
+  const camera = plan.reveal ? CAMERAS.product : cameraAt(shots, p);
   const fr = (x: number) => Math.round(x * d);
 
   // 인물 감정 → 동작 클립(victory/defeat) + 덧입힘(나머지)
@@ -114,11 +122,11 @@ export function KitScene({ plan, durationInFrames: d, children, Product }: { pla
 
   if (!plan.reveal) {
     // 바닥 자리는 세로 화면에서 자막에 걸려서 쓰지 않는다: 땅이 필요하면 시각화가 상자 아래(y=-1)에 받침판을 그린다
-    const at = VIZ_AIR;
+    const at = solo ? VIZ_SOLO : VIZ_AIR;
     return (
       <group>
         {world}
-        <group position={at} scale={VIZ_SCALE}>{children}</group>
+        <group position={at} scale={solo ? VIZ_SOLO_SCALE : VIZ_SCALE}>{children}</group>
       </group>
     );
   }
