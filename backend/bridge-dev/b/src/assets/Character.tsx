@@ -536,8 +536,9 @@ export function BackDim({ impact = SLAM_IMPACT, z = 0.25, amount = 0.72, frames 
 export const CAMERAS = {
   // 모두 살짝 내려다본다: 무대가 화면 위로 올라와 위쪽 빈 공간이 줄고, 시각화가 자막(약 62%) 위에 선다
   wide: { position: [0.05, 1.9, 7.3] as [number, number, number], lookAt: [0.05, 0.35, -0.6] as [number, number, number], fov: 40 },
-  person: { position: [-0.5, 1.7, 4.8] as [number, number, number], lookAt: [-0.8, 0.55, -0.2] as [number, number, number], fov: 40 },
-  visual: { position: [0.55, 2.0, 5.4] as [number, number, number], lookAt: [0.55, 0.85, -0.5] as [number, number, number], fov: 40 },
+  // person: 인물 쪽으로 다가가되 시각화도 화면 안에 남는 중간 거리 (세로 화면에서 얼굴만 잡으면 사실이 안 보인다)
+  person: { position: [-0.3, 1.75, 6.0] as [number, number, number], lookAt: [-0.3, 0.6, -0.4] as [number, number, number], fov: 40 },
+  visual: { position: [0.45, 2.05, 5.7] as [number, number, number], lookAt: [0.45, 0.85, -0.5] as [number, number, number], fov: 40 },
   product: { position: [0, 3.0, 6.9] as [number, number, number], lookAt: [0.2, -0.2, 0.5] as [number, number, number], fov: 40 },
 };
 export type CameraName = keyof typeof CAMERAS;

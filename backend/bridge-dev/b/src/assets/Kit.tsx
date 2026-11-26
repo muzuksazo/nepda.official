@@ -36,8 +36,8 @@ const SLOTS: Record<Slot, { x: number; z: number; maxH: number; maxW: number }> 
   'front-right': { x: 1.25, z: 0.45, maxH: 0.55, maxW: 0.6 },
 };
 const PERSON: [number, number, number] = [-0.95, FLOOR_Y, -0.1];
-const VIZ_AIR: [number, number, number] = [0.55, 1.35, -0.5];
-const VIZ_SCALE = 0.72;
+const VIZ_AIR: [number, number, number] = [0.45, 1.4, -0.5];
+const VIZ_SCALE = 0.85; // 단위 상자 1 = 0.85m → 상자 약 1.7m (화면 폭의 절반 이상)
 const PRODUCT_AT: [number, number, number] = [0, FLOOR_Y, 0.6];
 
 /** 바닥·벽 색 밝기 제한: 바닥이 하얗게 날아가거나 벽이 너무 밝아 무대가 밋밋해지지 않게 */
