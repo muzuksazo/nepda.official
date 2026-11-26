@@ -5,14 +5,18 @@ category: content
 last_updated: 2026-11-25
 created_at: 2026-11-25
 lang: ko
-logo: asset/logo/logo.png
+logo: asset/logo/logoeng2.png
 colors:
   ## Brand (공식 4색 · 브랜드 보드 [src:1])
-  brand-lime: oklch(0.939 0.208 121.4)            # #D6FF3F 공식 Lime. 작지만 꼭 필요한 기능 표시에만 쓴다 — 게이지(진행 막대·훅 길이), 단계 번호, 선택된 칩·체크, 브랜드 배지, 강조 단어. 버튼·카드 같은 넓은 면과 흰 배경 위 글자에는 쓰지 않는다(흰 배경 1.15:1)
+  brand-lime: oklch(0.939 0.208 121.4)            # #D6FF3F 공식 Lime. 작지만 꼭 필요한 기능 표시에만 쓴다 — 게이지(진행 막대·훅 길이), 단계 번호, 선택 체크, 브랜드 배지, 강조 단어. 버튼·카드 같은 넓은 면과 흰 배경 위 글자에는 쓰지 않는다(흰 배경 1.15:1)
   brand-black: oklch(0 0 0)                       # #000000 공식 Black. 워드마크, 라임 위 글자(18.2:1), 다크 캔버스
   brand-gray: oklch(0.922 0 0)                    # #E5E5E5 공식 Gray. 라이트 표면 base, 보더 weak
   brand-white: oklch(1 0 0)                       # #FFFFFF 공식 White. 라이트 배경, 다크 위 글자
   lime-edge: oklch(0.145 0 0)                     # #0A0A0A 라이트에서 라임 표시를 두르는 1.5px 외곽선. 라임은 흰·회색 바탕과 1.1:1이라 외곽선(17:1)이 경계를 만든다. 다크에서는 생략(라임 vs #232323 13.6:1)
+  ## 선택된 카드 (라임 틴트 — 넓은 면에 허용되는 유일한 라임, 18%로 아주 옅게)
+  selected-bg: oklch(0.986 0.046 116.4)           # #F8FFDC 라이트 선택 카드 면 (라임 18% + 흰색). 설명 글자 #5C5C5C 6.5:1
+  selected-border: oklch(0.841 0.203 122.2)       # #B5DE0A 라이트 선택 카드 2px 테두리 (라임 한 단계 진하게)
+  dark-selected-bg: oklch(0.242 0.034 118.7)      # #1E220F 다크 선택 카드 면 (라임 10% + #0A0A0A)
   ## 반전 면 (1차 버튼 — 넓은 면은 라임 대신 검정)
   inverse: oklch(0.145 0 0)                       # #0A0A0A 라이트 1차 버튼 면 (흰 글자 19.8:1)
   inverse-hover: oklch(0.284 0 0)                 # #2B2B2B 라이트 1차 버튼 hover
@@ -129,12 +133,12 @@ elevation:
 components:
   app-header:
     backgroundColor: "{colors.bg-base}"
-    height: 60px
+    height: 72px
   flow-header:
     backgroundColor: "{colors.bg-base}"
     textColor: "{colors.text-primary}"
     typography: "{typography.title-17}"
-    height: 72px
+    height: 94px
   progress-bar:
     backgroundColor: "{colors.surface-base}"
     fillColor: "{colors.brand-lime}"
@@ -175,27 +179,26 @@ components:
     textColor: "{colors.text-primary}"
     borderColor: "{colors.border-base}"
     typography: "{typography.label-14}"
-    rounded: "{rounded.radius-circular}"
-    height: 44px
+    rounded: "{rounded.radius-md}"
+    height: 48px
   choice-chip-selected:
-    backgroundColor: "{colors.brand-lime}"
-    textColor: "{colors.brand-black}"
-    borderColor: "{colors.lime-edge}"
-    rounded: "{rounded.radius-circular}"
-    height: 44px
+    backgroundColor: "{colors.selected-bg}"
+    textColor: "{colors.text-primary}"
+    borderColor: "{colors.selected-border}"
+    rounded: "{rounded.radius-md}"
+    height: 48px
   hook-card:
     backgroundColor: "{colors.bg-base}"
     borderColor: "{colors.border-weak}"
     rounded: "{rounded.radius-xl}"
     padding: 12px
   hook-card-selected:
-    backgroundColor: "{colors.bg-weak}"
-    borderColor: "{colors.border-strong}"
+    backgroundColor: "{colors.selected-bg}"
+    borderColor: "{colors.selected-border}"
     rounded: "{rounded.radius-xl}"
   check-mark-selected:
     backgroundColor: "{colors.brand-lime}"
     textColor: "{colors.brand-black}"
-    borderColor: "{colors.lime-edge}"
     size: 26px
   project-card:
     backgroundColor: "{colors.bg-base}"
@@ -252,11 +255,11 @@ UI의 원칙은 **"넓은 면은 흑백, 작은 신호는 라임"**이다. 라�
 
 1. 게이지 — 진행 막대 채움, 훅 길이 막대
 2. 단계 번호 — 온보딩·촬영 가이드의 번호 원
-3. 선택됨 — 선택된 칩, 선택된 카드의 체크
+3. 선택됨 — 선택된 선택지·카드의 체크
 4. 브랜드 배지 — 라임 알약 안 검정 글자(예: "B 유형")
 5. 강조 단어 — 화면당 한 단어의 하이라이트 마커
 
-라이트에서는 선택 칩·체크·배지에 1.5px 검정 외곽선(`{colors.lime-edge}`)을 두른다. 라임은 흰·회색 바탕과 명도 대비가 1.1:1이라 외곽선이 경계를 만든다. 검정 외곽선 스티커는 브랜드 보드의 그래픽 질감과도 같다 [src:1]. 게이지(진행 막대·훅 길이)는 외곽선 없이 칸을 끊은 점선으로 그린다. 칸 사이 틈이 경계를 대신하고, 진행 정도는 옆의 "5/8"·"N / 8" 숫자와 "훅/본편" 라벨이 함께 전한다.
+라이트에서는 브랜드 배지에 검정 외곽선(`{colors.lime-edge}`)을 두른다. 라임은 흰·회색 바탕과 명도 대비가 1.1:1이라 외곽선이 경계를 만든다. 검정 외곽선 스티커는 브랜드 보드의 그래픽 질감과도 같다 [src:1]. 게이지(진행 막대·훅 길이)는 외곽선 없이 칸을 끊은 점선으로 그린다. 칸 사이 틈이 경계를 대신하고, 진행 정도는 옆의 "5/8"·"N / 8" 숫자와 "훅/본편" 라벨이 함께 전한다.
 
 로고(워드마크)는 홈·온보딩 상단 헤더에만, **한 화면에 하나**만 쓴다. 본문에 로고나 로고 이미지를 다시 넣지 않는다. 만들기 흐름(1~8단계) 화면에는 로고 대신 뒤로 가기와 단계 제목을 둔다.
 
@@ -279,10 +282,10 @@ UI의 원칙은 **"넓은 면은 흑백, 작은 신호는 라임"**이다. 라�
 | 텍스트 primary | `{colors.text-primary}` | `{colors.dark-text-primary}` |
 | 텍스트 tertiary | `{colors.text-tertiary}` | `{colors.dark-text-tertiary}` |
 | 1차 버튼 면 | `{colors.inverse}` + 흰 글자 | `{colors.dark-inverse}` + 검정 글자 |
-| 선택 테두리 | `{colors.border-strong}` | `{colors.dark-text-primary}` |
+| 선택된 카드·선택지 | `{colors.selected-bg}` 면 + 2px `{colors.selected-border}` | `{colors.dark-selected-bg}` 면 + 2px `{colors.brand-lime}` |
 | 게이지 (진행 막대·훅 길이) | `{colors.brand-lime}`, 외곽선 없음 + 숫자 병기 | `{colors.brand-lime}` |
-| 단계 번호 원 | `{colors.brand-lime}` + 검정 숫자, 외곽선 없음 | 같음 |
-| 라임 표시 (선택·배지) | `{colors.brand-lime}` + 1.5px `{colors.lime-edge}` 외곽선, 위 글자 검정 | `{colors.brand-lime}`, 외곽선 없음 |
+| 단계 번호 원·선택 체크 | `{colors.brand-lime}` + 검정 숫자/체크, 외곽선 없음 | 같음 |
+| 라임 표시 (브랜드 배지) | `{colors.brand-lime}` + 1.5px `{colors.lime-edge}` 외곽선, 위 글자 검정 | `{colors.brand-lime}`, 외곽선 없음 |
 | 오류 | `{colors.danger}` | `{colors.dark-danger}` |
 
 값은 frontmatter `colors:` 맵이 유일한 정본이다.
@@ -307,7 +310,8 @@ radius는 6, 10, 14, 20, 28px와 `circular` 여섯 단계다. 브랜드 앱 아�
 - 10px: 입력창, 고스트 버튼
 - 14px: 버튼(52px 높이)
 - 20px: 카드, 영상 프레임
-- 알약(circular): 칩과 배지
+- 알약(circular): 배지
+- 10px(radius-md): 입력칸, 하나 고르기 선택지
 
 ## Elevation & Depth
 
@@ -334,10 +338,10 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 | --- | --- | --- |
 | 첫 만들기 권유 | 클래퍼보드 들기 | 빈 홈 |
 | 생성 대기 | 눕기 + "냅다곰이 머리 굴리는 중…" | 시나리오 생성 중 |
-| 결과 공개 | 놀람(!!) 표정 | 영상 확인 |
-| 완성 | 환호 | 썸네일·내려받기 |
+| 결과 공개 | 놀람(!!) 표정(상반신) | 영상 확인 |
+| 완성 | 신남 표정(상반신, 손 들기) | 썸네일·내려받기 |
 
-이미지는 캐릭터 시트에서 잘라 배경을 지운 투명 PNG다(`frontend/src/assets/brand/mascot-*.png`). 장식이므로 `alt=""`·`aria-hidden`으로 숨기고, 64px보다 작게 줄이지 않는다. 버튼·입력 위에 겹치지 않는다.
+제목 옆에 붙는 곰(영상 확인·썸네일)은 하반신이 잘린 표정 컷을 써서 제목 줄 높이에 맞추고, 본문 가운데에 서는 곰(빈 홈)이나 카드 안 곰(생성 대기)만 전신 포즈를 쓴다. 이미지는 캐릭터 시트에서 잘라 배경을 지운 투명 PNG다(`frontend/src/assets/brand/mascot-*.png`). 장식이므로 `alt=""`·`aria-hidden`으로 숨기고, 64px보다 작게 줄이지 않는다. 버튼·입력 위에 겹치지 않는다.
 
 ## Voice & Copy
 
@@ -349,11 +353,41 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 
 ### app-header
 
-높이 60px, 왼쪽에 워드마크 이미지(높이 36px, 라이트=검정·다크=흰색). 홈·온보딩에만 있고, 화면에 보이는 유일한 로고다.
+높이 72px(위 여백 12px), 왼쪽에 영문 워드마크 "NAPDA"(높이 24px, 가로 약 131px, 라이트=검정·다크=흰색). 본문과는 16px 띄운다. 홈·온보딩에만 있고, 화면에 보이는 유일한 로고다.
 
 ### flow-header
 
-만들기 흐름 상단. 44px 뒤로 버튼, 제목 `{typography.title-17}`, 오른쪽 "**N** / 8"(현재 단계만 굵게), 바로 아래 6px `progress-bar`.
+만들기 흐름 상단. 위 여백 16px, 44px 뒤로 버튼·제목 `{typography.title-17}`·오른쪽 "**N** / 8"(현재 단계만 굵게) 한 줄, 12px 아래 6px `progress-bar`, 아래 여백 16px. 진행 막대와 화면 제목 사이는 32px이다.
+
+### event-banner
+
+홈 맨 위, "영상 만들기" 위에 있는 회전 배너. **최대 3장**까지만 보여 주고, 더 들어오면 앞의 3장만 쓴다. 화면 좌우 여백 안쪽 폭 전체를 쓰고 비율은 21:10으로 고정한다(390px 화면에서 **350 × 167px**, 최대 440 × 210px). radius 14px. 배너와 "영상 만들기" 사이는 16px.
+
+- **배너 제작 사이즈:** 1050 × 500px(@3x), PNG 또는 WebP. 오른쪽 아래 120 × 72px(@3x)는 뱃지가 덮으므로 글자·로고를 두지 않는다.
+- **회전:** 4초마다 다음 장, 마지막 다음은 처음으로. 손으로 밀어 넘길 수 있다(scroll-snap).
+- **뱃지:** 오른쪽 아래 "1 / 3" + 일시정지 아이콘. 검정 60% 면 + 흰 글자, 24px 알약(터치 영역 44px). 누르면 자동 넘김이 멈추고 다시 누르면 재개한다(자동으로 움직이는 콘텐츠는 멈출 수 있어야 한다).
+- 마우스를 올리거나 키보드 포커스가 들어오면 잠시 멈추고, 움직임 줄이기 설정에서는 자동으로 넘기지 않는다.
+- 이미지가 없으면 회색 점선 자리표시에 "배너 N · 1050×500"을 보여 준다. 배너가 하나면 뱃지를 숨기고, 없으면 영역 자체를 숨긴다.
+
+### page-header
+
+목록 같은 일반 페이지 상단. 흐름 헤더와 같은 여백에 뒤로 버튼·제목만 두고 진행 막대는 없다. "내 영상" 화면에 쓴다.
+
+### tabs
+
+밑줄 탭. 칸을 반씩 나눈 48px 탭 두 개, 아래 1px `{colors.border-weak}` 선. 고른 탭은 검정 굵은 글자 + 아래 4px `{colors.brand-lime}` 막대(작은 신호), 아닌 탭은 `{colors.text-tertiary}` 글자다. 탭 이름 옆에 개수를 회색으로 붙인다. 좌우 화살표 키로 탭을 옮긴다(tablist/tab/tabpanel).
+
+### 내 영상 (만드는 중 · 완성)
+
+진행 중·완성 프로젝트 전체 목록을 한 화면에 모은다. `page-header`("내 영상") 아래 `tabs`("만드는 중 N" | "완성 N"), 그 아래 고른 탭의 `project-card`를 세로로 쌓는다. 완성 탭 맨 위에는 보관 기간 미정 배지를 둔다. 비어 있으면 누운 냅다곰과 한 줄 안내를 보여 준다.
+
+### section-title + 전체 보기
+
+홈 섹션 제목 줄. 제목·개수 오른쪽 끝에 44px 화살표(›) 버튼을 두고, 누르면 "내 영상"으로 간다. 진행 중 화살표는 "만드는 중" 탭, 완성 화살표는 "완성" 탭이 열린 채로 들어간다. 버튼 이름은 "진행 중 전체 보기"처럼 읽힌다.
+
+### carousel
+
+홈의 진행 중·완성 프로젝트 카드 묶음. 카드 폭은 86%로 두어 다음 카드가 오른쪽에 걸쳐 보이게 하고(넘길 수 있다는 신호), 화면 좌우 여백까지 넓혀 가장자리로 흘러가 보이게 한다. 한 장씩 맞물려 멈추고(scroll-snap), 아래 점으로 위치를 보여 준다 — 현재 점은 18px 라임 알약, 나머지는 6px 회색 점. 가로 스크롤은 캐러셀 안에서만 일어나고 화면 자체는 옆으로 밀리지 않는다. 카드가 하나면 전체 폭을 쓰고 점을 숨긴다. 움직임 줄이기 설정에서는 부드러운 스크롤을 끈다.
 
 ### progress-bar
 
@@ -385,15 +419,21 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 
 ### choice-chip
 
-하나만 고르는 칩(라디오 그룹). 44px 알약, 1px `{colors.border-base}`. 선택되면 `{colors.brand-lime}` 면 + 검정 글자 + `{colors.lime-edge}` 테두리.
+하나만 고르는 선택지(라디오 그룹). 가로 폭을 똑같이 나눈 타일 그리드(최소 84px, 간격 8px)라 입력칸 폭과 줄이 맞는다. 타일은 입력칸과 같은 48px 높이·radius 10px·1px `{colors.border-base}`. 선택되면 훅 유형 카드와 같은 언어를 쓴다: 면 `{colors.selected-bg}`, 2px `{colors.selected-border}` 테두리(다크는 `{colors.dark-selected-bg}` + 라임 테두리), 글자 굵게, 글자 앞에 18px 라임 원 + 검정 체크. 선택 여부는 체크 모양으로도 보여 색에만 기대지 않는다. 좌우 화살표 키로 선택이 옮겨 간다.
 
 ### hook-card
 
-훅 유형 선택 카드(여러 개 선택, 카드 전체가 체크박스). 흰 면, 1px `{colors.border-weak}`, radius 20px. 왼쪽 9:16 검정 영상 썸네일, 가운데 제목·설명, 오른쪽 26px 체크 원. 선택되면 면이 `{colors.bg-weak}`, 테두리가 2px `{colors.border-strong}`, 체크 원이 **라임 원 + 검정 체크 + 검정 외곽선**(`check-mark-selected`)이 된다. 왼쪽 예시 썸네일은 회색 자리표시(`{colors.surface-weak}`)라 세 카드가 나란히 있어도 검정이 몰리지 않는다.
+훅 유형 선택 카드(여러 개 선택, 카드 전체가 체크박스). 흰 면, 1px `{colors.border-weak}`, radius 20px. 왼쪽 9:16 검정 영상 썸네일, 가운데 제목·설명, 오른쪽 26px 체크 원. 선택되면 면이 `{colors.selected-bg}`(라임 18% 틴트), 테두리가 2px `{colors.selected-border}`(다크는 면 `{colors.dark-selected-bg}` + 라임 테두리), 체크 원이 **라임 원 + 검정 체크**(`check-mark-selected`, 외곽선 없음)가 된다. 선택 여부는 체크 원의 모양 변화(빈 회색 원 → 라임 원 + 체크)가 색과 함께 보여 준다. 왼쪽 예시 썸네일은 회색 자리표시(`{colors.surface-weak}`)라 세 카드가 나란히 있어도 검정이 몰리지 않는다.
 
 ### project-card
 
-홈의 진행 중·완성 프로젝트. 흰 면, 1px `{colors.border-weak}`, radius 20px, `{elevation.shadow-card}`. 위에 제품 썸네일·제품명·상태(완성이면 회색 "완성" 배지 + 체크 아이콘), 가운데에 진행 막대 + "5/8", 아래에 "다음 단계"와 `button-secondary`.
+홈·내 영상의 진행 중·완성 프로젝트. 흰 면, 1px `{colors.border-weak}`, radius 20px, `{elevation.shadow-card}`, 안쪽 16px. 위에 제품 썸네일(52px)·제품명·상태, 진행 중이면 가운데에 점선 게이지 + "5/8"을 둔다.
+
+맨 아래는 **행동 타일**(`card-action`)이다. 카드 폭 전체를 쓰는 56px 높이의 `{colors.surface-weak}` 타일(radius 14px) 왼쪽에 무엇을 할지, 오른쪽에 원형 아이콘 버튼(`round-btn`)을 둔다. 버튼은 보이는 원 32px(흰 면 + 1px `{colors.border-weak}` 테두리 + 아주 옅은 그림자, 검정 아이콘 18px), 누르는 영역은 44px이다. 검정 원은 쓰지 않는다 — 위의 "영상 만들기"와 시선을 다투고 타일을 무겁게 만든다. 버튼에는 글자 없이 아이콘만 둔다.
+- 진행 중: 왼쪽 "다음 단계 / 찍은 영상 올리기", 버튼 → (화살표)
+- 완성: 왼쪽 "영상 + 썸네일", 버튼 ⤓ (내려받기)
+
+아이콘 버튼의 접근 가능한 이름은 "실리콘 접이식 도마 이어하기", "원목 데스크 정리함 다시 받기"처럼 제품명 + 행동이다. hover는 `{colors.bg-weak}`, 누르면 `scale(0.92)`. 완성 카드에는 "완성" 배지를 따로 달지 않는다(섹션·탭 이름이 이미 알려 준다).
 
 ### badge-neutral · badge-brand · badge-pending
 
@@ -418,7 +458,7 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 
 **Do** 1차 행동은 검정 버튼 하나로 둔다. 화면의 무게는 검정과 회색이 진다.
 
-**Do** 라임은 게이지, 단계 번호, 선택된 칩·체크, 브랜드 배지, 화면당 강조 단어 하나처럼 작은 신호에 쓴다. 라이트에서 칩·체크·배지는 1.5px 검정 외곽선을 두르고(번호 원은 외곽선 없이)(게이지는 외곽선 없이 숫자를 함께 둔다), 위 글자는 검정이다.
+**Do** 라임은 게이지, 단계 번호, 선택 체크, 브랜드 배지, 화면당 강조 단어 하나처럼 작은 신호에 쓴다. 라이트에서 브랜드 배지는 검정 외곽선을 두르고(번호 원·선택 체크는 외곽선 없이)(게이지는 외곽선 없이 숫자를 함께 둔다), 위 글자는 검정이다.
 
 **Do** 로고는 상단 헤더에 하나만 둔다.
 
@@ -447,7 +487,7 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 ## Known Gaps
 
 - **냅다체 웹폰트 없음.** 브랜드 보드는 "커스텀 폰트 느낌의 손글씨 타입"이라고만 적고 [src:1] 폰트 파일은 없다. 지금은 Black Han Sans로 폴백한다.
-- **로고 벡터 원본 없음.** 헤더 워드마크는 `asset/logo/logo.png`(투명 배경 검정 워드마크, 1536×1024)에서 여백을 잘라 검정본·흰색본을 만든 PNG다. 화면에서는 충분히 선명하지만, 더 큰 크기나 인쇄용으로는 SVG 원본이 필요하다.
+- **로고 벡터 원본 없음.** 헤더 워드마크는 `asset/logo/logoeng2.png`(투명 배경 영문 "NAPDA" 워드마크, 2172×724)에서 여백을 잘라 검정본·흰색본을 만든 PNG다. 화면에서는 충분히 선명하지만, 더 큰 크기나 인쇄용으로는 SVG 원본이 필요하다.
 - **로고 최소 크기와 보호 영역 미정.**
 - **공식 색은 4가지뿐.** 중립 단계, 반전 면, 오류색은 이 문서가 산출한 값이라 브랜드 담당자 확인이 필요하다.
 - **냅다곰 원본이 시트 한 장.** 화면의 냅다곰은 캐릭터 시트(1536×1024)에서 잘라 배경을 지운 이미지라 가로 160~230px 정도다. 더 크게 쓰려면 포즈별 투명 원본이 필요하다. 클래퍼보드 포즈의 검정 효과선은 다크 바탕에서 거의 보이지 않는다.
@@ -456,5 +496,5 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 ## References
 
 1. `asset/BrandConcept/brand.png` — 냅다 브랜드 보드. 로고(라임 버스트 + 손글씨 워드마크 + NAPDA + 클래퍼보드), 슬로건 "B급 감성 광고영상, 냅다 만들어보세요!", "아이디어만 있다면, 이제는 냅다.", 앱 아이콘, 로고 변형(흰 바탕·검정 바탕), Brand Color 4색(#D6FF3F, #000000, #E5E5E5, #FFFFFF), Typography "냅다체", 마스코트 냅다곰 다섯 포즈, Key Visual, Brand Application(영상 오버레이, 검정 타일, 슬로건 카드), Brand Pattern & Graphic Elements.
-2. `asset/logo/logo.png` — 로고 단독 이미지(2026-11-25 교체). 투명 배경 위 검정 손글씨 "냅다"와 "NAPDA" 워드마크. 헤더 워드마크의 원본.
+2. `asset/logo/logoeng2.png` — 영문 "NAPDA" 워드마크(정자형, 투명 배경). 헤더 워드마크의 원본. 같은 폴더의 `logoeng.png`(기울어진 영문)과 `logo.png`(국문 "냅다" + "NAPDA" 조합형)는 지금 화면에서 쓰지 않는다.
 3. `asset/CharacterSheet/mascot.png` — 냅다곰 캐릭터 시트. 이름·종·성격(엉뚱함, 장난기, 과감함), 컬러 팔레트(#D6FF3F, #000000, #E5B887, #F7F7F7), 4방향 모습, 표정 6개, 포즈 5개, 디테일(얼굴·발바닥·클래퍼보드).

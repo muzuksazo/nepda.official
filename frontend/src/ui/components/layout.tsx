@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { brand } from '../brand';
 import { IconButton, ProgressBar } from './primitives';
 
@@ -33,8 +33,8 @@ export function BrandHeader({ endContent }: { endContent?: ReactNode }) {
   return (
     <header className="n-brand-header">
       <h1>
-        <img className="n-wordmark n-wordmark--light" src={brand.wordmarkBlack} alt="냅다 NAPDA" />
-        <img className="n-wordmark n-wordmark--dark" src={brand.wordmarkWhite} alt="냅다 NAPDA" />
+        <img className="n-wordmark n-wordmark--light" src={brand.wordmarkBlack} alt="NAPDA 냅다" />
+        <img className="n-wordmark n-wordmark--dark" src={brand.wordmarkWhite} alt="NAPDA 냅다" />
       </h1>
       {endContent}
     </header>
@@ -83,13 +83,45 @@ export function ScreenTitle({ title, description, size = 'md', children }: Scree
   );
 }
 
-export function SectionTitle({ title, count, children }: { title: string; count?: number; children?: ReactNode }) {
+export interface SectionTitleProps {
+  title: string;
+  count?: number;
+  children?: ReactNode;
+  /** 오른쪽 화살표: 전체 목록 페이지로 이동 */
+  onSeeAll?: () => void;
+}
+
+export function SectionTitle({ title, count, children, onSeeAll }: SectionTitleProps) {
   return (
     <div className="n-row" style={{ gap: 8 }}>
       <h2 className="n-title">{title}</h2>
       {count !== undefined ? <span className="n-title n-muted">{count}</span> : null}
       {children}
+      {onSeeAll ? (
+        <span style={{ marginLeft: 'auto', marginRight: -12 }}>
+          <IconButton label={`${title} 전체 보기`} icon={<ChevronRight size={24} />} onClick={onSeeAll} />
+        </span>
+      ) : null}
     </div>
+  );
+}
+
+export interface PageHeaderProps {
+  title: string;
+  count?: number;
+  onBack?: () => void;
+}
+
+/** 일반 페이지 상단: 뒤로 · 제목 · 개수 (진행 막대 없음) */
+export function PageHeader({ title, count, onBack }: PageHeaderProps) {
+  return (
+    <header className="n-flow-header">
+      <div className="n-row" style={{ gap: 4 }}>
+        <IconButton label="이전" icon={<ChevronLeft size={26} />} onClick={onBack} />
+        <h1 className="n-title">{title}</h1>
+        {count !== undefined ? <span className="n-title n-muted" style={{ marginLeft: 4 }}>{count}</span> : null}
+      </div>
+    </header>
   );
 }
 

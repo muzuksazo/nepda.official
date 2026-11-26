@@ -6,6 +6,8 @@ import { HookTypeScreen } from './HookTypeScreen';
 import type { HookType } from './flowData';
 import { OnboardingScreen } from './OnboardingScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
+import { MyVideosScreen, type MyVideosTab } from './MyVideosScreen';
+import { SAMPLE_BANNERS, SAMPLE_COMPLETED, SAMPLE_IN_PROGRESS } from './sampleProjects';
 import { ScenarioScreen } from './ScenarioScreen';
 import { ShootingGuideScreen } from './ShootingGuideScreen';
 import { StoryboardScreen } from './StoryboardScreen';
@@ -16,6 +18,7 @@ import { VideoReviewScreen } from './VideoReviewScreen';
 type Step =
   | 'onboarding'
   | 'home'
+  | 'myVideos'
   | 'product'
   | 'hook'
   | 'scenario'
@@ -28,6 +31,7 @@ type Step =
 /** 버튼을 눌러 온보딩 → 홈 → 8단계 흐름을 끝까지 따라가 보는 클릭 프로토타입 */
 function FlowPrototype() {
   const [step, setStep] = useState<Step>('onboarding');
+  const [myTab, setMyTab] = useState<MyVideosTab>('inProgress');
   const [hookType, setHookType] = useState<HookType>('B');
   const [productName, setProductName] = useState('[제품 이름]');
 
@@ -37,9 +41,31 @@ function FlowPrototype() {
     case 'home':
       return (
         <HomeScreen
-          inProgress={[]}
-          completed={[{ id: 'c1', productName, status: '영상과 썸네일을 만들었어요' }]}
+          banners={SAMPLE_BANNERS}
+          inProgress={SAMPLE_IN_PROGRESS}
+          completed={[{ id: 'mine', productName, status: '영상과 썸네일을 만들었어요' }, ...SAMPLE_COMPLETED]}
           onCreate={() => setStep('product')}
+          onContinue={() => setStep('upload')}
+          onDownloadAgain={() => setStep('thumbnail')}
+          onSeeAllInProgress={() => {
+            setMyTab('inProgress');
+            setStep('myVideos');
+          }}
+          onSeeAllCompleted={() => {
+            setMyTab('completed');
+            setStep('myVideos');
+          }}
+        />
+      );
+    case 'myVideos':
+      return (
+        <MyVideosScreen
+          key={myTab}
+          inProgress={SAMPLE_IN_PROGRESS}
+          completed={[{ id: 'mine', productName, status: '영상과 썸네일을 만들었어요' }, ...SAMPLE_COMPLETED]}
+          initialTab={myTab}
+          onBack={() => setStep('home')}
+          onContinue={() => setStep('upload')}
           onDownloadAgain={() => setStep('thumbnail')}
         />
       );

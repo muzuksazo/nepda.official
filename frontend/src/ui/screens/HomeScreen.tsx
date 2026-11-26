@@ -2,12 +2,15 @@ import { Plus } from 'lucide-react';
 import {
   BrandHeader,
   Button,
+  Carousel,
+  EventBanner,
   Mascot,
   MobileScreen,
   PendingBadge,
   ProjectCard,
   SectionTitle,
   Stack,
+  type BannerItem,
 } from '../components';
 import { brand } from '../brand';
 
@@ -31,12 +34,29 @@ export interface HomeScreenProps {
   onCreate?: () => void;
   onContinue?: (id: string) => void;
   onDownloadAgain?: (id: string) => void;
+  /** 상단 이벤트 배너 (없으면 영역을 숨긴다) */
+  banners?: BannerItem[];
+  onBannerSelect?: (id: string) => void;
+  /** 진행 중 화살표 → 내 영상(만드는 중 탭) */
+  onSeeAllInProgress?: () => void;
+  /** 완성 화살표 → 내 영상(완성 탭) */
+  onSeeAllCompleted?: () => void;
 }
 
 /** 안3-1 홈 */
-export function HomeScreen({ inProgress, completed, onCreate, onContinue, onDownloadAgain }: HomeScreenProps) {
+export function HomeScreen({
+  inProgress,
+  completed,
+  onCreate,
+  onContinue,
+  onDownloadAgain,
+  onSeeAllInProgress,
+  onSeeAllCompleted,
+  banners = [],
+  onBannerSelect,
+}: HomeScreenProps) {
   const isEmpty = inProgress.length === 0 && completed.length === 0;
-  const createButton = <Button label="새 영상 만들기" isBlock icon={<Plus size={20} aria-hidden="true" />} onClick={onCreate} />;
+  const createButton = <Button label="영상 만들기" isBlock icon={<Plus size={20} aria-hidden="true" />} onClick={onCreate} />;
 
   if (isEmpty) {
     return (
@@ -56,39 +76,48 @@ export function HomeScreen({ inProgress, completed, onCreate, onContinue, onDown
 
   return (
     <MobileScreen header={<BrandHeader />}>
+      {banners.length > 0 ? (
+        <div style={{ marginBottom: -8 }}>
+          <EventBanner items={banners} onSelect={onBannerSelect} />
+        </div>
+      ) : null}
       {createButton}
 
       {inProgress.length > 0 ? (
         <Stack gap={12} as="section">
-          <SectionTitle title="진행 중" count={inProgress.length} />
-          {inProgress.map((p) => (
-            <ProjectCard
-              key={p.id}
-              productName={p.productName}
-              status={p.status}
-              completedSteps={p.completedSteps}
-              nextStep={p.nextStep}
-              actionLabel="이어하기"
-              onAction={() => onContinue?.(p.id)}
-            />
-          ))}
+          <SectionTitle title="진행 중" count={inProgress.length} onSeeAll={onSeeAllInProgress} />
+          <Carousel label="진행 중인 영상">
+            {inProgress.map((p) => (
+              <ProjectCard
+                key={p.id}
+                productName={p.productName}
+                status={p.status}
+                completedSteps={p.completedSteps}
+                nextStep={p.nextStep}
+                actionLabel="이어하기"
+                onAction={() => onContinue?.(p.id)}
+              />
+            ))}
+          </Carousel>
         </Stack>
       ) : null}
 
       {completed.length > 0 ? (
         <Stack gap={12} as="section">
-          <SectionTitle title="완성" count={completed.length}>
+          <SectionTitle title="완성" count={completed.length} onSeeAll={onSeeAllCompleted}>
             <PendingBadge>보관 기간 미정 · OQ-012</PendingBadge>
           </SectionTitle>
-          {completed.map((p) => (
-            <ProjectCard
-              key={p.id}
-              productName={p.productName}
-              status={p.status}
-              actionLabel="다시 받기"
-              onAction={() => onDownloadAgain?.(p.id)}
-            />
-          ))}
+          <Carousel label="완성한 영상">
+            {completed.map((p) => (
+              <ProjectCard
+                key={p.id}
+                productName={p.productName}
+                status={p.status}
+                actionLabel="다시 받기"
+                onAction={() => onDownloadAgain?.(p.id)}
+              />
+            ))}
+          </Carousel>
         </Stack>
       ) : null}
     </MobileScreen>

@@ -48,8 +48,8 @@ export function ThumbnailDownloadScreen({
       }
     >
       <div className="n-row" style={{ gap: 12, justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <ScreenTitle title="끝! 썸네일만 챙겨요" />
-        <Mascot src={brand.mascot.cheer} width={64} />
+        <ScreenTitle title="끝! 썸네일만 챙겨요" description="글자만 넣으면 썸네일도 뚝딱이에요." />
+        <Mascot src={brand.mascot.happy} width={76} />
       </div>
 
       {/* 입력한 글자가 바로 위 썸네일에 겹쳐 보인다: 입력과 결과를 한 덩어리로 */}

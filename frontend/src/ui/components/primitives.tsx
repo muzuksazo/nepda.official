@@ -143,7 +143,7 @@ export interface ChoiceChipsProps {
   onChange: (value: string) => void;
 }
 
-/** 하나만 고르는 칩 (라디오 그룹) — 선택되면 검정 면 + 흰 글자 */
+/** 하나만 고르는 선택지 (라디오 그룹) — 균등 타일, 선택되면 연라임 면 + 작은 체크 */
 export function ChoiceChips({ label, options, value, onChange }: ChoiceChipsProps) {
   const name = useId();
   return (
@@ -155,7 +155,12 @@ export function ChoiceChips({ label, options, value, onChange }: ChoiceChipsProp
         {options.map((opt) => (
           <label key={opt} className="n-chip">
             <input type="radio" name={name} value={opt} checked={value === opt} onChange={() => onChange(opt)} />
-            <span>{opt}</span>
+            <span className="n-chip__tile">
+              <span className="n-chip__check" aria-hidden="true">
+                <Check size={12} strokeWidth={3.5} />
+              </span>
+              {opt}
+            </span>
           </label>
         ))}
       </div>

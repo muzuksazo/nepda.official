@@ -5,6 +5,8 @@ import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
 import { OnboardingScreen } from './OnboardingScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
+import { MyVideosScreen } from './MyVideosScreen';
+import { SAMPLE_BANNERS, SAMPLE_COMPLETED, SAMPLE_IN_PROGRESS } from './sampleProjects';
 import { ScenarioScreen } from './ScenarioScreen';
 import { ShootingGuideScreen } from './ShootingGuideScreen';
 import { StoryboardScreen } from './StoryboardScreen';
@@ -29,12 +31,34 @@ export const Home: Story = {
   name: '안3-1 홈',
   render: () => (
     <HomeScreen
-      inProgress={[
-        { id: 'p1', productName: '실리콘 접이식 도마', status: '촬영 가이드까지 받았어요', completedSteps: 5, nextStep: '찍은 영상 올리기' },
-        { id: 'p2', productName: '무선 미니 가습기', status: '시나리오 글을 확인하고 있어요', completedSteps: 3, nextStep: '촬영 가이드 받기' },
-      ]}
-      completed={[{ id: 'c1', productName: '원목 데스크 정리함', status: '영상과 썸네일을 만들었어요' }]}
+      banners={SAMPLE_BANNERS}
+      onBannerSelect={fn()}
+      inProgress={SAMPLE_IN_PROGRESS}
+      completed={SAMPLE_COMPLETED}
       onCreate={fn()}
+      onContinue={fn()}
+      onDownloadAgain={fn()}
+      onSeeAllInProgress={fn()}
+      onSeeAllCompleted={fn()}
+    />
+  ),
+};
+
+export const MyVideos: Story = {
+  name: '안3-2 내 영상 · 만드는 중 탭',
+  render: () => (
+    <MyVideosScreen inProgress={SAMPLE_IN_PROGRESS} completed={SAMPLE_COMPLETED} onBack={fn()} onContinue={fn()} onDownloadAgain={fn()} />
+  ),
+};
+
+export const MyVideosCompleted: Story = {
+  name: '안3-2 내 영상 · 완성 탭',
+  render: () => (
+    <MyVideosScreen
+      inProgress={SAMPLE_IN_PROGRESS}
+      completed={SAMPLE_COMPLETED}
+      initialTab="completed"
+      onBack={fn()}
       onContinue={fn()}
       onDownloadAgain={fn()}
     />

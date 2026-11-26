@@ -1,7 +1,7 @@
-import { Check, Package, Play } from 'lucide-react';
+import { ArrowRight, Download, Package, Play } from 'lucide-react';
 import { FLOW_TOTAL_STEPS } from './layout';
 import { MediaPlaceholder } from './media';
-import { Badge, Button, Card, CheckMark, ProgressBar, SelectCard, Stack } from './primitives';
+import { Card, CheckMark, ProgressBar, SelectCard, Stack } from './primitives';
 
 export interface HookTypeCardProps {
   type: string;
@@ -52,9 +52,6 @@ export function ProjectCard({ productName, status, completedSteps, nextStep, act
             <span className="n-bold">{productName}</span>
             <span className="n-small n-muted">{status}</span>
           </Stack>
-          {isDone ? (
-            <Badge icon={<Check size={12} strokeWidth={3} aria-hidden="true" />}>완성</Badge>
-          ) : null}
         </div>
 
         {!isDone ? (
@@ -66,16 +63,21 @@ export function ProjectCard({ productName, status, completedSteps, nextStep, act
           </div>
         ) : null}
 
-        <div className="n-row" style={{ gap: 12, justifyContent: 'space-between' }}>
-          {nextStep ? (
-            <Stack gap={0}>
-              <span className="n-caption n-muted">다음 단계</span>
-              <span className="n-small n-semibold">{nextStep}</span>
-            </Stack>
-          ) : (
-            <span />
-          )}
-          <Button label={actionLabel} variant="secondary" size="md" onClick={onAction} />
+        {/* 다음 할 일(왼쪽)과 원형 아이콘 버튼(오른쪽)을 한 타일로 묶는다 */}
+        <div className="n-card-action">
+          <span className="n-card-action__info">
+            {isDone ? (
+              <span className="n-small n-semibold">영상 + 썸네일</span>
+            ) : (
+              <>
+                <span className="n-caption n-muted">다음 단계</span>
+                <span className="n-small n-semibold">{nextStep}</span>
+              </>
+            )}
+          </span>
+          <button type="button" className="n-round-btn" aria-label={`${productName} ${actionLabel}`} onClick={onAction}>
+            {isDone ? <Download size={18} aria-hidden="true" /> : <ArrowRight size={18} aria-hidden="true" />}
+          </button>
         </div>
       </Stack>
     </Card>

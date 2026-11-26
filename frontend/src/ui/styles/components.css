@@ -261,9 +261,11 @@ textarea.n-input {
 }
 
 /* ---------- 칩 (하나만 고르기) ---------- */
+/* 하나만 고르는 선택지: 입력칸과 같은 모서리·높이의 균등 타일 그리드.
+   선택 상태는 훅 유형 카드와 같은 연라임 면 + 라임 테두리 + 작은 체크. */
 .n-chips {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
   gap: 8px;
   border: 0;
   padding: 0;
@@ -272,41 +274,64 @@ textarea.n-input {
 
 .n-chip {
   position: relative;
+  display: block;
 }
 
 .n-chip input {
   position: absolute;
   opacity: 0;
   inset: 0;
+  margin: 0;
   cursor: pointer;
 }
 
-.n-chip span {
-  display: inline-flex;
+.n-chip__tile {
+  display: flex;
   align-items: center;
-  height: 44px;
-  padding-inline: 18px;
+  justify-content: center;
+  gap: 6px;
+  height: 48px;
+  padding-inline: 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text-2);
   font-size: 15px;
   font-weight: 600;
+  pointer-events: none;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out);
 }
 
-.n-chip:hover span {
+.n-chip:hover .n-chip__tile {
   border-color: var(--text-3);
 }
 
-.n-chip input:checked + span {
+.n-chip__check {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
   background: var(--accent-fill);
-  border-color: var(--accent-edge);
-  box-shadow: inset 0 0 0 0.5px var(--accent-edge);
   color: var(--on-accent-fill);
 }
 
-.n-chip input:focus-visible + span {
+.n-chip input:checked + .n-chip__tile {
+  background: var(--selected-bg);
+  border-color: var(--selected-border);
+  box-shadow: inset 0 0 0 1px var(--selected-border);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.n-chip input:checked + .n-chip__tile .n-chip__check {
+  display: inline-flex;
+}
+
+.n-chip input:focus-visible + .n-chip__tile {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
@@ -321,6 +346,71 @@ textarea.n-input {
 
 [data-theme='dark'] .n-card {
   background: var(--surface-weak);
+}
+
+/* 카드 아래 행동 타일: 왼쪽 다음 할 일 + 오른쪽 원형 아이콘 버튼 */
+.n-card-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 6px 6px 6px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-weak);
+}
+
+[data-theme='dark'] .n-card-action {
+  background: var(--surface);
+}
+
+.n-card-action__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* 원형 아이콘 버튼: 보이는 원 32px(흰 면 + 얇은 테두리), 누르는 영역 44px */
+.n-round-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin: 6px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow:
+    0 0 0 1px var(--border-weak),
+    0 1px 2px rgb(0 0 0 / 0.08);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.n-round-btn::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+}
+
+.n-round-btn:hover {
+  background: var(--bg-weak);
+}
+
+.n-round-btn:active {
+  transform: scale(0.92);
+}
+
+[data-theme='dark'] .n-round-btn {
+  background: var(--surface-strong);
+  box-shadow: none;
 }
 
 /* 선택형 카드: 카드 전체가 체크박스 라벨 */
@@ -348,13 +438,9 @@ textarea.n-input {
 }
 
 .n-select-card:has(input:checked) {
-  border-color: var(--border-strong);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
-  background: var(--bg-weak);
-}
-
-[data-theme='dark'] .n-select-card:has(input:checked) {
-  background: var(--surface-weak);
+  border-color: var(--selected-border);
+  box-shadow: inset 0 0 0 1px var(--selected-border);
+  background: var(--selected-bg);
 }
 
 .n-select-card:has(input:focus-visible) {
@@ -379,13 +465,9 @@ textarea.n-input {
 }
 
 .n-select-card:has(input:checked) .n-check {
-  border-color: var(--accent-edge);
+  border-color: var(--accent-fill);
   background: var(--accent-fill);
   color: var(--on-accent-fill);
-}
-
-[data-theme='dark'] .n-select-card:has(input:checked) .n-check {
-  border-color: var(--accent-fill);
 }
 
 /* ---------- 배지 ---------- */
@@ -695,7 +777,7 @@ textarea.n-input {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 8px 20px 32px;
+  padding: 16px 20px 32px;
 }
 
 .n-screen__footer {
@@ -725,12 +807,12 @@ textarea.n-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
-  padding-inline: 20px;
+  height: 72px;
+  padding: 12px 20px 0;
 }
 
 .n-wordmark {
-  height: 36px;
+  height: 24px;
   width: auto;
 }
 
@@ -742,8 +824,8 @@ textarea.n-input {
 .n-flow-header {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 20px 12px 8px;
+  gap: 12px;
+  padding: 16px 20px 16px 8px;
 }
 
 .n-flow-header__step {
@@ -754,6 +836,217 @@ textarea.n-input {
 
 .n-flow-header__step b {
   color: var(--text);
+}
+
+/* ---------- 이벤트 배너 (350×167, 21:10 · 제작 1050×500) ---------- */
+.n-banner {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+.n-banner__track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.n-banner__track::-webkit-scrollbar {
+  display: none;
+}
+
+.n-banner__slide {
+  flex: 0 0 100%;
+  aspect-ratio: 21 / 10;
+  padding: 0;
+  border: 0;
+  background: var(--surface-weak);
+  scroll-snap-align: start;
+  cursor: pointer;
+}
+
+.n-banner__slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.n-banner__slide:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  border-radius: var(--radius-lg);
+}
+
+.n-banner__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.n-banner__badge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 24px 뱃지의 터치 영역을 44px까지 넓힌다 */
+.n-banner__badge::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+}
+
+/* ---------- 탭 ---------- */
+.n-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-weak);
+}
+
+.n-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+}
+
+.n-tab__count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-weak);
+}
+
+.n-tab.is-on {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.n-tab.is-on .n-tab__count {
+  color: var(--text-3);
+}
+
+/* 고른 탭 아래 라임 막대 (작은 신호) */
+.n-tab.is-on::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: -1px;
+  height: 4px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent-fill);
+}
+
+.n-tab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
+}
+
+.n-tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- 캐러셀 ---------- */
+.n-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* 화면 좌우 여백(20px)까지 넓혀 카드가 가장자리로 넘어가 보이게 */
+  margin-inline: -20px;
+}
+
+.n-carousel__track {
+  display: flex;
+  gap: 12px;
+  padding: 4px 20px 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 20px;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.n-carousel__track::-webkit-scrollbar {
+  display: none;
+}
+
+.n-carousel__track:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  border-radius: var(--radius-xl);
+}
+
+.n-carousel__item {
+  flex: 0 0 86%;
+  scroll-snap-align: start;
+}
+
+.n-carousel__item > * {
+  height: 100%;
+}
+
+.n-carousel__track.is-single .n-carousel__item {
+  flex-basis: 100%;
+}
+
+.n-carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.n-carousel__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-strong);
+  transition:
+    width var(--dur-base) var(--ease-out),
+    background-color var(--dur-base) var(--ease-out);
+}
+
+.n-carousel__dot.is-on {
+  width: 18px;
+  background: var(--accent-fill);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .n-carousel__track {
+    scroll-behavior: auto;
+  }
 }
 
 /* ---------- 스토리북 기기 틀 (390×844) ---------- */

@@ -1,7 +1,7 @@
-// 로고: asset/logo/logo.png  ·  냅다곰: asset/CharacterSheet/mascot.png 에서 잘라 낸 이미지
+// 로고: asset/logo/logoeng2.png (영문 NAPDA 워드마크, 정자형)  ·  냅다곰: asset/CharacterSheet/mascot.png 에서 잘라 낸 이미지
 // 로고는 상단 헤더에만 한 번, 냅다곰은 감정이 있는 순간에만 한 화면에 한 마리.
-import mascotCheer from '../assets/brand/mascot-cheer.png';
 import mascotClapboard from '../assets/brand/mascot-clapboard.png';
+import mascotHappy from '../assets/brand/mascot-happy.png';
 import mascotLying from '../assets/brand/mascot-lying.png';
 import mascotSurprised from '../assets/brand/mascot-surprised.png';
 import wordmarkBlack from '../assets/brand/wordmark-black.png';
@@ -17,7 +17,7 @@ export const brand = {
     lying: mascotLying,
     /** 결과 공개: 놀란 표정 "!!" */
     surprised: mascotSurprised,
-    /** 완성·내려받기: 환호 */
-    cheer: mascotCheer,
+    /** 완성·내려받기: 웃으며 손 든 상반신 */
+    happy: mascotHappy,
   },
 } as const;

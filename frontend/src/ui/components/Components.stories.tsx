@@ -139,7 +139,7 @@ export const BrandBits: Story = {
         <Mascot src={brand.mascot.clapboard} width={80} />
         <Mascot src={brand.mascot.lying} width={90} />
         <Mascot src={brand.mascot.surprised} width={64} />
-        <Mascot src={brand.mascot.cheer} width={80} />
+        <Mascot src={brand.mascot.happy} width={70} />
       </div>
       <SkeletonText widths={[100, 80, 56]} />
     </>

@@ -5,6 +5,8 @@ export { HOOK_TYPES, PRODUCT_CATEGORIES } from './flowData';
 export type { HookType } from './flowData';
 export { OnboardingScreen } from './OnboardingScreen';
 export { ProductInfoScreen } from './ProductInfoScreen';
+export { MyVideosScreen } from './MyVideosScreen';
+export type { MyVideosTab } from './MyVideosScreen';
 export type { ProductInfo } from './ProductInfoScreen';
 export { ScenarioScreen } from './ScenarioScreen';
 export { ShootingGuideScreen } from './ShootingGuideScreen';
