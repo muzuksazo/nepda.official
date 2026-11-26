@@ -77,7 +77,7 @@ def create_app(
     )
     executor = ThreadPoolExecutor(max_workers=max(1, cfg.concurrency))
 
-    app = FastAPI(title="NAPDA Backend API", version="0.1.0")
+    app = FastAPI(title="NAPDA Backend API", version="0.2.0")
     app.state.settings = cfg
     app.state.store = job_store
     app.state.project_store = proj_store

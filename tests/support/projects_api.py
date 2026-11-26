@@ -95,6 +95,7 @@ def build_test_client(root: Path, *, daily_render_limit: int = 3) -> TestClient:
         session_secret="test-session-secret-32bytes-minimum",
         daily_render_limit=daily_render_limit,
         work_root=str(root / "work"),
+        output_dir=str(root / "outputs"),
         db_path=str(root / "napda.db"),
     )
     app = create_app(

@@ -1,4 +1,4 @@
-.PHONY: help setup-python setup-node test-all test-python test-node dev-worker dev-planner build-prototype check-health
+.PHONY: help setup-python setup-node codegen codegen-frontend codegen-backend test-all test-python test-node dev-worker dev-planner build-prototype check-health
 
 PYTHON_VERSION ?= 3.12
 ifeq ($(OS),Windows_NT)
@@ -11,6 +11,7 @@ help:
 	@echo "NAPDA frontend / backend / libraries / prototypes / PRD tests"
 	@echo "  make setup-python   Install backend and media test dependencies"
 	@echo "  make setup-node     Install planner workspace dependencies"
+	@echo "  make codegen        Generate frontend (Orval) and backend (OpenAPI) code"
 	@echo "  make test-all       Run Python/Node tests, typecheck and build"
 	@echo "  make dev-worker     Start backend on :8080"
 	@echo "  make dev-planner    Start libraries/planner-api on :8787"
@@ -23,6 +24,14 @@ setup-python:
 
 setup-node:
 	npm ci
+
+codegen-frontend:
+	npm --prefix frontend run api:generate
+
+codegen-backend:
+	$(PYTHON) scripts/generate-backend-openapi.py
+
+codegen: codegen-frontend codegen-backend
 
 test-python:
 	$(PYTHON) scripts/test-python.py

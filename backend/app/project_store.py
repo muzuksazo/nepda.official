@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import threading
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -56,6 +58,7 @@ class ProjectStore:
                     product_json TEXT NOT NULL,
                     selected_types_json TEXT NOT NULL,
                     selected_scenario_id TEXT,
+                    scenario_round INTEGER NOT NULL DEFAULT 0,
                     filming_guide_json TEXT,
                     uploads_json TEXT,
                     latest_job_id TEXT,
@@ -87,8 +90,40 @@ class ProjectStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_render_usage_user_day
                     ON render_usage(user_id, day_utc);
+
+                CREATE TABLE IF NOT EXISTS product_info_cache (
+                    product_info_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    normalized_hash TEXT NOT NULL,
+                    product_json TEXT NOT NULL,
+                    source_url TEXT,
+                    cached_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_product_info_user_hash
+                    ON product_info_cache(user_id, normalized_hash);
+
+                CREATE TABLE IF NOT EXISTS hooks (
+                    hook_id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    scenario_id TEXT NOT NULL,
+                    job_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    tts_json TEXT NOT NULL,
+                    output_dir TEXT NOT NULL,
+                    files_json TEXT NOT NULL,
+                    error TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_hooks_project_created
+                    ON hooks(project_id, created_at DESC);
                 """
             )
+            cols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
+            if "scenario_round" not in cols:
+                conn.execute("ALTER TABLE projects ADD COLUMN scenario_round INTEGER NOT NULL DEFAULT 0")
 
     def upsert_user(self, user: AuthenticatedUser) -> Dict[str, Any]:
         now_iso = _now_utc().isoformat()
@@ -110,6 +145,7 @@ class ProjectStore:
 
     @staticmethod
     def _row_to_project(row: sqlite3.Row) -> Dict[str, Any]:
+        keys = set(row.keys())
         return {
             "project_id": row["id"],
             "user_id": row["user_id"],
@@ -118,6 +154,7 @@ class ProjectStore:
             "product": json.loads(row["product_json"]),
             "selected_types": json.loads(row["selected_types_json"]),
             "selected_scenario_id": row["selected_scenario_id"],
+            "scenario_round": int(row["scenario_round"] or 0) if "scenario_round" in keys else 0,
             "filming_guide": json.loads(row["filming_guide_json"]) if row["filming_guide_json"] else None,
             "uploads": json.loads(row["uploads_json"]) if row["uploads_json"] else None,
             "latest_job_id": row["latest_job_id"],
@@ -237,6 +274,32 @@ class ProjectStore:
                 )
         return self.list_scenarios(project_id)
 
+    def append_scenarios(self, project_id: str, items: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], int]:
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            for it in items:
+                conn.execute(
+                    """
+                    INSERT INTO scenarios (scenario_id, project_id, hook_type, payload_json, storyboard_json, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        it["scenario_id"],
+                        project_id,
+                        it["type"],
+                        json.dumps(it, ensure_ascii=False),
+                        json.dumps(it.get("storyboard_frames") or [], ensure_ascii=False),
+                        now_iso,
+                    ),
+                )
+            conn.execute(
+                "UPDATE projects SET scenario_round = COALESCE(scenario_round, 0) + 1, updated_at = ? WHERE id = ?",
+                (now_iso, project_id),
+            )
+            row = conn.execute("SELECT scenario_round FROM projects WHERE id = ?", (project_id,)).fetchone()
+            new_round = int(row["scenario_round"] or 1) if row else 1
+        return self.list_scenarios(project_id), new_round
+
     @staticmethod
     def _row_to_scenario(row: sqlite3.Row) -> Dict[str, Any]:
         data = json.loads(row["payload_json"])
@@ -291,3 +354,180 @@ class ProjectStore:
                 """,
                 (user_id, project_id, job_id, _today_utc_str(cur), cur.isoformat()),
             )
+
+    def upsert_product_info_cache(
+        self,
+        user_id: str,
+        *,
+        product: Dict[str, Any],
+        source_url: Optional[str] = None,
+        ttl_sec: int = 3600,
+    ) -> Dict[str, Any]:
+        canonical = json.dumps(
+            {"product": product, "source_url": source_url or None},
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        norm_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        now = _now_utc()
+        now_iso = now.isoformat()
+        with self._lock, self._connect() as conn:
+            existing = conn.execute(
+                """
+                SELECT * FROM product_info_cache
+                WHERE user_id = ? AND normalized_hash = ? AND expires_at > ?
+                ORDER BY cached_at DESC LIMIT 1
+                """,
+                (user_id, norm_hash, now_iso),
+            ).fetchone()
+            if existing:
+                return {
+                    "product_info_id": existing["product_info_id"],
+                    "product": json.loads(existing["product_json"]),
+                    "source_url": existing["source_url"],
+                    "cached": True,
+                    "cached_at": existing["cached_at"],
+                    "expires_at": existing["expires_at"],
+                }
+
+            pid = f"pi_{uuid.uuid4().hex[:12]}"
+            expires_iso = (now + timedelta(seconds=max(1, int(ttl_sec)))).isoformat()
+            conn.execute(
+                """
+                INSERT INTO product_info_cache (
+                    product_info_id, user_id, normalized_hash, product_json, source_url, cached_at, expires_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (pid, user_id, norm_hash, json.dumps(product, ensure_ascii=False), source_url, now_iso, expires_iso),
+            )
+        return {
+            "product_info_id": pid,
+            "product": product,
+            "source_url": source_url,
+            "cached": False,
+            "cached_at": now_iso,
+            "expires_at": expires_iso,
+        }
+
+    def get_product_info(self, user_id: str, product_info_id: str) -> Optional[Dict[str, Any]]:
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM product_info_cache
+                WHERE product_info_id = ? AND user_id = ? AND expires_at > ?
+                """,
+                (product_info_id, user_id, now_iso),
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "product_info_id": row["product_info_id"],
+            "product": json.loads(row["product_json"]),
+            "source_url": row["source_url"],
+            "cached_at": row["cached_at"],
+            "expires_at": row["expires_at"],
+        }
+
+    @staticmethod
+    def _row_to_hook(row: sqlite3.Row) -> Dict[str, Any]:
+        return {
+            "hook_id": row["hook_id"],
+            "project_id": row["project_id"],
+            "user_id": row["user_id"],
+            "scenario_id": row["scenario_id"],
+            "job_id": row["job_id"],
+            "status": row["status"],
+            "tts": json.loads(row["tts_json"]),
+            "output_dir": row["output_dir"],
+            "files": json.loads(row["files_json"]),
+            "error": row["error"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
+    def create_hook(
+        self,
+        *,
+        hook_id: str,
+        project_id: str,
+        user_id: str,
+        scenario_id: str,
+        job_id: str,
+        tts: Dict[str, Any],
+        output_dir: str,
+        files: Optional[Dict[str, Any]] = None,
+        status: str = "queued",
+    ) -> Dict[str, Any]:
+        now_iso = _now_utc().isoformat()
+        default_files = files or {
+            "hook_video": None,
+            "tts_audio": None,
+            "subtitles_srt": None,
+            "scenario_json": None,
+            "storyboard_images": [],
+        }
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO hooks (
+                    hook_id, project_id, user_id, scenario_id, job_id, status,
+                    tts_json, output_dir, files_json, error, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+                """,
+                (
+                    hook_id,
+                    project_id,
+                    user_id,
+                    scenario_id,
+                    job_id,
+                    status,
+                    json.dumps(tts, ensure_ascii=False),
+                    output_dir,
+                    json.dumps(default_files, ensure_ascii=False),
+                    now_iso,
+                    now_iso,
+                ),
+            )
+        return self.get_hook(project_id, hook_id)  # type: ignore[return-value]
+
+    def update_hook(
+        self,
+        hook_id: str,
+        *,
+        status: Optional[str] = None,
+        files: Optional[Dict[str, Any]] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        fields = ["updated_at = ?"]
+        vals: List[Any] = [_now_utc().isoformat()]
+        if status is not None:
+            fields.append("status = ?")
+            vals.append(status)
+        if files is not None:
+            fields.append("files_json = ?")
+            vals.append(json.dumps(files, ensure_ascii=False))
+        if error is not None:
+            fields.append("error = ?")
+            vals.append(error)
+        vals.append(hook_id)
+        with self._lock, self._connect() as conn:
+            conn.execute(f"UPDATE hooks SET {', '.join(fields)} WHERE hook_id = ?", vals)
+
+    def get_hook(self, project_id: str, hook_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM hooks WHERE project_id = ? AND hook_id = ?",
+                (project_id, hook_id),
+            ).fetchone()
+        return self._row_to_hook(row) if row else None
+
+    def list_hooks_for_project(self, project_id: str) -> List[Dict[str, Any]]:
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM hooks WHERE project_id = ? ORDER BY created_at DESC",
+                (project_id,),
+            ).fetchall()
+        return [self._row_to_hook(r) for r in rows]

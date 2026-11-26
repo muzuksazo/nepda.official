@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "api:generate": "orval --config orval.config.ts",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
@@ -29,6 +30,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "@vitest/browser-playwright": "latest",
     "@vitest/coverage-v8": "latest",
+    "orval": "^8.49.0",
     "oxlint": "^1.90.0",
     "playwright": "latest",
     "storybook": "^10.6.9",

@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     max_upload_file_bytes: int = 100 * 1024 * 1024
     min_upload_total_sec: float = 5.0
     max_upload_total_sec: float = 90.0
+    product_info_cache_ttl_sec: int = 3600
     planner_base_url: str = "http://127.0.0.1:8787"
 
     # Default models (overridable via env vars)
@@ -54,6 +55,7 @@ class Settings(BaseSettings):
 
     # Local filesystem paths & object storage
     work_root: str = str(_PROD_ROOT / "data" / "jobs")
+    output_dir: str = str(_PROD_ROOT / "data" / "outputs")
     db_path: str = str(_PROD_ROOT / "data" / "jobs.db")
     scripts_dir: str = str(_DEFAULT_SCRIPTS)
 
