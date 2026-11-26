@@ -6,7 +6,7 @@ import { HookTypeScreen } from './HookTypeScreen';
 import { OnboardingScreen } from './OnboardingScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
 import { MyVideosScreen } from './MyVideosScreen';
-import { SAMPLE_BANNERS, SAMPLE_COMPLETED, SAMPLE_IN_PROGRESS } from './sampleProjects';
+import { SAMPLE_BANNERS, SAMPLE_COMPLETED, SAMPLE_GUIDE_SCENES, SAMPLE_IN_PROGRESS, SAMPLE_STORYBOARD } from './sampleProjects';
 import { ScenarioScreen } from './ScenarioScreen';
 import { ShootingGuideScreen } from './ShootingGuideScreen';
 import { StoryboardScreen } from './StoryboardScreen';
@@ -95,14 +95,20 @@ export const Scenario: Story = {
   render: () => <ScenarioScreen hookType="B" onBack={fn()} onShootingGuide={fn()} onStoryboard={fn()} />,
 };
 
+/** 그림을 그리는 동안: 장면 설명 자리에 스켈레톤이 반짝인다 */
 export const Storyboard: Story = {
   name: '안1-5 그림 콘티',
   render: () => <StoryboardScreen hookType="B" onBack={fn()} onShootingGuide={fn()} />,
 };
 
+export const StoryboardFilled: Story = {
+  name: '안1-5 그림 콘티 · 설명 채움',
+  render: () => <StoryboardScreen hookType="B" scenes={SAMPLE_STORYBOARD} onBack={fn()} onShootingGuide={fn()} />,
+};
+
 export const ShootingGuide: Story = {
   name: '안1-6 촬영 가이드',
-  render: () => <ShootingGuideScreen onBack={fn()} onUpload={fn()} />,
+  render: () => <ShootingGuideScreen scenes={SAMPLE_GUIDE_SCENES} onBack={fn()} onUpload={fn()} />,
 };
 
 export const UploadVideo: Story = {

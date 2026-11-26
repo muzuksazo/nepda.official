@@ -8,7 +8,7 @@ import type { HookType } from './flowData';
 import { OnboardingScreen } from './OnboardingScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
 import { MyVideosScreen, type MyVideosTab } from './MyVideosScreen';
-import { SAMPLE_BANNERS, SAMPLE_COMPLETED, SAMPLE_IN_PROGRESS } from './sampleProjects';
+import { SAMPLE_BANNERS, SAMPLE_COMPLETED, SAMPLE_GUIDE_SCENES, SAMPLE_IN_PROGRESS, SAMPLE_STORYBOARD } from './sampleProjects';
 import { ScenarioScreen } from './ScenarioScreen';
 import { ShootingGuideScreen } from './ShootingGuideScreen';
 import { StoryboardScreen } from './StoryboardScreen';
@@ -113,9 +113,9 @@ function FlowPrototype() {
         />
       );
     case 'storyboard':
-      return <StoryboardScreen hookType={hookType} onBack={() => setStep('scenario')} onShootingGuide={() => setStep('guide')} />;
+      return <StoryboardScreen hookType={hookType} scenes={SAMPLE_STORYBOARD} onBack={() => setStep('scenario')} onShootingGuide={() => setStep('guide')} />;
     case 'guide':
-      return <ShootingGuideScreen onBack={() => setStep('scenario')} onUpload={() => setStep('upload')} />;
+      return <ShootingGuideScreen scenes={SAMPLE_GUIDE_SCENES} onBack={() => setStep('scenario')} onUpload={() => setStep('upload')} />;
     case 'upload':
       return (
         <UploadVideoScreen

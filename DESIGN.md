@@ -24,32 +24,37 @@ colors:
   dark-inverse-hover: oklch(0.922 0 0)            # #E5E5E5 다크 1차 버튼 hover
   ## Background / Surface (라이트)
   bg-base: oklch(1 0 0)                           # #FFFFFF 배경 base
-  bg-weak: oklch(0.976 0.003 106.4)               # #F7F7F5 배경 weak, 페이지 바닥(살짝 웜 그레이)
-  surface-weak: oklch(0.955 0 0)                  # #F0F0F0 표면 weak, 자리표시 이미지
-  surface-base: oklch(0.922 0 0)                  # #E5E5E5 표면 base (= brand-gray), 진행 막대 트랙
-  surface-strong: oklch(0.870 0 0)                # #D4D4D4 표면 strong, 스켈레톤
+  bg-weak: "#FAF9F6"                       # 배경 weak, 온보딩 패널(종이 톤)
+  surface-weak: "#F4F3EF"                  # 표면 weak — 행동 타일, 안내 상자, 미정 칩, 크레딧 알약, 콘티 스케치북. 차가운 순회색 대신 살짝 따뜻한 종이 톤
+  surface-base: "#EAE9E3"                  # 표면 base, 진행 막대 빈 칸, 비활성 버튼
+  surface-strong: "#DCDAD2"                # 표면 strong, 스켈레톤 반짝임, 스케치북 점
   ## Background / Surface (다크)
-  dark-bg-base: oklch(0.145 0 0)                  # #0A0A0A 배경 base
+  dark-bg-base: "#0E0E0C"                  # 배경 base
   dark-bg-weak: oklch(0 0 0)                      # #000000 배경 weak (= brand-black), 영상 플레이어 바탕
-  dark-surface-weak: oklch(0.205 0 0)             # #171717 표면 weak, 카드
-  dark-surface-base: oklch(0.256 0 0)             # #232323 표면 base, 입력창·secondary 버튼
-  dark-surface-strong: oklch(0.321 0 0)           # #333333 표면 strong, 스켈레톤
+  dark-surface-weak: "#1A1A17"             # 표면 weak, 카드
+  dark-surface-base: "#24231F"             # 표면 base, 입력창·secondary 버튼
+  dark-surface-strong: "#33322C"           # 표면 strong
+  ## 미디어 자리 (작은 썸네일 — 회색 상자 대신)
+  tint: "#F3FBD0"                                 # 제품·훅 썸네일 자리 면 (아주 옅은 라임)
+  on-tint: "#4A5E00"                              # 그 위 아이콘 (6.8:1)
+  dark-tint: "#1D2210"
+  dark-on-tint: "#C9E86A"                         # (11.8:1)
   ## Text (라이트)
   text-primary: oklch(0.145 0 0)                  # #0A0A0A 텍스트 primary (19.8:1)
-  text-secondary: oklch(0.321 0 0)                # #333333 텍스트 secondary (12.6:1)
-  text-tertiary: oklch(0.475 0 0)                 # #5C5C5C 텍스트 tertiary, 보조 설명 (6.7:1)
-  text-weak: oklch(0.566 0 0)                     # #767676 텍스트 weak, placeholder (흰 배경 4.5:1)
+  text-secondary: "#2E2D2A"                # 텍스트 secondary (13.8:1)
+  text-tertiary: "#5E5C55"                 # 텍스트 tertiary, 보조 설명 (흰 배경 6.7:1)
+  text-weak: "#77756C"                     # placeholder (흰 배경 4.6:1)
   ## Text (다크)
   dark-text-primary: oklch(1 0 0)                 # #FFFFFF 텍스트 primary
-  dark-text-secondary: oklch(0.922 0 0)           # #E5E5E5 텍스트 secondary
-  dark-text-tertiary: oklch(0.725 0 0)            # #A6A6A6 텍스트 tertiary (dark-surface-base 위 6.5:1)
-  dark-text-weak: oklch(0.617 0 0)                # #858585 텍스트 weak, placeholder (dark-bg-base 위 5.4:1)
+  dark-text-secondary: "#E8E7E2"
+  dark-text-tertiary: "#A8A69D"            # (7.9:1)
+  dark-text-weak: "#8A887F"                # placeholder (5.4:1)
   ## Border
-  border-weak: oklch(0.922 0 0)                   # #E5E5E5 라이트 보더 weak, 구분선
-  border-base: oklch(0.855 0 0)                   # #CFCFCF 라이트 보더 base, 입력창
+  border-weak: "#ECEBE5"                   # 구분선, 카드 테두리
+  border-base: "#D6D4CC"                   # 입력창 테두리
   border-strong: oklch(0.145 0 0)                 # #0A0A0A 라이트 보더 strong, 선택 카드·스티커 테두리
-  dark-border-weak: oklch(0.269 0 0)              # #262626 다크 보더 weak
-  dark-border-base: oklch(0.360 0 0)              # #3D3D3D 다크 보더 base
+  dark-border-weak: "#272622"
+  dark-border-base: "#3D3C36"
   ## Function — 오류 하나뿐. 주황·파랑·초록 같은 상태색은 쓰지 않는다 (주의·정보·완료는 회색 + 아이콘 + 문구)
   danger: oklch(0.560 0.203 28.2)                 # #D12A24 입력 오류 표시 전용 (흰 배경 5.2:1)
   dark-danger: oklch(0.710 0.183 26.6)            # #FF6B61 다크 오류 글자 (7.1:1)
@@ -283,6 +288,8 @@ UI의 원칙은 **"넓은 면은 흑백, 작은 신호는 라임"**이다. 라�
 
 **1차 행동은 검정이다.** 라이트에서 1차 버튼은 `{colors.inverse}` 면에 흰 글자(19.8:1), 다크에서는 `{colors.dark-inverse}` 면에 검정 글자다.
 
+**회색이 와이어프레임처럼 보이지 않게 한다.** 와이어프레임 툴의 차가운 순회색(#F0F0F0·#E5E5E5)은 쓰지 않고, 회색 단계 전체를 아주 살짝 따뜻한 종이 톤(`#F4F3EF`·`#EAE9E3`)으로 둔다. 이미지가 아직 없는 자리도 "빈 회색 상자"로 두지 않는다 — 작은 썸네일(제품·훅)은 옅은 라임 틴트 `{colors.tint}` + 진한 라임 아이콘, 큰 그림 자리(그림 콘티)는 종이 톤 위 점 격자 스케치북으로 그린다. 기획 미정 배지도 점선 주석 대신 종이 톤 칩으로 쓴다. 회색 막대(스켈레톤)는 **불러오는 중**에만 반짝이며 보이고, 내용 자리를 채우는 용도로 쓰지 않는다.
+
 **상태색을 늘리지 않는다.** 주황(경고), 파랑(정보), 초록(완료)은 라임·블랙 팔레트와 어울리지 않으므로 쓰지 않는다. 안내는 회색 `note` 상자에 정보 아이콘과 문구로, 완료는 회색 배지에 체크 아이콘으로, 미정 표시는 회색 점선 배지로 나타낸다. 색이 하나 더 필요한 곳은 입력 오류뿐이고, 그때만 `{colors.danger}`를 쓴다.
 
 | 역할 | 라이트 | 다크 |
@@ -483,7 +490,7 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 24px 알약, `{typography.label-12}`.
 - neutral: `{colors.surface-base}` 면(장면 번호, 완성 표시)
 - brand: 라임 면 + 검정 글자 + 1px 외곽선(선택된 훅 유형). 화면당 한두 개까지.
-- pending: 투명 면 + 1px 회색 점선 + 시계 아이콘. 기획 미정(OQ·FR) 표시로, 와이어프레임의 점선 주석을 잇는다. 출시 전에 모두 사라진다.
+- pending: 종이 톤 면(`{colors.surface-weak}`) + 1px `{colors.border-weak}` + 시계 아이콘. 기획 미정(OQ·FR) 표시. 점선은 와이어프레임처럼 보여 쓰지 않는다. 출시 전에 모두 사라진다.
 
 ### note
 

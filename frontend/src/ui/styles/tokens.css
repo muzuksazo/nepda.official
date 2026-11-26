@@ -1,6 +1,6 @@
 /*
  * 냅다 디자인 토큰 — 정본은 /DESIGN.md frontmatter.
- * 팔레트는 라임·블랙·그레이·화이트뿐이다. 빨강(danger)은 오류 표시에만 쓴다.
+ * 팔레트는 라임·블랙·그레이·화이트뿐이다. 그레이는 와이어프레임 같은 차가운 순회색 대신 아주 살짝 따뜻한 종이 톤을 쓴다. 빨강(danger)은 오류 표시에만 쓴다.
  * 라임은 면으로 크게 쓰지 않는다: 선택 체크, 브랜드 배지 글자, 화면당 강조 단어 하나에만.
  */
 :root,
@@ -14,20 +14,20 @@
 
   /* background / surface */
   --bg: #ffffff;
-  --bg-weak: #f7f7f5;
-  --surface-weak: #f0f0f0;
-  --surface: #e5e5e5;
-  --surface-strong: #d4d4d4;
+  --bg-weak: #faf9f6;
+  --surface-weak: #f4f3ef;
+  --surface: #eae9e3;
+  --surface-strong: #dcdad2;
 
   /* text */
   --text: #0a0a0a;
-  --text-2: #333333;
-  --text-3: #5c5c5c;
-  --text-weak: #767676;
+  --text-2: #2e2d2a;
+  --text-3: #5e5c55;
+  --text-weak: #77756c;
 
   /* border */
-  --border-weak: #e5e5e5;
-  --border: #cfcfcf;
+  --border-weak: #ecebe5;
+  --border: #d6d4cc;
   --border-strong: #0a0a0a;
 
   /* 반전 면: 1차 버튼, 선택된 칩, 진행 막대 채움 */
@@ -45,6 +45,10 @@
   --selected-bg: #f8ffdc;
   --selected-border: #b5de0a;
 
+  /* 미디어 자리(제품·훅 썸네일): 회색 대신 아주 옅은 라임 틴트 + 진한 라임 아이콘(6.8:1) */
+  --tint: #f3fbd0;
+  --on-tint: #4a5e00;
+
   --danger: #d12a24;
   --focus: #0a0a0a;
 
@@ -55,19 +59,19 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: #0a0a0a;
+  --bg: #0e0e0c;
   --bg-weak: #000000;
-  --surface-weak: #171717;
-  --surface: #232323;
-  --surface-strong: #333333;
+  --surface-weak: #1a1a17;
+  --surface: #24231f;
+  --surface-strong: #33322c;
 
   --text: #ffffff;
-  --text-2: #e5e5e5;
-  --text-3: #a6a6a6;
-  --text-weak: #858585;
+  --text-2: #e8e7e2;
+  --text-3: #a8a69d;
+  --text-weak: #8a887f;
 
-  --border-weak: #262626;
-  --border: #3d3d3d;
+  --border-weak: #272622;
+  --border: #3d3c36;
   --border-strong: #ffffff;
 
   --inverse: #ffffff;
@@ -80,6 +84,9 @@
 
   --selected-bg: #1e220f;
   --selected-border: #d6ff3f;
+
+  --tint: #1d2210;
+  --on-tint: #c9e86a;
 
   --danger: #ff6b61;
   --focus: #ffffff;

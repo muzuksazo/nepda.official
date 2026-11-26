@@ -36,7 +36,7 @@ export function StoryboardScreen({ hookType, scenes = [{}, {}, {}, {}], onBack, 
                     style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', borderRadius: 'var(--radius-md)' }}
                   />
                 ) : (
-                  <MediaPlaceholder ratio="4 / 5">
+                  <MediaPlaceholder ratio="4 / 5" variant="sketch">
                     <ImageIcon size={26} aria-hidden="true" />
                   </MediaPlaceholder>
                 )}
