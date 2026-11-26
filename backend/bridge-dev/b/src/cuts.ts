@@ -413,6 +413,8 @@ export async function renderCuts(
     s: ScenarioItem; order: number; key: string; reveal: boolean; frames: number;
     scene: ReturnType<typeof toPipelinePlan>["scenes"][number]; convo: ModelMessage[];
     tries: number; ok: boolean; code?: string; wrapper?: string; error?: string;
+    /** 타입 검사는 통과했지만 렌더 중에 오류로 멈춤 (예: interpolate 구간 순서) → 오류를 돌려주고 다시 만든다 */
+    crashed?: boolean;
     images: string[]; qa: QaResult[]; shots: { at: number; view: string }[];
   };
   const jobs: Job[] = [];
@@ -549,7 +551,9 @@ export async function renderCuts(
         }
       } catch (e) {
         j.ok = false;
+        j.crashed = !!j.code;
         j.error = `렌더 실패: ${String((e as Error).message ?? e).split("\n").slice(0, 6).join("\n")}`;
+        log(`[B 컷] 장면 ${j.order} 렌더 중 오류: ${j.error.split("\n")[0].slice(0, 140)}`);
       }
     }
     steps.push({ step: `컷: Remotion 번들·렌더${qaRound ? ` (검수 ${qaRound}차 뒤)` : ""}`, model: "remotion", inputTokens: 0, outputTokens: 0, costUsd: 0, ms: Math.round(performance.now() - t0) });
@@ -590,14 +594,21 @@ export async function renderCuts(
     let toRender = jobs;
     for (let qaRound = 0; ; qaRound++) {
       await render(toRender, qaRound);
-      if (!qaOn) break;
-      await review(toRender.filter((j) => j.ok), qaRound);
-      const bad = toRender.filter((j) => j.ok && j.qa.length && !j.qa[j.qa.length - 1].pass && qaFeedback(j.qa[j.qa.length - 1]));
-      if (!bad.length || qaRound >= qaRetries) break;
+      if (qaOn) await review(toRender.filter((j) => j.ok), qaRound);
+      // 다시 만들 장면: 렌더 중 오류로 멈춘 장면 + 검수에서 시각화 탓으로 탈락한 장면
+      const crashed = toRender.filter((j) => j.crashed);
+      const bad = qaOn ? toRender.filter((j) => j.ok && j.qa.length && !j.qa[j.qa.length - 1].pass && qaFeedback(j.qa[j.qa.length - 1])) : [];
+      const retry = [...crashed, ...bad];
+      // 렌더 오류는 검수 재시도 횟수와 상관없이 최소 1번은 다시 만든다
+      if (!retry.length || qaRound >= Math.max(qaRetries, crashed.length ? 1 : 0)) break;
+      for (const j of crashed) {
+        j.convo.push({ role: "user", content: `Your code type-checked but CRASHED while rendering:\n${j.error}\n\nFix the cause (e.g. interpolate inputRange must be strictly increasing; guard divisions and array indexes) and return the full file again, same rules.` });
+        j.crashed = false;
+      }
       for (const j of bad)
         j.convo.push({ role: "user", content: `A visual QA reviewer looked at frames of your scene and found problems:\n${qaFeedback(j.qa[j.qa.length - 1])}\n\nFix them (only the visualization is yours) and return the full file again, same rules.` });
-      await codegen(bad, `검수 ${qaRound + 1}차 뒤`);
-      toRender = bad;
+      await codegen(retry, `${crashed.length ? "렌더 오류·" : ""}검수 ${qaRound + 1}차 뒤`);
+      toRender = retry;
     }
 
     const results: ScenarioCuts[] = [];
