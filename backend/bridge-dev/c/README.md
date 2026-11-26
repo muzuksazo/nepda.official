@@ -173,6 +173,23 @@ assets/                                    내려받은 에셋과 문제 장면 
 - 검사 결과의 ✗는 규칙 위반(종료 코드 2), △는 사람이 볼 경고입니다.
 - 아직 없는 것: 백엔드(`backend/app`) 연결, 훅 작업 큐·폴링 상태 저장, `spill_diffuser` 외의 문제 장면 템플릿.
 
+## 더미 화면에서 C 작업자 코드 돌리기 (로컬 서버)
+
+`src/server.py` 는 bridge-dev 더미 화면이 부르는 API(`/v1/product-info`, `/v1/projects`, `…/scenarios`, `…/storyboard`, `…/select`, `…/hooks`)를 이 작업자 코드로 처리하는 개발용 서버입니다. 공용 `index.html` 은 수정하지 않고 읽어서 내주기만 하며, 같은 서버에서 화면을 내주므로 CORS 설정이 필요 없습니다.
+
+```bash
+cd backend/bridge-dev/c
+C_PRODUCT_FOOTAGE=<실물 영상 경로> C_PROBLEM_TEMPLATE=drain_smell \
+C_SCENARIO_FILES=examples/piev/06_scenarios.round3.response.json python -m src.server
+# http://127.0.0.1:8080/?preset=piev          C 유형·실제 호출·피에브 제품 정보가 채워진 화면
+# http://127.0.0.1:8080/?preset=piev&run=1    열자마자 "처음부터 끝까지" 실행
+```
+
+- 화면이 보내지 않는 값(실물 영상, 문제 장면 템플릿)은 환경변수로 받습니다.
+- 시나리오는 `ANTHROPIC_API_KEY` 가 있으면 Claude 로 생성하고, 없으면 `C_SCENARIO_FILES` 의 준비된 응답을 회차마다 돌려 쓰며, 그것도 없으면 오프라인 초안을 냅니다. 어느 쪽인지는 응답의 `scenario_source` 에 나옵니다.
+- 콘티 이미지와 훅 결과 파일은 `/files/…` 주소로 내주고, 훅이 끝나면 화면 아래에 영상 재생기가 붙습니다.
+- 인증을 확인하지 않고 상태를 메모리에만 두는 개발용입니다. `backend/app` 과의 연결은 아닙니다.
+
 ## index.html로 테스트하기
 
 1. `python -m http.server 5500 --directory backend/bridge-dev` 후 `http://127.0.0.1:5500/`를 엽니다(파일로 열어도 됩니다).
