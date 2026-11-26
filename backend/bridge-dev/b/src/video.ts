@@ -77,6 +77,8 @@ export async function renderHookVideos(
     tts?: "edge" | "inworld";
     /** 반전 장면 제품 3D 모델 (src/assets/products/<model>.tsx) */
     productModel?: string;
+    /** 자막을 영상에 굽기 (기본 false: 자막 없는 영상 + <영상>.captions.json 데이터만) */
+    burnCaptions?: boolean;
   }
 ): Promise<{ videos: HookVideo[]; steps: StepUsage[] }> {
   const log = opts.log ?? (() => {});
@@ -183,7 +185,9 @@ export async function renderHookVideos(
     };
     const serveUrl = await bundle({ entryPoint: join(pdir, "src/index.ts") });
     for (const p of plans) {
-      const inputProps = { plan: p.plan, mainClips: [], musicVolume: 0 };
+      // 자막은 영상에 굽지 않고 데이터로만 남긴다 (나중에 Remotion 자막 단계에서 고쳐 입힘)
+      const renderPlan = opts.burnCaptions ? p.plan : { ...p.plan, scenes: p.plan.scenes.map((sc) => ({ ...sc, text: "", sub: undefined })) };
+      const inputProps = { plan: renderPlan, mainClips: [], musicVolume: 0 };
       const composition = await selectComposition({ serveUrl, id: "HookVideo", inputProps });
       const rel = `round-${opts.round}/video/hook_${p.s.scenario_id}${variant === "3d" ? "" : `_${variant}`}.mp4`;
       let last = -1;
@@ -195,6 +199,30 @@ export async function renderHookVideos(
           if (pct !== last) { last = pct; log(`[B 영상] ${p.s.scenario_id} ${pct}%`); }
         },
       });
+      // 자막 데이터: 장면마다 시작·끝(초), 자막 글, 나레이션, 음성 파일·길이
+      {
+        let at = 0;
+        const beatsSorted = [...p.s.beats].sort((a, b) => a.order - b.order);
+        const captions = p.plan.scenes.map((sc, i) => {
+          const start = +at.toFixed(3);
+          at += sc.durationSec;
+          return {
+            order: beatsSorted[i].order,
+            start,
+            end: +at.toFixed(3),
+            text: sc.text ?? "",
+            narration: (sc as { say?: string }).say ?? beatsSorted[i].narration,
+            voice: sc.voice ? { file: sc.voice.split("/").pop(), start, sec: sc.voiceSec ?? null } : null,
+            counter: (sc as { counter?: unknown }).counter ?? null,
+          };
+        });
+        const capRel = rel.replace(/\.mp4$/, ".captions.json");
+        writeFileSync(
+          join(opts.projectDir, capRel),
+          JSON.stringify({ scenario_id: p.s.scenario_id, video: rel, burned: !!opts.burnCaptions, fps: 30, width: 1080, height: 1920, seconds: p.plan.hookSeconds,
+            style: { top: "62%", font: "pipeline/src/scenes.tsx Caption (흰 글씨, 그림자)" }, captions }, null, 2) + "\n"
+        );
+      }
       // 음성 파일도 B 쪽에 남긴다
       for (const sc of p.plan.scenes) if (sc.voice) copyFileSync(join(pdir, "public", sc.voice), join(opts.projectDir, `round-${opts.round}`, "video", sc.voice.split("/").pop()!));
       const beats = [...p.s.beats].sort((a, b) => a.order - b.order);
