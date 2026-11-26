@@ -3,6 +3,10 @@ import { z } from "zod";
 /** 백엔드가 B 작업자에게 넘기는 입력 (b/examples/01_worker-input.scenarios.json). */
 export const ProductInfoSchema = z.object({
   name: z.string().min(1),
+  /** 나레이션에서 제품을 부르는 이름 (브랜드·제품 고유 이름을 한글로 읽은 것, 예: PIEV → 피에브). 없으면 모델이 짧은 이름을 정한다 */
+  call_name: z.string().optional(),
+  /** 반전 장면에 쓰는 직접 만든 제품 3D 모델 이름 (src/assets/products/<model>.tsx) */
+  model: z.string().optional(),
   category: z.string().optional(),
   verified_facts: z.array(z.string()).default([]),
   price_or_offer: z.string().optional(),
@@ -47,8 +51,60 @@ export const Scene3DSchema = z.object({
     .object({ from: z.number(), to: z.number(), unit: z.string() })
     .nullable()
     .describe("숫자 카운터(화면 위쪽, 3D와 같은 spring으로 동기화). 숫자 없는 장면은 null"),
-  background: z.string().describe("배경 hex(어두운 단색)"),
-  lighting: z.string().describe("ambient + directional/point 구성"),
+  background: z.string().describe("배경 hex(어두운 단색). 무대 벽색과 맞춘다"),
+  lighting: z.string().describe("무대 자연광 위에 더할 빛이 있으면 한 줄(없으면 '무대 기본')"),
+  stage: z
+    .object({
+      place: z.string().describe("이야기 장소 한 줄 (예: 19세기 실험실)"),
+      floor_color: z.string().describe("바닥 hex (중간 밝기)"),
+      wall_color: z.string().describe("뒤 벽 hex (어둡게)"),
+    })
+    .optional(),
+  shots: z
+    .array(z.object({ at: z.number().min(0).max(1), view: z.enum(["wide", "person", "visual", "product"]) }))
+    .optional()
+    .describe("카메라 키프레임 (장면 진행 비율 → 보는 곳). 예: [{at:0,view:wide},{at:0.5,view:visual}]"),
+  viz_place: z.enum(["air", "floor"]).optional().describe("시각화 자리: air = 인물 오른쪽 공중, floor = 인물 오른쪽 바닥 위"),
+  lid_open: z
+    .object({ from: z.number().min(0).max(1), to: z.number().min(0).max(1) })
+    .nullable()
+    .optional()
+    .describe("반전 장면에서 제품 뚜껑을 여는 구간 (제품에 뚜껑이 있을 때). 없으면 null"),
+  character: z
+    .object({
+      model: z.string().describe("캐릭터 모델 이름 (있는 에셋 목록의 인물 이름 그대로)"),
+      role: z.string().describe("이야기 속 누구인지"),
+      emotions: z
+        .array(
+          z.object({
+            type: z.enum(["look", "tilt", "nod", "surprise", "bounce", "droop", "victory", "defeat"]),
+            from: z.number().min(0).max(1),
+            to: z.number().min(0).max(1),
+          })
+        )
+        .describe("감정 표현 (장면 진행 비율)"),
+    })
+    .nullable()
+    .optional()
+    .describe("이야기 주인공 인물. 사람이 없으면 null"),
+  assets: z
+    .array(
+      z.object({
+        query: z.string().describe("영어 1~3단어 모델 검색어 (예: desk, bookcase, pine tree)"),
+        role: z.string().describe("이야기에서 무엇인지"),
+        place: z.string().describe("어디에 놓는지 (예: 바닥 뒤 오른쪽)"),
+        slot: z
+          .enum(["back-left", "back-center", "back-right", "side-left", "side-right", "mid-left", "mid-right", "near-person", "front-right", "fg-left", "fg-right"])
+          .optional()
+          .describe("놓을 자리 (on 이 있으면 무시)"),
+        height: z.number().optional().describe("한 개의 실제 높이(m). 사람 1.7 기준"),
+        on_query: z.string().optional().describe("받침이 되는 항목의 query 를 그대로 (예: \"table\"). 탁자·책상·선반 위에 올릴 때. 받침 항목이 이 항목보다 먼저 나와야 함"),
+        count: z.number().int().min(1).max(8).optional().describe("같은 물건 개수 (기본 1)"),
+        pattern: z.enum(["single", "row", "grid", "stack", "cluster", "arc"]).optional().describe("여러 개 놓는 모양: row 한 줄, grid 두 줄, stack 위로 쌓기, cluster 촘촘한 무리, arc 부채꼴"),
+      })
+    )
+    .optional()
+    .describe("장소를 꾸미는 3D 물건 3~6개"),
 });
 export type Scene3D = z.infer<typeof Scene3DSchema>;
 
@@ -80,6 +136,7 @@ export const BAdSpecSchema = z.object({
   adjacent_min_sim: z.number().min(0).max(1),
   number_thread: z.string(),
   product_first_mention_beat: z.number().int().min(1),
+  story_seed: z.string().optional().describe("고른 이야기 씨앗 한 줄 (유사도 검색 후보에서)"),
   product_taboo_keywords: z.array(z.string()).default([]).describe("반전 전까지 쓰면 안 되는 제품명·제품군 어휘"),
   visual_style: z.string().default("blender_3d_cutaway"),
   fact_sources: z.array(FactSourceSchema),
@@ -95,6 +152,11 @@ export const DraftScenarioSchema = z.object({
   ad_spec: BAdSpecSchema,
 });
 export type DraftScenario = z.infer<typeof DraftScenarioSchema>;
+
+/** 시나리오 단계 출력: 3D 명세(scene3d)는 다음 단계에서 따로 만들므로 뺀다 (구조화 출력 스키마가 너무 커지지 않게) */
+export const ScenarioOnlyResponseSchema = z.object({
+  scenarios: z.array(DraftScenarioSchema.extend({ beats: z.array(BeatSchema.omit({ scene3d: true })) })),
+});
 
 export const DraftResponseSchema = z.object({
   scenarios: z.array(DraftScenarioSchema),

@@ -19,3 +19,15 @@ console.log(JSON.stringify({
   tools: body.tools?.length ?? 0, temperature: body.temperature,
   output_config: { effort: body.output_config?.effort, format_type: body.output_config?.format?.type },
 }, null, 2));
+
+// 제품 조사 요청: 웹 검색·페이지 읽기 서버 도구가 실리는지
+import { researchProduct } from "../src/research.js";
+body = undefined;
+await researchProduct("테스트 제품", { model: provider("claude-opus-5-5"), modelId: "claude-opus-5-5", track: () => {} }).catch(() => {});
+console.log(JSON.stringify({
+  research: {
+    model: body?.model,
+    tools: (body?.tools ?? []).map((t: { type?: string; name?: string; max_uses?: number }) => ({ type: t.type, name: t.name, max_uses: t.max_uses })),
+    effort: body?.output_config?.effort,
+  },
+}, null, 2));

@@ -1,1 +1,12 @@
 out/
+
+# 큰 캐릭터 팩(약 100MB)은 일단 커밋하지 않는다
+assets/quaternius/uacp/
+assets/kenney/
+assets/polyhaven/
+assets/polypizza/
+
+# 제품 원본 영상·사진 (용량이 커서 커밋하지 않음)
+product/
+# 에셋 미리보기 (scripts/assets/asset_gallery.py 로 다시 만듦)
+assets/gallery.html

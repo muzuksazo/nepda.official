@@ -5,14 +5,21 @@
   "type": "module",
   "description": "B 유형(정보성 훅) 시나리오 작업자. Vercel AI SDK + Claude.",
   "scripts": {
+    "research": "node --env-file-if-exists=.env --import tsx src/cli.ts research",
     "scenarios": "node --env-file-if-exists=.env --import tsx src/cli.ts generate",
     "check": "tsx src/cli.ts check",
     "report": "tsx src/cli.ts report",
+    "measure": "tsx src/cli.ts measure",
+    "body": "node --env-file-if-exists=.env --import tsx src/cli.ts body",
+    "join": "tsx src/cli.ts join",
+    "cuts": "node --env-file-if-exists=.env --import tsx src/cli.ts cuts",
+    "video": "node --env-file-if-exists=.env --import tsx src/cli.ts video",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "tsx test/mock-run.ts && tsx test/request-shape.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.108",
+    "@ai-sdk/google": "^4.0.128",
     "ai": "^7.0.181",
     "zod": "^4.3.6"
   },
@@ -21,5 +28,7 @@
     "tsx": "^4.20.0",
     "typescript": "^5.7.0"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

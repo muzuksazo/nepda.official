@@ -1,34 +1,31 @@
-// API 호출 없이 전체 흐름을 확인한다.
-// 아이디어(마인드맵 → 채점 → 인접 유사도) → 경로 선택 → 시나리오(1차 위반, 2차 통과) → 비용·리포트·pipeline plan.
+// API 호출 없이 전체 흐름을 확인한다 (이야기 모드).
+// 아이디어(앵커·이야기 씨앗 → 씨앗 채점) → 씨앗 후보 → 시나리오(1차 템플릿 위반, 2차 통과) → 비용·리포트·pipeline plan.
 // 실행: npx tsx test/mock-run.ts
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { MockLanguageModelV4 } from "ai/test";
+import { checkScenario } from "../src/check.js";
 import { generateScenarios } from "../src/generate.js";
-import { pickDistinct, searchPaths, type ScoredWord } from "../src/ideate.js";
+import { rankSeeds, type StorySeed } from "../src/ideate.js";
 import { toPipelinePlan } from "../src/pipeline-plan.js";
 import { renderReport } from "../src/report.js";
 import { WorkerInputSchema } from "../src/schema.js";
 
-// 1) 경로 탐색 단위 테스트
+// 1) 씨앗 고르기 단위 테스트
 {
-  const w = (word: string, sim: number, info = 0.8, usage = 0.1): ScoredWord => ({ word, lens: "far", branch: "x", info, sim, usage });
-  // F: 유사도는 시작 범위지만 용도 영역(0.7)이라 시작이 될 수 없다
-  const words = [w("A", 0.45, 0.9), w("B", 0.72), w("C", 0.85), w("D", 0.5, 0.7), w("E", 0.3), w("F", 0.5, 0.99, 0.7)];
-  const key = (a: string, b: string) => (a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`);
-  const pairs = new Map([
-    [key("A", "B"), 0.75], [key("B", "C"), 0.8], [key("A", "C"), 0.5],
-    [key("D", "C"), 0.72], [key("D", "B"), 0.6], [key("F", "C"), 0.9],
-  ]);
-  const paths = searchPaths(words, pairs);
-  const names = paths.map((p) => [p.start, ...p.bridges].map((n) => n.word).join(">"));
-  assert.ok(names.includes("A>B>C") && names.includes("A>B") && names.includes("D>C"), `경로: ${names}`);
-  assert.ok(!names.includes("A>C"), "인접 0.5는 탈락해야 함");
-  assert.ok(!names.some((n) => n.startsWith("E")), "시작 유사도 0.3은 탈락해야 함");
-  assert.ok(!names.some((n) => n.startsWith("F")), "용도 영역 단어는 시작이 될 수 없음");
-  assert.deepEqual(pickDistinct(paths, 2).map((p) => p.start.word).sort(), ["A", "D"]);
-  assert.equal(searchPaths(words, pairs, { excludeStarts: ["A"] }).some((p) => p.start.word === "A"), false);
-  console.log("OK searchPaths");
+  const s = (word: string, sim: number, usage: number, link: number, info = 0.8): StorySeed => ({
+    word, arc: "-", lens: "record", info, sim, usage, link, score: Math.round(info * link * (1 - sim) * 1000) / 1000,
+  });
+  const seeds = [
+    s("A 나이팅게일", 0.45, 0.1, 0.9),
+    s("B 용도 영역", 0.5, 0.7, 0.9, 0.99), // 용도 영역이라 탈락
+    s("C 연결 약함", 0.5, 0.1, 0.4), // 결말 연결 약해서 탈락
+    s("D 너무 가까움", 0.75, 0.1, 0.9), // 발단이 앵커에 너무 가까워 탈락
+    s("E 해바라기", 0.55, 0.2, 0.8, 0.7),
+  ];
+  assert.deepEqual(rankSeeds(seeds).map((x) => x.word), ["A 나이팅게일", "E 해바라기"]);
+  assert.deepEqual(rankSeeds(seeds, { exclude: ["A 나이팅게일"] }).map((x) => x.word), ["E 해바라기"]);
+  console.log("OK rankSeeds");
 }
 
 // 2) 전체 흐름
@@ -44,101 +41,173 @@ const reply = (obj: unknown, inT = 1000, outT = 500) => ({
   warnings: [],
 });
 
+const SEED = "나이팅게일 1858년 사망 원인을 부채꼴 면적으로 그림";
 const mindmap = {
   anchor: "남은 시간이 빨간 면적으로 보인다",
   usage_domains: ["시간", "집중", "공부"],
   anchor_fact: "빨간 원판이 0 방향으로 서서히 줄어들어 숫자를 읽지 않아도 남은 시간이 한눈에 보인다",
-  number_hint: "도(°)",
-  maps: [{ lens: "far", branches: [{ name: "동물", words: ["꿀벌 춤 각도", "원 360도", "부채꼴 면적", "고래 노래"] }] }],
+  number_hint: "면적",
+  seeds: [
+    { lens: "record", word: SEED, arc: "사망 원인 집계 → 표로는 설득 실패 → 부채꼴 면적 그래프" },
+    { lens: "human", word: "뽀모도로 창시자 25분", arc: "용도 영역 이야기" },
+  ],
 };
 const scores = {
   scores: [
-    { word: "꿀벌 춤 각도", info: 0.9, sim: 0.45, usage: 0.1 },
-    { word: "원 360도", info: 0.4, sim: 0.7, usage: 0.3 },
-    { word: "부채꼴 면적", info: 0.3, sim: 0.85, usage: 0.4 },
-    { word: "고래 노래", info: 0.8, sim: 0.2, usage: 0.05 },
-    { word: "뇌 90분 주기", info: 0.95, sim: 0.45, usage: 0.75 },
-  ],
-};
-const pairs = {
-  pairs: [
-    { a: "꿀벌 춤 각도", b: "원 360도", sim: 0.74 },
-    { a: "원 360도", b: "부채꼴 면적", sim: 0.82 },
-    { a: "꿀벌 춤 각도", b: "부채꼴 면적", sim: 0.55 },
+    { word: SEED, info: 0.9, sim: 0.45, usage: 0.1, link: 0.9 },
+    { word: "뽀모도로 창시자 25분", info: 0.95, sim: 0.5, usage: 0.9, link: 0.9 },
   ],
 };
 
-const s3d = (fact: string, counter: { from: number; to: number; unit: string } | null = null) => ({
-  fact_shown: fact,
-  objects: [{ name: "원판", build: "CylinderGeometry r=1.2 h=0.1 thetaLength 가변", material: "meshStandardMaterial roughness 0.4", color: "#e8322a", position: "x0 y1.5" }],
-  motion: [
-    { from: 0, to: 0.5, action: "원판이 회전하며 등장" },
-    { from: 0.5, to: 1, action: "부채꼴이 줄어든다" },
-  ],
-  camera: "dolly_in 7→5.5",
-  counter,
-  background: "#0b0b10",
-  lighting: "ambient 0.5 + directional [3,5,4]",
-});
 const good = {
-  hook_title: "꿀벌은 춤 각도로 길을 알려 줍니다",
-  hook_duration_sec: 12,
+  hook_title: "나이팅게일의 부채꼴",
+  hook_duration_sec: 17,
   body_duration_sec: 18,
   replacement_test_note: "제품 전환 장면만 바꾸면 다른 제품에도 붙일 수 있어 B",
   beats: [
-    { order: 1, role: "어긋난 시작", duration_sec: 4, visual: "꿀벌 8자 춤", narration: "꿀벌은 춤의 각도로 꽃이 있는 방향을 알려 준다고 합니다.", caption: "꿀벌 춤 각도\n= 꽃 방향", scene3d: s3d("춤 각도 = 방향") },
-    { order: 2, role: "브리지 1", duration_sec: 4, visual: "원 360도", narration: "한 바퀴는 삼백육십 도입니다.", caption: "한 바퀴\n360도", scene3d: s3d("원 = 360도", { from: 0, to: 360, unit: "°" }) },
-    { order: 3, role: "반전: 제품 첫 등장", duration_sec: 4, visual: "제품", narration: "그래서 비주얼 타이머는 남은 시간을 빨간 원판으로 보여 줍니다.", caption: "남은 시간\n한눈에", scene3d: s3d("빨간 원판이 줄어든다") },
+    { order: 1, role: "발단", duration_sec: 5, visual: "야전 병원 침대 줄", narration: "나이팅게일은 전쟁터 병원에서 병사들이 죽는 이유를 세어 봤습니다.", caption: "1854년\n야전 병원" },
+    { order: 2, role: "전개", duration_sec: 5, visual: "부채꼴 그래프가 펼쳐짐", narration: "그래서 그녀는 원을 부채꼴로 나눠 죽음을 면적으로 그렸습니다.", caption: "원을 나눠\n면적으로" },
+    { order: 3, role: "반전: 제품 첫 등장", duration_sec: 7, visual: "제품", narration: "그런데 비주얼 타이머는 남은 시간을 빨간 면적으로 보여 줍니다. 그래서 비주얼 타이머가 뭐냐고요?", caption: "남은 시간\n빨간 면적" },
   ],
   ad_spec: {
     track_archetype: "B_info_hook_offset",
     hook_similarity_score: 0.5,
     anchor: "모델이 쓴 앵커(덮어써져야 함)",
-    bridge_path: [{ word: "꿀벌", sim_to_anchor: 0.5 }, { word: "원", sim_to_anchor: 0.7 }],
-    adjacent_min_sim: 0.7,
-    number_thread: "도(°)",
+    bridge_path: [{ word: "사망 원인 집계", sim_to_anchor: 0.5 }, { word: "부채꼴 면적 그래프", sim_to_anchor: 0.75 }],
+    adjacent_min_sim: 0.72,
+    number_thread: "면적",
     product_first_mention_beat: 3,
     product_taboo_keywords: ["타이머", "시계"],
+    story_seed: SEED,
     visual_style: "blender_3d_cutaway",
-    fact_sources: [{ claim: "꿀벌 8자 춤 각도", status: "출처 확인 필요" }],
+    fact_sources: [{ claim: "나이팅게일의 장미 도표(1858)", status: "출처 확인 필요" }],
   },
 };
 const bad = structuredClone(good);
-bad.beats[1].scene3d.motion = [{ from: 0.3, to: 0.5, action: "잠깐 회전" }];
+bad.beats[2].narration = "그래서 비주얼 타이머는 남은 시간을 빨간 면적으로 보여 줍니다."; // 템플릿 위반
 
 const model = new MockLanguageModelV4({
-  doGenerate: [reply(mindmap), reply(scores), reply(pairs), reply({ scenarios: [bad] }, 3000, 2000), reply({ scenarios: [good] }, 3500, 2200)],
+  doGenerate: [reply(mindmap), reply(scores), reply({ scenarios: [bad] }, 3000, 1000), reply({ scenarios: [good] }, 3500, 1200)],
 });
 const run = await generateScenarios(input, { model, modelId: "claude-opus-5-5", ideaModelId: "claude-opus-5-5", log: (m) => console.log(m) });
 
-assert.equal(run.steps.length, 5, "아이디어 3단계 + 시나리오 2회");
+assert.equal(run.steps.length, 4, "아이디어 2단계(씨앗·채점) + 시나리오 2회");
 assert.equal(run.attempts, 2);
 assert.equal(run.checks[0].errors.length, 0, JSON.stringify(run.checks[0]));
-const retryPrompt = JSON.stringify(model.doGenerateCalls[4].prompt);
-assert.ok(retryPrompt.includes("움직임"), "재시도 프롬프트에 3D 움직임 위반이 들어가야 함");
-assert.ok(JSON.stringify(model.doGenerateCalls[3].prompt).includes("꿀벌 춤 각도"), "고른 경로가 시나리오 프롬프트에 들어가야 함");
+assert.ok(JSON.stringify(model.doGenerateCalls[3].prompt).includes("템플릿"), "재시도 프롬프트에 템플릿 위반이 들어가야 함");
+const scenarioPrompt = JSON.stringify(model.doGenerateCalls[2].prompt);
+assert.ok(scenarioPrompt.includes(SEED), "조건 통과 씨앗이 후보로 들어가야 함");
+assert.ok(!scenarioPrompt.includes("뽀모도로 창시자"), "용도 영역 씨앗은 후보에서 빠져야 함");
 const s = run.response.scenarios[0];
-// 점수가 같으면 짧은 경로(브리지 1개)가 먼저 → 장면 3개와 맞는다
-assert.deepEqual(s.ad_spec.bridge_path.map((n) => n.word), ["꿀벌 춤 각도", "원 360도"], "경로 값은 검색 결과로 덮어써야 함");
-assert.equal(s.ad_spec.hook_similarity_score, 0.45);
-assert.equal(s.ad_spec.adjacent_min_sim, 0.74);
+assert.equal(s.ad_spec.story_seed, SEED);
+assert.equal(s.ad_spec.hook_similarity_score, 0.45, "발단 유사도는 검색 점수로");
+assert.equal(s.ad_spec.bridge_path[0].sim_to_anchor, 0.45);
 assert.equal(s.ad_spec.anchor, mindmap.anchor);
-// 비용: 입력 1000*3+3000+3500=9500, 출력 500*3+2000+2200=5700 → 9500*4/1e6 + 5700*20/1e6 = 0.152
-assert.equal(run.total.inputTokens, 9500);
-assert.equal(run.total.outputTokens, 5700);
-assert.ok(Math.abs(run.total.costUsd - 0.152) < 1e-9, `cost ${run.total.costUsd}`);
+assert.equal(run.seedCandidates?.length, 1);
+// 비용: 입력 1000*2+3000+3500=8500, 출력 500*2+1000+1200=3200 → 8500*4/1e6 + 3200*20/1e6 = 0.098
+assert.equal(run.total.inputTokens, 8500);
+assert.equal(run.total.outputTokens, 3200);
+assert.ok(Math.abs(run.total.costUsd - 0.098) < 1e-9, `cost ${run.total.costUsd}`);
+
+assert.equal(run.ideationSource, "new");
+
+// 검색 재사용: 저장된 검색을 주면 아이디어 호출 없이 시나리오만 (앵커 그대로)
+{
+  const m2 = new MockLanguageModelV4({ doGenerate: [reply({ scenarios: [good] }, 3000, 1000)] });
+  const r2 = await generateScenarios({ ...input, round: 2 }, { model: m2, modelId: "claude-opus-5-5", pool: run.ideation });
+  assert.equal(r2.ideationSource, "reused");
+  assert.equal(m2.doGenerateCalls.length, 1, "재사용이면 시나리오 호출 1번뿐");
+  assert.ok(r2.steps[0].step.includes("재사용") && r2.steps[0].costUsd === 0);
+  assert.equal(r2.response.scenarios[0].ad_spec.anchor, mindmap.anchor, "앵커 고정");
+}
+// 씨앗이 떨어지면 추가 검색: 앵커·용도 영역은 처음 것 그대로
+{
+  const NEW = "에라토스테네스 그림자 7.2도로 지구 둘레 계산";
+  const m3 = new MockLanguageModelV4({
+    doGenerate: [
+      reply({ ...mindmap, anchor: "모델이 새로 쓴 앵커", seeds: [{ lens: "nature", word: NEW, arc: "그림자 각도 → 부채꼴 비율" }] }),
+      reply({ scores: [{ word: NEW, info: 0.8, sim: 0.5, usage: 0.1, link: 0.85 }] }),
+      reply({ scenarios: [{ ...good, ad_spec: { ...good.ad_spec, story_seed: NEW } }] }),
+    ],
+  });
+  const usedPrev = { ...good, ad_spec: { ...good.ad_spec, story_seed: SEED } };
+  const r3 = await generateScenarios({ ...input, round: 3, previous_scenarios: [usedPrev] }, { model: m3, modelId: "claude-opus-5-5", pool: run.ideation });
+  assert.equal(r3.ideationSource, "expanded");
+  assert.ok(JSON.stringify(m3.doGenerateCalls[0].prompt).includes("[고정]"), "추가 검색 프롬프트에 고정 앵커");
+  assert.equal(r3.ideation?.anchor, mindmap.anchor, "추가 검색해도 앵커는 처음 것");
+  assert.equal(r3.ideation?.seeds.length, 3, "씨앗 누적");
+  assert.equal(r3.response.scenarios[0].ad_spec.story_seed, NEW);
+  assert.equal(r3.response.scenarios[0].ad_spec.anchor, mindmap.anchor);
+}
+console.log("OK 검색 재사용·추가 검색(앵커 고정)");
+
+// 이야기 유사도: 발단 = 첫 전개는 통과(정체), 전체가 안 오르면 위반
+{
+  const flat = structuredClone(good);
+  flat.ad_spec.bridge_path = [{ word: "발단", sim_to_anchor: 0.55 }, { word: "전개1", sim_to_anchor: 0.55 }, { word: "전개2", sim_to_anchor: 0.8 }];
+  flat.beats.splice(2, 0, { ...good.beats[1], order: 3 });
+  flat.beats[3].order = 4;
+  flat.ad_spec.product_first_mention_beat = 4;
+  flat.beats[2].duration_sec = 3; // 합계 맞춤
+  flat.hook_duration_sec = 20;
+  const e1 = checkScenario(flat as never, input.product_info).errors;
+  assert.ok(!e1.some((e) => e.includes("다가가지")), "발단·첫 전개 같은 값은 통과: " + e1.join(" / "));
+  const noRise = structuredClone(good);
+  noRise.ad_spec.bridge_path = [{ word: "발단", sim_to_anchor: 0.55 }, { word: "전개", sim_to_anchor: 0.6 }];
+  assert.ok(checkScenario(noRise as never, input.product_info).errors.some((e) => e.includes("다가가지")), "0.1 미만 상승은 위반");
+}
 
 const plan = toPipelinePlan(s);
 assert.equal(plan.scenes.length, 3);
-assert.equal(plan.scenes[1].counter?.to, 360);
-assert.ok(plan.scenes[0].visual.includes("MOTION") && plan.scenes[0].say.endsWith("합니다."));
-assert.equal(plan.hookSeconds, 12);
+assert.equal(plan.hookSeconds, 17);
+
+// 템플릿: 질문형 시작은 위반, 반전이 "그래서 ~뭐냐고요?"로 안 끝나면 위반
+{
+  const q = structuredClone(good);
+  q.beats[0].narration = "나이팅게일이 그래프를 그렸다는 사실, 알고 계셨나요?";
+  assert.ok(checkScenario(q as never, input.product_info).errors.some((e) => e.includes("질문형")), "질문형 시작은 위반");
+  assert.ok(checkScenario(bad as never, input.product_info).errors.some((e) => e.includes("템플릿")), "반전 템플릿 위반");
+}
+
+// 길이 15~20초: 14초·21초는 위반, 15·20초는 통과
+for (const [sec, ok] of [[14, false], [15, true], [20, true], [21, false]] as const) {
+  const d = structuredClone(good);
+  d.hook_duration_sec = sec;
+  d.beats[2].duration_sec = sec - 10;
+  const hit = checkScenario(d as never, input.product_info).errors.some((e) => e.includes("hook_duration_sec"));
+  assert.equal(hit, !ok, `${sec}초 판정`);
+}
 
 const run2 = { ...run, response: { ...run.response, round: 2 }, createdAt: new Date().toISOString() };
 const html = renderReport([run, run2], input.product_info.name);
 assert.equal((html.match(/<details class="round"/g) ?? []).length, 2, "회차 2개");
 assert.equal((html.match(/<details class="round" open>/g) ?? []).length, 1, "최신 회차만 펼침");
 assert.ok(html.indexOf("2회차") < html.indexOf("1회차"), "최신 회차가 위");
-assert.ok(html.includes("$0.152") && html.includes("3D 장면 명세") && html.includes("유사도 검색"));
+assert.ok(html.includes("$0.098") && html.includes("이야기 씨앗") && html.includes(SEED));
 if (process.env.MOCK_REPORT) (await import("node:fs")).writeFileSync(process.env.MOCK_REPORT, html);
-console.log("OK mock-run: 아이디어 → 경로 → 재시도 → 비용 → pipeline plan → 리포트");
+console.log("OK mock-run: 씨앗 → 후보 → 재시도 → 비용 → pipeline plan → 리포트");
+
+// 제품 조사 합치기: 빈 칸만 채우고, 리뷰·기타 출처는 사실 목록에서 뺀다
+{
+  const { mergeResearch, researchWarnings } = await import("../src/research.js");
+  const r = {
+    found: { official_name: "테스트 타이머 T1", brand: "테스트", main_url: "https://example.com/t1", confidence: 0.6, ambiguity: "같은 이름의 앱이 있음" },
+    short_name: "비주얼 타이머", category: "문구", one_liner: "남은 시간을 빨간 면적으로 보여 주는 타이머",
+    facts: [
+      { fact: "60분 다이얼", source_url: "https://example.com/t1", source_type: "공식" as const },
+      { fact: "소리가 조용하다", source_url: "https://blog.example.com", source_type: "리뷰·기타" as const },
+    ],
+    appearance: { shape: "정사각 판 + 원형 다이얼", colors: "흰색, 빨강", parts: "가운데 손잡이", size: "", source_url: "https://example.com/t1" },
+    usage: "공부·업무 시간 관리", query: "테스트 타이머", searches: 3, at: "2026-11-26T00:00:00Z",
+  };
+  const filled = mergeResearch({ name: "테스트 타이머", verified_facts: [] }, r);
+  assert.equal(filled.category, "문구");
+  assert.ok(filled.verified_facts.includes("60분 다이얼"));
+  assert.ok(!filled.verified_facts.includes("소리가 조용하다"), "리뷰 출처는 뺀다");
+  assert.ok(filled.verified_facts.some((f) => f.startsWith("생김새:")), "생김새 한 줄");
+  const kept = mergeResearch({ name: "x", category: "주방", verified_facts: ["백엔드 사실"] }, r);
+  assert.deepEqual(kept.verified_facts, ["백엔드 사실"]);
+  assert.equal(kept.category, "주방");
+  assert.equal(researchWarnings(r).length, 3, "확신 낮음·동명 제품·출처 부족");
+  console.log("OK 제품 조사 합치기");
+}
