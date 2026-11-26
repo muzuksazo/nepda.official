@@ -7,10 +7,11 @@ import os
 import sys
 import time
 
-from .assets import fetch_all
+from . import veo
+from .assets import assets_dir, fetch_all
 from .check import check_scenario
 from .generate import generate_scenarios
-from .render import RenderError, render_hook, storyboard
+from .render import RenderError, first_frame, render_hook, storyboard
 from .schema import InputError, parse_worker_input
 from .tts import TtsError
 
@@ -24,8 +25,12 @@ USAGE = """사용법 (backend/bridge-dev/c 에서):
       이미 있는 시나리오 응답(직접 쓴 것, 백엔드에 저장된 것)을 회차 기록으로 가져온다. API 호출 없음.
   python -m src.cli storyboard <project_id> <scenario_id>
       장면별 콘티 이미지 생성 (FR-004).
-  python -m src.cli hook <project_id> <scenario_id> [--voice ID] [--no-tts] [--hook-id ID]
-      훅 영상 + TTS 생성 (FR-005). Inworld TTS 호출(과금), 문제 장면 템플릿이 있으면 Blender 렌더.
+  python -m src.cli hook <project_id> <scenario_id> [--voice ID] [--no-tts] [--hook-id ID] [--engine auto|veo|blender]
+      훅 영상 + TTS 생성 (FR-005). Inworld TTS 호출(과금).
+      문제 장면: Blender 가 첫 프레임을 렌더하고 Google Veo(Vertex AI, 과금)가 영상으로 만든다.
+      GOOGLE_CLOUD_PROJECT 가 없으면 Blender 물리 렌더만으로 만든다.
+  python -m src.cli veo [템플릿] [--generate] [--seconds N]
+      Google Cloud 설정·인증 확인. --generate 를 붙이면 문제 장면 한 편을 실제로 생성한다 (과금).
   python -m src.cli assets
       문제 장면에 쓰는 무료(CC0) 3D 에셋 내려받기 (약 100MB, 한 번만).
 
@@ -166,15 +171,38 @@ def main() -> int:
         out_dir = output_dir(args[1], hook_id)
         started = time.time()
         tts = {"enabled": not has("--no-tts"), "voice": arg("--voice")}
+        if arg("--engine"):
+            assets = {**assets, "problem_engine": arg("--engine")}
         try:
             files = render_hook(scenario, assets, out_dir, tts=tts, log=log)
-            status = {"hook_id": hook_id, "status": "done", "files": files, "output_dir": out_dir.replace("\\", "/"), "error": None}
+            engine = files.pop("problem_engine", None)
+            status = {"hook_id": hook_id, "status": "done", "files": files, "output_dir": out_dir.replace("\\", "/"),
+                      "problem_engine": engine, "error": None}
         except (RenderError, TtsError) as e:
             status = {"hook_id": hook_id, "status": "failed", "files": {"storyboard_images": []}, "output_dir": out_dir.replace("\\", "/"),
                       "error": {"code": "HOOK_RENDER_FAILED", "message": str(e)}}
         print(json.dumps(status, ensure_ascii=False, indent=2))
         log(f"⏱ {time.time() - started:.0f}초")
         return 0 if status["status"] == "done" else 1
+
+    if cmd == "veo":
+        template = args[1] if len(args) > 1 else "spill_diffuser"
+        print(f"프로젝트: {veo.project() or '(GOOGLE_CLOUD_PROJECT 없음)'}  지역: {veo.location()}  모델: {veo.model()}")
+        try:
+            if not veo.configured():
+                raise veo.VeoError("GOOGLE_CLOUD_PROJECT 가 없습니다. c/.env 에 Google Cloud 프로젝트 ID 를 넣으세요.")
+            veo.access_token()
+            print("인증: 통과 (액세스 토큰 발급됨)")
+            if not has("--generate"):
+                print("여기까지는 과금이 없습니다. 실제로 한 편 만들어 보려면 --generate 를 붙이세요 (과금).")
+                return 0
+            seconds = float(arg("--seconds") or 3)
+            clip = veo.generate(template, first_frame(template, log), os.path.join(assets_dir(), "cache", "veo"), seconds, log=log)
+            print(f"생성됨: {clip}")
+            return 0
+        except veo.VeoError as e:
+            log(str(e))
+            return 1
 
     print(USAGE)
     return 1

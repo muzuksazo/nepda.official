@@ -1,7 +1,10 @@
 """FR-004 콘티 이미지와 FR-005 훅 영상(+TTS) 만들기.
 
 장면별 화면 소재:
-  - 문제 장면(첫 장면): assets.problem_template 이 있으면 Blender 로 만든 생성 영상, 없으면 다음 소재로.
+  - 문제 장면(첫 장면): assets.problem_template 이 있으면 생성 영상, 없으면 다음 소재로.
+      engine "veo"     Blender 가 렌더한 첫 프레임 → Google Veo(Vertex AI)가 영상으로 생성 (veo.py)
+      engine "blender" Blender 물리 시뮬레이션을 전 프레임 렌더
+      engine "auto"    GOOGLE_CLOUD_PROJECT 가 있으면 veo, 없거나 실패하면 blender (기본)
   - 그 밖의 장면: assets.product_footage(실물 제품 영상)를 장면 길이 비율로 나눠 이어 쓴다. 증명은 실물만 보여 준다.
   - 소재가 없으면 자막만 있는 단색 카드.
 필요한 프로그램: ffmpeg(자막 번인용 libass 포함), 문제 장면 템플릿을 쓸 때는 Blender 4.2 이상.
@@ -17,6 +20,7 @@ import sys
 from typing import Callable
 
 from . import tts as tts_mod
+from . import veo
 from .assets import assets_dir
 
 FPS = 24
@@ -85,10 +89,57 @@ def problem_frames(template: str, log: Callable[[str], None] = print) -> str:
     return out
 
 
+def first_frame(template: str, log: Callable[[str], None] = print) -> str:
+    """문제 장면의 첫 프레임(Veo 의 시작 이미지). 전체 렌더가 이미 있으면 그 1번 프레임을 쓰고, 없으면 한 장만 렌더한다."""
+    if template not in TEMPLATES:
+        raise RenderError(f"모르는 문제 장면 템플릿: {template} (사용 가능: {', '.join(TEMPLATES)})")
+    full = os.path.join(assets_dir(), "cache", template, "p_0001.jpg")
+    if os.path.exists(full) and os.path.getsize(full) > 10000:
+        return full
+    out = os.path.join(assets_dir(), "cache", template + "_first")
+    path = os.path.join(out, "p_0001.jpg")
+    if not (os.path.exists(path) and os.path.getsize(path) > 10000):
+        log(f"Blender 로 문제 장면 '{template}' 의 첫 프레임 렌더 중…")
+        shutil.rmtree(out, ignore_errors=True)
+        os.makedirs(out, exist_ok=True)
+        _run([_blender(), "-b", "-P", TEMPLATES[template]["script"], "--", out, assets_dir(), os.environ.get("C_RENDER_PERCENT", "100"), "1", "1"])
+        if not os.path.exists(path):
+            raise RenderError("문제 장면 첫 프레임 렌더에 실패했습니다.")
+    return path
+
+
+def problem_engine(assets: dict) -> str:
+    engine = str(assets.get("problem_engine") or os.environ.get("C_PROBLEM_ENGINE") or "auto").strip().lower()
+    if engine not in ("auto", "veo", "blender"):
+        raise RenderError(f"problem_engine 은 auto · veo · blender 중 하나여야 합니다: {engine}")
+    return engine
+
+
+def problem_source(src: dict, seconds: float, log: Callable[[str], None] = print, *, generate: bool = True) -> dict:
+    """문제 장면에 실제로 쓸 소재를 정한다 → {"kind": "clip", "path"} (Veo) 또는 {"kind": "frames", "dir"} (Blender).
+
+    generate=False 면 과금되는 Veo 호출을 하지 않고, 이미 만든 영상이 있을 때만 그것을 쓴다 (콘티용).
+    """
+    template, engine = src["template"], src["engine"]
+    if engine == "veo" or (engine == "auto" and veo.configured()):
+        cache = os.path.join(assets_dir(), "cache", "veo")
+        try:
+            image = first_frame(template, log)
+            clip = veo.generate(template, image, cache, seconds, log=log) if generate else veo.cached(cache, template, image, seconds)
+            if clip:
+                return {"kind": "clip", "path": clip, "engine": f"veo:{veo.model()}"}
+        except veo.VeoError as e:
+            if engine == "veo":
+                raise RenderError(str(e)) from e
+            log(f"  Veo 를 쓰지 못해 Blender 렌더로 대신합니다: {e}")
+    return {"kind": "frames", "dir": problem_frames(template, log), "engine": "blender"}
+
+
 def plan_sources(scenario: dict, assets: dict) -> list[dict]:
     """장면마다 무엇을 화면에 쓸지 정한다."""
     beats = scenario["beats"]
     template = assets.get("problem_template")
+    engine = problem_engine(assets)
     footage = assets.get("product_footage")
     footage = os.path.abspath(footage) if footage else None
     if footage and not os.path.exists(footage):
@@ -97,7 +148,7 @@ def plan_sources(scenario: dict, assets: dict) -> list[dict]:
     footage_beats = []
     for i, b in enumerate(beats):
         if i == 0 and template:
-            plan.append({"kind": "template", "template": template})
+            plan.append({"kind": "template", "template": template, "engine": engine})
         elif footage:
             plan.append({"kind": "footage", "path": footage})
             footage_beats.append(i)
@@ -120,9 +171,17 @@ def _segment(index: int, beat: dict, src: dict, inputs: list[str], filters: list
     pad = f"tpad=stop_mode=clone:stop_duration={beat['duration_sec'] + 1:.2f},trim=end_frame={n},setpts=PTS-STARTPTS,setsar=1,format=yuv420p"
     k = len(inputs_index(inputs))
     if src["kind"] == "template":
-        frames = problem_frames(src["template"], log)
-        inputs += ["-framerate", str(FPS), "-start_number", "1", "-i", os.path.join(frames, "p_%04d.jpg")]
-        filters.append(f"[{k}:v]scale={W}:{H}:flags=lanczos,eq=saturation=1.1:brightness=0.02,noise=alls=3:allf=t,{pad}[s{index}]")
+        got = problem_source(src, beat["duration_sec"], log)
+        src["resolved"] = got
+        if got["kind"] == "clip":
+            # Veo 는 4·6·8초로만 나온다. 장면보다 길면 동작이 잘리지 않게 빠르게 돌려 맞춘다 (최대 1.6배속, 그 이상은 뒤를 자른다).
+            speed = max(1.0, min(1.6, _duration(got["path"]) / beat["duration_sec"]))
+            inputs += ["-i", got["path"]]
+            filters.append(f"[{k}:v]setpts=(PTS-STARTPTS)/{speed:.3f},fps={FPS},"
+                           f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H},{pad}[s{index}]")
+        else:
+            inputs += ["-framerate", str(FPS), "-start_number", "1", "-i", os.path.join(got["dir"], "p_%04d.jpg")]
+            filters.append(f"[{k}:v]scale={W}:{H}:flags=lanczos,eq=saturation=1.1:brightness=0.02,noise=alls=3:allf=t,{pad}[s{index}]")
     elif src["kind"] == "footage":
         inputs += ["-ss", str(src["start"]), "-t", f"{beat['duration_sec'] + 1:.2f}", "-i", src["path"]]
         zoom = f"crop=iw/{src['zoom']}:ih/{src['zoom']}," if src["zoom"] != 1.0 else ""
@@ -192,10 +251,15 @@ def storyboard(scenario: dict, assets: dict, out_dir: str, log: Callable[[str], 
         ass = _ass_head() + f"Dialogue: 0,{_ts(0)},{_ts(10)},Big,,0,0,0,,{{\\pos({W // 2},1340)\\fs84}}" + beat["caption"].replace("\n", "\\N") + "\n"
         open(os.path.join(out_dir, "_sb.ass"), "w", encoding="utf-8").write(ass)
         if src["kind"] == "template":
-            spec = TEMPLATES[src["template"]]
-            frame_no = min(spec["frames"], int(beat["duration_sec"] * FPS * 0.75) + 1)
-            inp = ["-i", os.path.join(problem_frames(src["template"], log), f"p_{frame_no:04d}.jpg")]
-            pre = f"scale={W}:{H}:flags=lanczos"
+            got = problem_source(src, beat["duration_sec"], log, generate=False)      # 콘티는 과금 호출을 하지 않는다
+            if got["kind"] == "clip":
+                inp = ["-ss", f"{_duration(got['path']) * 0.75:.2f}", "-i", got["path"]]
+                pre = f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H}"
+            else:
+                spec = TEMPLATES[src["template"]]
+                frame_no = min(spec["frames"], int(beat["duration_sec"] * FPS * 0.75) + 1)
+                inp = ["-i", os.path.join(got["dir"], f"p_{frame_no:04d}.jpg")]
+                pre = f"scale={W}:{H}:flags=lanczos"
         elif src["kind"] == "footage":
             inp = ["-ss", f"{src['start'] + beat['duration_sec'] * src['speed'] * 0.5:.2f}", "-i", src["path"]]
             pre = f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H}"
@@ -296,7 +360,9 @@ def render_hook(scenario: dict, assets: dict, out_dir: str, *, tts: dict | None 
     # 3) 배경음(합성): 문제 장면이 끝난 뒤 잔잔한 패드, 쓰러지는 순간 쿵, 전환 휙, CTA 차임
     t1 = beats[0]["duration_sec"]
     cta_at = next((s for b, s in zip(beats, starts) if "CTA" in b["role"].upper()), max(0.0, total - 4))
-    thud = TEMPLATES[plan[0]["template"]]["impact_sec"] if plan[0]["kind"] == "template" else None
+    resolved = plan[0].get("resolved") or {}
+    # 쿵 소리는 쓰러지는 시점을 아는 Blender 렌더에만 넣는다. Veo 영상은 그 시점이 매번 다르다.
+    thud = TEMPLATES[plan[0]["template"]]["impact_sec"] if resolved.get("kind") == "frames" else None
     pad = ("aevalsrc='0.10*sin(2*PI*146.83*t)+0.07*sin(2*PI*220*t)+0.05*sin(2*PI*277.18*t)"
            "+0.045*sin(2*PI*329.63*t)*(0.6+0.4*sin(2*PI*0.11*t))+0.03*sin(2*PI*440*t)*(0.5+0.5*sin(2*PI*0.07*t+1))':s=48000:d=40,"
            f"aecho=0.8:0.7:90|180:0.35|0.25,lowpass=f=2200,afade=t=in:st={max(0.0, t1 - 0.2):.2f}:d=1.2,volume=0.26")
@@ -332,4 +398,5 @@ def render_hook(scenario: dict, assets: dict, out_dir: str, *, tts: dict | None 
         "subtitles_srt": rel(os.path.join(out_dir, "hook.srt")),
         "scenario_json": rel(os.path.join(out_dir, "scenario.json")),
         "storyboard_images": [f["image_url"] for f in frames],
+        "problem_engine": resolved.get("engine"),      # 문제 장면을 만든 쪽: "veo:<모델>" · "blender" · None(생성 장면 없음)
     }

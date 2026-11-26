@@ -82,5 +82,59 @@ with tempfile.TemporaryDirectory() as d:
 expect("SRT 는 장면당 한 개", srt.count("-->") == len(scenarios[0]["beats"]))
 expect("SRT 첫 장면은 0초부터", "00:00:00,000 --> 00:00:03,000" in srt, srt[:80])
 
+print("6. Veo 문제 장면 (가짜 응답, 과금 없음)")
+import base64  # noqa: E402
+
+from src import veo  # noqa: E402
+
+calls: list[tuple[str, dict]] = []
+fake_mp4 = b"\x00" * 20000
+
+
+def fake_post(url: str, body: dict, token: str) -> dict:
+    calls.append((url, body))
+    if url.endswith(":predictLongRunning"):
+        return {"name": "projects/p/locations/us-central1/publishers/google/models/m/operations/op1"}
+    done = sum(1 for u, _ in calls if u.endswith(":fetchPredictOperation")) >= 2
+    return {"name": body["operationName"], "done": True,
+            "response": {"videos": [{"bytesBase64Encoded": base64.b64encode(fake_mp4).decode(), "mimeType": "video/mp4"}]}} if done \
+        else {"name": body["operationName"]}
+
+
+saved = {k: os.environ.get(k) for k in ("GOOGLE_CLOUD_PROJECT", "GOOGLE_ACCESS_TOKEN", "GOOGLE_CLOUD_LOCATION", "C_VEO_MODEL")}
+real_post = veo._post
+with tempfile.TemporaryDirectory() as d:
+    image = os.path.join(d, "first.jpg")
+    open(image, "wb").write(b"\xff\xd8fake-jpeg")
+    os.environ.pop("GOOGLE_CLOUD_PROJECT", None)
+    expect("프로젝트가 없으면 꺼져 있다", not veo.configured())
+    os.environ.update({"GOOGLE_CLOUD_PROJECT": "demo-project", "GOOGLE_ACCESS_TOKEN": "test-token"})
+    os.environ.pop("GOOGLE_CLOUD_LOCATION", None)
+    os.environ.pop("C_VEO_MODEL", None)
+    veo._post = fake_post
+    try:
+        clip = veo.generate("spill_diffuser", image, os.path.join(d, "cache"), 3.0, log=lambda m: None, poll_sec=0)
+        url, body = calls[0]
+        expect("Vertex AI 주소", url == "https://us-central1-aiplatform.googleapis.com/v1/projects/demo-project/locations/us-central1"
+                                    "/publishers/google/models/veo-3.1-fast-generate-001:predictLongRunning", url)
+        expect("첫 프레임 이미지를 보낸다", body["instances"][0]["image"]["mimeType"] == "image/jpeg"
+               and base64.b64decode(body["instances"][0]["image"]["bytesBase64Encoded"]) == b"\xff\xd8fake-jpeg")
+        expect("3초 장면은 4초·세로로 요청", body["parameters"]["durationSeconds"] == 4 and body["parameters"]["aspectRatio"] == "9:16")
+        expect("끝날 때까지 기다렸다 저장한다", open(clip, "rb").read() == fake_mp4 and len(calls) == 3, str(len(calls)))
+        veo.generate("spill_diffuser", image, os.path.join(d, "cache"), 3.0, log=lambda m: None, poll_sec=0)
+        expect("같은 요청은 캐시를 쓴다 (재과금 없음)", len(calls) == 3, str(len(calls)))
+        veo._post = lambda url, body, token: {"name": "op2", "done": True, "response": {"raiMediaFilteredCount": 1,
+                                                                                         "raiMediaFilteredReasons": ["blocked"]}}
+        try:
+            veo.generate("spill_diffuser", image, os.path.join(d, "cache2"), 3.0, log=lambda m: None, poll_sec=0)
+            expect("안전 필터에 걸리면 오류", False)
+        except veo.VeoError as e:
+            expect("안전 필터에 걸리면 오류", "blocked" in str(e), str(e))
+    finally:
+        veo._post = real_post
+        for k, v in saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+expect("장면 길이 → Veo 길이", [veo.pick_duration(x) for x in (3, 4, 4.5, 7, 12)] == [4, 4, 6, 8, 8])
+
 print(f"\n{'모두 통과' if not failures else '실패 ' + str(len(failures)) + '건: ' + ', '.join(failures)}")
 sys.exit(1 if failures else 0)

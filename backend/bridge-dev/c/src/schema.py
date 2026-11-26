@@ -46,6 +46,7 @@ def parse_worker_input(data: dict) -> dict:
         "assets": {
             "product_footage": assets.get("product_footage"),      # 실물 제품 영상 경로 (증명 장면에 사용)
             "problem_template": assets.get("problem_template"),    # 생성 문제 장면 템플릿 이름 (예: spill_diffuser)
+            "problem_engine": assets.get("problem_engine"),        # auto(기본) · veo(Blender 첫 프레임 → Google Veo) · blender
         },
     }
 

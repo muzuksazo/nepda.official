@@ -65,14 +65,15 @@ OUTPUT_DIR/{project_id}/{hook_id}/
 
 ## C 작업자 코드 (FR-003 · FR-004 · FR-005, 로컬 실행)
 
-시나리오 생성, 콘티 이미지, 훅 영상 + TTS 까지 구현되어 있습니다. Python 표준 라이브러리로 돌고, 시나리오 생성에만 `anthropic` 패키지를 씁니다.
+시나리오 생성, 콘티 이미지, 훅 영상 + TTS 까지 구현되어 있습니다. Python 표준 라이브러리로 돌고, 시나리오 생성에 `anthropic`, Google Cloud 인증에 `google-auth` 패키지를 씁니다.
 
 ```text
 1. 시나리오 (src/generate.py) — Claude 로 C 규칙에 맞는 시나리오 count 개 생성
    → 규칙 검사 (src/check.py). 위반이 있으면 위반 내용을 붙여 한 번 더 생성
 2. 콘티 (src/render.py: storyboard) — 장면마다 대표 화면 한 장에 자막을 얹어 저장
 3. 훅 (src/render.py: render_hook)
-   화면: 문제 장면 = Blender 로 만든 생성 영상 / 나머지 장면 = 실물 제품 영상 (증명은 실물만)
+   화면: 문제 장면 = 생성 영상 (Blender 가 첫 프레임을 렌더 → Google Veo 가 영상으로 생성)
+         나머지 장면 = 실물 제품 영상 (증명은 실물만)
    음성: Inworld TTS, 단어별 타임스탬프로 화면 자막을 2어절 안팎씩 끊어 맞춤
    합성: ffmpeg (자막 번인, 배경음·효과음, "AI 연출 포함" 배지)
    → hook.mp4 · tts.mp3 · hook.srt · scenario.json · storyboard_NN.png
@@ -87,6 +88,7 @@ OUTPUT_DIR/{project_id}/{hook_id}/
 | `src/render.py` | `storyboard(scenario, assets, out_dir)` (FR-004), `render_hook(scenario, assets, out_dir, tts=…)` (FR-005) |
 | `src/tts.py` | Inworld TTS 호출과 캐시 |
 | `src/blender_scene.py` | 문제 장면 템플릿 `spill_diffuser` (Blender 안에서 실행: 강체 물리, 흐르는 액체, 손) |
+| `src/veo.py` | 문제 장면 생성 영상: Blender 첫 프레임 → Google Veo (Vertex AI REST, 이미지→영상), 결과 캐시 |
 | `src/assets.py` | 문제 장면용 무료(CC0) 에셋 내려받기 |
 | `src/cli.py` | 명령줄 실행 |
 | `test/mock_run.py` | API·Blender·ffmpeg 없이 도는 흐름 확인 |
@@ -105,8 +107,26 @@ python -m src.cli assets                                             # 문제 �
 python -m src.cli scenarios examples/piev/01_worker-input.scenarios.json          # 1회차 생성 (Claude API 과금)
 python -m src.cli scenarios examples/piev/01_worker-input.scenarios.json --next   # 다음 회차 (앞선 소재 제외)
 python -m src.cli storyboard proj_piev01 <scenario_id>                            # 콘티 이미지
-python -m src.cli hook proj_piev01 <scenario_id>                                  # 훅 영상 + TTS (Inworld 과금)
+python -m src.cli veo                                                             # Google Cloud 설정·인증 확인 (과금 없음)
+python -m src.cli hook proj_piev01 <scenario_id>                                  # 훅 영상 + TTS (Inworld·Veo 과금)
 ```
+
+### 문제 장면: Blender + Google Veo
+
+문제 장면은 두 단계로 만듭니다. Blender 가 장면(테이블, 디퓨저, 조명, 카메라 구도)의 첫 프레임을 렌더하고, 그 이미지를 Vertex AI 의 Veo 에 넘겨 같은 구도에서 손이 병을 쳐서 쏟는 영상을 받습니다. 구도와 소품은 Blender 가 정하고 움직임과 질감은 Veo 가 만듭니다.
+
+| 설정 | 내용 |
+| --- | --- |
+| `GOOGLE_CLOUD_PROJECT` | Google Cloud 프로젝트 ID. 결제 계정 연결과 Vertex AI API 사용 설정이 필요합니다 |
+| 인증 | 서비스 계정 키 경로를 `GOOGLE_APPLICATION_CREDENTIALS` 에 넣거나 `gcloud auth application-default login` |
+| `C_VEO_MODEL` | 기본 `veo-3.1-fast-generate-001`. 품질 우선이면 `veo-3.1-generate-001` |
+| `C_PROBLEM_ENGINE` | `auto`(기본) · `veo` · `blender`. 입력의 `assets.problem_engine` 이나 `hook --engine` 으로도 정합니다 |
+
+- `auto` 는 `GOOGLE_CLOUD_PROJECT` 가 있으면 Veo 를 쓰고, 없거나 호출이 실패하면 Blender 물리 렌더(전 프레임)로 대신합니다. `veo` 는 실패하면 오류로 끝납니다. 어느 쪽으로 만들었는지는 `hook` 결과의 `problem_engine` 에 나옵니다.
+- Veo 는 4·6·8초로만 생성하므로 장면 길이를 덮는 가장 짧은 길이로 요청하고(3초 장면 → 4초) 장면 길이에 맞춰 빠르게 돌립니다. 초 단위로 과금됩니다.
+- 같은 첫 프레임·프롬프트·설정이면 `assets/cache/veo/` 의 영상을 다시 쓰므로 두 번 과금되지 않습니다. 새로 뽑으려면 그 파일을 지우세요.
+- `storyboard` 명령은 Veo 를 부르지 않습니다. 만들어 둔 영상이 있으면 그 화면을, 없으면 Blender 프레임을 씁니다.
+- `python -m src.cli veo --generate` 는 문제 장면 한 편만 실제로 생성해 봅니다 (과금).
 
 키 없이 끝까지 확인하려면 `scenarios … --offline`(사실 문장으로 만든 초안) 또는 `import examples/piev/02_scenarios.response.json --input examples/piev/01_worker-input.scenarios.json`(직접 쓴 시나리오 가져오기)을 쓰고, 훅은 `--no-tts` 로 실행합니다.
 
@@ -118,6 +138,7 @@ python -m src.cli hook proj_piev01 <scenario_id>                                
 | --- | --- |
 | `assets.product_footage` | 실물 제품 영상 경로. 둘째 장면부터 장면 길이 비율로 나눠 이어 씁니다. 길이가 모자라면 0.85배속까지 늘리고 나머지는 정지 화면 |
 | `assets.problem_template` | 첫 장면(문제)에 쓸 생성 영상 템플릿. 지금은 `spill_diffuser`(손이 액체 디퓨저를 쳐서 쏟는 장면) 하나 |
+| `assets.problem_engine` | 문제 장면을 만드는 방법. `auto`(기본) · `veo` · `blender` |
 
 둘 다 없으면 자막만 있는 단색 카드로 만들어집니다. 화면에 띄우는 상황 라벨은 `ad_spec.pov_label` 에 들어갑니다.
 
