@@ -4,8 +4,10 @@ import type { ThemeSetting } from '../NapdaProvider';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
 import { setStorybookTheme } from '../storybook/themeGlobal';
 import type { NavTab } from '../components';
+import { ChargeResultScreen } from './ChargeResultScreen';
 import { CommunityScreen } from './CommunityScreen';
 import { CommunityViewerScreen } from './CommunityViewerScreen';
+import { CreditChargeScreen } from './CreditChargeScreen';
 import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
 import type { HookType } from './flowData';
@@ -18,6 +20,8 @@ import {
   SAMPLE_BANNERS,
   SAMPLE_COMMUNITY,
   SAMPLE_COMPLETED,
+  SAMPLE_CREDIT_PACKAGES,
+  SAMPLE_CREDITS_PER_VIDEO,
   SAMPLE_GUIDE_SCENES,
   SAMPLE_IN_PROGRESS,
   SAMPLE_STORYBOARD,
@@ -46,7 +50,12 @@ type Step =
   | 'guide'
   | 'upload'
   | 'review'
-  | 'thumbnail';
+  | 'thumbnail'
+  | 'charge'
+  | 'chargeResult';
+
+/** 충전 화면으로 들어온 곳 (충전이 끝나면 여기로 돌아간다) */
+type ChargeFrom = 'home' | 'profile' | 'upload';
 
 /** 버튼을 눌러 온보딩 → 홈 → 8단계 흐름을 끝까지 따라가 보는 클릭 프로토타입 */
 function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
@@ -57,6 +66,21 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
   const [communityType, setCommunityType] = useState<HookType | null>(null);
   const [viewerId, setViewerId] = useState<string>();
   const communityItems = filterCommunityByType(SAMPLE_COMMUNITY, communityType);
+  // 크레딧: 첫 영상은 무료, 그다음부터 영상 한 편에 SAMPLE_CREDITS_PER_VIDEO씩 쓴다.
+  // 잔액을 일부러 적게 잡아 두 번째 영상에서 "모자람 → 충전 → 다시 만들기"를 따라가 볼 수 있다
+  const [credits, setCredits] = useState(5);
+  const [hasFreeVideo, setHasFreeVideo] = useState(true);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [charge, setCharge] = useState<{ from: ChargeFrom; shortfall?: number; before: number; added: number; isDone: boolean }>({
+    from: 'home',
+    before: 0,
+    added: 0,
+    isDone: false,
+  });
+  const openCharge = (from: ChargeFrom, shortfall?: number) => {
+    setCharge({ from, shortfall, before: credits, added: 0, isDone: false });
+    setStep('charge');
+  };
   // 하단 내비게이션: 네 탭 모두 옮겨 간다
   const navigate = (tab: NavTab) => {
     if (tab === 'home') setStep('home');
@@ -75,7 +99,8 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
     case 'home':
       return (
         <HomeScreen
-          credits={120}
+          credits={credits}
+          onCreditClick={() => openCharge('home')}
           profile={{ name: SAMPLE_USER.name }}
           onProfileClick={() => setStep('profile')}
           onNavigate={navigate}
@@ -138,7 +163,9 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       return (
         <ProfileScreen
           user={SAMPLE_USER}
-          credits={120}
+          credits={credits}
+          hasFreeVideo={hasFreeVideo}
+          onChargeClick={() => openCharge('profile')}
           videoCounts={{ inProgress: SAMPLE_IN_PROGRESS.length, completed: completed.length }}
           retentionDays={7}
           themeMode={themeMode}
@@ -191,9 +218,52 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       return (
         <UploadVideoScreen
           hookType={hookType}
+          initialFile={uploadFile}
+          cost={SAMPLE_CREDITS_PER_VIDEO}
+          credits={credits}
+          isFreeVideo={hasFreeVideo}
           onBack={() => setStep('guide')}
           onReviewGuide={() => setStep('guide')}
-          onCreate={() => setStep('review')}
+          onCreate={() => {
+            if (hasFreeVideo) setHasFreeVideo(false);
+            else setCredits((value) => value - SAMPLE_CREDITS_PER_VIDEO);
+            setUploadFile(null);
+            setStep('review');
+          }}
+          onCharge={(file, shortfall) => {
+            // 충전하고 돌아오면 고른 영상이 그대로 남아 있게 들고 간다
+            setUploadFile(file);
+            openCharge('upload', shortfall);
+          }}
+        />
+      );
+    case 'charge':
+      return (
+        <CreditChargeScreen
+          credits={credits}
+          packages={SAMPLE_CREDIT_PACKAGES}
+          creditsPerVideo={SAMPLE_CREDITS_PER_VIDEO}
+          shortfall={charge.shortfall}
+          onBack={() => setStep(charge.from)}
+          onPay={(pkg) => {
+            // 결제창은 흉내만 낸다: 잠깐 "결제 확인 중"을 보여 준 뒤 잔액에 넣는다
+            setCharge((prev) => ({ ...prev, before: credits, added: pkg.credits, isDone: false }));
+            setStep('chargeResult');
+            window.setTimeout(() => {
+              setCredits((value) => value + pkg.credits);
+              setCharge((prev) => ({ ...prev, isDone: true }));
+            }, 1500);
+          }}
+        />
+      );
+    case 'chargeResult':
+      return (
+        <ChargeResultScreen
+          status={charge.isDone ? 'done' : 'confirming'}
+          before={charge.before}
+          added={charge.added}
+          isResumingVideo={charge.from === 'upload'}
+          onDone={() => setStep(charge.from)}
         />
       );
     case 'review':

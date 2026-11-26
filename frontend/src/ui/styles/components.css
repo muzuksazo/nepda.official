@@ -1710,6 +1710,258 @@ button.n-list-row:active {
   font-weight: 700;
 }
 
+/* ---------- 크레딧 충전 ---------- */
+.n-credit-icon--lg {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+/* 버튼 위 한 줄: "⚡ 12 크레딧 써요 · 보유 120" */
+.n-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+}
+
+.n-cost b,
+.n-cost__strong {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.n-cost__have {
+  color: var(--text-3);
+}
+
+.n-cost__warn {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* 크레딧 부족 시트: 필요 · 보유 · 더 필요 세 칸 */
+.n-shortfall {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  margin-top: 16px;
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-lg);
+  background: var(--bg-weak);
+}
+
+.n-shortfall > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+}
+
+.n-shortfall > div + div {
+  border-left: 1px solid var(--border-weak);
+}
+
+.n-shortfall dt {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
+.n-shortfall dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 28px;
+  color: var(--text-2);
+}
+
+.n-shortfall__need dt {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.n-shortfall__need dd {
+  color: var(--text);
+}
+
+/* 충전 묶음 카드: 하나만 고른다. 고르면 라임 틴트 면 + 진한 라임 테두리 + 체크 */
+.n-packages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.n-package {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.n-package:hover {
+  border-color: var(--text-3);
+}
+
+.n-package input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.n-package:has(input:checked) {
+  border-color: var(--selected-border);
+  box-shadow: inset 0 0 0 1px var(--selected-border);
+  background: var(--selected-bg);
+}
+
+.n-package:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.n-package__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.n-package:has(input:checked) .n-package__check {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+.n-package__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-package__credits {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 28px;
+  color: var(--text);
+}
+
+.n-package__unit {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.n-package__credits .n-badge {
+  margin-left: 4px;
+}
+
+.n-package__videos {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
+.n-package__price {
+  flex-shrink: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 24px;
+  color: var(--text);
+}
+
+/* 결제 전 알아 둘 것 */
+.n-policy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-3);
+}
+
+/* 충전 결과: 5 → 105 */
+.n-credit-change {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-3);
+}
+
+.n-credit-change__from {
+  font-size: 20px;
+  font-weight: 700;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.n-credit-change__to {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+
+/* 결제 확인 중: 라임 호가 도는 원 */
+.n-spinner {
+  width: 56px;
+  height: 56px;
+  border: 5px solid var(--surface);
+  border-top-color: var(--accent-fill);
+  border-radius: 50%;
+  animation: n-spin 0.9s linear infinite;
+}
+
+@keyframes n-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 돌지 않는 대신 천천히 깜빡여 기다리는 중임을 알린다 */
+  .napda-root .n-spinner {
+    animation: n-blink 1.6s ease-in-out infinite !important;
+  }
+}
+
+@keyframes n-blink {
+  50% {
+    opacity: 0.4;
+  }
+}
+
 /* ---------- 숫자 타일 ---------- */
 .n-stat-grid {
   display: grid;

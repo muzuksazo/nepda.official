@@ -8,5 +8,6 @@ export * from './EventBanner';
 export * from './bannerSpec';
 export * from './list';
 export * from './Sheet';
+export * from './credit';
 export * from './thumbnail';
 export * from './thumbnailTemplates';

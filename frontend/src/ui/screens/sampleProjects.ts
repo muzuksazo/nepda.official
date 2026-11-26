@@ -18,7 +18,7 @@ import templateStroke from '../../assets/samples/thumbnail/template-stroke.webp'
 import event1 from '../../assets/events/event1.webp';
 import event2 from '../../assets/events/event2.webp';
 import event3 from '../../assets/events/event3.webp';
-import type { BannerItem, ThumbnailTemplate } from '../components';
+import type { BannerItem, CreditPackage, ThumbnailTemplate } from '../components';
 import type { CommunityVideo } from './CommunityScreen';
 import type { HookType } from './flowData';
 import type { CompletedProject, InProgressProject } from './HomeScreen';
@@ -81,6 +81,17 @@ export const SAMPLE_THUMBNAIL_TEMPLATES: ThumbnailTemplate[] = [
 ];
 
 export const SAMPLE_THUMBNAIL_CAPTION = '이 도마, 미쳤다';
+
+/**
+ * 예시: 크레딧 충전 묶음과 영상 한 편 단가. 가격·크레딧 단가는 정해지지 않았다(OQ-003) — 화면 확인용 값이다.
+ */
+export const SAMPLE_CREDITS_PER_VIDEO = 12;
+
+export const SAMPLE_CREDIT_PACKAGES: CreditPackage[] = [
+  { id: 'c30', credits: 30, price: 4900 },
+  { id: 'c100', credits: 100, price: 12900, isPopular: true },
+  { id: 'c300', credits: 300, price: 33000 },
+];
 
 /** 예시: 내 정보 (GET /v1/auth/me) */
 export const SAMPLE_USER: ProfileUser = { name: '냅다사장', email: 'napda.sajang@example.com' };

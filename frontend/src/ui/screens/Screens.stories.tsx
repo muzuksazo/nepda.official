@@ -4,7 +4,9 @@ import { fn } from 'storybook/test';
 import type { ThemeSetting } from '../NapdaProvider';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
 import { setStorybookTheme } from '../storybook/themeGlobal';
+import { ChargeResultScreen } from './ChargeResultScreen';
 import { CommunityScreen, type CommunityVideo } from './CommunityScreen';
+import { CreditChargeScreen } from './CreditChargeScreen';
 import type { HookType as HookKind } from './flowData';
 import { CommunityViewerScreen } from './CommunityViewerScreen';
 import { HomeScreen } from './HomeScreen';
@@ -18,6 +20,8 @@ import {
   SAMPLE_BANNERS,
   SAMPLE_COMMUNITY,
   SAMPLE_COMPLETED,
+  SAMPLE_CREDIT_PACKAGES,
+  SAMPLE_CREDITS_PER_VIDEO,
   SAMPLE_GUIDE_SCENES,
   SAMPLE_IN_PROGRESS,
   SAMPLE_STORYBOARD,
@@ -253,16 +257,75 @@ export const ShootingGuide: Story = {
   render: () => <ShootingGuideScreen scenes={SAMPLE_GUIDE_SCENES} onBack={fn()} onUpload={fn()} />,
 };
 
+/** 영상 올리기 스토리들이 함께 쓰는 예시 영상·콜백 */
+const uploadArgs = {
+  hookType: 'B' as const,
+  onBack: fn(),
+  onReviewGuide: fn(),
+  onCreate: fn(),
+  onCharge: fn(),
+};
+const sampleUpload = () => new File([''], '본편_촬영.mp4', { type: 'video/mp4' });
+
 export const UploadVideo: Story = {
   name: '안1-7 영상 올리기',
-  render: () => <UploadVideoScreen hookType="B" onBack={fn()} onReviewGuide={fn()} onCreate={fn()} />,
+  render: () => <UploadVideoScreen {...uploadArgs} cost={SAMPLE_CREDITS_PER_VIDEO} credits={120} />,
 };
 
 export const UploadVideoSelected: Story = {
   name: '안1-7 영상 올리기 · 영상 고른 뒤',
+  render: () => <UploadVideoScreen {...uploadArgs} initialFile={sampleUpload()} cost={SAMPLE_CREDITS_PER_VIDEO} credits={120} />,
+};
+
+export const UploadVideoFree: Story = {
+  name: '안1-7 영상 올리기 · 첫 영상 무료',
+  render: () => <UploadVideoScreen {...uploadArgs} initialFile={sampleUpload()} cost={SAMPLE_CREDITS_PER_VIDEO} credits={0} isFreeVideo />,
+};
+
+export const UploadVideoShort: Story = {
+  name: '안1-7 영상 올리기 · 크레딧 모자람',
   render: () => (
-    <UploadVideoScreen hookType="B" initialFile={new File([''], '본편_촬영.mp4', { type: 'video/mp4' })} onBack={fn()} onReviewGuide={fn()} onCreate={fn()} />
+    <UploadVideoScreen {...uploadArgs} initialFile={sampleUpload()} cost={SAMPLE_CREDITS_PER_VIDEO} credits={5} initialIsShort />
   ),
+};
+
+/** 크레딧 충전 스토리들이 함께 쓰는 묶음·콜백 */
+const chargeArgs = {
+  packages: SAMPLE_CREDIT_PACKAGES,
+  creditsPerVideo: SAMPLE_CREDITS_PER_VIDEO,
+  onBack: fn(),
+  onPay: fn(),
+  onOpenPolicy: fn(),
+};
+
+export const CreditCharge: Story = {
+  name: '크레딧 충전',
+  render: () => <CreditChargeScreen {...chargeArgs} credits={120} />,
+};
+
+export const CreditChargeShort: Story = {
+  name: '크레딧 충전 · 영상 만들다 모자라서 들어옴',
+  render: () => <CreditChargeScreen {...chargeArgs} credits={5} shortfall={7} />,
+};
+
+export const CreditChargeFailed: Story = {
+  name: '크레딧 충전 · 결제 실패',
+  render: () => <CreditChargeScreen {...chargeArgs} credits={5} shortfall={7} hasPaymentError />,
+};
+
+export const CreditChargePaying: Story = {
+  name: '크레딧 충전 · 결제창 여는 중',
+  render: () => <CreditChargeScreen {...chargeArgs} credits={120} isPaying />,
+};
+
+export const ChargeConfirming: Story = {
+  name: '크레딧 충전 · 결제 확인 중',
+  render: () => <ChargeResultScreen status="confirming" before={5} added={30} />,
+};
+
+export const ChargeDone: Story = {
+  name: '크레딧 충전 · 완료 (영상 만들다 옴)',
+  render: () => <ChargeResultScreen status="done" before={5} added={30} isResumingVideo onDone={fn()} />,
 };
 
 export const VideoReview: Story = {

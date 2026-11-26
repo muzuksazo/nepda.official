@@ -8,8 +8,9 @@ import { AppHeaderActions, Avatar, BottomNav, CreditBadge, FlowHeader, ProfileBu
 import { ListGroup, ListRow } from './list';
 import { Mascot, VideoFrame } from './media';
 import { ConfirmSheet } from './Sheet';
+import { CreditChange, CreditPackagePicker } from './credit';
 import { ThumbnailPicker } from './thumbnail';
-import { SAMPLE_THUMBNAIL_TEMPLATES } from '../screens/sampleProjects';
+import { SAMPLE_CREDIT_PACKAGES, SAMPLE_CREDITS_PER_VIDEO, SAMPLE_THUMBNAIL_TEMPLATES } from '../screens/sampleProjects';
 import {
   Badge,
   Button,
@@ -251,6 +252,25 @@ export const ProjectCards: Story = {
       <ProjectCard productName="원목 데스크 정리함" status="영상과 썸네일을 만들었어요" actionLabel="다시 받기" />
     </>
   ),
+};
+
+export const ChargePackages: Story = {
+  name: '충전 묶음 · 잔액 변화',
+  render: function Render() {
+    const [picked, setPicked] = useState<string | null>('c100');
+    return (
+      <>
+        <CreditPackagePicker
+          label="충전할 크레딧"
+          packages={SAMPLE_CREDIT_PACKAGES}
+          value={picked}
+          onChange={setPicked}
+          creditsPerVideo={SAMPLE_CREDITS_PER_VIDEO}
+        />
+        <CreditChange from={5} to={105} />
+      </>
+    );
+  },
 };
 
 export const Thumbnails: Story = {

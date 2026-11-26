@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Button } from './primitives';
 
 export interface ConfirmSheetProps {
@@ -14,6 +14,8 @@ export interface ConfirmSheetProps {
   onConfirm: () => void;
   /** 그만두기 · 바깥 누르기 · Esc */
   onClose: () => void;
+  /** 설명과 버튼 사이에 넣을 내용 (예: 필요한 크레딧 숫자) */
+  children?: ReactNode;
 }
 
 /**
@@ -32,6 +34,7 @@ function ConfirmSheetDialog({
   isDestructive,
   onConfirm,
   onClose,
+  children,
 }: Omit<ConfirmSheetProps, 'isOpen'>) {
   const titleId = useId();
   const descId = useId();
@@ -87,6 +90,7 @@ function ConfirmSheetDialog({
             {description}
           </p>
         ) : null}
+        {children}
         <div className="n-sheet__actions">
           {isDestructive ? (
             <>
