@@ -115,9 +115,19 @@ export default function Product({ height = 1.2, lidOpen = 1, glow = 0 }: { heigh
   const gelR = R_BOT - WALL + (R_TOP - R_BOT) * GEL_Y;
 
   // 뚜껑: 닫힘(컵 위) → 열림(오른쪽 옆에 비스듬히 세움)
+  // 뚜껑: 먼저 위로 들린 뒤 옆으로 옮겨 컵 오른쪽 바닥에 눕힌다 (어느 순간에도 컵과 겹치지 않게)
   const lt = Math.min(1, Math.max(0, lidOpen));
-  const lidPos: [number, number, number] = [lt * (R_TOP + 0.36), H + 0.035 - lt * (H - 0.4), lt * -0.1];
-  const lidRot: [number, number, number] = [0, 0, -lt * 1.25];
+  const sm = (x: number) => { const k = Math.min(1, Math.max(0, x)); return k * k * (3 - 2 * k); };
+  const LID_R = R_TOP + 0.015;
+  // 세 단계: 위로 들기(0~0.35) → 컵 밖으로 옆 이동(0.35~0.7, 높이 유지) → 바닥으로 내려놓기(0.7~1)
+  const lift = sm(lt / 0.35), slide = sm((lt - 0.35) / 0.35), drop = sm((lt - 0.7) / 0.3);
+  const TOP_Y = H + 0.036, HIGH = H + 0.45, OUT_X = R_TOP + LID_R + 0.1;
+  const lidPos: [number, number, number] = [
+    slide * OUT_X,
+    TOP_Y + (HIGH - TOP_Y) * lift - (HIGH - 0.036) * drop,
+    slide * 0.12,
+  ];
+  const lidRot: [number, number, number] = [0, 0, -Math.sin(Math.PI * slide) * 0.3];
 
   return (
     <group scale={s}>
