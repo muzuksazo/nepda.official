@@ -3,6 +3,7 @@
 // 씨앗 = 누가(무엇이) 무엇을 했는지 + 숫자. 이야기의 발단은 앵커와 절반쯤 어긋나고(0.40~0.60),
 // 이야기의 핵심 원리(결말)는 앵커와 모양·단위·움직임으로 이어져야 한다(link).
 // 유사도는 임베딩이 아니라 Claude가 같은 기준표로 한꺼번에 매긴 추정치다.
+import { stepOptions } from "./llm.js";
 import { generateText, Output, type LanguageModel } from "ai";
 import { z } from "zod";
 import { priceOf, type StepUsage } from "./cost.js";
@@ -91,7 +92,7 @@ async function call<T extends z.ZodType>(
     prompt,
     output: Output.object({ schema }),
     maxOutputTokens: 16000,
-    providerOptions: { anthropic: { effort: "medium" } },
+    providerOptions: stepOptions("idea", "medium"),
   });
   const inputTokens = r.usage?.inputTokens ?? 0;
   const outputTokens = r.usage?.outputTokens ?? 0;

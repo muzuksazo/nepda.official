@@ -20,3 +20,17 @@ export function llm(modelId: string): LanguageModel {
   }
   return anthropic(modelId);
 }
+
+export type Step = "idea" | "scenario" | "spec" | "code" | "qa" | "research";
+type Level = "minimal" | "low" | "medium" | "high";
+/** Gemini 생각 수준 기본값: 생각 토큰이 출력 요금이라 필요한 만큼만. B_GEMINI_THINK_<STEP> 로 바꿈 (예: B_GEMINI_THINK_CODE=high) */
+const GEMINI_THINK: Record<Step, Level> = { idea: "low", scenario: "low", spec: "low", code: "medium", qa: "low", research: "low" };
+
+/** 단계별 공급자 옵션: Claude 는 effort, Gemini 는 thinkingLevel */
+export function stepOptions(step: Step, claudeEffort: "low" | "medium" | "high") {
+  const env = process.env[`B_GEMINI_THINK_${step.toUpperCase()}`]?.trim() as Level | undefined;
+  return {
+    anthropic: { effort: claudeEffort },
+    google: { thinkingConfig: { thinkingLevel: env || GEMINI_THINK[step] } },
+  };
+}

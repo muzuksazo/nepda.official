@@ -1,7 +1,7 @@
 // 컷 이미지: 장면별 3D 명세 → React Three Fiber 코드(Claude) → 타입 검사 → Remotion 스틸 렌더.
 // 렌더는 video_test/pipeline 의 Remotion 프로젝트(SceneTest 컴포지션)를 빌려 쓴다.
 // pipeline/src/generated 는 렌더 동안만 쓰고 끝나면 원래대로 되돌린다. 코드와 PNG는 B의 out/ 에 남긴다.
-import { llm } from "./llm.js";
+import { llm, stepOptions } from "./llm.js";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -294,7 +294,25 @@ type KitPlanJson = {
 };
 
 /** 3D 명세 → 키트 설계표 (에셋 검색어는 실제 파일로) */
-export function kitPlanOf(sc: NonNullable<ScenarioItem["beats"][number]["scene3d"]> | undefined, reveal: boolean, hasProduct: boolean): KitPlanJson {
+/** 감정 표현의 세기: 인물이 꼭 필요한 장면을 고르는 기준 */
+const EMOTE_WEIGHT: Record<string, number> = { victory: 3, defeat: 3, surprise: 2, droop: 2, nod: 1, tilt: 1, bounce: 1, look: 0 };
+
+/**
+ * 인물이 나올 장면을 코드로 정한다 (모델이 지시를 어겨도 지켜지게):
+ * 반전 장면은 빼고(제품만), 이야기 장면 중 감정 표현이 가장 큰 장면 최대 maxScenes 개. 감정이 없으면 첫 장면 하나(주인공 소개).
+ */
+export function pickPersonScenes(beats: ScenarioItem["beats"], maxScenes = Number(process.env.B_MAX_PERSON_SCENES ?? 2)): Set<number> {
+  const sorted = [...beats].sort((a, b) => a.order - b.order);
+  const story = sorted.slice(0, -1).filter((b) => b.scene3d?.character);
+  const scored = story
+    .map((b) => ({ order: b.order, w: (b.scene3d!.character!.emotions ?? []).reduce((a, e) => a + (EMOTE_WEIGHT[e.type] ?? 0), 0) }))
+    .sort((a, b) => b.w - a.w || a.order - b.order);
+  const keep = scored.filter((x) => x.w > 0).slice(0, maxScenes).map((x) => x.order);
+  if (!keep.length && story.length) keep.push(story[0].order);
+  return new Set(keep);
+}
+
+export function kitPlanOf(sc: NonNullable<ScenarioItem["beats"][number]["scene3d"]> | undefined, reveal: boolean, hasProduct: boolean, withPerson = true): KitPlanJson {
   const names = new Set(characterNames());
   const hdr = hdris();
   const used = new Set<string>();
@@ -306,7 +324,7 @@ export function kitPlanOf(sc: NonNullable<ScenarioItem["beats"][number]["scene3d
       return { file: hit.file, slot: a.slot ?? "back-center", height: a.height ?? 1.0 };
     })
     .filter((x): x is NonNullable<typeof x> => !!x);
-  const ch = sc?.character && names.has(sc.character.model) ? { file: `bassets/uacp/${sc.character.model}.gltf`, emotions: sc.character.emotions } : null;
+  const ch = withPerson && sc?.character && names.has(sc.character.model) ? { file: `bassets/uacp/${sc.character.model}.gltf`, emotions: sc.character.emotions } : null;
   return {
     stage: {
       floor: sc?.stage?.floor_color ?? "#4a4038",
@@ -392,6 +410,7 @@ export async function renderCuts(
   for (const s of scenarios) {
     const plan = toPipelinePlan(s);
     const beats = [...s.beats].sort((a, b) => a.order - b.order);
+    const personScenes = pickPersonScenes(beats);
     plan.scenes.forEach((scene, i) => {
       const key = `B${s.scenario_id.replace(/[^A-Za-z0-9]/g, "")}_${beats[i].order}`;
       const reveal = i === plan.scenes.length - 1;
@@ -400,7 +419,7 @@ export async function renderCuts(
       let wrapper: string | undefined;
       let shots: { at: number; view: string }[] = [{ at: 0, view: reveal ? "product" : "wide" }];
       if (KIT) {
-        const kp = kitPlanOf(beats[i].scene3d, reveal, hasProduct);
+        const kp = kitPlanOf(beats[i].scene3d, reveal, hasProduct, personScenes.has(beats[i].order));
         shots = kp.shots;
         wrapper = wrapperCode(key, kp, hasProduct);
         content =
@@ -451,7 +470,7 @@ export async function renderCuts(
         pending.map(async (j) => {
           j.tries++;
           const t0 = performance.now();
-          const r = await generateText({ model, messages: j.convo, maxOutputTokens: 16000, providerOptions: { anthropic: { effort: "medium" } } });
+          const r = await generateText({ model, messages: j.convo, maxOutputTokens: 16000, providerOptions: stepOptions("code", "medium") });
           const inT = r.usage?.inputTokens ?? 0, outT = r.usage?.outputTokens ?? 0;
           steps.push({ step: `컷: 장면 ${j.order} ${KIT ? "시각화" : "코드"} ${j.tries}차`, model: modelId, inputTokens: inT, outputTokens: outT, costUsd: priceOf(modelId, inT, outT), ms: Math.round(performance.now() - t0), group: `cuts-code-${label}-${attempt}` });
           j.convo.push({ role: "assistant", content: r.text });

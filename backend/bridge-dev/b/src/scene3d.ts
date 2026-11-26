@@ -1,6 +1,6 @@
 // 장면별 3D 명세(scene3d)를 고른 시나리오에만 만든다. 컷 단계 직전에 호출.
 // (시나리오 단계에서 3D 명세를 빼서 시나리오 생성을 빠르게 하기 위함)
-import { llm } from "./llm.js";
+import { llm, stepOptions } from "./llm.js";
 import { generateText, Output, type LanguageModel } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
@@ -46,7 +46,7 @@ export async function addScene3d(
           `모든 장면(order)마다 scene3d를 쓰세요. stage·assets(3~6개)는 모든 장면에, character는 사람이 나오는 이야기면 모든 장면에 채웁니다.${feedback ? `\n\n직전 결과의 규칙 위반(모두 고치세요):\n${feedback}` : ""}`,
         output: Output.object({ schema: BatchSchema }),
         maxOutputTokens: 16000,
-        providerOptions: { anthropic: { effort: "medium" } },
+        providerOptions: stepOptions("spec", "medium"),
       });
       const inT = r.usage?.inputTokens ?? 0, outT = r.usage?.outputTokens ?? 0;
       steps.push({ step: `컷: 3D 명세 ${attempt}차`, model: modelId, inputTokens: inT, outputTokens: outT, costUsd: priceOf(modelId, inT, outT), ms: Math.round(performance.now() - t0) });

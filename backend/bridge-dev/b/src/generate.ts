@@ -1,4 +1,4 @@
-import { llm } from "./llm.js";
+import { llm, stepOptions } from "./llm.js";
 import { randomUUID } from "node:crypto";
 import { generateText, Output, type LanguageModel } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -132,7 +132,7 @@ export async function generateScenarios(input: WorkerInput, opts: GenerateOption
       // 3D 명세(scene3d)는 여기서 만들지 않는다 → 컷 단계에서 고른 시나리오에만 (src/scene3d.ts)
       output: Output.object({ schema: ScenarioOnlyResponseSchema }),
       maxOutputTokens: 16000,
-      providerOptions: { anthropic: { effort: "high" } },
+      providerOptions: stepOptions("scenario", "high"),
     });
     const inT = result.usage?.inputTokens ?? 0;
     const outT = result.usage?.outputTokens ?? 0;

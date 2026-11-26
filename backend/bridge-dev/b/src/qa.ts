@@ -1,7 +1,7 @@
 // 화면 자동 검수: 장면 컷(여러 프레임)을 Claude 가 직접 보고 체크리스트로 판정한다.
 // 탈락한 장면은 고칠 점(fix)을 장면 코드 작성자에게 돌려보내 다시 만들게 한다 (cuts.ts).
 // 검수 결과는 회차 기록에 남겨 통과율을 잰다 (사람 개입 없이 쓸 수 있는 비율).
-import { llm } from "./llm.js";
+import { llm, stepOptions } from "./llm.js";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateText, Output, type LanguageModel } from "ai";
 import { readFileSync } from "node:fs";
@@ -103,7 +103,7 @@ export async function reviewScene(
     ],
     output: Output.object({ schema: QaSchema }),
     maxOutputTokens: 3000,
-    providerOptions: { anthropic: { effort: "medium" } },
+    providerOptions: stepOptions("qa", "medium"),
   });
   const inT = r.usage?.inputTokens ?? 0, outT = r.usage?.outputTokens ?? 0;
   opts.track({ step: opts.step, model: modelId, inputTokens: inT, outputTokens: outT, costUsd: priceOf(modelId, inT, outT), ms: Math.round(performance.now() - t0), group: "qa" });
