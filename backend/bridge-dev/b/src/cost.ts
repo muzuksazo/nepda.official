@@ -7,6 +7,9 @@ export const PRICES: Record<string, { input: number; output: number }> = {
   "claude-sonnet-5-5": { input: 2, output: 10 },
   "claude-sonnet-5": { input: 2, output: 10 },
   "claude-haiku-5-5": { input: 0.1, output: 0.5 },
+  // Gemini (ai.google.dev/gemini-api/docs/pricing, 2026-11): 3.8 Flash 도입가 2026-12-31 까지, 2027-01-01 부터 $1.50/$7.50. 생각 토큰은 출력 요금
+  "gemini-3.8-flash": { input: 0.75, output: 3.75 },
+  "gemini-3.5-flash": { input: 1.5, output: 9 },
 };
 
 export interface StepUsage {

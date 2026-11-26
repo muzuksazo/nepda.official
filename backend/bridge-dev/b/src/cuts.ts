@@ -1,6 +1,7 @@
 // 컷 이미지: 장면별 3D 명세 → React Three Fiber 코드(Claude) → 타입 검사 → Remotion 스틸 렌더.
 // 렌더는 video_test/pipeline 의 Remotion 프로젝트(SceneTest 컴포지션)를 빌려 쓴다.
 // pipeline/src/generated 는 렌더 동안만 쓰고 끝나면 원래대로 되돌린다. 코드와 PNG는 B의 out/ 에 남긴다.
+import { llm } from "./llm.js";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -373,7 +374,7 @@ export async function renderCuts(
   if (!existsSync(join(pdir, "src/Root.tsx")) || !existsSync(join(pdir, "node_modules/@remotion/renderer")))
     throw new Error(`video_test/pipeline 을 찾을 수 없습니다: ${pdir} (B_PIPELINE_DIR로 지정, pipeline에서 npm install 필요)`);
   const modelId = opts.modelId || process.env.B_SCENE_MODEL?.trim() || process.env.B_MODEL?.trim() || "claude-opus-5-5";
-  const model = opts.model ?? anthropic(modelId);
+  const model = opts.model ?? llm(modelId);
   const maxTries = Math.max(1, opts.maxTries ?? Number(process.env.B_SCENE_MAX_TRIES || 3));
   const qaOn = SCENE_STYLE !== "basic" && process.env.B_QA !== "0";
   const qaRetries = Math.max(0, Number(process.env.B_QA_RETRIES ?? 1));

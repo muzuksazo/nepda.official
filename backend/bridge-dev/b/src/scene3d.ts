@@ -1,5 +1,6 @@
 // 장면별 3D 명세(scene3d)를 고른 시나리오에만 만든다. 컷 단계 직전에 호출.
 // (시나리오 단계에서 3D 명세를 빼서 시나리오 생성을 빠르게 하기 위함)
+import { llm } from "./llm.js";
 import { generateText, Output, type LanguageModel } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
@@ -19,7 +20,7 @@ export async function addScene3d(
   opts: { model?: LanguageModel; modelId?: string; maxAttempts?: number; log?: (m: string) => void } = {}
 ): Promise<{ scenarios: ScenarioItem[]; steps: StepUsage[] }> {
   const modelId = opts.modelId || process.env.B_SCENE_MODEL?.trim() || process.env.B_MODEL?.trim() || "claude-opus-5-5";
-  const model = opts.model ?? anthropic(modelId);
+  const model = opts.model ?? llm(modelId);
   const maxAttempts = Math.max(1, opts.maxAttempts ?? 2);
   const steps: StepUsage[] = [];
   const out: ScenarioItem[] = [];

@@ -1,3 +1,4 @@
+import { llm } from "./llm.js";
 import { randomUUID } from "node:crypto";
 import { generateText, Output, type LanguageModel } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -75,8 +76,8 @@ function applySeed(d: DraftScenario, seeds: StorySeed[], anchor: string | undefi
 export async function generateScenarios(input: WorkerInput, opts: GenerateOptions = {}): Promise<RunRecord> {
   const modelId = opts.modelId || process.env.B_MODEL?.trim() || DEFAULT_MODEL;
   const ideaModelId = opts.ideaModelId || process.env.B_IDEA_MODEL?.trim() || modelId;
-  const model = opts.model ?? anthropic(modelId);
-  const ideaModel = opts.model ?? anthropic(ideaModelId);
+  const model = opts.model ?? llm(modelId);
+  const ideaModel = opts.model ?? llm(ideaModelId);
   const maxAttempts = Math.max(1, opts.maxAttempts ?? 2);
   const log = opts.log ?? (() => {});
   const steps: StepUsage[] = [];
