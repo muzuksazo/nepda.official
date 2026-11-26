@@ -34,12 +34,43 @@ PROMPTS = {
         "and amber liquid pours out of the bottle's neck and spreads into a puddle across the table. "
         "The camera stays on the fallen bottle and the growing puddle. Realistic physics, natural light."
     ),
+    "cat_spill_diffuser": (
+        "Handheld smartphone footage, bright daylight living room, slightly shaky, casual and unpolished. "
+        "A fluffy grey tabby cat steps in from the right side of the frame, looks at the glass reed diffuser bottle on the wooden table, "
+        "and deliberately bats it with one paw. The bottle tips over onto its side, the reed sticks scatter, "
+        "and amber liquid pours out of the bottle neck and spreads into a puddle across the table. The cat calmly watches the mess. "
+        "Realistic fur and physics, natural light, vertical video."
+    ),
+    "spray_panic": (
+        "Handheld smartphone POV, bright daylight living room, frantic and comedic, casual and unpolished. "
+        "A hand holding a pink aerosol air-freshener can rushes into the frame and sprays long bursts in every direction above the wooden table. "
+        "A thick white mist quickly fills the room and hangs in the air. The camera shakes as if the person is in a hurry. "
+        "Realistic, natural light, vertical video."
+    ),
+    "carry_drip": (
+        "Handheld smartphone POV, bright daylight living room, casual and unpolished. "
+        "A hand reaches in, picks up the glass reed diffuser bottle from the wooden table and carries it away while it tilts. "
+        "Amber liquid dribbles out of the bottle neck and leaves a trail of drops and a small puddle across the table. "
+        "Realistic physics, natural light, vertical video."
+    ),
+    "reed_flip": (
+        "Close handheld smartphone footage, bright daylight living room, casual and unpolished. "
+        "Two hands reach in, pull the reed sticks out of the glass diffuser bottle and flip them upside down. "
+        "Amber oil drips from the wet ends of the sticks onto the fingers and onto the wooden table, leaving oily spots. "
+        "The hand shakes off the oil in annoyance. Realistic, natural light, vertical video."
+    ),
     "evaporate_diffuser": (
         "Time-lapse over several days, locked-off smartphone camera on a shelf, bright living room, casual and unpolished. "
         "A clear glass reed diffuser bottle on a wooden table, a strip of masking tape marks the original liquid level. "
         "The amber liquid inside steadily evaporates and its level sinks far below the tape until only a thin layer is left "
         "at the bottom, while the reed sticks dry out and turn pale. Sunlight and shadows sweep across the table as days pass. "
         "The bottle and the tape do not move. Realistic, natural light."
+    ),
+    "closet_musty": (
+        "Handheld smartphone POV in a small bright bedroom on a humid rainy day, casual and unpolished phone footage. "
+        "A white wardrobe door swings open toward the camera. Inside, clothes hang tightly packed on a rail. No people. "
+        "A faint grey-green musty haze drifts out from between the clothes toward the camera, and the camera recoils slightly. "
+        "Realistic, natural window light, vertical video."
     ),
     "drain_smell": (
         "Handheld smartphone POV stepping into a small tiled bathroom just as the light flickers on, casual and unpolished. "

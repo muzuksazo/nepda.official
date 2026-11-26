@@ -65,7 +65,7 @@ OUTPUT_DIR/{project_id}/{hook_id}/
 
 ## C 작업자 코드 (FR-003 · FR-004 · FR-005, 로컬 실행)
 
-시나리오 생성, 콘티 이미지, 훅 영상 + TTS 까지 구현되어 있습니다. Python 표준 라이브러리로 돌고, 시나리오 생성에 `anthropic`, Google Cloud 인증에 `google-auth` 패키지를 씁니다.
+시나리오 생성, 콘티 이미지, 훅 영상 + TTS 까지 구현되어 있습니다. 시나리오 생성에 `anthropic`, Google Cloud 인증에 `google-auth`, R2 결과 저장에 `boto3` 패키지를 씁니다.
 
 ```text
 1. 시나리오 (src/generate.py) — Claude 로 C 규칙에 맞는 시나리오 count 개 생성
@@ -88,9 +88,11 @@ OUTPUT_DIR/{project_id}/{hook_id}/
 | `src/render.py` | `storyboard(scenario, assets, out_dir)` (FR-004), `render_hook(scenario, assets, out_dir, tts=…)` (FR-005) |
 | `src/tts.py` | Inworld TTS 호출과 캐시 |
 | `src/blender_scene.py` | 문제 장면 템플릿 `spill_diffuser` (Blender 안에서 실행: 강체 물리, 흐르는 액체, 손) |
-| `src/veo.py` | 문제 장면 생성 영상: Blender 첫 프레임 → Google Veo (Vertex AI REST, 이미지→영상), 결과 캐시 |
+| `src/omni.py` | 문제 장면 생성 영상: Blender 첫 프레임 → Google Gemini Omni (Interactions API, 이미지→영상, 3~15초), 결과 캐시 |
+| `src/veo.py` | 같은 일을 Google Veo 로 (4·6·8초). 인증·프로젝트 설정과 템플릿별 프롬프트도 여기에 있음 |
 | `src/assets.py` | 문제 장면용 무료(CC0) 에셋 내려받기 |
 | `src/cli.py` | 명령줄 실행 |
+| `src/storage.py` | C 결과 파일 R2 업로드, 임시 다운로드 링크, 저장소 연결 확인 |
 | `test/mock_run.py` | API·Blender·ffmpeg 없이 도는 흐름 확인 |
 
 필요한 프로그램: Python 3.10 이상, ffmpeg·ffprobe(자막 번인용 libass 포함), 문제 장면 템플릿을 쓸 때는 Blender 4.2 이상.
@@ -111,22 +113,24 @@ python -m src.cli veo                                                           
 python -m src.cli hook proj_piev01 <scenario_id>                                  # 훅 영상 + TTS (Inworld·Veo 과금)
 ```
 
-### 문제 장면: Blender + Google Veo
+### 문제 장면: Blender + Google Gemini Omni
 
-문제 장면은 두 단계로 만듭니다. Blender 가 장면(테이블, 디퓨저, 조명, 카메라 구도)의 첫 프레임을 렌더하고, 그 이미지를 Vertex AI 의 Veo 에 넘겨 같은 구도에서 손이 병을 쳐서 쏟는 영상을 받습니다. 구도와 소품은 Blender 가 정하고 움직임과 질감은 Veo 가 만듭니다.
+문제 장면은 두 단계로 만듭니다. Blender 가 장면(테이블, 디퓨저, 조명, 카메라 구도)의 첫 프레임을 렌더하고, 그 이미지를 Google Cloud 의 Gemini Omni 에 넘겨 같은 구도에서 움직이는 영상을 받습니다. 구도와 소품은 Blender 가 정하고 움직임과 질감은 Omni 가 만듭니다. Omni 는 3~15초를 1초 단위로 만들 수 있어 10초 훅도 한 번에 생성합니다.
 
 | 설정 | 내용 |
 | --- | --- |
 | `GOOGLE_CLOUD_PROJECT` | Google Cloud 프로젝트 ID. 이 작업자는 `project-453b367f-b616-4471-aef` 를 씁니다(`.env.example` 기본값). 결제 계정 연결과 Vertex AI API 사용 설정이 필요합니다 |
 | 인증 | 서비스 계정 키 경로를 `GOOGLE_APPLICATION_CREDENTIALS` 에 넣거나 `gcloud auth application-default login` |
-| `C_VEO_MODEL` | 기본 `veo-3.1-fast-generate-001`. 품질 우선이면 `veo-3.1-generate-001` |
-| `C_PROBLEM_ENGINE` | `auto`(기본) · `veo` · `blender`. 입력의 `assets.problem_engine` 이나 `hook --engine` 으로도 정합니다 |
+| `C_OMNI_MODEL` | 기본 `gemini-omni-1.2-flash`. 해상도는 `C_OMNI_RESOLUTION`(기본 `720p`) |
+| `C_VEO_MODEL` | Veo 를 쓸 때만. 기본 `veo-3.1-fast-generate-001` |
+| `C_PROBLEM_ENGINE` | `auto`(기본) · `omni` · `veo` · `blender`. 입력의 `assets.problem_engine` 이나 `hook --engine` 으로도 정합니다 |
 
-- `auto` 는 `GOOGLE_CLOUD_PROJECT` 가 있으면 Veo 를 쓰고, 없거나 호출이 실패하면 Blender 물리 렌더(전 프레임)로 대신합니다. `veo` 는 실패하면 오류로 끝납니다. 어느 쪽으로 만들었는지는 `hook` 결과의 `problem_engine` 에 나옵니다.
-- Veo 는 4·6·8초로만 생성하므로 장면 길이를 덮는 가장 짧은 길이로 요청하고(3초 장면 → 4초) 장면 길이에 맞춰 빠르게 돌립니다. 초 단위로 과금됩니다.
-- 같은 첫 프레임·프롬프트·설정이면 `assets/cache/veo/` 의 영상을 다시 쓰므로 두 번 과금되지 않습니다. 새로 뽑으려면 그 파일을 지우세요.
-- `storyboard` 명령은 Veo 를 부르지 않습니다. 만들어 둔 영상이 있으면 그 화면을, 없으면 Blender 프레임을 씁니다.
-- `python -m src.cli veo --generate` 는 문제 장면 한 편만 실제로 생성해 봅니다 (과금).
+- `auto` 는 `GOOGLE_CLOUD_PROJECT` 가 있으면 Veo 를 쓰고(`C_GENERATOR=omni` 로 Omni 로 바꿀 수 있음), 없거나 호출이 실패하면 Blender 렌더(전 프레임)로 대신합니다. Veo 는 Google Cloud 무료 체험 계정에서도 생성되는 것을 확인했고, Omni 는 무료 체험 계정에서 "유료 결제 계정이 필요하다"로 거절됐습니다(가끔 통과). `omni` 와 `veo` 는 실패하면 오류로 끝납니다. 어느 쪽으로 만들었는지는 `hook` 결과의 `problem_engine` 에 나옵니다.
+- Omni 호출은 Interactions API(`…/locations/global/interactions`)로 접수한 뒤 끝날 때까지 확인하고, 응답에 담긴 영상을 저장합니다. 공식 예시는 입력 이미지를 Cloud Storage 주소로만 보여 주는데, 여기서는 인라인(base64)으로 보냅니다. 실제 호출로 확인했습니다: 인라인 이미지는 받지만 Blender 가 낸 JPEG 은 거절되어 720x1280 PNG 로 바꿔 보냅니다.
+- `--engine veo` 로 Veo 를 쓰면 4·6·8초로만 생성하므로 장면 길이를 덮는 가장 짧은 길이로 요청하고 장면 길이에 맞춰 속도를 조절합니다. 둘 다 초 단위로 과금됩니다.
+- 같은 첫 프레임·프롬프트·설정이면 `assets/cache/omni/`(Veo 는 `assets/cache/veo/`)의 영상을 다시 쓰므로 두 번 과금되지 않습니다. 새로 뽑으려면 그 파일을 지우세요.
+- `storyboard` 명령은 생성 모델을 부르지 않습니다. 만들어 둔 영상이 있으면 그 화면을, 없으면 Blender 프레임을 씁니다.
+- `python -m src.cli omni` 는 설정과 인증만 확인하고(과금 없음), `--generate` 를 붙이면 문제 장면 한 편만 실제로 생성해 봅니다 (과금). Veo 는 `python -m src.cli veo`.
 
 키 없이 끝까지 확인하려면 `scenarios … --offline`(사실 문장으로 만든 초안) 또는 `import examples/piev/02_scenarios.response.json --input examples/piev/01_worker-input.scenarios.json`(직접 쓴 시나리오 가져오기)을 쓰고, 훅은 `--no-tts` 로 실행합니다.
 
@@ -153,6 +157,7 @@ python -m src.cli hook proj_piev01 <scenario_id>                                
 | `assets.product_footage` | 실물 제품 영상 경로. 둘째 장면부터 장면 길이 비율로 나눠 이어 씁니다. 길이가 모자라면 0.85배속까지 늘리고 나머지는 정지 화면 |
 | `assets.problem_template` | 첫 장면(문제)에 쓸 생성 영상 템플릿. `spill_diffuser`(손이 액체 디퓨저를 쳐서 쏟는 장면, 3초), `evaporate_diffuser`(액체 디퓨저가 며칠 사이 바닥까지 줄어드는 타임랩스, 4초. 예시: `examples/piev/03_…`, `04_…`), `drain_smell`(욕실 배수구 냄새, 방향제를 뿌려도 다시 올라옴, 최대 10초. 예시: `05_…`~`07_…`). role 이 "문제"인 장면이 처음부터 이어지면 그 장면들에 걸쳐 한 영상으로 씁니다 |
 | `assets.problem_engine` | 문제 장면을 만드는 방법. `auto`(기본) · `veo` · `blender` |
+| `assets.footage_cuts` | 실물 영상의 컷 목록 `[{ "t": 시작 초, "zoom": 확대, "focus": [가로, 세로] }]`. 있으면 실물 장면을 1.6초 안팎의 컷으로 나누고 이 구도를 차례로 써서, 한 컷짜리 영상도 풀샷·클로즈업이 번갈아 나오게 편집합니다. 예시: `examples/piev/08_…` |
 
 둘 다 없으면 자막만 있는 단색 카드로 만들어집니다. 화면에 띄우는 상황 라벨은 `ad_spec.pov_label` 에 들어갑니다.
 
@@ -173,6 +178,49 @@ assets/                                    내려받은 에셋과 문제 장면 
 - 검사 결과의 ✗는 규칙 위반(종료 코드 2), △는 사람이 볼 경고입니다.
 - 아직 없는 것: 백엔드(`backend/app`) 연결, 훅 작업 큐·폴링 상태 저장, `spill_diffuser` 외의 문제 장면 템플릿.
 
+### C 결과를 Cloudflare R2에 저장하기
+
+`src.cli`와 `src.server` 모두 `c/.env`를 읽습니다. `backend/.env`는 자동으로 가져오지 않습니다. `c/.env.example`을 `c/.env`로 복사한 뒤 기존 모델·음성 설정은 유지하고 아래 저장소 값을 채우세요. 키는 프론트엔드나 Git에 넣지 않습니다.
+
+```dotenv
+STORAGE_BACKEND=s3
+S3_BUCKET=nepda-assets
+S3_ENDPOINT_URL=https://<account_id>.r2.cloudflarestorage.com
+S3_REGION=auto
+S3_ACCESS_KEY_ID=<R2 Access Key ID>
+S3_SECRET_ACCESS_KEY=<R2 Secret Access Key>
+S3_PREFIX=shortform-ad-studio/C
+S3_URL_EXPIRES_SEC=3600
+```
+
+- R2 토큰은 해당 버킷의 **Object Read & Write** 권한을 사용합니다. S3 API endpoint는 Cloudflare 대시보드에서 복사합니다.
+- 기본값 `STORAGE_BACKEND=local`은 기존 로컬 파일 방식을 사용합니다. 공용 환경변수와 분리해 C에서만 선택하려면 `C_STORAGE_BACKEND=s3` 또는 `local`로 재정의할 수 있습니다.
+- 콘티 생성 후 이미지를, 훅 생성 후 `hook.mp4`, `tts.mp3`, `hook.srt`, `scenario.json`, `storyboard_NN.png`를 업로드합니다. 키는 `{S3_PREFIX}/{project_id}/{scenario_id 또는 hook_id}/{파일명}`입니다. 원본 촬영 영상·렌더 캐시는 업로드하지 않으며 로컬 결과도 보존합니다.
+- 응답의 `image_url`과 `files.*`는 기본 1시간짜리 서명 URL입니다. 서버는 훅 상태를 조회할 때 다운로드 링크를 새로 발급합니다. 버킷을 공개하거나 `r2.dev`를 활성화할 필요는 없습니다.
+- R2 설정 누락은 렌더 전에 오류로 알립니다. 업로드 실패는 `STORAGE_UPLOAD_FAILED`로 반환하며 성공(`done`) 처리하지 않습니다. 이때 아래 `publish`로 로컬 결과를 다시 올릴 수 있습니다.
+
+```bash
+python -m src.cli storage                         # 읽기 전용 연결 확인
+python -m src.cli publish proj_piev01 <hook_id>   # 이미 만든 결과 업로드; 영상·TTS 재생성 없음
+python -m unittest test.test_storage             # 실제 R2·생성 API 호출 없는 테스트
+```
+
+설정을 바꾼 뒤 C 서버를 재시작하세요. 브라우저에서 R2로 직접 보내는 요청에는 버킷의 **Settings → CORS Policy**에 실제 화면 주소를 허용해야 합니다. C 로컬 서버의 기본 주소는 `http://127.0.0.1:8080`입니다(`localhost`로 열면 그 주소도 따로 추가).
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://127.0.0.1:8080", "http://localhost:8080"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["Range"],
+    "ExposeHeaders": ["ETag", "Content-Range"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+업로드는 Python 서버가 수행하므로 R2의 브라우저 PUT 허용은 필요하지 않습니다. 다른 주소에서 bridge-dev 화면을 열면 그 origin도 추가합니다. 참고: [R2 키 발급](https://developers.cloudflare.com/r2/api/tokens/) · [R2 CORS](https://developers.cloudflare.com/r2/buckets/cors/).
+
 ## 더미 화면에서 C 작업자 코드 돌리기 (로컬 서버)
 
 `src/server.py` 는 bridge-dev 더미 화면이 부르는 API(`/v1/product-info`, `/v1/projects`, `…/scenarios`, `…/storyboard`, `…/select`, `…/hooks`)를 이 작업자 코드로 처리하는 개발용 서버입니다. 공용 `index.html` 은 수정하지 않고 읽어서 내주기만 하며, 같은 서버에서 화면을 내주므로 CORS 설정이 필요 없습니다.
@@ -187,7 +235,7 @@ C_SCENARIO_FILES=examples/piev/06_scenarios.round3.response.json python -m src.s
 
 - 화면이 보내지 않는 값(실물 영상, 문제 장면 템플릿)은 환경변수로 받습니다.
 - 시나리오는 `ANTHROPIC_API_KEY` 가 있으면 Claude 로 생성하고, 없으면 `C_SCENARIO_FILES` 의 준비된 응답을 회차마다 돌려 쓰며, 그것도 없으면 오프라인 초안을 냅니다. 어느 쪽인지는 응답의 `scenario_source` 에 나옵니다.
-- 콘티 이미지와 훅 결과 파일은 `/files/…` 주소로 내주고, 훅이 끝나면 화면 아래에 영상 재생기가 붙습니다.
+- 콘티 이미지와 훅 결과 파일은 로컬 모드에서 `/files/…`, R2 모드에서 임시 다운로드 URL로 내주고, 훅이 끝나면 화면 아래에 영상 재생기가 붙습니다.
 - 인증을 확인하지 않고 상태를 메모리에만 두는 개발용입니다. `backend/app` 과의 연결은 아닙니다.
 
 ## index.html로 테스트하기
