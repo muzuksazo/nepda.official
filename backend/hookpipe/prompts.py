@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
+
+# 작업자가 장면 설명에 붙이는 꼬리표: B 의 [포커스: 전체], C 의 [F02] 같은 근거 번호. 영상 모델에는 넘기지 않는다.
+_TAG_RE = re.compile(r"\[[^\[\]]{1,24}\]")
+
+
+def clean_visual(text: Any) -> str:
+    return re.sub(r"\s{2,}", " ", _TAG_RE.sub(" ", str(text or ""))).strip()
 
 COMMON_RULES = """RULES (apply to every shot):
 - Framing: vertical 9:16. Main subject in the UPPER two thirds of the frame. Keep the bottom third calm (subtitles go there).
@@ -88,7 +96,7 @@ def beat_prompt(
     lines = [
         style_text(scenario),
         f"STORY (told over {total} shots): {_story(scenario)}",
-        f"THIS SHOT ({index}/{total}): {beat.get('visual', '')}",
+        f"THIS SHOT ({index}/{total}): {clean_visual(beat.get('visual'))}",
     ]
     scene3d = beat.get("scene3d") or {}
     if isinstance(scene3d, dict):

@@ -44,6 +44,7 @@ logger = logging.getLogger("hookpipe.render")
 
 MIN_CLIP_SEC, MAX_CLIP_SEC = 3, 15
 NARRATION_TAIL_SEC = 0.15  # 나레이션이 끝난 뒤 다음 장면으로 넘어가기 전 숨 고르는 시간
+HOLD_MAX_SEC = 1.0  # 이보다 짧고 나레이션이 없는 장면은 클립을 사지 않고 앞 장면의 마지막 화면을 멈춰 둔다
 NORMAL_TEMPO_MAX = 1.3
 HARD_TEMPO_MAX = 1.6
 
@@ -68,6 +69,7 @@ class BeatPlan:
     narration_sec: float = 0.0
     tempo: float = 1.0
     clip_path: Optional[Path] = None
+    hold: bool = False  # 앞 장면의 마지막 화면에서 멈춤 (A 유형의 '패턴 인터럽트' 같은 아주 짧은 무음 장면)
     prompt: str = ""
     reused: List[str] = field(default_factory=list)
 
@@ -187,6 +189,8 @@ def _plan_beats(scenario: Dict[str, Any], max_hook_sec: float) -> List[BeatPlan]
     total = sum(p.scenario_sec for p in plans)
     if total > max_hook_sec + 0.05:
         raise HookRenderError(f"훅 길이 {total:.1f}초가 상한 {max_hook_sec:.0f}초를 넘습니다.")
+    for index, plan in enumerate(plans):
+        plan.hold = index > 0 and plan.scenario_sec < HOLD_MAX_SEC and not plan.narration
     return plans
 
 
@@ -201,7 +205,8 @@ def _check_clip_budget(requested: int, limit: int) -> None:
 def _fit_timing(plans: List[BeatPlan], max_hook_sec: float, warnings: List[str]) -> None:
     """나레이션이 장면보다 길면 조금 빠르게 읽히고(최대 1.3배), 그래도 길면 장면을 늘린다.
 
-    전체가 상한을 넘으면 1.6배까지 올리고, 그래도 넘으면 장면 길이를 시나리오 값으로 되돌려 나레이션 끝을 자른다.
+    전체가 상한을 넘으면 1.6배까지 올리고, 그래도 넘으면 늘린 만큼에서 넘친 몫만 같은 비율로 덜어 낸다
+    (그 장면들은 나레이션 끝이 조금 잘린다). 장면이 시나리오 길이보다 짧아지는 일은 없다.
     """
 
     def apply(tempo_max: float) -> float:
@@ -218,15 +223,22 @@ def _fit_timing(plans: List[BeatPlan], max_hook_sec: float, warnings: List[str])
     if total > max_hook_sec + 0.05:
         total = apply(HARD_TEMPO_MAX)
     if total > max_hook_sec + 0.05:
-        warnings.append("나레이션이 길어 일부 장면에서 끝부분이 잘릴 수 있습니다.")
+        extended = sum(p.duration - p.scenario_sec for p in plans)
+        keep = max(0.0, 1.0 - (total - max_hook_sec) / extended) if extended > 0 else 0.0
         for plan in plans:
-            plan.duration = plan.scenario_sec
+            plan.duration = plan.scenario_sec + (plan.duration - plan.scenario_sec) * keep
+        cut = [str(p.order) for p in plans if p.narration_sec / p.tempo > p.duration + 0.05]
+        if cut:
+            warnings.append(
+                f"나레이션이 장면 길이보다 많이 길어 훅 상한({max_hook_sec:.0f}초)에 맞추느라 "
+                f"장면 {', '.join(cut)} 의 나레이션 끝이 잘립니다. 시나리오의 나레이션을 줄이는 것이 좋습니다."
+            )
     cursor = 0.0
     for plan in plans:
         plan.duration = round(plan.duration, 3)
         plan.start = round(cursor, 3)
         cursor += plan.duration
-        plan.clip_sec = _clip_seconds(plan.duration)
+        plan.clip_sec = 0 if plan.hold else _clip_seconds(plan.duration)
 
 
 def _subtitle_style() -> str:
@@ -280,7 +292,15 @@ def _assemble(
     total = sum(p.duration for p in plans)
     args: List[str] = []
     filters: List[str] = []
-    for index, plan in enumerate(plans):
+    shots = [p for p in plans if not p.hold]
+    for index, plan in enumerate(shots):
+        # 바로 뒤에 이어지는 '멈춤' 장면만큼 이 클립의 마지막 화면을 더 붙잡아 둔다
+        position = plans.index(plan)
+        freeze = 0.0
+        for later in plans[position + 1:]:
+            if not later.hold:
+                break
+            freeze += later.duration
         args += ["-i", str(plan.clip_path)]
         info = probe(tools, plan.clip_path)  # type: ignore[arg-type]
         short = plan.duration - info.duration
@@ -292,10 +312,17 @@ def _assemble(
                 steps.append(f"setpts={plan.duration / max(info.duration, 0.1):.4f}*PTS")
         steps.append(f"trim=0:{plan.duration:.3f}")
         steps.append("setpts=PTS-STARTPTS")
+        if freeze > 0:
+            if tools.has_filter("tpad"):
+                steps.append(f"tpad=stop_mode=clone:stop_duration={freeze + 0.1:.3f}")
+                steps.append(f"trim=0:{plan.duration + freeze:.3f}")
+            else:  # tpad 가 없는 ffmpeg: 멈추는 대신 조금 느리게 늘린다
+                steps.append(f"setpts={(plan.duration + freeze) / plan.duration:.4f}*PTS")
+            steps.append("setpts=PTS-STARTPTS")
         filters.append(f"[{index}:v]{','.join(steps)}[t{index}]")
         filters.append(fill_filter(f"t{index}", f"v{index}"))
-    concat_in = "".join(f"[v{i}]" for i in range(len(plans)))
-    filters.append(f"{concat_in}concat=n={len(plans)}:v=1:a=0[vcat]")
+    concat_in = "".join(f"[v{i}]" for i in range(len(shots)))
+    filters.append(f"{concat_in}concat=n={len(shots)}:v=1:a=0[vcat]")
 
     burned = False
     video_label = "vcat"
@@ -308,7 +335,7 @@ def _assemble(
         else:
             logger.warning("이 ffmpeg 에는 subtitles 필터가 없어 자막을 굽지 않습니다 (hook.srt 는 그대로 저장).")
 
-    audio_index = len(plans)
+    audio_index = len(shots)
     if narration_mix is not None:
         # 한 번 재고 그 차이만큼만 올린다: 나레이션이 일부 장면에만 있어도 -14 LUFS 에 맞는다
         gain = gain_to_target(measure_lufs(tools, narration_mix))
@@ -385,7 +412,7 @@ def render_hook(
 
     plans = _plan_beats(scenario, max_hook_sec)
     # 과금 방어 1: 시나리오 길이만으로도 상한을 넘으면 나레이션을 사기 전에 멈춘다
-    _check_clip_budget(sum(_clip_seconds(p.scenario_sec) for p in plans), clip_limit)
+    _check_clip_budget(sum(_clip_seconds(p.scenario_sec) for p in plans if not p.hold), clip_limit)
     (target / "scenario.json").write_text(json.dumps(scenario, ensure_ascii=False, indent=2), encoding="utf-8")
     # 같은 폴더로 다시 만들 때 예전 결과가 섞이지 않게 지운다
     for stale in [target / "hook.mp4", target / "tts.mp3", *target.glob("storyboard_*.png")]:
@@ -416,7 +443,7 @@ def render_hook(
     # 2) 참고 이미지: 제품 장면은 촬영본에서 뽑은 컷, 나머지는 톤·주인공 참고 이미지 한 장
     refs = [Path(p) for p in product_refs if Path(p).is_file()]
     style_ref: Optional[Path] = None
-    if any(not p.shows_product or not refs for p in plans):
+    if any((not p.shows_product or not refs) and not p.hold for p in plans):
         say("REFERENCE")
         ref_prompt = reference_image_prompt(scenario)
         candidate = cache / f"style_{_digest(ref_prompt, getattr(settings, 'image_model', ''))}.png"
@@ -432,6 +459,9 @@ def render_hook(
     resolution = str(getattr(settings, "hook_clip_resolution", "720p"))
     video_model = getattr(settings, "video_model", "")
     for index, plan in enumerate(plans, start=1):
+        if plan.hold:
+            plan.prompt = "(클립 없음: 앞 장면의 마지막 화면에서 멈춤)"
+            continue
         say(f"CLIP {index}/{len(plans)}")
         use_product_refs = plan.shows_product and bool(refs)
         plan.prompt = beat_prompt(
@@ -490,6 +520,7 @@ def render_hook(
             "duration": p.duration,
             "clip_sec": p.clip_sec,
             "shows_product": p.shows_product,
+            "hold": p.hold,
             "narration_sec": round(p.narration_sec, 3),
             "tempo": round(p.tempo, 3),
             "reused": p.reused,

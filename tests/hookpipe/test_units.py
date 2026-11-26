@@ -11,7 +11,7 @@ from tests.support.hookpipe import BACKEND, worker_scenario
 from hookpipe.body import plan_body_segments
 from hookpipe.media import gain_to_target
 from hookpipe.captions import build_srt, srt_timestamp, wrap_caption
-from hookpipe.prompts import beat_prompt, ordered_beats, product_beat_orders
+from hookpipe.prompts import beat_prompt, clean_visual, ordered_beats, product_beat_orders
 from hookpipe.service import is_worker_scenario
 from hookpipe.workers import (
     WorkerError,
@@ -120,6 +120,15 @@ class BodyAndPromptRules(unittest.TestCase):
         self.assertIn("60분형 아날로그 타이머", without)
         story = beat_prompt(scenario, ordered_beats(scenario)[0], 1, 3, product=product, shows_product=False)
         self.assertNotIn("60분 비주얼 타이머", story)
+
+    def test_worker_tags_are_not_sent_to_the_video_model(self) -> None:
+        self.assertEqual(clean_visual("[포커스: 전체→시각화] 일곱 색 원이 사라진다"), "일곱 색 원이 사라진다")
+        self.assertEqual(clean_visual("타이머 다이얼을 돌리는 손 클로즈업 [F02] [F05]"), "타이머 다이얼을 돌리는 손 클로즈업")
+        scenario = worker_scenario("B")
+        scenario["beats"][0]["visual"] = "[포커스: 전체] 바닷속 문어 한 마리"
+        prompt = beat_prompt(scenario, ordered_beats(scenario)[0], 1, 3)
+        self.assertIn("THIS SHOT (1/3): 바닷속 문어 한 마리", prompt)
+        self.assertNotIn("포커스", prompt)
 
     def test_only_scenarios_without_a_timeline_use_hookpipe(self) -> None:
         self.assertTrue(is_worker_scenario(worker_scenario()))

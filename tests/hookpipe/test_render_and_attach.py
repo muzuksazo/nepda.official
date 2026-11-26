@@ -87,6 +87,17 @@ class RenderHook(unittest.TestCase):
             self.assertEqual(result.beats[1]["start"], first["duration"])
             self.assertLessEqual(result.duration_sec, 20.3)
 
+    def test_narration_far_longer_than_the_hook_limit_keeps_as_much_speech_as_fits(self) -> None:
+        with temporary_directory() as td:
+            provider = FakeMediaProvider(TOOLS, seconds_per_char=0.9)  # 장면마다 13~16초짜리 음성
+            result = render_hook(worker_scenario("B"), PRODUCT, Path(td) / "hook", provider=provider,
+                                 settings=_settings(hook_burn_captions=False), tools=TOOLS)
+            # 상한 20초를 꽉 채워 쓰고(시나리오 길이 9초로 되돌아가지 않는다), 잘리는 장면을 경고로 알린다
+            self.assertAlmostEqual(result.duration_sec, 20.0, delta=0.3)
+            self.assertTrue(all(b["duration"] >= 3.0 for b in result.beats))
+            self.assertTrue(all(abs(b["tempo"] - 1.6) < 1e-6 for b in result.beats))
+            self.assertTrue(any("나레이션 끝이 잘립니다" in w for w in result.warnings), result.warnings)
+
     def test_without_tts_makes_a_silent_hook_and_no_tts_file(self) -> None:
         with temporary_directory() as td:
             provider = FakeMediaProvider(TOOLS, fail_image=True)
@@ -126,6 +137,25 @@ class RenderHook(unittest.TestCase):
 
             # 넷 모두 과금 호출(나레이션·참고 이미지·클립)을 하나도 하지 않고 멈춘다
             self.assertEqual((provider.tts_calls, provider.image_calls, provider.video_calls), ([], [], []))
+
+    def test_sub_second_silent_beat_freezes_the_previous_shot_instead_of_buying_a_clip(self) -> None:
+        with temporary_directory() as td:
+            provider = FakeMediaProvider(TOOLS)
+            scenario = worker_scenario("A")
+            scenario["ad_spec"] = {"track_archetype": "A_bgrade_reversal"}
+            scenario["beats"] = [
+                dict(scenario["beats"][0], order=1, duration_sec=3.0),
+                dict(scenario["beats"][1], order=2, duration_sec=3.0),
+                {"order": 3, "role": "패턴 인터럽트", "duration_sec": 0.3, "visual": "화면 전체가 정지", "narration": "", "caption": "……"},
+                dict(scenario["beats"][2], order=4, duration_sec=4.0),
+            ]
+            result = render_hook(scenario, PRODUCT, Path(td) / "hook", provider=provider, settings=_settings(),
+                                 tools=TOOLS)
+            self.assertEqual([c["duration_sec"] for c in provider.video_calls], [3, 3, 4])  # 0.3초 장면은 요청하지 않는다
+            self.assertEqual([b["hold"] for b in result.beats], [False, False, True, False])
+            self.assertAlmostEqual(probe(TOOLS, Path(td) / "hook" / "hook.mp4").duration, 10.3, delta=0.25)
+            self.assertAlmostEqual(result.beats[3]["start"], 6.3, places=2)
+            self.assertEqual(len(result.files["storyboard_images"]), 4)
 
     def test_rerender_buys_only_what_changed(self) -> None:
         with temporary_directory() as td:
