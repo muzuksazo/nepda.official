@@ -255,7 +255,7 @@ export function joinVideos(files: string[], outFile: string): number {
   const chains: string[] = [];
   files.forEach((f, i) => {
     inputs.push("-i", f);
-    chains.push(`[${i}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[v${i}]`);
+    chains.push(`[${i}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,format=yuv420p[v${i}]`);
     if (hasAudio(f)) chains.push(`[${i}:a]aresample=48000,aformat=channel_layouts=stereo[a${i}]`);
     else chains.push(`anullsrc=r=48000:cl=stereo,atrim=duration=${probeSeconds(f).toFixed(3)}[a${i}]`);
   });
