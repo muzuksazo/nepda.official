@@ -91,6 +91,7 @@ export const SCENE3D_PROMPT = `당신은 Remotion + React Three Fiber 숏폼 3D 
 - 시나리오 visual 맨 앞의 [포커스: …]를 camera에 반영합니다. 시각화 → 그 도형 쪽으로 dolly_in, 인물 → 인물 쪽으로 dolly_in/pan, 전체 → static 또는 천천히 넓게. 포커스가 바뀌는 장면(예: 전체→시각화)은 바뀌는 시점(장면 진행 비율)과 대상을 camera 설명에 적습니다.
 - objects 1~4개. three.js 기본 도형(Box, Sphere, Cylinder(thetaLength로 부채꼴), Torus, TubeGeometry+CatmullRomCurve3, InstancedMesh 등)으로만 만듭니다. 외부 3D 모델, 텍스처, drei, 3D 글자(TextGeometry)는 쓰지 않습니다. 인스턴스는 합계 2000개 이하.
 - 3D 안에 읽을 수 있는 글자·숫자를 넣지 않습니다. 숫자는 counter(화면 위쪽 오버레이, 3D와 같은 spring)로만 보여 줍니다.
+- counter는 정수로만 보여 줍니다(소수점은 반올림되어 틀리게 보입니다). 자막에 소수(예: 0.1g, 99.8%)가 나오면 counter의 to를 그 값으로 쓰지 말고, 정수로 맞는 단위로 바꾸거나(0.1g → 100mg) counter를 null로 둡니다.
 - counter는 양·크기·각도처럼 커지거나 줄어드는 수에만 씁니다. 연도(예: 1980년)는 counter로 쓰지 않고 자막으로만 보여 줍니다.
 - counter가 있는 장면은 3D를 화면 맨 위 15%보다 아래에 둡니다. 모든 오브젝트는 확대·이동 후에도 화면 밖으로 잘리지 않게 여백을 둡니다.
 - motion은 2단계 이상이고 장면 처음(from ≤ 0.2)부터 끝(to ≥ 0.8)까지 무언가 움직여야 합니다. 그 움직임이 fact_shown을 한눈에 보여 줘야 합니다.
