@@ -7,6 +7,16 @@ import type { LanguageModel } from "ai";
 
 let google: ReturnType<typeof createGoogleGenerativeAI> | null = null;
 
+/**
+ * B_LLM 하나로 모든 LLM 단계 모델을 바꾼다 (예: B_LLM=gemini-4-hydrogen → Claude API 없이).
+ * 단계별 변수(B_MODEL·B_IDEA_MODEL·B_SCENE_MODEL·B_QA_MODEL·B_BODY_MODEL·B_RESEARCH_MODEL)가 따로 있으면 그것이 우선.
+ */
+export function applyLlmSwitch(): void {
+  const m = process.env.B_LLM?.trim();
+  if (!m) return;
+  for (const k of ["B_MODEL", "B_IDEA_MODEL", "B_SCENE_MODEL", "B_QA_MODEL", "B_BODY_MODEL", "B_RESEARCH_MODEL"]) if (!process.env[k]?.trim()) process.env[k] = m;
+}
+
 export function isGemini(modelId: string): boolean {
   return /^gemini/i.test(modelId);
 }

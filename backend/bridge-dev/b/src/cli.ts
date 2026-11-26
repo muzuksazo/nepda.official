@@ -13,6 +13,7 @@ import { measureRuns, measureText } from "./measure.js";
 import { createHash } from "node:crypto";
 import { mergeResearch, RESEARCH_MODEL, researchProduct, researchWarnings, type ProductResearch } from "./research.js";
 import { DraftScenarioSchema, WorkerInputSchema } from "./schema.js";
+import { applyLlmSwitch } from "./llm.js";
 
 const USAGE = `사용법:
   npm run research -- "<제품명>" [--project <id>] [--count N] [--known "<아는 정보: 제품 사진에서 본 생김새 등>"]
@@ -182,6 +183,7 @@ function printResearch(r: ProductResearch) {
 }
 
 async function main() {
+  applyLlmSwitch();
   const [cmd, file] = process.argv.slice(2);
   if (!cmd || !file) {
     console.log(USAGE);
@@ -387,7 +389,8 @@ async function main() {
   }
 
   if (cmd === "generate") {
-    if (!process.env.ANTHROPIC_API_KEY) {
+    const usesClaude = [process.env.B_MODEL, process.env.B_IDEA_MODEL, process.env.B_SCENE_MODEL, process.env.B_QA_MODEL].some((m) => !m || !/^gemini/i.test(m));
+    if (usesClaude && !process.env.ANTHROPIC_API_KEY) {
       console.error("ANTHROPIC_API_KEY가 없습니다. b/.env.example을 b/.env로 복사해 키를 넣으세요.");
       process.exit(1);
     }
