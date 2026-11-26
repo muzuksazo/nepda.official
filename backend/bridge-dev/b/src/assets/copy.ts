@@ -47,6 +47,12 @@ export function copySceneAssets(sceneFiles: string[], assetDir: string): string[
         mkdirSync(dirname(dst), { recursive: true });
         copyFileSync(join(ASSETS, r), dst);
         copied.push(r);
+        // Kenney 팩 일부는 색을 Textures/colormap.png 로 따로 둔다 → 같은 팩의 Textures 폴더도 같이
+        const tex = join(ASSETS, dirname(r), "Textures");
+        if (/^kenney\//.test(r) && existsSync(tex)) {
+          cpSync(tex, join(assetDir, dirname(r), "Textures"), { recursive: true });
+          copied.push(`${dirname(r)}/Textures/`.replace(/\\/g, "/"));
+        }
       }
     }
   }
