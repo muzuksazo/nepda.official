@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     # Hook video pipeline (backend/hookpipe): A/B/C 시나리오 작업자 → 영상 모델 훅 → 본편 붙이기
     hook_worker_mode: Literal["auto", "off"] = "auto"  # auto: 작업자 호출, 실패하면 planner-api
     hook_workers_dir: str = str(_PROD_ROOT / "bridge-dev")
+    hook_assets_dir: str = str(_PROD_ROOT / "data" / "hook_assets")  # 미리 만든 훅 영상(prebuilt_clip)을 두는 곳
     hook_worker_timeout_sec: float = 900.0
     hook_render_mode: Literal["video_model", "dry_run"] = "video_model"  # dry_run: 과금 호출 없이 scenario.json·hook.srt 만
     hook_max_sec: float = 20.0

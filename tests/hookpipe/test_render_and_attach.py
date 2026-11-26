@@ -20,6 +20,7 @@ from app.server import create_app
 from hookpipe.body import attach_body
 from hookpipe.media import probe
 from hookpipe.render import HookRenderError, extract_reference_frames, render_hook
+from hookpipe.service import HookPipeline
 
 TOOLS = tools_or_none()
 PRODUCT = {"name": "60분 비주얼 타이머", "category": "stationery", "verified_facts": ["60분형 아날로그 타이머"]}
@@ -156,6 +157,41 @@ class RenderHook(unittest.TestCase):
             self.assertAlmostEqual(probe(TOOLS, Path(td) / "hook" / "hook.mp4").duration, 10.3, delta=0.25)
             self.assertAlmostEqual(result.beats[3]["start"], 6.3, places=2)
             self.assertEqual(len(result.files["storyboard_images"]), 4)
+
+    def test_prebuilt_clips_replace_model_calls_and_a_missing_file_stops_before_paying(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            assets = root / "assets"
+            make_video(TOOLS, assets / "a" / "physics_01.mp4", seconds=3.0, audio=False)
+            make_video(TOOLS, assets / "a" / "physics_02.mp4", seconds=3.0, audio=False)
+            (root / "outside.mp4").write_bytes((assets / "a" / "physics_01.mp4").read_bytes())
+            pipeline = HookPipeline(
+                SimpleNamespace(hook_assets_dir=str(assets), output_dir=str(root / "out")), None, None,
+                SimpleNamespace(download_file=lambda key, dest: (_ for _ in ()).throw(FileNotFoundError(key))),
+            )
+            resolve = lambda ref: pipeline.resolve_asset(ref, root / "work")  # noqa: E731
+
+            # 앞의 두 장면은 미리 만든 영상, 마지막 제품 장면만 영상 모델로 만든다
+            scenario = worker_scenario("A")
+            scenario["ad_spec"] = {"track_archetype": "A_bgrade_reversal"}
+            scenario["beats"][0]["prebuilt_clip"] = "a/physics_01.mp4"
+            scenario["beats"][1]["prebuilt_clip"] = "a/physics_02.mp4"
+            provider = FakeMediaProvider(TOOLS)
+            result = render_hook(scenario, PRODUCT, root / "hook", provider=provider, settings=_settings(),
+                                 tools=TOOLS, resolve_asset=resolve)
+            self.assertEqual([c["duration_sec"] for c in provider.video_calls], [3])
+            self.assertEqual([b["prebuilt"] for b in result.beats], [True, True, False])
+            self.assertAlmostEqual(probe(TOOLS, root / "hook" / "hook.mp4").duration, 9.0, delta=0.25)
+
+            # 파일이 없거나, 소재 폴더 밖을 가리키면 아무것도 사지 않고 멈춘다
+            for bad in ("a/missing.mp4", "../outside.mp4", str(root / "outside.mp4")):
+                broken = worker_scenario("A")
+                broken["beats"][0]["prebuilt_clip"] = bad
+                fresh = FakeMediaProvider(TOOLS)
+                with self.assertRaises(HookRenderError):
+                    render_hook(broken, PRODUCT, root / "bad", provider=fresh, settings=_settings(),
+                                tools=TOOLS, resolve_asset=resolve)
+                self.assertEqual((fresh.tts_calls, fresh.image_calls, fresh.video_calls), ([], [], []), bad)
 
     def test_rerender_buys_only_what_changed(self) -> None:
         with temporary_directory() as td:

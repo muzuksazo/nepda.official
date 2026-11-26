@@ -53,6 +53,7 @@ A·B·C 세 트랙의 작업물을 하나의 길로 잇는 백엔드 코드입�
 - **훅 길이:** 20초 이하(`HOOK_MAX_SEC`). 하한은 각 트랙의 검사에 맡깁니다.
 - **제품 참고 이미지:** 올린 촬영 영상에서 컷 2장을 뽑아 제품이 나오는 장면에 넣습니다. 올린 영상이 없으면 제품 사실 문장만으로 그립니다.
 - **제품이 나오는 장면:** B는 `ad_spec.product_first_mention_beat`부터, C는 "문제" 장면을 뺀 전부, A는 마지막 장면입니다.
+- **미리 만든 영상 쓰기:** 장면에 `prebuilt_clip`(영상)이나 `prebuilt_narration`(음성)이 적혀 있으면 영상 모델·TTS를 부르지 않고 그 파일을 씁니다. A 유형처럼 앞부분이 제품과 무관한 훅을 미리 만들어 두고 쓰는 용도입니다. 값은 `HOOK_ASSETS_DIR` 아래의 상대 경로이거나 저장소 키입니다. 파일을 못 찾으면 아무것도 사기 전에 실패합니다. 어떤 장면에 어떤 파일을 쓸지는 작업자(시나리오)가 정합니다.
 - **아주 짧은 무음 장면:** 1초보다 짧고 나레이션이 없는 장면(A 유형의 "패턴 인터럽트" 0.3초 등)은 클립을 따로 사지 않고 앞 장면의 마지막 화면을 멈춰 둡니다.
 - **나레이션이 장면보다 길 때:** 1.3배까지 빠르게 읽고, 그래도 길면 장면을 늘립니다.
 - **본편:** 올린 순서(`shot_no`)대로 잇습니다. 촬영 가이드 길이(`target_body_duration_sec`)를 넘으면 각 클립의 앞부분을 같은 비율로 씁니다. 가로 영상은 흐린 배경 위에 얹습니다.
@@ -73,6 +74,7 @@ A·B·C 세 트랙의 작업물을 하나의 길로 잇는 백엔드 코드입�
 | `HOOK_WORKER_MODE` | `auto` | `auto`: 작업자 호출 후 실패하면 planner-api. `off`: planner-api만. |
 | `HOOK_WORKERS_DIR` | `backend/bridge-dev` | 작업자 폴더 위치 |
 | `HOOK_WORKER_TIMEOUT_SEC` | `900` | A·B 작업자 한 번의 제한 시간 |
+| `HOOK_ASSETS_DIR` | `backend/data/hook_assets` | 미리 만든 훅 영상을 두는 곳 |
 | `HOOK_RENDER_MODE` | `video_model` | `dry_run`이면 과금 호출 없이 scenario.json과 hook.srt만 씁니다. |
 | `HOOK_MAX_SEC` | `20` | 훅 길이 상한 |
 | `HOOK_CLIP_RESOLUTION` | `720p` | 영상 모델 클립 해상도 |

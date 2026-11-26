@@ -9,6 +9,9 @@
 
 어느 유형(A·B·C) 시나리오든 같은 길로 만든다. 유형별 차이는 prompts.py 의 화면 톤과 제품 장면 판정뿐이다.
 
+미리 만들어 둔 영상을 쓰는 장면(A 유형의 제품과 무관한 앞부분 등)은 장면에 `prebuilt_clip`
+(필요하면 `prebuilt_narration`)을 적어 주면 영상 모델·TTS 를 부르지 않고 그 파일을 쓴다.
+
 과금으로 받은 파일(나레이션, 참고 이미지, 클립)은 cache_dir 에 내용 해시 이름으로 둔다.
 같은 문장·목소리·프롬프트·길이·참고 이미지면 다시 사지 않고, 하나라도 바뀌면 새로 만든다.
 """
@@ -70,6 +73,7 @@ class BeatPlan:
     tempo: float = 1.0
     clip_path: Optional[Path] = None
     hold: bool = False  # 앞 장면의 마지막 화면에서 멈춤 (A 유형의 '패턴 인터럽트' 같은 아주 짧은 무음 장면)
+    prebuilt: bool = False  # 미리 만들어 둔 영상을 쓰는 장면 (영상 모델을 부르지 않는다)
     prompt: str = ""
     reused: List[str] = field(default_factory=list)
 
@@ -238,7 +242,7 @@ def _fit_timing(plans: List[BeatPlan], max_hook_sec: float, warnings: List[str])
         plan.duration = round(plan.duration, 3)
         plan.start = round(cursor, 3)
         cursor += plan.duration
-        plan.clip_sec = 0 if plan.hold else _clip_seconds(plan.duration)
+        plan.clip_sec = 0 if (plan.hold or plan.prebuilt) else _clip_seconds(plan.duration)
 
 
 def _subtitle_style() -> str:
@@ -393,11 +397,13 @@ def render_hook(
     product_refs: Sequence[str | Path] = (),
     tools: Optional[MediaTools] = None,
     cache_dir: Optional[str | Path] = None,
+    resolve_asset: Optional[Callable[[str], Optional[Path]]] = None,
     progress: Optional[Callable[[str], None]] = None,
 ) -> HookRenderResult:
     """훅 하나를 만든다. provider 는 `app.genai_provider.GenAIMediaProvider` (또는 같은 모양의 대역).
 
     cache_dir: 과금으로 받은 파일을 두는 곳. 같은 시나리오를 다시 만들 때 같은 곳을 주면 이미 받은 것은 다시 사지 않는다.
+    resolve_asset: 장면의 `prebuilt_clip` / `prebuilt_narration` 값을 실제 파일 경로로 바꿔 주는 함수.
     """
     target = Path(out_dir)
     work = target / "_work"
@@ -411,8 +417,29 @@ def render_hook(
     clip_limit = int(getattr(settings, "hook_max_clip_sec_per_hook", 45))
 
     plans = _plan_beats(scenario, max_hook_sec)
+    # 미리 만든 파일을 쓰는 장면: 파일이 없으면 아무것도 사기 전에 멈춘다
+    prebuilt_audio: Dict[int, Path] = {}
+    for plan in plans:
+        for key in ("prebuilt_clip", "prebuilt_narration"):
+            ref = str(plan.beat.get(key) or "").strip()
+            if not ref:
+                continue
+            found = resolve_asset(ref) if resolve_asset else None
+            if found is None or not _ready(Path(found)):
+                raise HookRenderError(f"장면 {plan.order} 의 미리 만든 파일을 찾지 못했습니다: {ref}")
+            info = probe(media, found)
+            if key == "prebuilt_clip":
+                if not info.has_video or info.duration <= 0:
+                    raise HookRenderError(f"장면 {plan.order} 의 미리 만든 영상에 화면이 없습니다: {ref}")
+                plan.clip_path, plan.prebuilt, plan.hold = Path(found), True, False
+            else:
+                if not info.has_audio or info.duration <= 0:
+                    raise HookRenderError(f"장면 {plan.order} 의 미리 만든 나레이션에 소리가 없습니다: {ref}")
+                prebuilt_audio[plan.order] = Path(found)
     # 과금 방어 1: 시나리오 길이만으로도 상한을 넘으면 나레이션을 사기 전에 멈춘다
-    _check_clip_budget(sum(_clip_seconds(p.scenario_sec) for p in plans if not p.hold), clip_limit)
+    _check_clip_budget(
+        sum(_clip_seconds(p.scenario_sec) for p in plans if not p.hold and not p.prebuilt), clip_limit
+    )
     (target / "scenario.json").write_text(json.dumps(scenario, ensure_ascii=False, indent=2), encoding="utf-8")
     # 같은 폴더로 다시 만들 때 예전 결과가 섞이지 않게 지운다
     for stale in [target / "hook.mp4", target / "tts.mp3", *target.glob("storyboard_*.png")]:
@@ -423,13 +450,17 @@ def render_hook(
         say("TTS")
         voice_name = voice or getattr(settings, "tts_default_voice", None)
         for plan in plans:
-            if not plan.narration:
+            wav = prebuilt_audio.get(plan.order)
+            if wav is not None:
+                plan.reused.append("prebuilt_narration")
+            elif not plan.narration:
                 continue
-            wav = cache / f"tts_{_digest(plan.narration, voice_name, getattr(settings, 'tts_model', ''))}.wav"
-            if _ready(wav):
-                plan.reused.append("tts")
             else:
-                provider.generate_tts_beat(plan.narration, wav, voice_name=voice_name)
+                wav = cache / f"tts_{_digest(plan.narration, voice_name, getattr(settings, 'tts_model', ''))}.wav"
+                if _ready(wav):
+                    plan.reused.append("tts")
+                else:
+                    provider.generate_tts_beat(plan.narration, wav, voice_name=voice_name)
             info = probe(media, wav)
             if info.duration <= 0:
                 raise HookRenderError(f"장면 {plan.order} 나레이션 음성이 비어 있습니다.")
@@ -443,7 +474,7 @@ def render_hook(
     # 2) 참고 이미지: 제품 장면은 촬영본에서 뽑은 컷, 나머지는 톤·주인공 참고 이미지 한 장
     refs = [Path(p) for p in product_refs if Path(p).is_file()]
     style_ref: Optional[Path] = None
-    if any((not p.shows_product or not refs) and not p.hold for p in plans):
+    if any((not p.shows_product or not refs) and not p.hold and not p.prebuilt for p in plans):
         say("REFERENCE")
         ref_prompt = reference_image_prompt(scenario)
         candidate = cache / f"style_{_digest(ref_prompt, getattr(settings, 'image_model', ''))}.png"
@@ -461,6 +492,10 @@ def render_hook(
     for index, plan in enumerate(plans, start=1):
         if plan.hold:
             plan.prompt = "(클립 없음: 앞 장면의 마지막 화면에서 멈춤)"
+            continue
+        if plan.prebuilt:
+            plan.prompt = f"(미리 만든 영상: {plan.beat.get('prebuilt_clip')})"
+            plan.reused.append("prebuilt_clip")
             continue
         say(f"CLIP {index}/{len(plans)}")
         use_product_refs = plan.shows_product and bool(refs)
@@ -521,6 +556,7 @@ def render_hook(
             "clip_sec": p.clip_sec,
             "shows_product": p.shows_product,
             "hold": p.hold,
+            "prebuilt": p.prebuilt,
             "narration_sec": round(p.narration_sec, 3),
             "tempo": round(p.tempo, 3),
             "reused": p.reused,

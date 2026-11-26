@@ -12,6 +12,7 @@ DB 갱신과 파일 올리기는 코어의 저장소 객체(project_store, job_s
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import shutil
 import threading
@@ -106,6 +107,30 @@ class HookPipeline:
         voice = (tts.get("voice") or getattr(self.settings, "tts_default_voice", None)) if enabled else None
         return enabled, voice
 
+    def resolve_asset(self, ref: str, work_dir: Path) -> Optional[Path]:
+        """미리 만든 훅 소재(`prebuilt_clip` 등)의 위치. HOOK_ASSETS_DIR 아래의 상대 경로이거나 저장소 키다.
+
+        HOOK_ASSETS_DIR 밖을 가리키는 경로(절대 경로, ../)는 받지 않는다.
+        """
+        base = Path(getattr(self.settings, "hook_assets_dir", "")).resolve()
+        try:
+            local = (base / ref).resolve()
+        except (OSError, ValueError):
+            local = None
+        if local is not None and local.is_relative_to(base):
+            if local.is_file():
+                return local
+        elif local is not None:
+            return None
+        dest = work_dir / f"{hashlib.sha1(ref.encode('utf-8')).hexdigest()[:12]}{Path(ref).suffix or '.mp4'}"
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            self.storage.download_file(ref, dest)
+        except Exception as exc:
+            logger.warning("미리 만든 소재를 찾지 못했습니다 (%s): %s", ref, exc)
+            return None
+        return dest if dest.is_file() else None
+
     def _upload_clip_paths(self, project: Dict[str, Any], work_dir: Path) -> List[Path]:
         """올린 본편 클립을 촬영 순서(shot_no)대로 로컬 경로로 돌려준다. 저장소에만 있으면 매번 새로 내려받는다."""
         uploads = project.get("uploads") or {}
@@ -154,6 +179,7 @@ class HookPipeline:
             product_refs=refs,
             tools=media,
             cache_dir=self.cache_dir(str(project["project_id"]), str(scenario.get("scenario_id") or "scenario")),
+            resolve_asset=lambda ref: self.resolve_asset(ref, out_dir / "_work" / "assets"),
             progress=progress,
         )
 
