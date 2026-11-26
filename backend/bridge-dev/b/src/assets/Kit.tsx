@@ -74,6 +74,8 @@ function cameraAt(shots: KitPlan['shots'], p: number) {
 }
 
 type Size = { x: number; y: number; z: number };
+/** 후경 소품을 살짝 어둡게 (공기 원근법: 앞의 시각화가 또렷하게 떨어져 보이게) */
+const BACK_TONE = '#a9a39c';
 type Placed = { key: string; file: string; position: [number, number, number]; height: number; maxW: number; rotationY: number; tone?: string; base: number };
 
 /** 패턴대로 n 개의 자리(가운데 기준 dx, dy, dz)와 각 물건의 최대 가로. area = 놓을 수 있는 가로·깊이 */
@@ -96,25 +98,62 @@ function patternOffsets(pattern: Pattern, n: number, itemH: number, area: { w: n
   return out;
 }
 
+type Layout = 'person' | 'solo' | 'reveal';
+
+/**
+ * 장면 구성에 따라 자리를 옮긴다: 시각화 상자 뒤(화면에서 같은 높이·같은 자리)에 받침·소품이 오면
+ * 시각화와 겹쳐 "파고든" 것처럼 보이므로, 후경은 시각화 양옆 빈자리로 비킨다.
+ *   person: 인물 왼쪽, 시각화 오른쪽 가운데 (x -0.4~1.3) → 후경은 인물 뒤와 오른쪽 끝
+ *   solo: 시각화가 가운데 (x ±1.05) → 후경은 양 끝
+ */
+function slotFor(slot: Slot, layout: Layout, used: Map<string, number>, lowAlone = false): { x: number; z: number; maxH: number; maxW: number } {
+  const base = SLOTS[slot] ?? SLOTS['back-center'];
+  if (layout === 'reveal') return base;
+  // 낮은 물건(0.5m 이하, 위에 올린 것 없음)은 화면에서 시각화 아래로 보이므로 후경 가운데에 그대로 둔다
+  if (slot === 'back-center' && lowAlone) return { ...base, maxH: 0.5 };
+  if (slot.startsWith('back')) {
+    // 후경 가운데는 덜 쓴 쪽 끝으로
+    let side: 'left' | 'right' = slot === 'back-left' ? 'left' : slot === 'back-right' ? 'right' : (used.get('back:left') ?? 0) <= (used.get('back:right') ?? 0) ? 'left' : 'right';
+    if (layout === 'person' && slot === 'back-center') side = 'left'; // 인물 뒤는 시각화와 안 겹친다
+    const k = used.get(`back:${side}`) ?? 0;
+    used.set(`back:${side}`, k + 1);
+    const x0 = layout === 'person' ? (side === 'left' ? [-1.05, -1.95][k % 2] : 2.0) : side === 'left' ? -1.9 : 1.95;
+    return { x: x0, z: -2.2 - Math.floor(k / 2) * 0.5, maxH: base.maxH, maxW: layout === 'person' && side === 'left' && k % 2 === 0 ? 0.9 : 1.0 };
+  }
+  if (slot === 'mid-left' || slot === 'mid-right') {
+    const right = slot === 'mid-right';
+    if (layout === 'person') return right ? { x: 1.85, z: -0.9, maxH: 1.6, maxW: 0.6 } : { x: -1.75, z: -0.8, maxH: 1.8, maxW: 0.7 };
+    return { x: right ? 1.6 : -1.6, z: -0.7, maxH: 1.6, maxW: 0.6 };
+  }
+  if (slot === 'side-left' || slot === 'side-right') {
+    const right = slot === 'side-right';
+    if (layout === 'person' && right) return { x: 2.0, z: -1.3, maxH: base.maxH, maxW: 0.9 };
+    if (layout === 'solo') return { x: right ? 1.85 : -1.85, z: -1.2, maxH: base.maxH, maxW: 0.9 };
+  }
+  return base;
+}
+
 /** 소품 배치: 바닥 자리(slot)의 물건 → 그 위에 올리는 물건(on, 받침의 실제 크기를 알아야 해서 받침이 불러와진 뒤) */
-function placeProps(props: KitPlan['props'], sizes: Record<number, Size>): Placed[] {
+function placeProps(props: KitPlan['props'], sizes: Record<number, Size>, layout: Layout): Placed[] {
   const out: Placed[] = [];
   const list = props.slice(0, 8);
-  const used = new Map<Slot, number>();
+  const used = new Map<string, number>();
   list.forEach((p, idx) => {
     const n = Math.max(1, Math.min(8, Math.round(p.count ?? 1)));
     const pattern: Pattern = p.pattern ?? (n > 1 ? 'row' : 'single');
     const onBase = p.on !== undefined && p.on !== idx && list[p.on] && list[p.on].on === undefined ? p.on : undefined;
     if (onBase === undefined) {
-      const slot = SLOTS[p.slot] ?? SLOTS['back-center'];
-      const k = used.get(p.slot) ?? 0;
-      used.set(p.slot, k + 1);
-      const dir = slot.x >= 0 ? -1 : 1; // 같은 자리 두 번째부터는 화면 안쪽으로 비킨다
+      const isBack = (p.slot ?? 'back-center').startsWith('back');
+      const lowAlone = p.height <= 0.5 && !list.some((q, qi) => qi !== idx && q.on === idx);
+      const slot = slotFor(p.slot, layout, used, lowAlone);
+      const k = isBack ? 0 : used.get(p.slot) ?? 0; // 후경은 slotFor 가 자리를 나눠 준다
+      if (!isBack) used.set(p.slot, k + 1);
+      const dir = slot.x >= 0 ? 1 : -1; // 같은 자리 두 번째부터는 바깥쪽·뒤로 비킨다 (시각화 쪽으로 들어오지 않게)
       const h = Math.min(Math.max(0.1, p.height), slot.maxH);
       const each = n > 1 ? Math.min(slot.maxW, Math.max(0.25, (slot.maxW * 1.6) / n)) : slot.maxW;
       const offs = patternOffsets(pattern, n, h, { w: Math.min(2.2, each * (n - 1) * 1.05), d: 0.8 });
       offs.forEach((o, j) =>
-        out.push({ key: `p${idx}-${j}`, file: p.file, position: [slot.x + dir * k * 0.7 + o.dx, FLOOR_Y + o.dy, slot.z + k * 0.15 + o.dz], height: h, maxW: each, rotationY: (p.rotationY ?? 0) + o.rot, tone: p.tone, base: j === 0 ? idx : -1 })
+        out.push({ key: `p${idx}-${j}`, file: p.file, position: [slot.x + dir * k * 0.35 + o.dx, FLOOR_Y + o.dy, slot.z - k * 0.45 + o.dz], height: h, maxW: each, rotationY: (p.rotationY ?? 0) + o.rot, tone: p.tone ?? (isBack && layout !== 'reveal' ? BACK_TONE : undefined), base: j === 0 ? idx : -1 })
       );
     } else {
       const baseSize = sizes[onBase];
@@ -125,7 +164,7 @@ function placeProps(props: KitPlan['props'], sizes: Record<number, Size>): Place
       const h = Math.min(Math.max(0.05, p.height), 0.9);
       const each = Math.max(0.08, Math.min(area.w / Math.max(1, pattern === 'stack' ? 1 : n) * 0.9, 0.6));
       patternOffsets(pattern, n, h, area).forEach((o, j) =>
-        out.push({ key: `p${idx}-${j}`, file: p.file, position: [basePlaced.position[0] + o.dx, top + o.dy, basePlaced.position[2] + o.dz], height: h, maxW: each, rotationY: (p.rotationY ?? 0) + o.rot, tone: p.tone, base: -1 })
+        out.push({ key: `p${idx}-${j}`, file: p.file, position: [basePlaced.position[0] + o.dx, top + o.dy, basePlaced.position[2] + o.dz], height: h, maxW: each, rotationY: (p.rotationY ?? 0) + o.rot, tone: p.tone ?? basePlaced.tone, base: -1 })
       );
     }
   });
@@ -167,7 +206,7 @@ export function KitScene({ plan, durationInFrames: d, children, Product }: { pla
   const world = (
     <>
       <Stage dim={dim} camera={camera} floorColor={clampLight(plan.stage.floor, 0.12, 0.3)} wallColor={clampLight(plan.stage.wall, 0.04, 0.12)} back={-4.8} hdri={plan.stage.hdri} envIntensity={0.35} />
-      {placeProps(plan.props, sizes).filter((pr) => !plan.reveal || pr.position[2] < 0.1).map((pr) => ( // 반전: 앞쪽 소품은 빼서 제품·뚜껑 자리를 비운다
+      {placeProps(plan.props, sizes, plan.reveal ? 'reveal' : solo ? 'solo' : 'person').filter((pr) => !plan.reveal || pr.position[2] < 0.1).map((pr) => ( // 반전: 앞쪽 소품은 빼서 제품·뚜껑 자리를 비운다
         <Prop
           key={pr.key}
           file={pr.file}

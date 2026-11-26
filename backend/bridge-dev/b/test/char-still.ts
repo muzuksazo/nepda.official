@@ -22,6 +22,10 @@ try {
   installSceneLib(genDir, process.env.B_PRODUCT_MODEL);
   console.log("assets", copySceneAssets([scenePath], assetDir));
   writeFileSync(join(genDir, "Ctest.tsx"), readFileSync(scenePath));
+  // 키트 장면(beat<k>.tsx)이면 같은 폴더의 시각화 코드(beat<k>V.tsx)도 그 import 이름으로 넣는다
+  const vizImport = /from '\.\/(B\w+V)'/.exec(readFileSync(scenePath, "utf8"));
+  const vizPath = scenePath.replace(/\.tsx$/, "V.tsx");
+  if (vizImport && existsSync(vizPath)) writeFileSync(join(genDir, `${vizImport[1]}.tsx`), readFileSync(vizPath));
   writeRegistry(genDir, ["Ctest"], gen.keepKeys);
   const req = createRequire(join(pdir, "package.json"));
   const { bundle } = req("@remotion/bundler");
