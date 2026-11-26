@@ -15,10 +15,10 @@
 /* ---------- 글자 ---------- */
 .n-display {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 28px;
-  line-height: 1.22;
-  letter-spacing: -0.3px;
+  line-height: 1.3;
+  letter-spacing: -0.6px;
   color: var(--text);
 }
 
@@ -499,8 +499,9 @@ textarea.n-input {
 
 /* 미정 표시: 와이어프레임의 점선 주석을 그대로 잇는 회색 점선 (출시 전 모두 사라질 개발용 표시) */
 .n-badge--pending {
-  background: transparent;
-  border: 1px dashed var(--text-weak);
+  /* 기획 미정 표시: 점선 주석 대신 종이 톤 칩 + 시계 아이콘 */
+  background: var(--surface-weak);
+  border: 1px solid var(--border-weak);
   color: var(--text-3);
   font-weight: 500;
 }
@@ -536,15 +537,110 @@ textarea.n-input {
   display: block;
   height: 12px;
   border-radius: var(--radius-full);
-  background: linear-gradient(90deg, var(--surface-weak), var(--surface), var(--surface-weak));
-  background-size: 200% 100%;
-  animation: n-shimmer 1.6s linear infinite;
+}
+
+/* 바탕 위로 밝은 띠가 왼쪽→오른쪽으로 지나간다(불러오는 중). 막대 말고 원·상자에도 쓴다 */
+.n-skeleton span,
+.n-shimmer {
+  background: linear-gradient(90deg, var(--surface) 0%, var(--surface) 35%, var(--bg-weak) 50%, var(--surface) 65%, var(--surface) 100%);
+  background-size: 250% 100%;
+  animation: n-shimmer 1.4s ease-in-out infinite;
 }
 
 @keyframes n-shimmer {
-  to {
-    background-position: -200% 0;
+  from {
+    background-position: 100% 0;
   }
+  to {
+    background-position: 0% 0;
+  }
+}
+
+/* ---------- 예상 소요 시간 ---------- */
+.n-estimate {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 16px 16px;
+}
+
+.n-estimate__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.n-estimate__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--tint);
+  color: var(--on-tint);
+}
+
+.n-estimate__head h2 {
+  margin: 0;
+  font-weight: 500;
+}
+
+.n-estimate__total {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 30px;
+}
+
+.n-estimate__stages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border-weak);
+  list-style: none;
+}
+
+.n-estimate__stages li {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-2);
+}
+
+.n-estimate__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--surface-weak);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.n-estimate__time {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.n-estimate__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-3);
 }
 
 /* ---------- 안내 상자 (회색) ---------- */
@@ -573,7 +669,7 @@ textarea.n-input {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 220px;
+  min-height: 168px;
   padding: 24px;
   border: 1.5px dashed var(--border);
   border-radius: var(--radius-xl);
@@ -641,13 +737,6 @@ textarea.n-input {
   border-radius: var(--radius-md);
 }
 
-.n-video__top {
-  position: absolute;
-  top: 14%;
-  inset-inline: 12px;
-  text-align: center;
-}
-
 .n-video__bottom {
   position: absolute;
   bottom: 14px;
@@ -657,18 +746,151 @@ textarea.n-input {
   color: rgb(255 255 255 / 0.7);
 }
 
-/* 썸네일 미리보기 글자: 흰 디스플레이체 + 검은 띠 */
-.n-thumb-caption {
-  display: inline;
-  padding: 2px 8px;
-  font-family: var(--font-display);
-  font-size: 22px;
-  line-height: 1.55;
-  color: #fff;
-  background: rgb(0 0 0 / 0.85);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25);
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
+/* ---------- 썸네일 시안 고르기 (캐러셀) ----------
+   템플릿은 팀이 만든 9:16 이미지다. 다음 시안이 오른쪽에 살짝 보여 넘길 수 있다는 걸 알려 준다. */
+.n-thumb-picker {
+  min-width: 0;
+}
+
+.n-thumb-picker__track {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  /* 화면 좌우 여백(20px)까지 넓혀 시안이 가장자리로 넘어가 보이게.
+     위아래 8px은 고른 테두리·포커스 링이 잘리지 않게 둔 자리 */
+  margin-inline: -20px;
+  padding: 8px 20px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 20px;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.n-thumb-picker__track::-webkit-scrollbar {
+  display: none;
+}
+
+/* 한 화면에 2장 반: 세 번째 시안이 살짝 걸쳐 보인다 */
+.n-thumb-option {
+  position: relative;
+  display: flex;
+  flex: 0 0 40%;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  scroll-snap-align: start;
+  cursor: pointer;
+}
+
+.n-thumb-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.n-thumb-option__frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--surface-weak);
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.n-thumb-option__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+/* 이미지 가장자리가 바탕에 묻히지 않게 옅은 선을 얹는다 */
+.n-thumb-option__frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+  pointer-events: none;
+}
+
+[data-theme='dark'] .n-thumb-option__frame::after {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+
+/* 미리보기 이미지가 아직 없는 시안: 옅은 라임 틴트 + 이미지 아이콘 */
+.n-thumb-option__frame.is-empty {
+  background: var(--tint);
+  color: var(--on-tint);
+}
+
+.n-thumb-option:active .n-thumb-option__frame img {
+  opacity: 0.86;
+}
+
+/* 고른 시안: 사진 가장자리에 바로 붙은 라임 테두리 3px (레이아웃을 밀지 않게 그림자로 그린다) */
+.n-thumb-option input:checked ~ .n-thumb-option__frame {
+  box-shadow: 0 0 0 3px var(--selected-border);
+}
+
+.n-thumb-option input:focus-visible ~ .n-thumb-option__frame {
+  outline: 2px solid var(--focus);
+  outline-offset: 5px;
+}
+
+/* 오른쪽 위 체크 원: 고르기 전에는 빈 원, 고르면 라임 원 + 검정 체크 */
+.n-thumb-option__check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid rgb(255 255 255 / 0.9);
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.28);
+  /* 밝은 이미지 위에서도 원이 보이게 */
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.18);
+  color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.n-thumb-option input:checked ~ .n-thumb-option__frame .n-thumb-option__check {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+.n-thumb-option__name {
+  overflow: hidden;
+  padding-inline: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n-thumb-option input:checked ~ .n-thumb-option__name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .n-thumb-picker__track {
+    scroll-behavior: auto;
+  }
 }
 
 .n-media {
@@ -678,8 +900,18 @@ textarea.n-input {
   flex-shrink: 0;
   overflow: hidden;
   border-radius: var(--radius-md);
-  background: var(--surface-weak);
-  color: var(--text-weak);
+  background: var(--tint);
+  color: var(--on-tint);
+}
+
+/* 큰 그림 자리(그림 콘티): 라임 면이 넓어지지 않도록 종이 톤 + 점 격자 스케치북 */
+.n-media--sketch {
+  background-color: var(--surface-weak);
+  background-image: radial-gradient(var(--surface-strong) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+  background-position: 7px 7px;
+  box-shadow: inset 0 0 0 1px var(--border-weak);
+  color: var(--text-3);
 }
 
 /* ---------- 번호 원 + 연결선 ---------- */
@@ -769,6 +1001,8 @@ textarea.n-input {
   position: sticky;
   top: 0;
   z-index: 2;
+  /* 노치·상태 표시줄 아래로 내린다 (viewport-fit=cover) */
+  padding-top: env(safe-area-inset-top, 0px);
   background: var(--bg);
 }
 
@@ -787,10 +1021,81 @@ textarea.n-input {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 20px calc(24px + env(safe-area-inset-bottom));
+  padding: 12px 20px max(24px, calc(var(--safe-bottom) + 8px));
   border-top: 1px solid var(--border-weak);
   background: var(--bg);
   box-shadow: var(--shadow-sheet);
+}
+
+/* 하단 고정 묶음: (행동 버튼) + 하단 내비게이션 */
+.n-screen__bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--bg);
+}
+
+.n-screen__bottom .n-screen__footer {
+  position: static;
+  padding-bottom: 12px;
+  border-top: 0;
+  box-shadow: none;
+}
+
+/* ---------- 하단 내비게이션 ----------
+   iOS 탭 바(49pt + 홈 인디케이터 34pt = 83pt)와 Material 내비게이션 바(활성 표시 64×32dp)를 기준으로,
+   아이콘 줄 56px + 아래 안전 영역. 안전 영역이 없는 기기도 아래 12px은 띄운다. */
+.n-bottom-nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 4px 8px max(12px, var(--safe-bottom));
+  border-top: 1px solid var(--border-weak);
+  background: var(--bg);
+}
+
+.n-bottom-nav__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.n-bottom-nav__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.n-bottom-nav__icon svg path {
+  transition: fill var(--dur-fast) var(--ease-out);
+}
+
+.n-bottom-nav__item:active .n-bottom-nav__icon {
+  transform: scale(0.9);
+}
+
+.n-bottom-nav__item:hover:not(.is-active) {
+  color: var(--text);
+}
+
+/* 현재 탭: 라임 없이 글자색(라이트 검정·다크 흰색)으로 아이콘을 꽉 채운다 */
+.n-bottom-nav__item.is-active {
+  color: var(--text);
+}
+
+.n-bottom-nav__item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -4px;
+  border-radius: var(--radius-md);
 }
 
 .n-screen__summary {
@@ -812,8 +1117,129 @@ textarea.n-input {
 }
 
 .n-wordmark {
-  height: 24px;
+  height: 40px;
   width: auto;
+}
+
+/* 상단 GNB 오른쪽 묶음: 크레딧 · 프로필 · 메뉴 */
+.n-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+
+.n-avatar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  /* 32px 원의 보이는 오른쪽 끝을 화면 여백(20px)에 맞춘다 */
+  margin-right: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  cursor: pointer;
+}
+
+.n-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--surface-weak);
+  box-shadow: inset 0 0 0 1px var(--border-weak);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.n-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.n-avatar--lg {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  font-size: 22px;
+}
+
+.n-avatar.n-shimmer {
+  box-shadow: none;
+}
+
+.n-avatar-btn:hover .n-avatar {
+  background: var(--surface-strong);
+}
+
+.n-avatar-btn:active .n-avatar {
+  transform: scale(0.94);
+}
+
+.n-avatar-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 0;
+}
+
+/* 상단 GNB 크레딧 잔액: 회색 알약 + 작은 라임 번개 원(라임은 이 원에만) */
+.n-credit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px 0 6px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-weak);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+/* 보이는 높이는 32px, 누르는 영역은 44px */
+.n-credit::before {
+  content: '';
+  position: absolute;
+  inset: -6px -4px;
+}
+
+.n-credit:hover {
+  background: var(--surface-strong);
+}
+
+.n-credit:active {
+  transform: scale(0.96);
+}
+
+.n-credit__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+.n-credit__value {
+  min-width: 2ch;
+  line-height: 1;
 }
 
 [data-theme='dark'] .n-wordmark--light,
@@ -826,6 +1252,10 @@ textarea.n-input {
   flex-direction: column;
   gap: 12px;
   padding: 16px 20px 16px 8px;
+}
+
+.n-flow-header--root {
+  padding-left: 20px;
 }
 
 .n-flow-header__step {
@@ -1049,18 +1479,1119 @@ textarea.n-input {
   }
 }
 
+/* ---------- 목록 (설정·메뉴) ---------- */
+.n-list-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.n-list-group__title {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  letter-spacing: 0;
+  color: var(--text-3);
+}
+
+.n-list-group__lead {
+  padding-bottom: 8px;
+}
+
+.n-list-group__lead:last-child {
+  padding-bottom: 0;
+}
+
+.n-list-group__note {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-3);
+}
+
+.n-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 한 줄: 누르는 면을 화면 좌우 여백(20px)까지 넓혀 손가락이 어디에 닿아도 눌린다 */
+.n-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% + 40px);
+  min-height: 52px;
+  margin-inline: -20px;
+  padding: 8px 20px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+button.n-list-row {
+  cursor: pointer;
+}
+
+button.n-list-row:hover {
+  background: var(--bg-weak);
+}
+
+button.n-list-row:active {
+  background: var(--surface-weak);
+}
+
+.napda-root button.n-list-row:focus-visible {
+  outline-offset: -2px;
+}
+
+.n-list-row__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-2);
+}
+
+.n-list-row__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.n-list-row__label {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+  color: var(--text);
+}
+
+.n-list-row__desc {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
+.n-list-row__end {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.n-list-row__chevron {
+  flex-shrink: 0;
+  margin-right: -4px;
+  color: var(--text-weak);
+}
+
+/* 글자 버튼: 탈퇴처럼 일부러 조용하게 두는 행동 */
+.n-link-btn {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  color: var(--text-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.n-link-btn:hover {
+  color: var(--text);
+}
+
+/* ---------- 내 정보: 계정 머리 ---------- */
+.n-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.n-profile__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.n-profile__name {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 26px;
+  letter-spacing: -0.3px;
+}
+
+.n-profile__email {
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n-profile__leave {
+  display: flex;
+  justify-content: center;
+  margin-top: -12px;
+}
+
+/* ---------- 크레딧 잔액 카드 ---------- */
+.n-wallet {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 16px 16px;
+}
+
+/* 불러오는 중에도 실제 카드와 같은 높이를 잡아 둬서, 내용이 들어올 때 아래가 밀리지 않는다 */
+.n-wallet--loading {
+  min-height: 133px;
+}
+
+.n-wallet__label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--text-3);
+}
+
+.n-wallet__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.n-wallet__balance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 36px;
+  letter-spacing: -0.5px;
+}
+
+.n-wallet__icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.n-wallet__hint {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-3);
+}
+
+/* 온보딩 무료 제작 1회가 남아 있을 때만 */
+.n-wallet__free {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-weak);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.n-wallet__free-text {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.n-wallet__free-count {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+/* ---------- 크레딧 충전 ---------- */
+.n-credit-icon--lg {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+/* 버튼 위 한 줄: "⚡ 12 크레딧 써요 · 보유 120" */
+.n-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+}
+
+.n-cost b,
+.n-cost__strong {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.n-cost__have {
+  color: var(--text-3);
+}
+
+.n-cost__warn {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* 크레딧 부족 시트: 필요 · 보유 · 더 필요 세 칸 */
+.n-shortfall {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  margin-top: 16px;
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-lg);
+  background: var(--bg-weak);
+}
+
+.n-shortfall > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+}
+
+.n-shortfall > div + div {
+  border-left: 1px solid var(--border-weak);
+}
+
+.n-shortfall dt {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
+.n-shortfall dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 28px;
+  color: var(--text-2);
+}
+
+.n-shortfall__need dt {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.n-shortfall__need dd {
+  color: var(--text);
+}
+
+/* 충전 묶음 카드: 하나만 고른다. 고르면 라임 틴트 면 + 진한 라임 테두리 + 체크 */
+.n-packages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.n-package {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.n-package:hover {
+  border-color: var(--text-3);
+}
+
+.n-package input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.n-package:has(input:checked) {
+  border-color: var(--selected-border);
+  box-shadow: inset 0 0 0 1px var(--selected-border);
+  background: var(--selected-bg);
+}
+
+.n-package:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.n-package__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.n-package:has(input:checked) .n-package__check {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+.n-package__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-package__credits {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 28px;
+  color: var(--text);
+}
+
+.n-package__unit {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.n-package__credits .n-badge {
+  margin-left: 4px;
+}
+
+.n-package__videos {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
+.n-package__price {
+  flex-shrink: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 24px;
+  color: var(--text);
+}
+
+/* 결제 전 알아 둘 것 */
+.n-policy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-3);
+}
+
+/* 충전 결과: 5 → 105 */
+.n-credit-change {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-3);
+}
+
+.n-credit-change__from {
+  font-size: 20px;
+  font-weight: 700;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.n-credit-change__to {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+
+/* 결제 확인 중: 라임 호가 도는 원 */
+.n-spinner {
+  width: 56px;
+  height: 56px;
+  border: 5px solid var(--surface);
+  border-top-color: var(--accent-fill);
+  border-radius: 50%;
+  animation: n-spin 0.9s linear infinite;
+}
+
+@keyframes n-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 돌지 않는 대신 천천히 깜빡여 기다리는 중임을 알린다 */
+  .napda-root .n-spinner {
+    animation: n-blink 1.6s ease-in-out infinite !important;
+  }
+}
+
+@keyframes n-blink {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ---------- 숫자 타일 ---------- */
+.n-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.n-stat {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  row-gap: 2px;
+  min-height: 76px;
+  padding: 12px 10px 12px 16px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--surface-weak);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.n-stat:hover {
+  background: var(--surface);
+}
+
+.n-stat:active {
+  transform: scale(0.98);
+}
+
+.n-stat__label {
+  grid-column: 1;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--text-3);
+}
+
+.n-stat__value {
+  grid-column: 1;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 30px;
+  letter-spacing: -0.3px;
+}
+
+.n-stat__chevron {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  color: var(--text-weak);
+}
+
+/* ---------- 확인 시트 (아래에서 올라오는 대화상자) ---------- */
+.n-sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.n-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
+  touch-action: none;
+  animation: n-fade-in var(--dur-base) var(--ease-out);
+}
+
+.n-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  padding: 28px 20px max(24px, calc(var(--safe-bottom) + 12px));
+  border-radius: 28px 28px 0 0;
+  background: var(--bg);
+  box-shadow: 0 -8px 32px rgb(0 0 0 / 0.16);
+  animation: n-sheet-up var(--dur-base) var(--ease-out);
+}
+
+/* 시트 자체는 조작 요소가 아니라 읽기 시작점이라 포커스 링을 그리지 않는다(안의 버튼은 그린다) */
+.napda-root .n-sheet:focus-visible {
+  outline: none;
+}
+
+[data-theme='dark'] .n-sheet {
+  background: var(--surface-weak);
+  box-shadow: inset 0 1px 0 var(--border);
+}
+
+.n-sheet__title {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: -0.3px;
+}
+
+.n-sheet__desc {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--text-3);
+}
+
+.n-sheet__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+@keyframes n-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes n-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- 스위치 ---------- */
+.n-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.n-switch-row__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-switch-row__label {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.n-switch-row__desc {
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-3);
+}
+
+.n-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 52px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-strong);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+/* 보이는 높이는 32px, 누르는 영역은 44px */
+.n-switch::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.n-switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+/* 켜짐: 라임 면 + 검정 손잡이(선택 체크와 같은 짝). 색뿐 아니라 손잡이 위치로도 구분된다 */
+.n-switch[aria-checked='true'] {
+  background: var(--accent-fill);
+  box-shadow: inset 0 0 0 1.5px var(--accent-edge);
+}
+
+.n-switch[aria-checked='true'] .n-switch__knob {
+  background: var(--on-accent-fill);
+  box-shadow: none;
+  transform: translateX(20px);
+}
+
+/* ---------- 탐색 그리드 (커뮤니티) ---------- */
+/* 화면 위에 고정되는 탭 줄: 화면 폭 전체를 쓰고 양 끝만 살짝 띄운다 */
+.n-screen__header .n-tabs {
+  padding-inline: 8px;
+}
+
+.n-explore-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+/* 탭 아래 한 줄: 추천 기준이나 고른 훅 유형 설명 */
+.n-explore-intro {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-3);
+}
+
+.n-explore-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  /* 화면 좌우 끝까지 */
+  margin: 14px -20px 0;
+}
+
+.n-video-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: var(--surface-weak);
+  cursor: pointer;
+}
+
+.n-video-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.n-video-tile:active img {
+  transform: scale(0.97);
+}
+
+/* 썸네일 이미지가 없을 때: 검정 바탕 + 썸네일 글자 */
+.n-video-tile__fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  background: var(--napda-black);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #fff;
+}
+
+.n-video-tile__meta {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 22px 8px 8px;
+  background: linear-gradient(transparent, rgb(0 0 0 / 0.6));
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 14px;
+  color: #fff;
+}
+
+/* 어떤 썸네일 위에서도 보이게: 바깥 검정 선 + 안쪽 흰 선 */
+.napda-root .n-video-tile:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 4px #fff;
+}
+
+.n-video-tile--skeleton {
+  cursor: default;
+}
+
+/* ---------- 영상 보기 (커뮤니티) — 늘 어두운 바탕 ---------- */
+.n-viewer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  height: 100dvh;
+  margin-inline: auto;
+  overflow: hidden;
+  background: #000;
+  color: var(--text);
+}
+
+.n-device .n-viewer {
+  height: 100%;
+}
+
+.n-viewer__top {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: calc(56px + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 8px 0;
+}
+
+.n-viewer__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.n-viewer__icon-btn:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.n-viewer__count {
+  font-size: 14px;
+  color: rgb(255 255 255 / 0.6);
+}
+
+.n-viewer__count b {
+  font-weight: 700;
+  color: #fff;
+}
+
+/* 한 화면에 한 편씩 맞물려 멈춘다 */
+.n-viewer__feed {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+
+.n-viewer__feed::-webkit-scrollbar {
+  display: none;
+}
+
+.napda-root .n-viewer__feed:focus-visible {
+  outline-offset: -2px;
+}
+
+.n-viewer__item {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding-top: calc(56px + env(safe-area-inset-top, 0px));
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.napda-root .n-viewer__item:focus-visible {
+  outline: none;
+}
+
+.n-viewer__stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 0 16px;
+}
+
+/* 영상은 자르지 않고 9:16 그대로, 둥근 카드로 보여 준다 */
+.n-viewer__media {
+  position: relative;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: #111;
+}
+
+.n-viewer__media img,
+.n-viewer__media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.n-viewer__fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  color: #fff;
+}
+
+/* 영상 전체가 재생·일시정지 버튼 */
+.n-viewer__tap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.napda-root .n-viewer__tap:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -4px;
+  border-radius: var(--radius-xl);
+}
+
+.n-viewer__play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+}
+
+.n-viewer__ai {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  border-radius: var(--radius-full);
+  background: rgb(0 0 0 / 0.6);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  pointer-events: none;
+}
+
+.n-viewer__rail {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.n-viewer__action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 44px;
+  min-height: 44px;
+  padding: 6px 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.n-viewer__action:active {
+  transform: scale(0.92);
+}
+
+.napda-root .n-viewer__action:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.n-viewer__action-count {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+}
+
+/* 좋아요를 누르면 하트가 라임으로 찬다(빨강은 쓰지 않는다) */
+.n-viewer__action.is-on svg {
+  color: var(--accent-fill);
+}
+
+.n-viewer__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 20px max(20px, calc(var(--safe-bottom) + 8px));
+}
+
+.n-viewer__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.n-viewer__who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.n-viewer__creator {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n-viewer__product {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n-viewer__empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+
+/* 짧은 알림(토스트): 위쪽 가운데에 잠깐 떴다 사라진다 */
+.n-viewer__status {
+  position: absolute;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  right: 0;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.n-toast {
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
+  background: var(--inverse);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--on-inverse);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
+  animation: n-fade-in var(--dur-base) var(--ease-out);
+}
+
 /* ---------- 스토리북 기기 틀 (390×844) ---------- */
 .n-device {
+  /* 아이폰 14 크기 틀: 아래 홈 인디케이터 영역 34px을 흉내 낸다 */
+  --safe-bottom: 34px;
+  position: relative;
+  /* 시트처럼 화면에 고정(position: fixed)되는 층이 브라우저 창이 아니라 이 틀 안에 머물게 한다 */
+  transform: translateZ(0);
   width: 390px;
   height: 844px;
   margin: 24px auto;
-  overflow-y: auto;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 32px;
   background: var(--bg);
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.12);
 }
 
+.n-device__scroll {
+  height: 100%;
+  overflow-y: auto;
+}
+
 .n-device .n-screen {
   min-height: 100%;
+}
+
+/* 홈 인디케이터(기기 막대) — 화면 요소가 아니라 Storybook 틀 장식 */
+.n-device__home {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  z-index: 30;
+  width: 134px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--text);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+/* 영상 보기 화면은 늘 검정 바탕이라 기기 막대를 흰색으로 */
+.n-device:has(.n-viewer) .n-device__home {
+  background: #fff;
 }

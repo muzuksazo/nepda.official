@@ -1,4 +1,4 @@
-import { Play } from 'lucide-react';
+import { Play } from '../icons';
 import { Button, FlowHeader, IconButton, Mascot, MobileScreen, PendingBadge, ScreenTitle, Stack, VideoFrame } from '../components';
 import { brand } from '../brand';
 

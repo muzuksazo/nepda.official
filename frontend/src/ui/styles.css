@@ -1,4 +1,4 @@
-/* 서체(Pretendard, Black Han Sans)는 <link>로, 부크크 명조 Bold는 ./styles/fonts.css 로컬 번들로 불러온다 */
+/* 본문 Pretendard·썸네일 커버용 Black Han Sans는 <link>로, 포인트 Paperlogy·부크크 명조는 ./styles/fonts.css(앱에 포함)로 불러온다 */
 @import './styles/fonts.css';
 @import './styles/tokens.css';
 @import './styles/base.css';

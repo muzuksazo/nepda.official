@@ -1,5 +1,5 @@
 import { useId, useState, type CSSProperties, type ReactNode } from 'react';
-import { Check, Clock, Info, Upload, X } from 'lucide-react';
+import { Check, Clock, Info, Upload, X } from '../icons';
 
 /* ---------- 레이아웃 ---------- */
 
@@ -81,6 +81,8 @@ export interface TextFieldProps {
   isMultiline?: boolean;
   rows?: number;
   hasClear?: boolean;
+  /** 넣을 수 있는 글자 수 한도 */
+  maxLength?: number;
 }
 
 /** 라벨은 항상 입력 위에 보인다(placeholder로 라벨을 대신하지 않는다) */
@@ -95,6 +97,7 @@ export function TextField({
   isMultiline,
   rows = 3,
   hasClear,
+  maxLength,
 }: TextFieldProps) {
   const id = useId();
   const descId = description ? `${id}-desc` : undefined;
@@ -104,6 +107,7 @@ export function TextField({
     value,
     placeholder,
     required: isRequired,
+    maxLength,
     'aria-describedby': descId,
   };
   return (
@@ -157,7 +161,7 @@ export function ChoiceChips({ label, options, value, onChange }: ChoiceChipsProp
             <input type="radio" name={name} value={opt} checked={value === opt} onChange={() => onChange(opt)} />
             <span className="n-chip__tile">
               <span className="n-chip__check" aria-hidden="true">
-                <Check size={12} strokeWidth={3.5} />
+                <Check size={18} strokeWidth={3} />
               </span>
               {opt}
             </span>
@@ -321,7 +325,45 @@ export function SelectCard({ label, isSelected, onChange, children }: SelectCard
 export function CheckMark() {
   return (
     <span className="n-check" aria-hidden="true">
-      <Check size={16} strokeWidth={3} />
+      <Check size={24} strokeWidth={2.5} />
     </span>
+  );
+}
+
+export interface SwitchProps {
+  label: string;
+  description?: string;
+  isChecked: boolean;
+  onChange: (isChecked: boolean) => void;
+}
+
+/** 켜고 끄는 스위치 한 줄: 왼쪽에 이름·설명, 오른쪽에 스위치. 켜짐은 라임 면 + 검정 손잡이(위치로도 구분된다) */
+export function Switch({ label, description, isChecked, onChange }: SwitchProps) {
+  const labelId = useId();
+  const descId = useId();
+  return (
+    <div className="n-switch-row">
+      <div className="n-switch-row__text">
+        <span id={labelId} className="n-switch-row__label">
+          {label}
+        </span>
+        {description ? (
+          <span id={descId} className="n-switch-row__desc">
+            {description}
+          </span>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        className="n-switch"
+        aria-checked={isChecked}
+        aria-labelledby={labelId}
+        aria-describedby={description ? descId : undefined}
+        onClick={() => onChange(!isChecked)}
+      >
+        <span className="n-switch__knob" />
+      </button>
+    </div>
   );
 }

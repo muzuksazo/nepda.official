@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mascot, MobileScreen, PageHeader, PendingBadge, ProjectCard, Stack, Tabs } from '../components';
+import { BottomNav, Mascot, MobileScreen, PageHeader, PendingBadge, ProjectCard, Stack, Tabs, type NavTab } from '../components';
 import { brand } from '../brand';
 import type { CompletedProject, InProgressProject } from './HomeScreen';
 
@@ -13,9 +13,11 @@ export interface MyVideosScreenProps {
   onBack?: () => void;
   onContinue?: (id: string) => void;
   onDownloadAgain?: (id: string) => void;
+  /** 하단 내비게이션 이동. 넘기면 탭 최상위 화면으로 그린다(뒤로 버튼 없음 + 하단 바). */
+  onNavigate?: (tab: NavTab) => void;
 }
 
-/** 안3-2 내 영상 — '진행 중'과 '완성'을 탭 하나로 묶은 전체 목록 */
+/** 안3-2 내 영상 — '진행 중'과 '완료'를 탭 하나로 묶은 전체 목록 */
 export function MyVideosScreen({
   inProgress,
   completed,
@@ -23,6 +25,7 @@ export function MyVideosScreen({
   onBack,
   onContinue,
   onDownloadAgain,
+  onNavigate,
 }: MyVideosScreenProps) {
   const [tab, setTab] = useState<MyVideosTab>(initialTab);
   const empty = (text: string) => (
@@ -33,7 +36,10 @@ export function MyVideosScreen({
   );
 
   return (
-    <MobileScreen header={<PageHeader title="내 영상" onBack={onBack} />}>
+    <MobileScreen
+      header={<PageHeader title="내 영상" onBack={onBack} isTabRoot={Boolean(onNavigate)} />}
+      bottomNav={onNavigate ? <BottomNav active="myVideos" onNavigate={onNavigate} /> : undefined}
+    >
       <div style={{ marginTop: -16 }}>
         <Tabs<MyVideosTab>
           label="내 영상 구분"
@@ -41,7 +47,7 @@ export function MyVideosScreen({
           onChange={setTab}
           items={[
             { value: 'inProgress', label: '진행 중', count: inProgress.length },
-            { value: 'completed', label: '완성', count: completed.length },
+            { value: 'completed', label: '완료', count: completed.length },
           ]}
         >
           <div style={{ paddingTop: 20 }} className="n-stack">
@@ -64,7 +70,7 @@ export function MyVideosScreen({
                 </Stack>
               )
             ) : completed.length === 0 ? (
-              empty('아직 완성한 영상이 없어요.')
+              empty('아직 완료한 영상이 없어요.')
             ) : (
               <Stack gap={12}>
                 <div>

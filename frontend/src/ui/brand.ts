@@ -1,4 +1,4 @@
-// 로고: asset/logo/logoeng2.png (영문 NAPDA 워드마크, 정자형)  ·  냅다곰: asset/CharacterSheet/mascot.png 에서 잘라 낸 이미지
+// 로고: asset/logo/logo.png (한글 '냅다' + 영문 NAPDA, 기울어진 손글씨형)
 // 로고는 상단 헤더에만 한 번, 냅다곰은 감정이 있는 순간에만 한 화면에 한 마리.
 import mascotClapboard from '../assets/brand/mascot-clapboard.png';
 import mascotHappy from '../assets/brand/mascot-happy.png';

@@ -1,4 +1,4 @@
-import { Play, Plus } from 'lucide-react';
+import { Play, Plus } from '../icons';
 import { BrandHeader, Button, MobileScreen, Stack, StepNumber, VideoFrame } from '../components';
 
 const STEPS = [
@@ -31,7 +31,8 @@ export function OnboardingScreen({ onStart }: OnboardingScreenProps) {
 
       <Stack gap={8}>
         <h2 className="n-display n-display--xl">
-          제품 영상에 훅 하나 붙이면 <span className="n-mark">릴스 광고</span> 끝
+          영상에 훅 하나 붙이면<br />
+          <span className="n-mark">릴스 광고</span> 끝
         </h2>
         <p className="n-muted">아이디어만 있다면, 이제는 냅다.</p>
       </Stack>

@@ -1,4 +1,4 @@
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon } from '../icons';
 import { Badge, Button, FlowHeader, MediaPlaceholder, MobileScreen, ScreenTitle, SkeletonText, Stack } from '../components';
 import type { HookType } from './flowData';
 
@@ -36,7 +36,7 @@ export function StoryboardScreen({ hookType, scenes = [{}, {}, {}, {}], onBack, 
                     style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', borderRadius: 'var(--radius-md)' }}
                   />
                 ) : (
-                  <MediaPlaceholder ratio="4 / 5">
+                  <MediaPlaceholder ratio="4 / 5" variant="sketch">
                     <ImageIcon size={26} aria-hidden="true" />
                   </MediaPlaceholder>
                 )}

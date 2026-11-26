@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import { Download, Play } from 'lucide-react';
+import { Bell, Download, FileText, Help, Logout, Play } from '../icons';
 import { brand } from '../brand';
-import { HookTypeCard, ProjectCard } from './cards';
-import { FlowHeader, StepNumber } from './layout';
+import { CreditBalanceCard, HookTypeCard, ProjectCard, StatTile, TimeEstimate, VideoTile } from './cards';
+import { AppHeaderActions, Avatar, BottomNav, CreditBadge, FlowHeader, ProfileButton, StepNumber, type NavTab } from './layout';
+import { ListGroup, ListRow } from './list';
 import { Mascot, VideoFrame } from './media';
+import { ConfirmSheet } from './Sheet';
+import { CreditChange, CreditPackagePicker } from './credit';
+import { ThumbnailPicker } from './thumbnail';
+import { SAMPLE_CREDIT_PACKAGES, SAMPLE_CREDITS_PER_VIDEO, SAMPLE_THUMBNAIL_TEMPLATES } from '../screens/sampleProjects';
 import {
   Badge,
   Button,
@@ -16,6 +21,7 @@ import {
   PendingBadge,
   SkeletonText,
   Stack,
+  Switch,
   TextField,
 } from './primitives';
 
@@ -91,6 +97,133 @@ export const Header: Story = {
   render: () => <FlowHeader title="제품 정보" step={3} onBack={fn()} />,
 };
 
+export const Credit: Story = {
+  name: '크레딧 배지',
+  render: () => (
+    <div className="n-row" style={{ gap: 12 }}>
+      <CreditBadge credits={120} onClick={fn()} />
+      <CreditBadge credits={2400} onClick={fn()} />
+      <CreditBadge />
+    </div>
+  ),
+};
+
+export const HeaderActions: Story = {
+  name: '상단 GNB 묶음 · 프로필',
+  render: () => (
+    <>
+      <div className="n-row" style={{ justifyContent: 'flex-end', paddingRight: 6 }}>
+        <AppHeaderActions credits={120} profile={{ name: '냅다사장' }} onCreditClick={fn()} onProfileClick={fn()} />
+      </div>
+      <div className="n-row" style={{ gap: 8 }}>
+        <ProfileButton name="냅다사장" />
+        <ProfileButton name="Jin" />
+        <ProfileButton />
+      </div>
+      <div className="n-row" style={{ gap: 12 }}>
+        <Avatar name="냅다사장" size="lg" />
+        <Avatar size="lg" />
+      </div>
+    </>
+  ),
+};
+
+export const Wallet: Story = {
+  name: '크레딧 카드 · 숫자 타일 · 예상 시간',
+  render: () => (
+    <>
+      <CreditBalanceCard credits={2400} onChargeClick={fn()} />
+      <CreditBalanceCard credits={0} hasFreeVideo onChargeClick={fn()} />
+      <CreditBalanceCard credits={0} onChargeClick={fn()} />
+      <div className="n-stat-grid">
+        <StatTile label="진행 중" value={3} onClick={fn()} />
+        <StatTile label="완료" onClick={fn()} />
+      </div>
+      <TimeEstimate
+        total="약 2~3분"
+        stages={[
+          { label: '훅 영상 뽑기', time: '1~2분' },
+          { label: '본편에 이어 붙이기', time: '30초' },
+        ]}
+      />
+    </>
+  ),
+};
+
+export const Toggles: Story = {
+  name: '스위치 · 영상 타일',
+  render: function Render() {
+    const [isOn, setIsOn] = useState(true);
+    return (
+      <>
+        <Switch label="커뮤니티에도 올리기" description="다른 사람들도 이 영상을 볼 수 있어요." isChecked={isOn} onChange={setIsOn} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
+          <VideoTile caption="이 도마, 미쳤다" label="실리콘 접이식 도마, 도마왕" likeCount={1284} onClick={fn()} />
+          <VideoTile caption="설거지 3분 컷" label="실리콘 수세미, 설거지장인" likeCount={12300} onClick={fn()} />
+          <span className="n-video-tile n-video-tile--skeleton n-shimmer" />
+        </div>
+      </>
+    );
+  },
+};
+
+export const Lists: Story = {
+  name: '목록 줄',
+  render: () => (
+    <div style={{ paddingInline: 20 }}>
+      <ListGroup title="도움말·약관" note="줄을 누르면 해당 화면으로 가요.">
+        <ListRow icon={<Help size={20} />} label="도움말·문의" onClick={fn()} />
+        <ListRow icon={<FileText size={20} />} label="이용약관" description="2026년 11월 개정" onClick={fn()} />
+        <ListRow icon={<Bell size={20} />} label="영상 완성 알림" endContent={<PendingBadge>방식 미정</PendingBadge>} />
+        <ListRow icon={<Logout size={20} />} label="로그아웃" hasChevron={false} onClick={fn()} />
+      </ListGroup>
+    </div>
+  ),
+};
+
+export const Sheets: Story = {
+  name: '확인 시트',
+  render: function Render() {
+    const [open, setOpen] = useState<'logout' | 'delete' | null>(null);
+    return (
+      <>
+        <Button label="로그아웃 확인 열기" variant="secondary" isBlock onClick={() => setOpen('logout')} />
+        <Button label="탈퇴 확인 열기 (되돌릴 수 없는 행동)" variant="secondary" isBlock onClick={() => setOpen('delete')} />
+        <ConfirmSheet
+          isOpen={open === 'logout'}
+          title="로그아웃할까요?"
+          description="다시 로그인하면 그대로 이어져요."
+          confirmLabel="로그아웃"
+          onConfirm={() => setOpen(null)}
+          onClose={() => setOpen(null)}
+        />
+        <ConfirmSheet
+          isOpen={open === 'delete'}
+          isDestructive
+          title="정말 탈퇴할까요?"
+          description="영상과 프로젝트가 전부 지워져요. 되돌릴 수 없어요."
+          confirmLabel="탈퇴하기"
+          cancelLabel="계속 쓸게요"
+          onConfirm={() => setOpen(null)}
+          onClose={() => setOpen(null)}
+        />
+      </>
+    );
+  },
+};
+
+export const BottomNavigation: Story = {
+  name: '하단 내비게이션',
+  render: function Render() {
+    const [tab, setTab] = useState<NavTab>('home');
+    return (
+      <div style={{ marginInline: -16 }}>
+        <BottomNav active={tab} onNavigate={setTab} />
+      </div>
+    );
+  },
+};
+
 export const HookCards: Story = {
   name: '훅 유형 카드',
   render: function Render() {
@@ -119,6 +252,45 @@ export const ProjectCards: Story = {
       <ProjectCard productName="원목 데스크 정리함" status="영상과 썸네일을 만들었어요" actionLabel="다시 받기" />
     </>
   ),
+};
+
+export const ChargePackages: Story = {
+  name: '충전 묶음 · 잔액 변화',
+  render: function Render() {
+    const [picked, setPicked] = useState<string | null>('c100');
+    return (
+      <>
+        <CreditPackagePicker
+          label="충전할 크레딧"
+          packages={SAMPLE_CREDIT_PACKAGES}
+          value={picked}
+          onChange={setPicked}
+          creditsPerVideo={SAMPLE_CREDITS_PER_VIDEO}
+        />
+        <CreditChange from={5} to={105} />
+      </>
+    );
+  },
+};
+
+export const Thumbnails: Story = {
+  name: '썸네일 시안 고르기',
+  render: function Render() {
+    const [picked, setPicked] = useState<string | null>(SAMPLE_THUMBNAIL_TEMPLATES[0].id);
+    const [pickedEmpty, setPickedEmpty] = useState<string | null>(null);
+    return (
+      <>
+        <ThumbnailPicker label="시안 고르기" templates={SAMPLE_THUMBNAIL_TEMPLATES} value={picked} onChange={setPicked} />
+        {/* 미리보기 이미지를 아직 안 넣은 템플릿 */}
+        <ThumbnailPicker
+          label="이미지 넣기 전"
+          templates={SAMPLE_THUMBNAIL_TEMPLATES.map((template) => ({ ...template, previewUrl: undefined }))}
+          value={pickedEmpty}
+          onChange={setPickedEmpty}
+        />
+      </>
+    );
+  },
 };
 
 export const BrandBits: Story = {
