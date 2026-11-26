@@ -36,7 +36,7 @@ const preview: Preview = {
     },
     options: {
       storySort: {
-        order: ['NAPDA', ['화면', '흐름', '컴포넌트'], '*'],
+        order: ['NAPDA', ['화면', '흐름', '썸네일 템플릿', '컴포넌트'], '*'],
       },
     },
     a11y: {

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, Response, status
 
 from .auth import (
     SESSION_COOKIE_NAME,
@@ -32,6 +32,8 @@ from .project_schemas import (
     CompleteUploadsRequest,
     CompleteUploadsResponse,
     CreateFilmingGuideRequest,
+    CreateHookRequest,
+    CreateHookResponse,
     CreateProjectRequest,
     CreateRenderRequest,
     CreateRenderResponse,
@@ -47,8 +49,14 @@ from .project_schemas import (
     GenerateStoryboardRequest,
     GoogleAuthRequest,
     GoogleAuthResponse,
+    HookFiles,
+    HookStatusResponse,
     HookTypeMeta,
     HookTypesResponse,
+    OutputItem,
+    OutputsResponse,
+    ProductInfoRequest,
+    ProductInfoResponse,
     ProductInput,
     ProjectDetailResponse,
     ProjectListResponse,
@@ -56,6 +64,7 @@ from .project_schemas import (
     QuotaStatus,
     ScenarioBeat,
     ScenarioItem,
+    SelectScenarioResponse,
     StageCreditItem,
     StoryboardFrame,
     StoryboardResponse,
@@ -472,6 +481,29 @@ def build_projects_router(
         return HookTypesResponse(types=HOOK_TYPE_CATALOG)
 
     @router.post(
+        "/v1/product-info",
+        response_model=ProductInfoResponse,
+        tags=["Projects"],
+    )
+    def create_product_info(
+        body: ProductInfoRequest,
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> ProductInfoResponse:
+        entry = project_store.upsert_product_info_cache(
+            user.user_id,
+            product=body.product.model_dump(),
+            source_url=body.source_url,
+            ttl_sec=settings.product_info_cache_ttl_sec,
+        )
+        return ProductInfoResponse(
+            product_info_id=entry["product_info_id"],
+            product=ProductInput(**entry["product"]),
+            cached=bool(entry["cached"]),
+            cached_at=entry["cached_at"],
+            expires_at=entry["expires_at"],
+        )
+
+    @router.post(
         "/v1/projects",
         status_code=status.HTTP_201_CREATED,
         response_model=ProjectSummary,
@@ -481,11 +513,24 @@ def build_projects_router(
         body: CreateProjectRequest,
         user: AuthenticatedUser = Depends(require_user),
     ) -> ProjectSummary:
+        if body.product_info_id and body.product_info_id.strip():
+            cached_info = project_store.get_product_info(user.user_id, body.product_info_id.strip())
+            if not cached_info:
+                raise _api_error(
+                    status.HTTP_404_NOT_FOUND,
+                    "PRODUCT_INFO_NOT_FOUND",
+                    "제품 정보를 찾을 수 없거나 캐시가 만료되었습니다.",
+                )
+            product_payload = cached_info["product"]
+        else:
+            assert body.product is not None
+            product_payload = body.product.model_dump()
+
         pid = f"prj_{uuid.uuid4().hex[:12]}"
         proj = project_store.create_project(
             pid,
             user.user_id,
-            product=body.product.model_dump(),
+            product=product_payload,
             selected_types=list(body.selected_types),
             flow_mode=body.flow_mode,
             retention_ttl_days=settings.retention_ttl_days,
@@ -506,10 +551,12 @@ def build_projects_router(
 
     @router.get("/v1/projects", response_model=ProjectListResponse, tags=["Projects"])
     def list_projects(
-        limit: int = 50,
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
         user: AuthenticatedUser = Depends(require_user),
     ) -> ProjectListResponse:
-        rows = project_store.list_projects_for_user(user.user_id, limit=limit)
+        total = project_store.count_projects_for_user(user.user_id)
+        rows = project_store.list_projects_for_user(user.user_id, limit=limit, offset=offset)
         summaries = [
             ProjectSummary(
                 project_id=r["project_id"],
@@ -526,7 +573,17 @@ def build_projects_router(
             )
             for r in rows
         ]
-        return ProjectListResponse(projects=summaries, quota=_quota(user.user_id))
+        has_more = (offset + len(rows)) < total
+        next_offset = (offset + len(rows)) if has_more else None
+        return ProjectListResponse(
+            projects=summaries,
+            quota=_quota(user.user_id),
+            total=total,
+            offset=offset,
+            limit=limit,
+            has_more=has_more,
+            next_offset=next_offset,
+        )
 
     @router.get("/v1/projects/{project_id}", response_model=ProjectDetailResponse, tags=["Projects"])
     def get_project(
@@ -568,14 +625,43 @@ def build_projects_router(
     ) -> GenerateScenariosResponse:
         proj = _get_owned_project(project_id, user)
         target_types = list(dict.fromkeys(body.types or proj["selected_types"]))
-        raw_items = gen_scenarios(proj, target_types, body.provider)
-        saved = project_store.save_scenarios(project_id, raw_items)
+        seen_ids = {s["scenario_id"] for s in project_store.list_scenarios(project_id)}
+        new_items: List[Dict[str, Any]] = []
+        for _ in range(body.count):
+            batch = gen_scenarios(proj, target_types, body.provider)
+            for item in batch:
+                cand = dict(item)
+                sid = str(cand.get("scenario_id") or f"scn_{cand.get('type', 'A')}_{uuid.uuid4().hex[:6]}")
+                if sid in seen_ids:
+                    sid = f"{sid}_{uuid.uuid4().hex[:6]}"
+                cand["scenario_id"] = sid
+                seen_ids.add(sid)
+                new_items.append(cand)
+        saved, round_num = project_store.append_scenarios(project_id, new_items)
         updated = project_store.update_project(project_id, status="SCENARIOS_READY")
         return GenerateScenariosResponse(
             project_id=project_id,
             status=updated["status"],
             scenarios=[ScenarioItem(**s) for s in saved],
+            round=round_num,
         )
+
+    @router.post(
+        "/v1/projects/{project_id}/scenarios/{scenario_id}/select",
+        response_model=SelectScenarioResponse,
+        tags=["Planning"],
+    )
+    def select_scenario(
+        project_id: str,
+        scenario_id: str,
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> SelectScenarioResponse:
+        _ = _get_owned_project(project_id, user)
+        scn = project_store.get_scenario(project_id, scenario_id)
+        if not scn:
+            raise _api_error(status.HTTP_404_NOT_FOUND, "SCENARIO_NOT_FOUND", "시나리오를 찾을 수 없습니다.")
+        project_store.update_project(project_id, selected_scenario_id=scenario_id)
+        return SelectScenarioResponse(project_id=project_id, selected_scenario_id=scenario_id)
 
     @router.post(
         "/v1/projects/{project_id}/scenarios/{scenario_id}/storyboard",
@@ -937,5 +1023,135 @@ def build_projects_router(
             ai_disclosure=AIDisclosureInfo(),
             expires_at=proj["expires_at"],
         )
+
+    def _process_hook_bg(project_id: str, hook_id: str, scenario: Dict[str, Any], out_dir: Path) -> None:
+        try:
+            project_store.update_hook(hook_id, status="running")
+            out_dir.mkdir(parents=True, exist_ok=True)
+            scenario_file = out_dir / "scenario.json"
+            scenario_file.write_text(json.dumps(scenario, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            srt_lines: List[str] = []
+            t_cur = 0.0
+            cap_idx = 1
+            for beat in scenario.get("beats") or []:
+                dur = float(beat.get("duration_sec") or 3.0)
+                cap_text = str(beat.get("caption") or beat.get("narration") or "").strip()
+                if cap_text:
+                    t_end = t_cur + dur
+                    s_h, s_m, s_s = int(t_cur // 3600), int((t_cur % 3600) // 60), t_cur % 60
+                    e_h, e_m, e_s = int(t_end // 3600), int((t_end % 3600) // 60), t_end % 60
+                    srt_lines.append(
+                        f"{cap_idx}\n"
+                        f"{s_h:02d}:{s_m:02d}:{s_s:06.3f}".replace(".", ",")
+                        + " --> "
+                        + f"{e_h:02d}:{e_m:02d}:{e_s:06.3f}".replace(".", ",")
+                        + f"\n{cap_text}\n"
+                    )
+                    cap_idx += 1
+                t_cur += dur
+            srt_file = out_dir / "subtitles.srt"
+            srt_file.write_text("\n".join(srt_lines), encoding="utf-8")
+
+            sb_urls = [
+                str(f["image_url"])
+                for f in (scenario.get("storyboard_frames") or [])
+                if isinstance(f, dict) and f.get("image_url")
+            ]
+            files_payload = HookFiles(
+                subtitles_srt="subtitles.srt",
+                scenario_json="scenario.json",
+                storyboard_images=sb_urls,
+            ).model_dump()
+            project_store.update_hook(hook_id, status="done", files=files_payload)
+            project_store.update_project(project_id, status="HOOK_READY")
+        except Exception as exc:
+            project_store.update_hook(hook_id, status="failed", error=str(exc))
+            project_store.update_project(project_id, status="FAILED")
+
+    @router.post(
+        "/v1/projects/{project_id}/hooks",
+        status_code=status.HTTP_202_ACCEPTED,
+        response_model=CreateHookResponse,
+        tags=["Hooks"],
+    )
+    def create_hook(
+        project_id: str,
+        body: CreateHookRequest,
+        background_tasks: BackgroundTasks,
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> CreateHookResponse:
+        proj = _get_owned_project(project_id, user)
+        scn = project_store.get_scenario(project_id, body.scenario_id)
+        if not scn:
+            raise _api_error(status.HTTP_404_NOT_FOUND, "SCENARIO_NOT_FOUND", "시나리오를 찾을 수 없습니다.")
+        if proj.get("selected_scenario_id") != body.scenario_id:
+            raise _api_error(
+                status.HTTP_409_CONFLICT,
+                "INVALID_STATE",
+                "선택된 시나리오만 훅 생성을 요청할 수 있습니다. 먼저 시나리오를 선택해 주세요.",
+            )
+
+        hook_id = f"hook_{uuid.uuid4().hex[:10]}"
+        job_id = f"job_{uuid.uuid4().hex[:12]}"
+        out_dir = Path(settings.output_dir).resolve() / project_id / hook_id
+        project_store.create_hook(
+            hook_id=hook_id,
+            project_id=project_id,
+            user_id=user.user_id,
+            scenario_id=body.scenario_id,
+            job_id=job_id,
+            tts=body.tts.model_dump(),
+            output_dir=str(out_dir),
+            status="queued",
+        )
+        project_store.update_project(project_id, status="HOOK_RENDERING", latest_job_id=job_id)
+        background_tasks.add_task(_process_hook_bg, project_id, hook_id, scn, out_dir)
+        return CreateHookResponse(hook_id=hook_id, job_id=job_id, status="queued")
+
+    @router.get(
+        "/v1/projects/{project_id}/hooks/{hook_id}",
+        response_model=HookStatusResponse,
+        tags=["Hooks"],
+    )
+    def get_hook(
+        project_id: str,
+        hook_id: str,
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> HookStatusResponse:
+        _ = _get_owned_project(project_id, user)
+        hook = project_store.get_hook(project_id, hook_id)
+        if not hook:
+            raise _api_error(status.HTTP_404_NOT_FOUND, "HOOK_NOT_FOUND", "훅 작업을 찾을 수 없습니다.")
+        return HookStatusResponse(
+            hook_id=hook["hook_id"],
+            status=hook["status"],
+            files=HookFiles(**hook["files"]),
+            output_dir=hook.get("output_dir"),
+            error=hook.get("error"),
+        )
+
+    @router.get(
+        "/v1/projects/{project_id}/outputs",
+        response_model=OutputsResponse,
+        tags=["Hooks"],
+    )
+    def list_outputs(
+        project_id: str,
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> OutputsResponse:
+        _ = _get_owned_project(project_id, user)
+        hooks = project_store.list_hooks_for_project(project_id)
+        items = [
+            OutputItem(
+                hook_id=h["hook_id"],
+                scenario_id=h.get("scenario_id"),
+                output_dir=h["output_dir"],
+                files=HookFiles(**(h.get("files") or {})),
+                created_at=h.get("created_at"),
+            )
+            for h in hooks
+        ]
+        return OutputsResponse(project_id=project_id, outputs=items)
 
     return router

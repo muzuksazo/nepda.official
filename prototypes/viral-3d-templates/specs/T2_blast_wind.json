@@ -1,0 +1,31 @@
+{
+  "id": "T2_blast_wind",
+  "title": "T2. 극한 풍압·의류변형 (Jet Blast & Umbrella Invert)",
+  "template": "T2_blast_wind",
+  "width": 720,
+  "height": 1280,
+  "fps": 30,
+  "total_frames": 150,
+  "sfx_profile": "generic",
+  "sfx_cues": [2.05, 4.20],
+  "params": {
+    "umbrella_accent_color": [0.94, 0.80, 0.16],
+    "barrel_mass": 4.5
+  },
+  "vo_slots": [
+    {
+      "file": "t2_s1.mp3",
+      "text": "제트 엔진 뒤에서 우산을 펼치면 순식간에 뒤집히고,",
+      "start": 0.05,
+      "dur": 2.45,
+      "caption": ["제트 엔진 뒤에서 우산을 펼치면", "순식간에 뒤집히고,"]
+    },
+    {
+      "file": "t2_s2.mp3",
+      "text": "활주로 끝까지 통째로 날아가 박혀버립니다.",
+      "start": 2.58,
+      "dur": 2.34,
+      "caption": ["활주로 끝까지 통째로", "날아가 박혀버립니다"]
+    }
+  ]
+}

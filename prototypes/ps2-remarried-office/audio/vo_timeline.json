@@ -1,0 +1,56 @@
+[
+  {
+    "id": "v1_boss_fire",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-remarried-office/audio/vo/v1_boss_fire.wav",
+    "start": 0.08,
+    "end": 2.627,
+    "dur": 2.547,
+    "speaker": "꼰대 팀장",
+    "caption": "자네, 이번 분기까지만 하고 회사를 떠나주게."
+  },
+  {
+    "id": "v2_boss_smug",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-remarried-office/audio/vo/v2_boss_smug.wav",
+    "start": 2.7,
+    "end": 4.523,
+    "dur": 1.823,
+    "speaker": "꼰대 팀장",
+    "caption": "자네 없어도 회사는 잘 돌아가니까!"
+  },
+  {
+    "id": "v3_ace_accept",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-remarried-office/audio/vo/v3_ace_accept.wav",
+    "start": 4.85,
+    "end": 6.294,
+    "dur": 1.444,
+    "speaker": "에이스 과장",
+    "caption": "권고사직을 받아들이겠습니다."
+  },
+  {
+    "id": "v4_ace_remarry",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-remarried-office/audio/vo/v4_ace_remarry.wav",
+    "start": 6.38,
+    "end": 8.849,
+    "dur": 2.469,
+    "speaker": "에이스 과장",
+    "caption": "그리고 경쟁사 연봉 두 배, 이직 승인을 요구합니다!"
+  },
+  {
+    "id": "v5_ceo_scout",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-remarried-office/audio/vo/v5_ceo_scout.wav",
+    "start": 8.88,
+    "end": 11.794,
+    "dur": 2.914,
+    "speaker": "경쟁사 대표",
+    "caption": "과장님, 연봉 두 배에 임원 대우 준비했습니다. 바로 가시죠!"
+  },
+  {
+    "id": "v6_boss_meltdown",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-remarried-office/audio/vo/v6_boss_meltdown.wav",
+    "start": 11.88,
+    "end": 14.93,
+    "dur": 3.05,
+    "speaker": "꼰대 팀장",
+    "caption": "뭐?! 연봉 두 배?! 자네가 가면 우리 팀 실적은 어쩌라고!!"
+  }
+]

@@ -76,3 +76,27 @@ OUTPUT_DIR/{project_id}/{hook_id}/
 - `prototypes/campaigns/digimore-timer-abc/05_ad_spec_A.json` (집중 스크롤), `05_ad_spec_A_absurd.json` (황당 피자)
 - 같은 폴더의 `audio/vo_plan_A.json`, `final/ad_A_absurd_pizza.srt`, `final/ad_A_focus_scroll.srt`, `thumbs_spec.json`
 - 이미 쓴 장르는 반복하지 않습니다. 이 가이드의 예시는 새 장르(`courtroom_trial`)입니다.
+
+---
+
+## A 시나리오 작업자 코드 (FR-003 · 4단계 블라인드 파이프라인)
+
+제품 정보에 LLM이 끌려 Track C로 붕괴하는 문제를 구조적으로 막기 위해 Stage 2(`ideate.ts`)에 제품명·카테고리·검증사실을 전달하지 않는 **4단계 분리 파이프라인**과 [`../WORKER_CONTRACT.md`](../WORKER_CONTRACT.md) 표준 CLI 어댑터를 구현해 두었습니다.
+
+```text
+1. abstract.ts  : 제품 정보 -> 순수 물리/인지 법칙 1줄(abstract_law) + 3종 금칙어 추출
+2. archetypes.ts: previous_scenarios에 없는 A안 장르 원형(14종 중 택1) 배정
+3. ideate.ts    : ★ 블라인드 창작 — abstract_law + 장르 + 금칙어만으로 0~10초 훅 생성 (제품 미전달)
+4. bridge.ts    : 담백한 실물 착지(<=55%) 결합 -> check.ts Double-Zero 검문 + 위반 시 자동 재시도
+```
+
+```bash
+cd backend/bridge-dev/a
+npm install
+cp .env.example .env        # ANTHROPIC_API_KEY 입력
+
+npm run typecheck           # TypeScript strict 검사
+npm test                    # Mock 4단계 블라인드 격리 + 금칙어 재시도 E2E 검증 (API 과금 없음)
+npm run check -- examples/02_scenarios.response.json examples/01_worker-input.scenarios.json
+npm run scenarios -- --input examples/01_worker-input.scenarios.json --out out/a_scenarios.json
+```

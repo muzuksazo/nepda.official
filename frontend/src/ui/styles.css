@@ -1,4 +1,4 @@
-/* 본문 서체 Pretendard는 index.html / .storybook/preview-head.html 의 <link>로, 포인트 서체 Paperlogy는 fonts.css(앱에 포함)로 불러온다 */
+/* 본문 Pretendard·썸네일 커버용 Black Han Sans는 <link>로, 포인트 Paperlogy·부크크 명조는 ./styles/fonts.css(앱에 포함)로 불러온다 */
 @import './styles/fonts.css';
 @import './styles/tokens.css';
 @import './styles/base.css';

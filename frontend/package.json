@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "api:generate": "orval --config orval.config.ts",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
@@ -12,6 +13,8 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.108.4",
+    "lucide-react": "^1.80.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
@@ -28,6 +31,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "@vitest/browser-playwright": "latest",
     "@vitest/coverage-v8": "latest",
+    "orval": "^8.49.0",
     "oxlint": "^1.90.0",
     "playwright": "latest",
     "storybook": "^10.6.9",

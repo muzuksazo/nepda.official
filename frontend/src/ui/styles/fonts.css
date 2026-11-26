@@ -9,3 +9,12 @@
   font-style: normal;
   font-display: swap;
 }
+
+/* 부크크 명조 Bold (로컬 번들 — 릴스 커버 스타일 3 명조체) */
+@font-face {
+  font-family: 'Bookk Myungjo';
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+  src: url('../../assets/fonts/BookkMyungjo-Bd.woff2') format('woff2');
+}

@@ -1,0 +1,31 @@
+{
+  "id": "T1_drop_launch",
+  "title": "T1. 낙하·반동·래그돌 (Drop & Catapult Launch)",
+  "template": "T1_drop_launch",
+  "width": 720,
+  "height": 1280,
+  "fps": 30,
+  "total_frames": 150,
+  "sfx_profile": "generic",
+  "sfx_cues": [1.48],
+  "params": {
+    "car_color": [0.98, 0.72, 0.02],
+    "blob_colors": [[0.04, 0.44, 0.96], [0.88, 0.06, 0.08], [0.98, 0.74, 0.04], [0.03, 0.36, 0.88]]
+  },
+  "vo_slots": [
+    {
+      "file": "t1_s1.mp3",
+      "text": "자동차가 거대 물풍선 위로 떨어지면, 순식간에 솟구칩니다.",
+      "start": 0.05,
+      "dur": 2.48,
+      "caption": ["자동차가 떨어지면,", "순식간에 솟구칩니다"]
+    },
+    {
+      "file": "t1_s2.mp3",
+      "text": "마치 종이인형처럼 공중으로 튕겨 나가 버립니다.",
+      "start": 2.60,
+      "dur": 2.32,
+      "caption": ["마치 종이인형처럼", "공중으로 튕겨 나갑니다"]
+    }
+  ]
+}

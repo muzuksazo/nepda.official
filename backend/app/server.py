@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from google import genai
 from pydantic import BaseModel, Field
 
@@ -77,7 +77,7 @@ def create_app(
     )
     executor = ThreadPoolExecutor(max_workers=max(1, cfg.concurrency))
 
-    app = FastAPI(title="NAPDA Backend API", version="0.1.0")
+    app = FastAPI(title="NAPDA Backend API", version="0.2.0")
     app.state.settings = cfg
     app.state.store = job_store
     app.state.project_store = proj_store
@@ -157,10 +157,21 @@ def create_app(
         return {"job_id": jid, "status": record["status"], "campaign_id": req.campaign_id}
 
     @app.get("/v1/jobs", dependencies=[Depends(require_bearer)])
-    def list_jobs(limit: int = 50) -> Dict[str, Any]:
+    def list_jobs(
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+    ) -> Dict[str, Any]:
+        total = job_store.count_jobs()
+        rows = job_store.list_jobs(limit=limit, offset=offset)
+        has_more = (offset + len(rows)) < total
         return {
-            "jobs": job_store.list_jobs(limit=limit),
+            "jobs": rows,
             "past_campaigns": job_store.list_past_campaigns(),
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": has_more,
+            "next_offset": (offset + len(rows)) if has_more else None,
         }
 
     @app.get("/v1/jobs/{job_id}", dependencies=[Depends(require_bearer)])

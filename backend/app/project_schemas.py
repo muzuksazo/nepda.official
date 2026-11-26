@@ -15,10 +15,13 @@ ProjectStatus = Literal[
     "STORYBOARD_READY",
     "GUIDE_READY",
     "UPLOADS_READY",
+    "HOOK_RENDERING",
+    "HOOK_READY",
     "RENDERING",
     "DELIVERABLE_READY",
     "FAILED",
 ]
+HookStatus = Literal["queued", "running", "done", "failed"]
 PlannerProvider = Literal["anthropic", "google"]
 RenderResolution = Literal["360p", "720p"]
 
@@ -88,10 +91,24 @@ class ProductInput(BaseModel):
         return [s.strip() for s in items if isinstance(s, str) and s.strip()]
 
 
-class CreateProjectRequest(BaseModel):
+class ProductInfoRequest(BaseModel):
     product: ProductInput
+    source_url: Optional[str] = Field(default=None, max_length=2048)
+
+
+class ProductInfoResponse(BaseModel):
+    product_info_id: str
+    product: ProductInput
+    cached: bool
+    cached_at: str
+    expires_at: str
+
+
+class CreateProjectRequest(BaseModel):
+    product: Optional[ProductInput] = None
     selected_types: List[HookType] = Field(..., min_length=1, max_length=3)
     flow_mode: FlowMode = "guide_first"
+    product_info_id: Optional[str] = None
 
     @field_validator("selected_types")
     @classmethod
@@ -101,6 +118,12 @@ class CreateProjectRequest(BaseModel):
             if t not in seen:
                 seen.append(t)
         return seen
+
+    @model_validator(mode="after")
+    def _require_product_or_cache_id(self) -> "CreateProjectRequest":
+        if self.product is None and not (self.product_info_id and self.product_info_id.strip()):
+            raise ValueError("Provide either product or product_info_id")
+        return self
 
 
 class ProjectSummary(BaseModel):
@@ -120,6 +143,11 @@ class ProjectSummary(BaseModel):
 class ProjectListResponse(BaseModel):
     projects: List[ProjectSummary]
     quota: QuotaStatus
+    total: int = 0
+    offset: int = 0
+    limit: int = 50
+    has_more: bool = False
+    next_offset: Optional[int] = None
 
 
 class ScenarioBeat(BaseModel):
@@ -152,12 +180,64 @@ class ScenarioItem(BaseModel):
 class GenerateScenariosRequest(BaseModel):
     types: Optional[List[HookType]] = Field(default=None, min_length=1, max_length=3)
     provider: PlannerProvider = "anthropic"
+    count: int = Field(default=1, ge=1, le=5)
 
 
 class GenerateScenariosResponse(BaseModel):
     project_id: str
     status: ProjectStatus
     scenarios: List[ScenarioItem]
+    round: int = Field(default=1, ge=1)
+
+
+class SelectScenarioResponse(BaseModel):
+    project_id: str
+    selected_scenario_id: str
+
+
+class HookTts(BaseModel):
+    enabled: bool = True
+    voice: Optional[str] = None
+
+
+class CreateHookRequest(BaseModel):
+    scenario_id: str
+    tts: HookTts = Field(default_factory=HookTts)
+
+
+class CreateHookResponse(BaseModel):
+    hook_id: str
+    job_id: str
+    status: HookStatus
+
+
+class HookFiles(BaseModel):
+    hook_video: Optional[str] = None
+    tts_audio: Optional[str] = None
+    subtitles_srt: Optional[str] = None
+    scenario_json: Optional[str] = None
+    storyboard_images: List[str] = Field(default_factory=list)
+
+
+class HookStatusResponse(BaseModel):
+    hook_id: str
+    status: HookStatus
+    files: HookFiles
+    output_dir: Optional[str] = None
+    error: Optional[str] = None
+
+
+class OutputItem(BaseModel):
+    hook_id: str
+    scenario_id: Optional[str] = None
+    output_dir: str
+    files: HookFiles = Field(default_factory=HookFiles)
+    created_at: Optional[str] = None
+
+
+class OutputsResponse(BaseModel):
+    project_id: str
+    outputs: List[OutputItem]
 
 
 class GenerateStoryboardRequest(BaseModel):

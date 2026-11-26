@@ -1,0 +1,32 @@
+{
+  "id": "T5_chain_domino",
+  "title": "T5. 연쇄 반응 (Exponential Giant Domino Chain)",
+  "template": "T5_chain_domino",
+  "width": 720,
+  "height": 1280,
+  "fps": 30,
+  "total_frames": 150,
+  "sfx_profile": "domino_chain",
+  "sfx_cues": [0.40, 0.72, 1.05, 1.38, 1.72, 2.08, 2.46, 2.86, 3.30, 3.85, 4.25],
+  "params": {
+    "count": 10,
+    "base_height": 0.48,
+    "growth_ratio": 1.35
+  },
+  "vo_slots": [
+    {
+      "file": "t5_s1.mp3",
+      "text": "작은 도미노가 1.35배씩만 커지면서 쓰러지면,",
+      "start": 0.05,
+      "dur": 2.42,
+      "caption": ["작은 도미노가", "1.35배씩만 커져도,"]
+    },
+    {
+      "file": "t5_s2.mp3",
+      "text": "단 열 번 만에 칠 미터 거물이 되어 모든 걸 부숴버립니다!",
+      "start": 2.54,
+      "dur": 2.38,
+      "caption": ["단 10번 만에 7m 괴물이 되어", "모두 부숴버립니다!"]
+    }
+  ]
+}

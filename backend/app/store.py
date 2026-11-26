@@ -138,12 +138,18 @@ class JobStore:
             row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         return self._row_to_dict(row) if row else None
 
-    def list_jobs(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def list_jobs(self, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
         with self._lock, self._connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?", (int(limit),)
+                "SELECT * FROM jobs ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+                (int(limit), max(0, int(offset))),
             ).fetchall()
         return [self._row_to_dict(r) for r in rows]
+
+    def count_jobs(self) -> int:
+        with self._lock, self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*) AS cnt FROM jobs").fetchone()
+        return int(row["cnt"] if row else 0)
 
     def register_past_campaign(
         self,

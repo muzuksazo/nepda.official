@@ -1,0 +1,92 @@
+[
+  {
+    "id": "v1_cocky",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-kr-subway/audio/vo/v1_cocky.wav",
+    "start": 0.06,
+    "end": 2.093,
+    "dur": 2.033,
+    "speaker": "민수",
+    "caption": "한국 2호선? 에이, 설마 못 타겠어?",
+    "pa": false
+  },
+  {
+    "id": "v2_shock",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-kr-subway/audio/vo/v2_shock.wav",
+    "start": 2.16,
+    "end": 3.562,
+    "dur": 1.402,
+    "speaker": "민수",
+    "caption": "어? 여기 완전 사람 벽인데?!",
+    "pa": false
+  },
+  {
+    "id": "v3_push",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-kr-subway/audio/vo/v3_push.wav",
+    "start": 3.62,
+    "end": 5.006,
+    "dur": 1.386,
+    "speaker": "민수",
+    "caption": "실례합니다! 좀 밀겠습니다!",
+    "pa": false
+  },
+  {
+    "id": "v4_bounce",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-kr-subway/audio/vo/v4_bounce.wav",
+    "start": 5.06,
+    "end": 6.72,
+    "dur": 1.66,
+    "speaker": "민수",
+    "caption": "아악! 튕겨 나왔어! 이거 보스전이야?!",
+    "pa": false
+  },
+  {
+    "id": "v5_pa_close",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-kr-subway/audio/vo/v5_pa_close.wav",
+    "start": 6.78,
+    "end": 7.779,
+    "dur": 0.999,
+    "speaker": "안내방송",
+    "caption": "[안내방송] 출입문 닫습니다.",
+    "pa": true
+  },
+  {
+    "id": "v6_rush",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-kr-subway/audio/vo/v6_rush.wav",
+    "start": 7.84,
+    "end": 9.834,
+    "dur": 1.994,
+    "speaker": "민수",
+    "caption": "지각이야! 아 몰라, 등부터 밀어!",
+    "pa": false
+  },
+  {
+    "id": "v7_relief",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-kr-subway/audio/vo/v7_relief.wav",
+    "start": 10.1,
+    "end": 12.116,
+    "dur": 2.016,
+    "speaker": "민수",
+    "caption": "휴... 겨우 탔다... 살았다...",
+    "pa": false
+  },
+  {
+    "id": "v8_pa_twist",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-kr-subway/audio/vo/v8_pa_twist.wav",
+    "start": 12.1,
+    "end": 13.812,
+    "dur": 1.712,
+    "speaker": "안내방송",
+    "caption": "[안내방송] 이 열차는 반대 방향, 성수행입니다.",
+    "pa": true
+  },
+  {
+    "id": "v9_scream",
+    "wav": "/Users/yun-yeowon/workspace/ad-studio/ps2-kr-subway/audio/vo/v9_scream.wav",
+    "start": 13.82,
+    "end": 14.954,
+    "dur": 1.134,
+    "speaker": "민수",
+    "caption": "뭐?! 반대 방향이라고?!",
+    "pa": false
+  }
+]

@@ -29,6 +29,9 @@
 
 기준 문서: [`skills/shortform-ad-hooks-blueprint/SKILL.md`](../../../skills/shortform-ad-hooks-blueprint/SKILL.md)의 Track B(`B_info_hook_offset`)와 `skills/b-info-hook/SKILL.md`(현재 저장소에는 폴더가 없음. 있으면 함께 참고). 아래는 요약이며 충돌하면 blueprint가 우선입니다.
 
+- **나레이션 템플릿**: 시작은 지식 설명 평서문 "<주어>는 ~했습니다."(예: "뉴턴은 빛을 일곱 가지 색으로 나눴습니다.", 질문형 금지), 끝은 "<제품>은 <핵심 특징>합니다. 그래서 <제품>이 뭐냐고요?" 두 문장(특징 문장 공백 제외 35자 이내). 시작 분야: 자연, 사람, 수와 모양, 만든 것, 삶, 기록(제품 용도 영역과 겹치는 분야 제외).
+- **길이: B 훅은 15~20초** 안에서 내용에 맞게 정합니다. 공통 문서(`../api-guide.md`, `../PRD.md`)의 "훅 15초 이하"와 다른 B 전용 기준이며, 공통 기준으로 할지는 팀 합의가 필요합니다.
+
 - **앵커 정하기.** 제품 핵심 기능 + 숫자 하나. 뽀모도로 타이머라면 "남은 시간이 빨간 부채꼴 면적으로 보인다(60분 = 360도)".
 - **시작 단어와 앵커의 유사도 `hook_similarity_score` = 0.40~0.60.** 0.7 이상은 시작부터 광고 냄새가 나서 금지, 0.3 미만은 브리지가 억지스러워 금지. 값을 `ad_spec`에 기록한다.
 - **시작은 제품과 무관한 놀라운 사실 + 숫자.** 시작 장면에 제품군 어휘(타이머, 시계 등)와 제품명을 쓰지 않는다. PAS형 도입("~하는 이유", "쏟아본 적", "바꿨어요")도 금지.
@@ -44,11 +47,11 @@
 
 | 단계 | 반환 | 예시 |
 | --- | --- | --- |
-| 시나리오 | `{ round, scenarios[] }` — 각 `ScenarioItem`: `scenario_id`, `round`, `type: "B"`, `hook_title`, `hook_duration_sec`(≤15), `body_duration_sec`, `replacement_test_note`, `beats[]`(`order`, `role`, `duration_sec`, `visual`, `narration`, `caption`), `ad_spec` | [`examples/02_scenarios.response.json`](examples/02_scenarios.response.json) |
+| 시나리오 | `{ round, scenarios[] }` — 각 `ScenarioItem`: `scenario_id`, `round`, `type: "B"`, `hook_title`, `hook_duration_sec`(B는 15~20), `body_duration_sec`, `replacement_test_note`, `beats[]`(`order`, `role`, `duration_sec`, `visual`, `narration`, `caption`), `ad_spec` | [`examples/02_scenarios.response.json`](examples/02_scenarios.response.json) |
 | 콘티 | `{ frames[] }` — `beat_order`(= `beats[].order`), `image_url`, `caption` | [`examples/03_storyboard.response.json`](examples/03_storyboard.response.json) |
 | 훅(폴링) | `{ status, files{hook_video, tts_audio, subtitles_srt, scenario_json, storyboard_images[]}, output_dir }` | [`examples/04_hook-status.done.json`](examples/04_hook-status.done.json) |
 
-공통 규칙: 장면 길이 합 = `hook_duration_sec` ≤ 15초, 장면 3~5개, `replacement_test_note`에는 교체 테스트 판정 근거를 한 줄로 씁니다. `ad_spec`에는 아래 "유형 규칙"에서 정한 키를 넣습니다(유형 규칙 검증과 이후 린트에 쓰이는 값).
+공통 규칙: 장면 길이 합 = `hook_duration_sec`, 장면 3~5개, `replacement_test_note`에는 교체 테스트 판정 근거를 한 줄로 씁니다. `ad_spec`에는 아래 "유형 규칙"에서 정한 키를 넣습니다(유형 규칙 검증과 이후 린트에 쓰이는 값).
 
 ## 결과 파일 저장 위치와 이름
 
@@ -56,7 +59,7 @@
 
 ```text
 OUTPUT_DIR/{project_id}/{hook_id}/
-├── hook.mp4              훅 영상 (15초 이하, 9:16)
+├── hook.mp4              훅 영상 (B는 15~20초, 9:16)
 ├── tts.mp3               나레이션 음성 (beats[].narration)
 ├── hook.srt              자막 (beats[].caption, 장면 시작·끝 시각 기준)
 ├── scenario.json         이 훅에 쓴 ScenarioItem 그대로 (b/examples/05_saved-scenario.json 참고)
@@ -64,6 +67,90 @@ OUTPUT_DIR/{project_id}/{hook_id}/
 ```
 
 회차가 달라지면 `hook_id`가 다른 새 폴더가 생기고 기존 폴더는 지우지 않습니다.
+
+## B 시나리오 작업자 코드 (FR-003, 로컬 실행)
+
+시나리오 생성(+장면별 3D 명세)까지 구현되어 있습니다. 콘티 이미지(FR-004)와 훅 영상 렌더·TTS(FR-005)는 아직 없고, 3D 명세를 `video_test/pipeline` 입력(plan.json)으로 내보내는 데까지 합니다.
+Vercel AI SDK(`ai`, `@ai-sdk/anthropic`)로 Claude를 호출합니다.
+
+```text
+1. 유사도 검색 (src/ideate.ts)
+   앵커 선정 + 마인드맵(관점 4개, 단어 약 100개)
+   → 단어마다 info(정보 가치)·앵커 유사도 채점
+   → 시작 후보(0.40~0.60)·브리지 후보끼리 인접 유사도 채점
+   → 경로 탐색: 시작 → 브리지 1~2개, 유사도 상승, 인접 0.70 이상, 마지막 브리지 0.70 이상
+     점수 = info(시작) × 인접 최소 × (1 − 시작 유사도), 시작이 서로 다른 경로를 count개 고름
+2. 시나리오 + 3D 장면 생성 (src/generate.ts) — 고른 경로를 그대로 쓰게 하고, 경로 값은 검색 결과로 덮어씀
+3. 규칙 검사 (src/check.ts) — 위반이 있으면 위반 내용을 붙여 한 번 더 생성
+4. 저장 — 회차 기록, 리포트(HTML), pipeline plan
+```
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/schema.ts` | 입력(01_worker-input)·출력(ScenarioItem, 장면별 `scene3d`) zod 스키마 |
+| `src/ideate.ts` | 유사도 검색·경로 탐색 (`video_test/pipeline/scripts/ideate.mjs`를 옮기고 경로 탐색 추가) |
+| `src/prompt.ts` | B 규칙 + 3D 장면 규칙을 담은 프롬프트 |
+| `src/generate.ts` | `generateScenarios(input)` — 백엔드가 import해서 부를 함수 |
+| `src/check.ts` | 규칙 검사 (유사도, 브리지, 금지어, "~습니다"체, 자막, 길이 15~20초, 3D 움직임·오브젝트 수·금지 요소 등) |
+| `src/cost.ts` | 단계별 토큰·비용(USD) 계산 |
+| `src/report.ts` | 프로젝트 리포트 HTML (회차·시나리오·3D 명세 접기/펴기) |
+| `src/pipeline-plan.ts` | 시나리오 → `video_test/pipeline` 의 plan.json 형식 |
+
+```bash
+cd backend/bridge-dev/b
+npm install
+cp .env.example .env        # ANTHROPIC_API_KEY 입력 (.env는 커밋되지 않음)
+
+npm test                                                         # 가짜 모델로 전체 흐름 확인 (API 호출 없음)
+npm run check -- examples/02_scenarios.response.json             # 규칙 검사만 (API 호출 없음)
+npm run research -- "제품 이름"                                   # 이름만으로 웹에서 제품 조사 → out/<project_id>/input.json (Claude + 웹 검색 과금)
+npm run scenarios -- examples/01_worker-input.scenarios.json     # 1회차 생성 (Claude API 과금). verified_facts 가 비어 있으면 먼저 제품 조사
+
+npm run scenarios -- examples/01_worker-input.scenarios.json --next   # 다음 회차 (앞선 시작 소재 제외)
+npm run scenarios -- examples/01_worker-input.scenarios.json --next --cuts   # 다음 회차 + 장면 컷 이미지
+npm run cuts -- proj_demo01 3                                    # 이미 만든 3회차의 컷 이미지만 렌더
+npm run video -- proj_demo01 3                                   # 3회차 훅 영상(mp4) — 컷 단계 장면 코드 + TTS, Claude 호출 없음
+npm run report -- proj_demo01                                    # 리포트만 다시 만들기
+npx tsx test/cuts-render.ts                                      # 가짜 모델로 컷 렌더 경로 확인 (API 호출 없음, pipeline 필요)
+```
+
+결과 (`out/`은 커밋 안 함):
+
+```text
+out/{project_id}/
+├── report.html                       회차별로 접고 펴는 리포트 (최신 회차가 위·펼침), 단계별 토큰·비용, 유사도 검색 결과
+├── round-{n}.json                    회차 기록 (응답 + 검사 + 유사도 검색 + 비용)
+└── round-{n}/
+    ├── {scenario_id}.plan.json       video_test/pipeline 입력 (scene.visual = 3D 명세, scene.say = 나레이션)
+    └── cuts/{scenario_id}/           컷 이미지 (--cuts / npm run cuts)
+        ├── beat{n}_f{frame}.png      장면마다 처음·중간·끝 프레임 3장 (1080x1920, 자막·카운터 포함)
+        └── beat{n}.tsx               그 장면의 React Three Fiber 코드
+```
+
+### 컷 이미지 (`--cuts`, `npm run cuts`)
+
+- 장면마다 Claude가 3D 명세를 React Three Fiber 코드로 쓰고(장면끼리 동시에), 금지 패턴·타입 검사를 통과하지 못하면 오류를 붙여 최대 3번 다시 씁니다. 끝내 실패한 장면은 기본 도형으로 렌더하고 리포트에 표시합니다.
+- 렌더는 **`video_test/pipeline`의 Remotion 프로젝트**(`SceneTest` 컴포지션)를 빌려 씁니다. 다른 위치면 `B_PIPELINE_DIR`로 지정합니다. 렌더하는 동안만 `pipeline/src/generated/`를 쓰고 끝나면 원래대로 되돌립니다. pipeline은 팀 저장소 밖이라 **이 단계는 pipeline 폴더가 있는 컴퓨터에서만** 됩니다.
+- 모델은 `B_SCENE_MODEL`(없으면 `B_MODEL`), 재시도 횟수는 `B_SCENE_MAX_TRIES`(기본 3).
+- 실측(3회차, 장면 4개, 모두 1차 통과): 비용 $0.37, 소요 약 1분 20초(코드 생성 최장 54초 + 타입 검사 3초 + 번들·렌더 23초). 처음 렌더할 때 Remotion이 headless Chrome(약 131MB)을 내려받습니다.
+- 리포트: 시나리오 위쪽에 장면별 중간 프레임 스트립, 장면 표에 3컷 썸네일과 코드 링크. `index.html` "기록 불러오기"에서는 콘티 자리에 컷이 보입니다(#2 이후 버전).
+- 소요 시간 합계에서 동시에 실행된 단계(장면별 코드 생성)는 가장 긴 것만 더합니다.
+
+### 훅 영상 (`npm run video`)
+
+- 컷 단계에서 저장한 장면 코드(`cuts/<scenario_id>/beat{n}.tsx`)를 그대로 쓰고, `video_test/pipeline`의 `scripts/tts.mjs`(Edge TTS, ko-KR-SunHiNeural +25%)로 나레이션을 만든 뒤 Remotion `HookVideo`로 **훅만** 렌더합니다(본편·음악 없음). Claude 호출이 없어 비용은 $0입니다.
+- 음성이 장면보다 길면 장면이 늘어납니다(+0.25초). 장면별 계획/최종 길이는 리포트에 나옵니다.
+- 결과: `out/<project_id>/round-{n}/video/hook_<scenario_id>.mp4`(1080x1920, 30fps, AAC 음성)와 장면별 음성 wav. 리포트에서 바로 재생됩니다.
+- 실측(3회차, 15초 훅): TTS 25초 + 번들·렌더 27초 = 52초. 한 회차를 시나리오 → 컷 → 영상까지 하면 약 6분, 약 $1입니다.
+- 렌더하는 동안만 `pipeline/src/generated/`와 `pipeline/public/tts/`를 쓰고 끝나면 원래대로 되돌립니다.
+
+- 모델은 `.env`의 `B_MODEL`(기본 `claude-opus-5-5`). 유사도 검색 단계만 바꾸려면 `B_IDEA_MODEL`. 원화 표시는 `B_USD_KRW`(환율)를 넣었을 때만.
+- 비용은 표준 단가로 계산한 추정치입니다(캐시 할인 미반영). 실제 청구액은 Claude Console의 Usage에서 확인합니다. 참고: 2회차 실측 약 $0.49(호출 5번, 입력 1.6만·출력 2.1만 토큰).
+- 검사 결과의 ✗는 규칙 위반(종료 코드 2), △는 사람이 볼 경고(출처 확인 필요, 긴 자막 줄 등)입니다.
+- 유사도 값은 임베딩이 아니라 Claude가 같은 기준표로 한꺼번에 매긴 추정치입니다.
+- 시작 단어는 앵커 유사도 0.40~0.60이면서 **용도 영역 유사도 0.35 이하**여야 합니다. 용도 영역(usage_domains)은 제품을 언제·무엇에 쓰는지와 그 제품군의 역사·기법 유래까지 포함하며, 아이디어 단계에서 Claude가 제품마다 정합니다.
+- 반전 나레이션은 한 문장, 공백 제외 35자 이내(핵심 특징 하나)여야 검사를 통과합니다.
+- `index.html`에서 보기: "기록 불러오기"로 `out/<project_id>/round-N.json`을 고르면 결과 목록에 B 작업자 CLI 기록(비용·소요 시간·규칙 검사 포함)으로 들어갑니다. 기록은 그 브라우저에 보관됩니다.
 
 ## index.html로 테스트하기
 
