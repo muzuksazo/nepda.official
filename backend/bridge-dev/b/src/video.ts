@@ -37,7 +37,7 @@ type PipelineScene = ReturnType<typeof toPipelinePlan>["scenes"][number] & { gen
 // 렌더하는 동안만 덧붙이고 끝나면 원래 파일로 되돌린다. (3D 텍스처 방식은 장면 첫 0.3초가 검게 나왔음)
 const SCENES_IMPORT = "import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';";
 const SCENES_HOOK_LINE = "  const rot = frame * 0.06;";
-function patchScenes(src: string): string {
+export function patchScenes(src: string): string {
   if (!src.includes(SCENES_IMPORT) || !src.includes(SCENES_HOOK_LINE))
     throw new Error("pipeline/src/scenes.tsx 구조가 예상과 달라 클립 장면을 붙일 수 없습니다.");
   return src

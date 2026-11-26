@@ -6,6 +6,7 @@ import { toPipelinePlan } from "./pipeline-plan.js";
 import { dur, renderReport } from "./report.js";
 import { renderCuts } from "./cuts.js";
 import { renderHookVideos } from "./video.js";
+import { joinCaptions, joinVideos, makeBody, type BodyResult } from "./body.js";
 import { addScene3d } from "./scene3d.js";
 import { totals, type StepUsage } from "./cost.js";
 import { measureRuns, measureText } from "./measure.js";
@@ -30,6 +31,12 @@ const USAGE = `사용법:
   npm run video -- <project_id> <round> [--tts=inworld] [--no-captions]
       컷 단계의 장면 코드 + TTS 나레이션으로 훅 영상(mp4)을 렌더. Claude 호출 없음.
       자막을 굽고, 같은 이름의 .captions.json(장면별 시작·끝·자막·나레이션)도 남긴다. --no-captions 면 자막 없이.
+  npm run body -- <project_id> [--seconds 10] [--footage <폴더>] [--tts=edge]
+      제품 촬영 영상(b/product/<제품 모델>)으로 10초 안팎 본편(설명 나레이션·자막) → out/<project_id>/body/body.mp4. 훅과 상관없는 공용 단계.
+  npm run join -- <결과.mp4> <훅.mp4> <본편.mp4>
+      아무 훅 영상 뒤에 본편을 이어 붙인다 (A/C 훅에도 사용).
+  npm run video -- <project_id> <round> --body
+      훅 영상 + 본편을 붙인 <훅>_full.mp4 도 만든다 (본편이 없으면 만들고, 있으면 재사용).
   npm run measure -- <project_id>
       회차 기록의 화면 검수 결과로 통과율(사람 손 안 대고 쓸 수 있는 비율)·자주 나온 문제·영상당 비용. API 호출 없음.
   npm run report -- <project_id>
@@ -111,6 +118,35 @@ function printChecks(rows: { title: string; errors: string[]; warnings: string[]
   return ok;
 }
 
+/** 본편: out/<project_id>/body/body.mp4 가 있으면 재사용, 없거나 force 면 제품 촬영 영상으로 새로 만든다 */
+async function ensureBody(projectId: string, opts: { force?: boolean } = {}): Promise<BodyResult> {
+  const outDir = join(OUT, projectId, "body");
+  const meta = join(outDir, "body.json");
+  if (!opts.force && !has("--force") && existsSync(meta) && existsSync(join(outDir, "body.mp4"))) {
+    console.error(`[본편] 저장된 본편 재사용 (out/${projectId}/body/body.mp4)`);
+    return { ...(readJson(meta) as BodyResult), steps: [] };
+  }
+  const inputPath = join(OUT, projectId, "input.json");
+  const runs = loadRuns(projectId).sort((a, b) => b.response.round - a.response.round);
+  const product = existsSync(inputPath)
+    ? WorkerInputSchema.parse(readJson(inputPath)).product_info
+    : runs[0]
+      ? productOf(runs[0] as RunRecord & { product_info?: ProductInfo })
+      : null;
+  if (!product) throw new Error(`out/${projectId}/input.json 이나 회차 기록이 없어 제품 정보를 알 수 없습니다.`);
+  // 촬영 영상 폴더: --footage <경로> 또는 b/product/<제품 모델 이름>
+  const footageDir = resolve(arg("--footage") ?? join("product", product.model ?? product.name));
+  if (!existsSync(footageDir)) throw new Error(`촬영 영상 폴더가 없습니다: ${footageDir} (--footage 로 지정)`);
+  return makeBody({
+    product,
+    footageDir,
+    outDir,
+    seconds: arg("--seconds") ? Number(arg("--seconds")) : 10,
+    tts: process.argv.includes("--tts=edge") ? "edge" : "inworld",
+    log: (m) => console.error(m),
+  });
+}
+
 const projectIdOf = (name: string) => `proj_${createHash("sha1").update(name).digest("hex").slice(0, 8)}`;
 
 /** 제품 조사: 저장된 research.json 이 같은 제품이면 재사용, 아니면 웹에서 새로 찾는다 */
@@ -176,6 +212,27 @@ async function main() {
     for (const s of steps) console.log(`  ${s.step.padEnd(18)} ${s.model}  입력 ${s.inputTokens} / 출력 ${s.outputTokens}  ${s.costUsd === null ? "단가 미상" : "$" + s.costUsd.toFixed(4)}  ${dur(s.ms)}`);
     console.log(`  합계  $${t.costUsd.toFixed(4)}  ⏱ ${dur(t.ms)}`);
     console.log(`\n조사: ${join(OUT, projectId, "research.json")}\n입력: ${inputPath}\n다음: npm run scenarios -- ${inputPath.split("\\").join("/")}`);
+    process.exit(0);
+  }
+
+  if (cmd === "body") {
+    // npm run body -- <project_id> [--seconds 10] [--tts=edge] [--force]
+    const r = await ensureBody(file, { force: true });
+    console.log(`\n본편 ${r.seconds}초 → ${r.file}\n대본:\n${r.script.lines.map((l) => `  ${l.narration}  [${l.caption.replace(/\n/g, " / ")}]`).join("\n")}`);
+    const t = totals(r.steps);
+    console.log(`비용 $${t.costUsd.toFixed(4)} · ⏱ ${dur(t.ms)}`);
+    process.exit(0);
+  }
+
+  if (cmd === "join") {
+    // npm run join -- <결과.mp4> <훅.mp4> <본편.mp4> [...]
+    const inputs = process.argv.slice(4).filter((a) => !a.startsWith("--"));
+    if (inputs.length < 2) {
+      console.error("사용법: npm run join -- <결과.mp4> <훅.mp4> <본편.mp4> [...]");
+      process.exit(1);
+    }
+    const sec = joinVideos(inputs.map((x) => resolve(x)), resolve(file));
+    console.log(`${resolve(file)} (${sec.toFixed(2)}초)`);
     process.exit(0);
   }
 
@@ -287,6 +344,25 @@ async function main() {
     const updated = { ...run, videos: [...keepVideos, ...videos], steps: allSteps, total: totals(allSteps) };
     writeFileSync(recordPath, JSON.stringify(updated, null, 2) + "\n", "utf8");
     const reportPath = writeReport(file, run.product_name ?? file);
+    // --body: 훅 뒤에 본편(제품 촬영 영상 설명)을 붙인 영상도 만든다 → <훅>_full.mp4 (+ 자막 데이터)
+    if (has("--body")) {
+      const body = await ensureBody(file);
+      const bodySteps = body.steps;
+      for (const v of videos) {
+        const hookAbs = join(OUT, file, v.file);
+        const fullRel = v.file.replace(/\.mp4$/, "_full.mp4");
+        const t1 = Date.now();
+        const sec = joinVideos([hookAbs, body.file], join(OUT, file, fullRel));
+        joinCaptions(hookAbs.replace(/\.mp4$/, ".captions.json"), v.seconds, body.captions, join(OUT, file, fullRel.replace(/\.mp4$/, ".captions.json")), fullRel);
+        (v as typeof v & { full?: string; fullSeconds?: number }).full = fullRel;
+        (v as typeof v & { full?: string; fullSeconds?: number }).fullSeconds = +sec.toFixed(2);
+        bodySteps.push({ step: "본편: 훅에 붙이기", model: "ffmpeg", inputTokens: 0, outputTokens: 0, costUsd: 0, ms: Date.now() - t1 });
+        console.log(`\n훅 + 본편: ${sec.toFixed(2)}초 → out/${file}/${fullRel}`);
+      }
+      const withBody = { ...updated, videos: [...keepVideos, ...videos], steps: [...allSteps, ...bodySteps], total: totals([...allSteps, ...bodySteps]) };
+      writeFileSync(recordPath, JSON.stringify(withBody, null, 2) + "\n", "utf8");
+      for (const s of bodySteps) console.log(`  ${s.step}  ${s.costUsd ? "$" + s.costUsd.toFixed(4) : ""} ${dur(s.ms)}`);
+    }
     for (const v of videos) {
       console.log(`\n영상 ${v.scenario_id}: ${v.seconds}초 → out/${file}/${v.file}`);
       for (const s of v.scenes)
