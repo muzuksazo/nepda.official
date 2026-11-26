@@ -12,6 +12,8 @@ type Kind = 'stroke' | 'fill';
 
 interface IconDef {
   d: string;
+  /** 채운 상태에서도 보여야 하는 안쪽 선(슬레이트 줄무늬 등). 채우면 배경색으로 그어 면을 가른다 */
+  detail?: string;
   kind: Kind;
   cap?: 'round';
   join?: 'round';
@@ -35,7 +37,8 @@ const ICONS = {
   },
   // slate · 냅다 자체 제작 (Stratis에 슬레이트가 없어 같은 규격 — 24px 그리드, 2px 선, 둥근 끝 — 으로 그림)
   Slate: {
-    d: 'M3 11H21V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V11ZM3 11L2.4 8.6C2.2 7.6 2.8 6.6 3.8 6.4L17.6 3.1C18.6 2.9 19.6 3.5 19.8 4.5L20.4 6.8L3 11ZM7.6 5.5L9.6 9.6M13.2 4.2L15.2 8.3',
+    d: 'M3 11H21V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V11ZM3 11L2.4 8.6C2.2 7.6 2.8 6.6 3.8 6.4L17.6 3.1C18.6 2.9 19.6 3.5 19.8 4.5L20.4 6.8L3 11Z',
+    detail: 'M7.6 5.5L9.6 9.6M13.2 4.2L15.2 8.3',
     kind: 'stroke',
     cap: 'round',
     join: 'round',
@@ -52,11 +55,10 @@ const ICONS = {
     cap: 'round',
     join: 'round',
   },
-  // home-04 · 101:2314
+  // home-03 · 101:2309
   Home: {
-    d: 'M9 21V14.1528C9 13.5226 9.53726 13.0116 10.2 13.0116H13.8C14.4627 13.0116 15 13.5226 15 14.1528V21M11.3046 3.21117L3.50457 8.48603C3.18802 8.7001 3 9.04665 3 9.41605V19.2882C3 20.2336 3.80589 21 4.8 21H19.2C20.1941 21 21 20.2336 21 19.2882V9.41605C21 9.04665 20.812 8.70011 20.4954 8.48603L12.6954 3.21117C12.2791 2.92961 11.7209 2.92961 11.3046 3.21117Z',
+    d: 'M11.3046 3.21117L3.50457 8.48603C3.18802 8.7001 3 9.04665 3 9.41605V19.2882C3 20.2336 3.80589 21 4.8 21H19.2C20.1941 21 21 20.2336 21 19.2882V9.41605C21 9.04665 20.812 8.70011 20.4954 8.48603L12.6954 3.21117C12.2791 2.92961 11.7209 2.92961 11.3046 3.21117Z',
     kind: 'stroke',
-    cap: 'round',
   },
   // image-01 · 101:3381
   Image: {
@@ -126,8 +128,8 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'fill' | 'strok
   size?: number;
   /** 선 굵기. Stratis 기본은 2 */
   strokeWidth?: number;
-  /** 'currentColor'를 넘기면 안을 채운다(재생·일시정지·번개처럼 꽉 찬 모양이 필요할 때) */
-  fill?: 'currentColor' | 'none';
+  /** 안 채움 색. 'currentColor'(재생·번개처럼 꽉 찬 모양)나 색 토큰(예: 하단 내비게이션 현재 탭의 라임)을 넘긴다 */
+  fill?: string;
   style?: CSSProperties;
 }
 
@@ -149,14 +151,26 @@ function makeIcon(name: IconName) {
         {isFillKind ? (
           <path d={def.d} fill="currentColor" />
         ) : (
-          <path
-            d={def.d}
-            fill={fill}
-            stroke="currentColor"
-            strokeWidth={strokeWidth}
-            strokeLinecap={def.cap}
-            strokeLinejoin={def.join}
-          />
+          <>
+            <path
+              d={def.d}
+              fill={fill}
+              stroke="currentColor"
+              strokeWidth={strokeWidth}
+              strokeLinecap={def.cap}
+              strokeLinejoin={def.join}
+            />
+            {def.detail ? (
+              <path
+                d={def.detail}
+                fill="none"
+                stroke={fill === 'none' ? 'currentColor' : 'var(--bg)'}
+                strokeWidth={strokeWidth}
+                strokeLinecap={def.cap}
+                strokeLinejoin={def.join}
+              />
+            ) : null}
+          </>
         )}
       </svg>
     );

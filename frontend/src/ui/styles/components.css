@@ -838,28 +838,26 @@ textarea.n-input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  transition:
-    background-color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
+  width: 44px;
+  height: 44px;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
-.n-bottom-nav__item:hover .n-bottom-nav__icon {
-  background: var(--surface-weak);
+.n-bottom-nav__icon svg path {
+  transition: fill var(--dur-fast) var(--ease-out);
 }
 
 .n-bottom-nav__item:active .n-bottom-nav__icon {
-  transform: scale(0.92);
+  transform: scale(0.9);
 }
 
+.n-bottom-nav__item:hover:not(.is-active) {
+  color: var(--text);
+}
+
+/* 현재 탭: 라임 없이 글자색(라이트 검정·다크 흰색)으로 아이콘을 꽉 채운다 */
 .n-bottom-nav__item.is-active {
-  color: var(--on-accent-fill);
-}
-
-.n-bottom-nav__item.is-active .n-bottom-nav__icon {
-  background: var(--accent-fill);
+  color: var(--text);
 }
 
 .n-bottom-nav__item:focus-visible {

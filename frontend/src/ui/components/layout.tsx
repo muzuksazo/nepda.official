@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Home, Lightning, Slate, User, Users } from '../icons';
+import type { ComponentType, ReactNode } from 'react';
+import { ChevronLeft, ChevronRight, Home, Lightning, Slate, User, Users, type IconProps } from '../icons';
 import { brand } from '../brand';
 import { IconButton, ProgressBar } from './primitives';
 
@@ -40,11 +40,11 @@ export function MobileScreen({ header, children, footer, footerSummary, bottomNa
 
 export type NavTab = 'home' | 'myVideos' | 'community' | 'profile';
 
-const NAV_ITEMS: { value: NavTab; label: string; icon: ReactNode }[] = [
-  { value: 'home', label: '홈', icon: <Home size={24} strokeWidth={2} /> },
-  { value: 'myVideos', label: '내 영상', icon: <Slate size={24} strokeWidth={2} /> },
-  { value: 'community', label: '커뮤니티', icon: <Users size={24} strokeWidth={2} /> },
-  { value: 'profile', label: '프로필', icon: <User size={24} strokeWidth={2} /> },
+const NAV_ITEMS: { value: NavTab; label: string; Icon: ComponentType<IconProps> }[] = [
+  { value: 'home', label: '홈', Icon: Home },
+  { value: 'myVideos', label: '내 영상', Icon: Slate },
+  { value: 'community', label: '커뮤니티', Icon: Users },
+  { value: 'profile', label: '프로필', Icon: User },
 ];
 
 export interface BottomNavProps {
@@ -52,7 +52,7 @@ export interface BottomNavProps {
   onNavigate?: (tab: NavTab) => void;
 }
 
-/** 하단 내비게이션 바: 홈 · 내 영상 · 커뮤니티 · 프로필. 아이콘만 보이고(이름은 스크린 리더용), 현재 탭은 아이콘 뒤 라임 알약. */
+/** 하단 내비게이션 바: 홈 · 내 영상 · 커뮤니티 · 프로필. 아이콘만 보이고(이름은 스크린 리더용), 현재 탭은 아이콘이 검정(다크는 흰색)으로 꽉 채워진다. */
 export function BottomNav({ active, onNavigate }: BottomNavProps) {
   return (
     <nav className="n-bottom-nav" aria-label="주요 메뉴">
@@ -68,7 +68,8 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
             onClick={() => onNavigate?.(item.value)}
           >
             <span className="n-bottom-nav__icon" aria-hidden="true">
-              {item.icon}
+              {/* 현재 탭: 아이콘을 글자색(라이트 검정·다크 흰색)으로 꽉 채운다. 나머지: 회색 선만 */}
+              <item.Icon size={24} strokeWidth={2} fill={isActive ? 'currentColor' : 'none'} />
             </span>
           </button>
         );
