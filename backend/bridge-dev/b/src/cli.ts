@@ -26,9 +26,9 @@ const USAGE = `사용법:
       (기본: 같은 프로젝트에 저장된 검색이 있으면 재사용하고 앵커를 고정, 씨앗이 떨어지면 추가 검색)
   npm run cuts -- <project_id> <round>
       이미 만든 회차의 장면 컷 이미지를 렌더하고 리포트를 갱신. Claude API 호출(과금).
-  npm run video -- <project_id> <round> [--tts=inworld] [--captions]
+  npm run video -- <project_id> <round> [--tts=inworld] [--no-captions]
       컷 단계의 장면 코드 + TTS 나레이션으로 훅 영상(mp4)을 렌더. Claude 호출 없음.
-      기본은 자막 없는 영상 + 같은 이름의 .captions.json(장면별 시작·끝·자막·나레이션). --captions 면 자막을 굽는다.
+      자막을 굽고, 같은 이름의 .captions.json(장면별 시작·끝·자막·나레이션)도 남긴다. --no-captions 면 자막 없이.
   npm run report -- <project_id>
       out/<project_id>/ 의 회차 기록으로 report.html 다시 만들기. API 호출 없음.
   npm run check -- <시나리오응답.json> [--input <입력.json>]
@@ -263,7 +263,7 @@ async function main() {
       charVariant,
       tts,
       productModel: productOf(run).model,
-      burnCaptions: has("--captions"),
+      burnCaptions: !has("--no-captions"),
     });
     const base = gclips ? "gclips" : char ? charVariant : "3d";
     const variant = tts === "inworld" ? `${base}_inworld` : base;

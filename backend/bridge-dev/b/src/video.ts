@@ -77,7 +77,7 @@ export async function renderHookVideos(
     tts?: "edge" | "inworld";
     /** 반전 장면 제품 3D 모델 (src/assets/products/<model>.tsx) */
     productModel?: string;
-    /** 자막을 영상에 굽기 (기본 false: 자막 없는 영상 + <영상>.captions.json 데이터만) */
+    /** 자막을 영상에 굽기 (cli 기본 true). 어느 쪽이든 <영상>.captions.json 데이터도 남긴다 */
     burnCaptions?: boolean;
   }
 ): Promise<{ videos: HookVideo[]; steps: StepUsage[] }> {
