@@ -565,10 +565,11 @@ export function BackDim({ impact = SLAM_IMPACT, z = 0.25, amount = 0.72, frames 
 /** 카메라 포커스 프리셋 (장면 키트 배치 기준: 인물 x≈-0.95, 시각화 자리 [0.55, 1.35, -0.5], 반전 제품 [0, FLOOR_Y, 0.6]) */
 export const CAMERAS = {
   // 모두 살짝 내려다본다: 무대가 화면 위로 올라와 위쪽 빈 공간이 줄고, 시각화가 자막(약 62%) 위에 선다
-  wide: { position: [0.05, 1.9, 7.3] as [number, number, number], lookAt: [0.05, 0.35, -0.6] as [number, number, number], fov: 40 },
+  wide: { position: [0.1, 1.9, 7.3] as [number, number, number], lookAt: [0.1, 0.35, -0.6] as [number, number, number], fov: 40 },
   // person: 인물 쪽으로 다가가되 시각화도 화면 안에 남는 중간 거리 (세로 화면에서 얼굴만 잡으면 사실이 안 보인다)
   person: { position: [-0.3, 1.75, 6.0] as [number, number, number], lookAt: [-0.3, 0.6, -0.4] as [number, number, number], fov: 40 },
-  visual: { position: [0.45, 2.05, 5.7] as [number, number, number], lookAt: [0.45, 0.85, -0.5] as [number, number, number], fov: 40 },
+  // visual: 시각화 쪽으로 다가가되 인물(x≈-0.85)도 화면 안에 남는 거리
+  visual: { position: [0.2, 2.0, 6.3] as [number, number, number], lookAt: [0.25, 0.85, -0.5] as [number, number, number], fov: 40 },
   product: { position: [0, 3.0, 6.9] as [number, number, number], lookAt: [0.2, -0.2, 0.5] as [number, number, number], fov: 40 },
   // 인물 없는 장면: 핵심 요소(가운데 [0, 1.35, -0.5])를 크게. center = 주변 소품까지, centerClose = 핵심 요소만
   center: { position: [0, 2.0, 6.8] as [number, number, number], lookAt: [0, 0.75, -0.5] as [number, number, number], fov: 40 },

@@ -43,7 +43,7 @@ const SLOTS: Record<Slot, { x: number; z: number; maxH: number; maxW: number }> 
   'fg-left': { x: -1.05, z: 2.0, maxH: 0.8, maxW: 0.7 },
   'fg-right': { x: 1.05, z: 2.0, maxH: 0.9, maxW: 0.7 },
 };
-const PERSON: [number, number, number] = [-0.95, FLOOR_Y, -0.1];
+const PERSON: [number, number, number] = [-0.85, FLOOR_Y, -0.1];
 const VIZ_AIR: [number, number, number] = [0.45, 1.4, -0.5];
 const VIZ_SCALE = 0.85;
 // 인물 없는 장면: 핵심 요소가 화면 가운데를 크게 차지한다 (상자 약 2.1m)
@@ -161,7 +161,7 @@ function placeProps(props: KitPlan['props'], sizes: Record<number, Size>, layout
       if (!baseSize || !basePlaced) return; // 받침이 아직 안 불러와졌으면 다음 그림에서
       const top = basePlaced.position[1] + baseSize.y;
       const area = { w: baseSize.x * 0.72, d: baseSize.z * 0.55 };
-      const h = Math.min(Math.max(0.05, p.height), 0.9);
+      const h = Math.min(Math.max(0.05, p.height), 0.5, baseSize.y * 0.6); // 받침 위 물건은 작게 (찻잔 1m 같은 실수 방지)
       const each = Math.max(0.08, Math.min(area.w / Math.max(1, pattern === 'stack' ? 1 : n) * 0.9, 0.6));
       patternOffsets(pattern, n, h, area).forEach((o, j) =>
         out.push({ key: `p${idx}-${j}`, file: p.file, position: [basePlaced.position[0] + o.dx, top + o.dy, basePlaced.position[2] + o.dz], height: h, maxW: each, rotationY: (p.rotationY ?? 0) + o.rot, tone: p.tone ?? basePlaced.tone, base: -1 })

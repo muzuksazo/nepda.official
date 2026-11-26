@@ -60,6 +60,12 @@ export async function addScene3d(
         if (!sc) continue;
         if (!sc.stage) missing.push(`장면 ${b.order} stage 없음`);
         if (!sc.assets?.length) missing.push(`장면 ${b.order} assets 없음 (3~6개)`);
+        const visible = (sc.assets ?? []).reduce((n, a) => n + Math.max(1, a.count ?? 1), 0);
+        if (!b.scene3d?.lid_open && visible < 6 && b.order !== Math.max(...next.beats.map((x) => x.order)))
+          missing.push(`장면 ${b.order} 보이는 물체가 ${visible}개뿐 — 같은 물건 여러 개(count·pattern)나 받침 위 소품(on_query)으로 6개 이상`);
+        for (const a of sc.assets ?? [])
+          if (a.on_query && !(sc.assets ?? []).some((x, i) => i < (sc.assets ?? []).indexOf(a) && x.query.trim().toLowerCase() === a.on_query!.trim().toLowerCase()))
+            missing.push(`장면 ${b.order} "${a.query}" 의 on_query "${a.on_query}" 는 앞에 나온 항목의 query 여야 함`);
         for (const a of sc.assets ?? []) if (!searchAssets(a.query, 1).length) missing.push(`장면 ${b.order} assets "${a.query}" 에 맞는 모델이 없음 — 있는 에셋 목록의 다른 영어 낱말로 바꾸거나 빼세요`);
         if (sc.character && !names.has(sc.character.model)) missing.push(`장면 ${b.order} character "${sc.character.model}" 는 목록에 없는 이름 — 목록의 이름 그대로 쓰세요`);
       }

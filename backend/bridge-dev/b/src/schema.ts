@@ -98,7 +98,7 @@ export const Scene3DSchema = z.object({
           .optional()
           .describe("놓을 자리 (on 이 있으면 무시)"),
         height: z.number().optional().describe("한 개의 실제 높이(m). 사람 1.7 기준"),
-        on: z.number().int().optional().describe("이 assets 목록에서 받침이 되는 항목의 번호(0부터). 탁자·책상·선반 위에 올릴 때"),
+        on_query: z.string().optional().describe("받침이 되는 항목의 query 를 그대로 (예: \"table\"). 탁자·책상·선반 위에 올릴 때. 받침 항목이 이 항목보다 먼저 나와야 함"),
         count: z.number().int().min(1).max(8).optional().describe("같은 물건 개수 (기본 1)"),
         pattern: z.enum(["single", "row", "grid", "stack", "cluster", "arc"]).optional().describe("여러 개 놓는 모양: row 한 줄, grid 두 줄, stack 위로 쌓기, cluster 촘촘한 무리, arc 부채꼴"),
       })

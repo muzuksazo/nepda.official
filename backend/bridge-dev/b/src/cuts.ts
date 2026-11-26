@@ -324,13 +324,22 @@ export function kitPlanOf(sc: NonNullable<ScenarioItem["beats"][number]["scene3d
   });
   const newIndex = new Map<number, number>();
   found.forEach((x, i) => { if (x) newIndex.set(i, newIndex.size); });
+  // 받침: on_query(받침의 검색어) → 그 항목의 새 번호. 자기보다 앞에 있고 검색에 성공한 항목만
+  const list = sc?.assets ?? [];
+  const baseIndexOf = (a: (typeof list)[number]): number | undefined => {
+    if (!a.on_query) return undefined;
+    const me = list.indexOf(a);
+    const q = a.on_query.trim().toLowerCase();
+    const bi = list.findIndex((b, i) => i < me && b.query.trim().toLowerCase() === q && newIndex.has(i) && !b.on_query);
+    return bi >= 0 ? newIndex.get(bi) : undefined;
+  };
   const props = found
     .filter((x): x is NonNullable<typeof x> => !!x)
     .map(({ a, file }) => ({
       file,
       slot: a.slot ?? "back-center",
       height: a.height ?? 1.0,
-      ...(a.on !== undefined && newIndex.has(a.on) ? { on: newIndex.get(a.on) } : {}),
+      ...(baseIndexOf(a) !== undefined ? { on: baseIndexOf(a) } : {}),
       ...(a.count && a.count > 1 ? { count: a.count, pattern: a.pattern ?? "row" } : {}),
     }));
   const ch = withPerson && sc?.character && names.has(sc.character.model) ? { file: `bassets/uacp/${sc.character.model}.gltf`, emotions: sc.character.emotions } : null;

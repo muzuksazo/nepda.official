@@ -101,7 +101,8 @@ export const SCENE3D_PROMPT = `당신은 Remotion + React Three Fiber 숏폼 3D 
 - **층(깊이)**: 후경(back-*: 장소를 알려 주는 큰 물체), 중경(side-*·mid-*: 핵심 시각화 양옆), 전경(fg-*: 카메라 가까이 낮은 물체 하나, 일부 잘려도 됨)을 나눠 채웁니다. 전경은 장면마다 0~1개.
 - 받아 둔 3D 물건 모델로 장소를 꾸밉니다. assets 항목마다: query는 영어 1~3단어(모델 파일 이름 검색어, 예: "desk", "bookcase", "barrel", "pine tree", "flask"), role은 이야기에서 무엇인지, place는 어디에 놓는지 한 줄.
 - slot은 정해진 자리 중 하나입니다: back-left / back-center / back-right(후경, 큰 물건 최대 2.6m), side-left / side-right(중경 바깥, 최대 2.0m), mid-left / mid-right(중경, 최대 1.8m), near-person(인물 옆, 최대 0.9m), front-right(앞 오른쪽, 낮은 물건 최대 0.55m), fg-left / fg-right(전경, 최대 0.9m). 시각화 자리(화면 가운데 위쪽)는 비워 둡니다.
-- on: 받침 항목 번호(이 assets 목록에서 0부터). 올리는 물건은 받침보다 먼저 나오면 안 됩니다. count·pattern: 같은 물건 여러 개.
+- on_query: 받침 항목의 query 를 그대로 적습니다(예: 받침 query 가 "table" 이면 on_query: "table"). 받침 항목이 먼저 나와야 합니다. 받침 위 물건은 작은 것(높이 0.5m 이하)만. count·pattern: 같은 물건 여러 개.
+- 장면마다 화면에 보이는 물체가 모두 6개 이상(같은 물건 여러 개도 하나씩 셈)이 되게 합니다.
 - height는 실제 높이(m, 사람 1.7 기준): 책상 0.78, 의자 0.9, 책장 1.9, 통 0.9, 상자 0.6, 램프 1.6, 나무 2.6, 바위 0.5, 냄비 0.35.
 - 아래 "있는 에셋" 목록에 있는 종류만 고릅니다. 목록에 없는 물건(예: 고래, 특정 인물의 얼굴)은 assets로 찾지 말고 objects(기본 도형)로 단순하게 만들거나 빼고, 이야기를 장소·소품·인물로 보여 줍니다.
 
