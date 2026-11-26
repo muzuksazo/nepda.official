@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
+import type { NavTab } from '../components';
 import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
 import type { HookType } from './flowData';
@@ -34,6 +35,14 @@ function FlowPrototype() {
   const [myTab, setMyTab] = useState<MyVideosTab>('inProgress');
   const [hookType, setHookType] = useState<HookType>('B');
   const [productName, setProductName] = useState('[제품 이름]');
+  // 하단 내비게이션: 커뮤니티·프로필 화면은 아직 없어서 홈·내 영상만 옮겨 간다
+  const navigate = (tab: NavTab) => {
+    if (tab === 'home') setStep('home');
+    if (tab === 'myVideos') {
+      setMyTab('inProgress');
+      setStep('myVideos');
+    }
+  };
 
   switch (step) {
     case 'onboarding':
@@ -41,6 +50,9 @@ function FlowPrototype() {
     case 'home':
       return (
         <HomeScreen
+          credits={120}
+          profile={{ name: '냅다사장' }}
+          onNavigate={navigate}
           banners={SAMPLE_BANNERS}
           inProgress={SAMPLE_IN_PROGRESS}
           completed={[{ id: 'mine', productName, status: '영상과 썸네일을 만들었어요' }, ...SAMPLE_COMPLETED]}
@@ -64,7 +76,7 @@ function FlowPrototype() {
           inProgress={SAMPLE_IN_PROGRESS}
           completed={[{ id: 'mine', productName, status: '영상과 썸네일을 만들었어요' }, ...SAMPLE_COMPLETED]}
           initialTab={myTab}
-          onBack={() => setStep('home')}
+          onNavigate={navigate}
           onContinue={() => setStep('upload')}
           onDownloadAgain={() => setStep('thumbnail')}
         />

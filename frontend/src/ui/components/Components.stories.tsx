@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import { Download, Play } from 'lucide-react';
+import { Download, Play } from '../icons';
 import { brand } from '../brand';
 import { HookTypeCard, ProjectCard } from './cards';
-import { FlowHeader, StepNumber } from './layout';
+import { AppHeaderActions, BottomNav, CreditBadge, FlowHeader, ProfileButton, StepNumber, type NavTab } from './layout';
 import { Mascot, VideoFrame } from './media';
 import {
   Badge,
@@ -89,6 +89,45 @@ export const Badges: Story = {
 export const Header: Story = {
   name: '흐름 헤더',
   render: () => <FlowHeader title="제품 정보" step={3} onBack={fn()} />,
+};
+
+export const Credit: Story = {
+  name: '크레딧 배지',
+  render: () => (
+    <div className="n-row" style={{ gap: 12 }}>
+      <CreditBadge credits={120} onClick={fn()} />
+      <CreditBadge credits={2400} onClick={fn()} />
+      <CreditBadge />
+    </div>
+  ),
+};
+
+export const HeaderActions: Story = {
+  name: '상단 GNB 묶음 · 프로필',
+  render: () => (
+    <>
+      <div className="n-row" style={{ justifyContent: 'flex-end', paddingRight: 6 }}>
+        <AppHeaderActions credits={120} profile={{ name: '냅다사장' }} onCreditClick={fn()} onProfileClick={fn()} />
+      </div>
+      <div className="n-row" style={{ gap: 8 }}>
+        <ProfileButton name="냅다사장" />
+        <ProfileButton name="Jin" />
+        <ProfileButton />
+      </div>
+    </>
+  ),
+};
+
+export const BottomNavigation: Story = {
+  name: '하단 내비게이션',
+  render: function Render() {
+    const [tab, setTab] = useState<NavTab>('home');
+    return (
+      <div style={{ marginInline: -16 }}>
+        <BottomNav active={tab} onNavigate={setTab} />
+      </div>
+    );
+  },
 };
 
 export const HookCards: Story = {

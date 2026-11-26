@@ -1,4 +1,4 @@
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon } from '../icons';
 import { Badge, Button, FlowHeader, MediaPlaceholder, MobileScreen, ScreenTitle, SkeletonText, Stack } from '../components';
 import type { HookType } from './flowData';
 

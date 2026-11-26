@@ -769,6 +769,8 @@ textarea.n-input {
   position: sticky;
   top: 0;
   z-index: 2;
+  /* 노치·상태 표시줄 아래로 내린다 (viewport-fit=cover) */
+  padding-top: env(safe-area-inset-top, 0px);
   background: var(--bg);
 }
 
@@ -787,10 +789,83 @@ textarea.n-input {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 20px calc(24px + env(safe-area-inset-bottom));
+  padding: 12px 20px max(24px, calc(var(--safe-bottom) + 8px));
   border-top: 1px solid var(--border-weak);
   background: var(--bg);
   box-shadow: var(--shadow-sheet);
+}
+
+/* 하단 고정 묶음: (행동 버튼) + 하단 내비게이션 */
+.n-screen__bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--bg);
+}
+
+.n-screen__bottom .n-screen__footer {
+  position: static;
+  padding-bottom: 12px;
+  border-top: 0;
+  box-shadow: none;
+}
+
+/* ---------- 하단 내비게이션 ----------
+   iOS 탭 바(49pt + 홈 인디케이터 34pt = 83pt)와 Material 내비게이션 바(활성 표시 64×32dp)를 기준으로,
+   아이콘 줄 56px + 아래 안전 영역. 안전 영역이 없는 기기도 아래 12px은 띄운다. */
+.n-bottom-nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 4px 8px max(12px, var(--safe-bottom));
+  border-top: 1px solid var(--border-weak);
+  background: var(--bg);
+}
+
+.n-bottom-nav__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.n-bottom-nav__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.n-bottom-nav__item:hover .n-bottom-nav__icon {
+  background: var(--surface-weak);
+}
+
+.n-bottom-nav__item:active .n-bottom-nav__icon {
+  transform: scale(0.92);
+}
+
+.n-bottom-nav__item.is-active {
+  color: var(--on-accent-fill);
+}
+
+.n-bottom-nav__item.is-active .n-bottom-nav__icon {
+  background: var(--accent-fill);
+}
+
+.n-bottom-nav__item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -4px;
+  border-radius: var(--radius-md);
 }
 
 .n-screen__summary {
@@ -812,8 +887,118 @@ textarea.n-input {
 }
 
 .n-wordmark {
-  height: 24px;
+  height: 40px;
   width: auto;
+}
+
+/* 상단 GNB 오른쪽 묶음: 크레딧 · 프로필 · 메뉴 */
+.n-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+
+.n-avatar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  /* 32px 원의 보이는 오른쪽 끝을 화면 여백(20px)에 맞춘다 */
+  margin-right: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  cursor: pointer;
+}
+
+.n-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--surface-weak);
+  box-shadow: inset 0 0 0 1px var(--border-weak);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.n-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.n-avatar-btn:hover .n-avatar {
+  background: var(--surface-strong);
+}
+
+.n-avatar-btn:active .n-avatar {
+  transform: scale(0.94);
+}
+
+.n-avatar-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 0;
+}
+
+/* 상단 GNB 크레딧 잔액: 회색 알약 + 작은 라임 번개 원(라임은 이 원에만) */
+.n-credit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px 0 6px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-weak);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+/* 보이는 높이는 32px, 누르는 영역은 44px */
+.n-credit::before {
+  content: '';
+  position: absolute;
+  inset: -6px -4px;
+}
+
+.n-credit:hover {
+  background: var(--surface-strong);
+}
+
+.n-credit:active {
+  transform: scale(0.96);
+}
+
+.n-credit__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+.n-credit__value {
+  min-width: 2ch;
+  line-height: 1;
 }
 
 [data-theme='dark'] .n-wordmark--light,
@@ -826,6 +1011,10 @@ textarea.n-input {
   flex-direction: column;
   gap: 12px;
   padding: 16px 20px 16px 8px;
+}
+
+.n-flow-header--root {
+  padding-left: 20px;
 }
 
 .n-flow-header__step {
@@ -1051,16 +1240,38 @@ textarea.n-input {
 
 /* ---------- 스토리북 기기 틀 (390×844) ---------- */
 .n-device {
+  /* 아이폰 14 크기 틀: 아래 홈 인디케이터 영역 34px을 흉내 낸다 */
+  --safe-bottom: 34px;
+  position: relative;
   width: 390px;
   height: 844px;
   margin: 24px auto;
-  overflow-y: auto;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 32px;
   background: var(--bg);
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.12);
 }
 
+.n-device__scroll {
+  height: 100%;
+  overflow-y: auto;
+}
+
 .n-device .n-screen {
   min-height: 100%;
+}
+
+/* 홈 인디케이터(기기 막대) — 화면 요소가 아니라 Storybook 틀 장식 */
+.n-device__home {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  z-index: 5;
+  width: 134px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--text);
+  transform: translateX(-50%);
+  pointer-events: none;
 }

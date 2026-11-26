@@ -1,4 +1,4 @@
-import { ArrowRight, Download, Package, Play } from 'lucide-react';
+import { ArrowRight, Download, Package, Play } from '../icons';
 import { FLOW_TOTAL_STEPS } from './layout';
 import { MediaPlaceholder } from './media';
 import { Card, CheckMark, ProgressBar, SelectCard, Stack } from './primitives';

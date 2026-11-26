@@ -1,5 +1,5 @@
 import { useId, useState, type CSSProperties, type ReactNode } from 'react';
-import { Check, Clock, Info, Upload, X } from 'lucide-react';
+import { Check, Clock, Info, Upload, X } from '../icons';
 
 /* ---------- 레이아웃 ---------- */
 
@@ -157,7 +157,7 @@ export function ChoiceChips({ label, options, value, onChange }: ChoiceChipsProp
             <input type="radio" name={name} value={opt} checked={value === opt} onChange={() => onChange(opt)} />
             <span className="n-chip__tile">
               <span className="n-chip__check" aria-hidden="true">
-                <Check size={12} strokeWidth={3.5} />
+                <Check size={18} strokeWidth={3} />
               </span>
               {opt}
             </span>
@@ -321,7 +321,7 @@ export function SelectCard({ label, isSelected, onChange, children }: SelectCard
 export function CheckMark() {
   return (
     <span className="n-check" aria-hidden="true">
-      <Check size={16} strokeWidth={3} />
+      <Check size={24} strokeWidth={2.5} />
     </span>
   );
 }

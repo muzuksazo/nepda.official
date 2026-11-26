@@ -1,5 +1,7 @@
-import { Plus } from 'lucide-react';
+import { Plus } from '../icons';
 import {
+  AppHeaderActions,
+  BottomNav,
   BrandHeader,
   Button,
   Carousel,
@@ -10,6 +12,7 @@ import {
   ProjectCard,
   SectionTitle,
   Stack,
+  type NavTab,
   type BannerItem,
 } from '../components';
 import { brand } from '../brand';
@@ -41,6 +44,14 @@ export interface HomeScreenProps {
   onSeeAllInProgress?: () => void;
   /** 완성 화살표 → 내 영상(완성 탭) */
   onSeeAllCompleted?: () => void;
+  /** 상단 크레딧 잔액 (못 불러왔으면 생략) */
+  credits?: number;
+  onCreditClick?: () => void;
+  /** 상단 프로필 (사진이 없으면 닉네임 첫 글자) */
+  profile?: { name?: string; imageUrl?: string };
+  onProfileClick?: () => void;
+  /** 하단 내비게이션 이동 */
+  onNavigate?: (tab: NavTab) => void;
 }
 
 /** 안3-1 홈 */
@@ -54,13 +65,31 @@ export function HomeScreen({
   onSeeAllCompleted,
   banners = [],
   onBannerSelect,
+  credits,
+  onCreditClick,
+  profile,
+  onProfileClick,
+  onNavigate,
 }: HomeScreenProps) {
   const isEmpty = inProgress.length === 0 && completed.length === 0;
+  const header = (
+    <BrandHeader
+      endContent={
+        <AppHeaderActions
+          credits={credits}
+          onCreditClick={onCreditClick}
+          profile={profile}
+          onProfileClick={onProfileClick}
+        />
+      }
+    />
+  );
+  const bottomNav = <BottomNav active="home" onNavigate={onNavigate} />;
   const createButton = <Button label="영상 만들기" isBlock icon={<Plus size={20} aria-hidden="true" />} onClick={onCreate} />;
 
   if (isEmpty) {
     return (
-      <MobileScreen header={<BrandHeader />} footer={createButton}>
+      <MobileScreen header={header} footer={createButton} bottomNav={bottomNav}>
         <Stack gap={16} align="center" justify="center" style={{ flex: 1, textAlign: 'center', paddingBottom: 24 }}>
           <Mascot src={brand.mascot.clapboard} width={140} />
           <Stack gap={8} align="center">
@@ -75,7 +104,7 @@ export function HomeScreen({
   }
 
   return (
-    <MobileScreen header={<BrandHeader />}>
+    <MobileScreen header={header} bottomNav={bottomNav}>
       {banners.length > 0 ? (
         <div style={{ marginBottom: -8 }}>
           <EventBanner items={banners} onSelect={onBannerSelect} />

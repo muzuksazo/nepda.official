@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download } from '../icons';
 import {
   Button,
   FlowHeader,

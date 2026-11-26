@@ -1,4 +1,4 @@
-import { Play, Plus } from 'lucide-react';
+import { Play, Plus } from '../icons';
 import { BrandHeader, Button, MobileScreen, Stack, StepNumber, VideoFrame } from '../components';
 
 const STEPS = [

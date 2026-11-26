@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Home, Lightning, Slate, User, Users } from '../icons';
 import { brand } from '../brand';
 import { IconButton, ProgressBar } from './primitives';
 
@@ -11,20 +11,69 @@ export interface MobileScreenProps {
   footer?: ReactNode;
   /** 버튼 바로 위 한 줄 요약. 결정 직전에 확인할 정보를 버튼과 같은 영역에 묶는다. */
   footerSummary?: ReactNode;
+  /** 하단 내비게이션 바 (탭 최상위 화면에서만) */
+  bottomNav?: ReactNode;
 }
 
-export function MobileScreen({ header, children, footer, footerSummary }: MobileScreenProps) {
+export function MobileScreen({ header, children, footer, footerSummary, bottomNav }: MobileScreenProps) {
+  const footerEl = footer ? (
+    <footer className="n-screen__footer">
+      {footerSummary ? <div className="n-screen__summary">{footerSummary}</div> : null}
+      {footer}
+    </footer>
+  ) : null;
   return (
     <div className="n-screen">
       <div className="n-screen__header">{header}</div>
       <main className="n-screen__body">{children}</main>
-      {footer ? (
-        <footer className="n-screen__footer">
-          {footerSummary ? <div className="n-screen__summary">{footerSummary}</div> : null}
-          {footer}
-        </footer>
-      ) : null}
+      {bottomNav ? (
+        <div className="n-screen__bottom">
+          {footerEl}
+          {bottomNav}
+        </div>
+      ) : (
+        footerEl
+      )}
     </div>
+  );
+}
+
+export type NavTab = 'home' | 'myVideos' | 'community' | 'profile';
+
+const NAV_ITEMS: { value: NavTab; label: string; icon: ReactNode }[] = [
+  { value: 'home', label: '홈', icon: <Home size={24} strokeWidth={2} /> },
+  { value: 'myVideos', label: '내 영상', icon: <Slate size={24} strokeWidth={2} /> },
+  { value: 'community', label: '커뮤니티', icon: <Users size={24} strokeWidth={2} /> },
+  { value: 'profile', label: '프로필', icon: <User size={24} strokeWidth={2} /> },
+];
+
+export interface BottomNavProps {
+  active: NavTab;
+  onNavigate?: (tab: NavTab) => void;
+}
+
+/** 하단 내비게이션 바: 홈 · 내 영상 · 커뮤니티 · 프로필. 아이콘만 보이고(이름은 스크린 리더용), 현재 탭은 아이콘 뒤 라임 알약. */
+export function BottomNav({ active, onNavigate }: BottomNavProps) {
+  return (
+    <nav className="n-bottom-nav" aria-label="주요 메뉴">
+      {NAV_ITEMS.map((item) => {
+        const isActive = item.value === active;
+        return (
+          <button
+            key={item.value}
+            type="button"
+            className={`n-bottom-nav__item${isActive ? ' is-active' : ''}`}
+            aria-label={item.label}
+            aria-current={isActive ? 'page' : undefined}
+            onClick={() => onNavigate?.(item.value)}
+          >
+            <span className="n-bottom-nav__icon" aria-hidden="true">
+              {item.icon}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -38,6 +87,66 @@ export function BrandHeader({ endContent }: { endContent?: ReactNode }) {
       </h1>
       {endContent}
     </header>
+  );
+}
+
+export interface CreditBadgeProps {
+  /** 남은 크레딧. 아직 못 불러왔으면 undefined → "—" */
+  credits?: number;
+  onClick?: () => void;
+}
+
+/** 상단 GNB 오른쪽 크레딧 잔액. 누르면 크레딧 화면(충전·내역)으로 간다. */
+export function CreditBadge({ credits, onClick }: CreditBadgeProps) {
+  const shown = credits === undefined ? '—' : credits.toLocaleString('ko-KR');
+  return (
+    <button
+      type="button"
+      className="n-credit"
+      onClick={onClick}
+      aria-label={credits === undefined ? '크레딧 불러오는 중' : `남은 크레딧 ${shown}, 크레딧 보기`}
+    >
+      <span className="n-credit__icon" aria-hidden="true">
+        <Lightning size={12} strokeWidth={2.5} fill="currentColor" />
+      </span>
+      <span className="n-credit__value n-num">{shown}</span>
+    </button>
+  );
+}
+
+export interface ProfileButtonProps {
+  /** 닉네임. 사진이 없으면 첫 글자를 보여 준다 */
+  name?: string;
+  imageUrl?: string;
+  onClick?: () => void;
+}
+
+/** 상단 GNB 프로필 원. 사진 → 닉네임 첫 글자 → 사람 아이콘 순으로 대체한다. */
+export function ProfileButton({ name, imageUrl, onClick }: ProfileButtonProps) {
+  const initial = name?.trim().charAt(0);
+  return (
+    <button type="button" className="n-avatar-btn" onClick={onClick} aria-label={name ? `${name} 프로필` : '내 프로필'}>
+      <span className="n-avatar" aria-hidden="true">
+        {imageUrl ? <img src={imageUrl} alt="" /> : initial ? initial : <User size={18} strokeWidth={2.25} />}
+      </span>
+    </button>
+  );
+}
+
+export interface AppHeaderActionsProps {
+  credits?: number;
+  onCreditClick?: () => void;
+  profile?: { name?: string; imageUrl?: string };
+  onProfileClick?: () => void;
+}
+
+/** 홈 상단 오른쪽 묶음: 크레딧 · 프로필 */
+export function AppHeaderActions({ credits, onCreditClick, profile, onProfileClick }: AppHeaderActionsProps) {
+  return (
+    <div className="n-header-actions">
+      <CreditBadge credits={credits} onClick={onCreditClick} />
+      <ProfileButton name={profile?.name} imageUrl={profile?.imageUrl} onClick={onProfileClick} />
+    </div>
   );
 }
 
@@ -110,14 +219,16 @@ export interface PageHeaderProps {
   title: string;
   count?: number;
   onBack?: () => void;
+  /** 탭 최상위 화면(하단 내비게이션으로 들어온 화면)은 뒤로 버튼 없이 제목만 */
+  isTabRoot?: boolean;
 }
 
 /** 일반 페이지 상단: 뒤로 · 제목 · 개수 (진행 막대 없음) */
-export function PageHeader({ title, count, onBack }: PageHeaderProps) {
+export function PageHeader({ title, count, onBack, isTabRoot }: PageHeaderProps) {
   return (
-    <header className="n-flow-header">
-      <div className="n-row" style={{ gap: 4 }}>
-        <IconButton label="이전" icon={<ChevronLeft size={26} />} onClick={onBack} />
+    <header className={`n-flow-header${isTabRoot ? ' n-flow-header--root' : ''}`}>
+      <div className="n-row" style={{ gap: 4, minHeight: 44 }}>
+        {isTabRoot ? null : <IconButton label="이전" icon={<ChevronLeft size={26} />} onClick={onBack} />}
         <h1 className="n-title">{title}</h1>
         {count !== undefined ? <span className="n-title n-muted" style={{ marginLeft: 4 }}>{count}</span> : null}
       </div>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImageIcon, Pause, Play } from 'lucide-react';
+import { ImageIcon, Pause, Play } from '../icons';
 
 import { BANNER_SIZE, MAX_BANNERS } from './bannerSpec';
 

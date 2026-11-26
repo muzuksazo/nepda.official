@@ -40,6 +40,11 @@ export const Home: Story = {
       onDownloadAgain={fn()}
       onSeeAllInProgress={fn()}
       onSeeAllCompleted={fn()}
+      credits={120}
+      onCreditClick={fn()}
+      profile={{ name: '냅다사장' }}
+      onProfileClick={fn()}
+      onNavigate={fn()}
     />
   ),
 };
@@ -47,7 +52,7 @@ export const Home: Story = {
 export const MyVideos: Story = {
   name: '안3-2 내 영상 · 진행 중 탭',
   render: () => (
-    <MyVideosScreen inProgress={SAMPLE_IN_PROGRESS} completed={SAMPLE_COMPLETED} onBack={fn()} onContinue={fn()} onDownloadAgain={fn()} />
+    <MyVideosScreen inProgress={SAMPLE_IN_PROGRESS} completed={SAMPLE_COMPLETED} onNavigate={fn()} onContinue={fn()} onDownloadAgain={fn()} />
   ),
 };
 
@@ -58,7 +63,7 @@ export const MyVideosCompleted: Story = {
       inProgress={SAMPLE_IN_PROGRESS}
       completed={SAMPLE_COMPLETED}
       initialTab="completed"
-      onBack={fn()}
+      onNavigate={fn()}
       onContinue={fn()}
       onDownloadAgain={fn()}
     />
@@ -67,7 +72,7 @@ export const MyVideosCompleted: Story = {
 
 export const HomeEmpty: Story = {
   name: '안3-1 홈 · 빈 상태',
-  render: () => <HomeScreen inProgress={[]} completed={[]} onCreate={fn()} />,
+  render: () => <HomeScreen inProgress={[]} completed={[]} onCreate={fn()} credits={30} onCreditClick={fn()} onProfileClick={fn()} onNavigate={fn()} />,
 };
 
 export const Onboarding: Story = {

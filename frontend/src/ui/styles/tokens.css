@@ -89,6 +89,8 @@
 }
 
 :root {
+  /* 하단 안전 영역(아이폰 홈 인디케이터 34px). 실제 기기는 env 값, Storybook 기기 틀은 34px로 흉내 낸다 */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* type */
   --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
     'Malgun Gothic', sans-serif;
