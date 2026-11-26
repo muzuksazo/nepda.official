@@ -1,5 +1,5 @@
 import jetUmbrellaV1 from '../../assets/thumbnails/jet-umbrella-v1.webp';
-import pievTilt90 from '../../assets/thumbnails/piev-tilt-90.webp';
+import pievStudioFullshot from '../../assets/thumbnails/piev-studio-fullshot.webp';
 import ps2EoljukahV2 from '../../assets/thumbnails/ps2-eoljukah-v2.webp';
 import ps2EoljukahV3 from '../../assets/thumbnails/ps2-eoljukah-v3.webp';
 import ps2SubwayHero from '../../assets/thumbnails/ps2-subway-hero.webp';
@@ -74,7 +74,7 @@ export const VARIANT_PRESETS: Record<
     headline: '90° 눕혀도\n한 방울도 안 흐릅니다',
     highlightWord: '한 방울',
     subtitle: '피에브 에어워셔 피톤치드 · 고체 젤',
-    imageUrl: pievTilt90,
+    imageUrl: pievStudioFullshot,
     showWordmark: true,
   },
 };
