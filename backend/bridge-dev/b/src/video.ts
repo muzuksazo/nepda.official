@@ -1,19 +1,26 @@
 // 훅 영상: 컷 단계에서 만든 장면 코드(beat{n}.tsx)를 그대로 쓰고, 나레이션 TTS를 붙여 훅만 mp4로 렌더한다.
 // Claude 호출 없음. video_test/pipeline 의 tts.mjs(Edge TTS)와 Remotion HookVideo 컴포지션을 빌려 쓴다.
 // pipeline/src/generated, pipeline/public/tts 는 렌더 동안만 쓰고 끝나면 원래대로 되돌린다.
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, relative, sep } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { copySceneAssets, installSceneLib } from "./assets/copy.js";
 import { pipelineDir, snapshotDir, writeRegistry, type ScenarioCuts } from "./cuts.js";
 import type { StepUsage } from "./cost.js";
 import { toPipelinePlan } from "./pipeline-plan.js";
+import { addVoiceInworld, inworldConfig } from "./tts-inworld.js";
+
+/** Inworld TTS 단가 (USD / 100만 자, On-Demand 요금제, 2026-11 기준) */
+const INWORLD_USD_PER_M_CHARS: Record<string, number> = { "inworld-tts-2": 25, "inworld-tts-2-flash": 15 };
 import type { ScenarioItem } from "./schema.js";
 
 export interface HookVideo {
   scenario_id: string;
-  /** "3d": 장면 전부 3D / "gclips": 이야기 장면은 Google 영상 클립, 반전은 3D */
-  variant?: "3d" | "gclips";
+  /** "3d": 장면 전부 3D / "gclips": 이야기 장면은 Google 영상 클립, 반전은 3D / "char": 이야기 장면에 재사용 인물(Quaternius) */
+  variant?: string; // "3d" | "gclips" | "char" | "char_<이름>", Inworld 음성이면 끝에 "_inworld"
+  /** 나레이션 엔진 */
+  tts?: "edge" | "inworld";
   /** gclips: 원본 클립과 참고 이미지 (프로젝트 폴더 기준 상대 경로) */
   sourceClips?: { order: number; file: string }[];
   refImage?: string;
@@ -62,25 +69,45 @@ export async function renderHookVideos(
     log?: (m: string) => void;
     /** 장면 order → Google 영상 클립(mp4 절대 경로). 있으면 그 장면은 3D 코드 대신 클립 */
     clips?: Record<number, string>;
+    /** 장면 order → 인물 장면 코드(tsx 절대 경로). 있으면 그 장면은 컷 코드 대신 이 코드 (BCharacter 사용) */
+    charScenes?: Record<number, string>;
+    /** 인물 장면 묶음 이름 (기본 "char" = 마네킹, 예: "char_uacp" = 직업 캐릭터) */
+    charVariant?: `char_${string}` | "char";
+    /** 나레이션: edge(기본, Edge TTS) / inworld (b/.env 의 INWORLD_*) */
+    tts?: "edge" | "inworld";
   }
 ): Promise<{ videos: HookVideo[]; steps: StepUsage[] }> {
   const log = opts.log ?? (() => {});
-  const variant: "3d" | "gclips" = opts.clips && Object.keys(opts.clips).length ? "gclips" : "3d";
+  const base: string =
+    opts.clips && Object.keys(opts.clips).length ? "gclips" : opts.charScenes && Object.keys(opts.charScenes).length ? (opts.charVariant ?? "char") : "3d";
+  const isChar = base.startsWith("char");
+  const ttsEngine = opts.tts ?? "edge";
+  const variant = ttsEngine === "inworld" ? `${base}_inworld` : base;
   const pdir = pipelineDir();
   const genDir = join(pdir, "src/generated");
   const ttsDir = join(pdir, "public/tts");
   const clipDir = join(pdir, "public/bclips");
   const clipDirExisted = existsSync(clipDir);
+  const assetDir = join(pdir, "public/bassets");
+  const assetDirExisted = existsSync(assetDir);
   const steps: StepUsage[] = [];
   const videos: HookVideo[] = [];
+  const tag = variant === "gclips" ? "(Google 클립)" : variant === "char" ? "(인물)" : variant === "3d" ? "" : `(${variant})`;
 
   const gen = snapshotDir(genDir);
   const tts = snapshotDir(ttsDir);
   const clipSnap = snapshotDir(clipDir);
+  const assetSnap = snapshotDir(assetDir);
   const scenesPath = join(pdir, "src/scenes.tsx");
   const scenesOrig = readFileSync(scenesPath, "utf8");
   try {
-    if (variant === "gclips") writeFileSync(scenesPath, patchScenes(scenesOrig));
+    if (base === "gclips") writeFileSync(scenesPath, patchScenes(scenesOrig));
+    if (isChar) {
+      // 재사용 인물: 컴포넌트는 generated/BCharacter.tsx, 모델은 public/bassets/
+      const here = dirname(fileURLToPath(import.meta.url));
+      installSceneLib(genDir);
+      copySceneAssets(Object.values(opts.charScenes ?? {}).filter((p) => existsSync(p)), assetDir);
+    }
     // 1) 장면 코드 복원 + plan 작성
     const plans: { s: ScenarioItem; planPath: string; plan: { id: string; scenes: PipelineScene[]; hookSeconds: number } }[] = [];
     const keys: string[] = [];
@@ -95,6 +122,13 @@ export async function renderHookVideos(
           const key = `G${s.scenario_id.replace(/[^A-Za-z0-9]/g, "")}_${beats[i].order}`;
           copyFileSync(clip, join(clipDir, `${key}.mp4`));
           return { ...sc, video: `bclips/${key}.mp4` };
+        }
+        const charCode = opts.charScenes?.[beats[i].order];
+        if (charCode && existsSync(charCode)) {
+          const key = `C${s.scenario_id.replace(/[^A-Za-z0-9]/g, "")}_${beats[i].order}`;
+          writeFileSync(join(genDir, `${key}.tsx`), readFileSync(charCode));
+          keys.push(key);
+          return { ...sc, gen: key };
         }
         const cb = cut.beats.find((b) => b.order === beats[i].order);
         const codePath = cb?.code ? join(opts.projectDir, cb.code) : "";
@@ -118,11 +152,24 @@ export async function renderHookVideos(
     // 2) TTS (pipeline/scripts/tts.mjs 의 addVoice: 음성이 장면보다 길면 장면을 늘림)
     log("[B 영상] TTS 나레이션");
     let t0 = performance.now();
-    const ttsMod = (await import(pathToFileURL(join(pdir, "scripts/tts.mjs")).href)) as {
-      addVoice: (p: string) => { scenes: PipelineScene[]; hookSeconds: number };
-    };
-    for (const p of plans) p.plan = { ...p.plan, ...ttsMod.addVoice(p.planPath) };
-    steps.push({ step: "영상: TTS 나레이션", model: "edge-tts", inputTokens: 0, outputTokens: 0, costUsd: 0, ms: Math.round(performance.now() - t0) });
+    if (ttsEngine === "inworld") {
+      let chars = 0;
+      for (const p of plans) {
+        const r = await addVoiceInworld(p.planPath, pdir, log);
+        chars += r.chars;
+        p.plan = { ...p.plan, scenes: r.scenes as PipelineScene[], hookSeconds: r.hookSeconds };
+      }
+      // 글자 수는 inputTokens 칸에 남긴다. 단가는 On-Demand 기준(2026-11 inworld.ai/pricing)
+      const model = inworldConfig().modelId;
+      const perM = INWORLD_USD_PER_M_CHARS[model];
+      steps.push({ step: `영상${tag}: TTS 나레이션 (Inworld ${chars}자)`, model: `inworld/${model}`, inputTokens: chars, outputTokens: 0, costUsd: perM ? (chars * perM) / 1e6 : null, ms: Math.round(performance.now() - t0) });
+    } else {
+      const ttsMod = (await import(pathToFileURL(join(pdir, "scripts/tts.mjs")).href)) as {
+        addVoice: (p: string) => { scenes: PipelineScene[]; hookSeconds: number };
+      };
+      for (const p of plans) p.plan = { ...p.plan, ...ttsMod.addVoice(p.planPath) };
+      steps.push({ step: `영상${tag}: TTS 나레이션`, model: "edge-tts", inputTokens: 0, outputTokens: 0, costUsd: 0, ms: Math.round(performance.now() - t0) });
+    }
 
     // 3) 렌더 (훅만, 본편 없음)
     log("[B 영상] Remotion 번들·렌더");
@@ -137,7 +184,7 @@ export async function renderHookVideos(
     for (const p of plans) {
       const inputProps = { plan: p.plan, mainClips: [], musicVolume: 0 };
       const composition = await selectComposition({ serveUrl, id: "HookVideo", inputProps });
-      const rel = `round-${opts.round}/video/hook_${p.s.scenario_id}${variant === "gclips" ? "_gclips" : ""}.mp4`;
+      const rel = `round-${opts.round}/video/hook_${p.s.scenario_id}${variant === "3d" ? "" : `_${variant}`}.mp4`;
       let last = -1;
       await renderMedia({
         composition, serveUrl, codec: "h264", outputLocation: join(opts.projectDir, rel), inputProps,
@@ -156,7 +203,8 @@ export async function renderHookVideos(
       videos.push({
         scenario_id: p.s.scenario_id,
         variant,
-        ...(variant === "gclips" ? { sourceClips: clipEntries, refImage: existsSync(refAbs) ? relOf(refAbs) : undefined } : {}),
+        tts: ttsEngine,
+        ...(base === "gclips" ? { sourceClips: clipEntries, refImage: existsSync(refAbs) ? relOf(refAbs) : undefined } : {}),
         file: rel,
         seconds: p.plan.hookSeconds,
         scenes: p.plan.scenes.map((sc, i) => ({
@@ -168,7 +216,7 @@ export async function renderHookVideos(
         })),
       });
     }
-    steps.push({ step: `영상${variant === "gclips" ? "(Google 클립)" : ""}: Remotion 번들·렌더`, model: "remotion", inputTokens: 0, outputTokens: 0, costUsd: 0, ms: Math.round(performance.now() - t0) });
+    steps.push({ step: `영상${tag}: Remotion 번들·렌더`, model: "remotion", inputTokens: 0, outputTokens: 0, costUsd: 0, ms: Math.round(performance.now() - t0) });
     return { videos, steps };
   } finally {
     writeFileSync(scenesPath, scenesOrig); // scenes.tsx 원래대로
@@ -176,5 +224,7 @@ export async function renderHookVideos(
     tts.restore();
     clipSnap.restore();
     if (!clipDirExisted) rmSync(clipDir, { recursive: true, force: true });
+    assetSnap.restore();
+    if (!assetDirExisted) rmSync(assetDir, { recursive: true, force: true });
   }
 }
