@@ -70,6 +70,7 @@ function drawHighlightedLines(
   accentColor: string,
   highlightWord?: string,
   align: 'left' | 'center' = 'left',
+  markerBg?: string,
 ): void {
   ctx.font = font;
   ctx.textBaseline = 'top';
@@ -85,23 +86,36 @@ function drawHighlightedLines(
     }
 
     const pos = line.indexOf(target);
-    const parts: Array<{ str: string; color: string }> = [
-      { str: line.slice(0, pos), color: baseColor },
-      { str: target, color: accentColor },
-      { str: line.slice(pos + target.length), color: baseColor },
+    const parts: Array<{ str: string; color: string; isHighlight: boolean }> = [
+      { str: line.slice(0, pos), color: baseColor, isHighlight: false },
+      { str: target, color: accentColor, isHighlight: true },
+      { str: line.slice(pos + target.length), color: baseColor, isHighlight: false },
     ];
 
+    const markerPadX = markerBg ? 12 : 0;
     let curX = x;
     if (align === 'center') {
-      const totalWidth = ctx.measureText(line).width;
+      const totalWidth = ctx.measureText(line).width + markerPadX * 2;
       curX = x - totalWidth / 2;
     }
     ctx.textAlign = 'left';
     for (const part of parts) {
       if (!part.str) continue;
-      ctx.fillStyle = part.color;
-      ctx.fillText(part.str, curX, ly);
-      curX += ctx.measureText(part.str).width;
+      const textWidth = ctx.measureText(part.str).width;
+      if (part.isHighlight && markerBg) {
+        const boxH = Math.round(lineHeight * 0.9);
+        const boxY = ly - Math.round((boxH - lineHeight * 0.83) / 2);
+        ctx.fillStyle = markerBg;
+        roundRectPath(ctx, curX, boxY, textWidth + markerPadX * 2, boxH, 12);
+        ctx.fill();
+        ctx.fillStyle = part.color;
+        ctx.fillText(part.str, curX + markerPadX, ly);
+        curX += textWidth + markerPadX * 2;
+      } else {
+        ctx.fillStyle = part.color;
+        ctx.fillText(part.str, curX, ly);
+        curX += textWidth;
+      }
     }
   });
 }
@@ -392,8 +406,10 @@ export async function exportThumbnailPng(
         89,
         `800 74px ${SANS_FONT}`,
         '#0a0a0a',
-        '#5c7c00',
+        '#000000',
         props.highlightWord,
+        'left',
+        '#d6ff3f',
       );
     }
 

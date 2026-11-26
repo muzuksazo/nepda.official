@@ -6,12 +6,17 @@ import {
   type ThumbnailTemplateProps,
 } from './presets';
 
-function renderHighlightedText(text: string, highlightWord?: string, accentColor = '#d6ff3f'): ReactNode {
+function renderHighlightedText(
+  text: string,
+  highlightWord?: string,
+  accentColor = '#d6ff3f',
+  asMarker = false,
+): ReactNode {
   const lines = text.split('\n');
   return lines.map((line, lineIdx) => {
     const content =
       highlightWord && highlightWord.trim().length > 0 && line.includes(highlightWord)
-        ? splitHighlight(line, highlightWord, accentColor)
+        ? splitHighlight(line, highlightWord, accentColor, asMarker)
         : line;
     return (
       <span key={lineIdx} style={{ display: 'block' }}>
@@ -21,7 +26,12 @@ function renderHighlightedText(text: string, highlightWord?: string, accentColor
   });
 }
 
-function splitHighlight(line: string, target: string, accentColor: string): ReactNode {
+function splitHighlight(
+  line: string,
+  target: string,
+  accentColor: string,
+  asMarker = false,
+): ReactNode {
   const idx = line.indexOf(target);
   if (idx === -1) return line;
   const before = line.slice(0, idx);
@@ -29,7 +39,22 @@ function splitHighlight(line: string, target: string, accentColor: string): Reac
   return (
     <>
       {before}
-      <span style={{ color: accentColor }}>{target}</span>
+      <span
+        style={
+          asMarker
+            ? {
+                backgroundColor: accentColor,
+                color: '#000000',
+                padding: '2px 12px',
+                borderRadius: 12,
+                display: 'inline-block',
+                lineHeight: 1.08,
+              }
+            : { color: accentColor }
+        }
+      >
+        {target}
+      </span>
       {after}
     </>
   );
@@ -753,7 +778,7 @@ function CommerceCanvas({
             letterSpacing: '-0.03em',
           }}
         >
-          {renderHighlightedText(headline, highlightWord, '#5c7c00')}
+          {renderHighlightedText(headline, highlightWord, '#d6ff3f', true)}
         </h1>
       )}
 
