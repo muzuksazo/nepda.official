@@ -19,7 +19,7 @@ const assets = snapshotDir(assetDir);
 const outDir = resolve(outArg ?? "out/_charstill");
 mkdirSync(outDir, { recursive: true });
 try {
-  installSceneLib(genDir);
+  installSceneLib(genDir, process.env.B_PRODUCT_MODEL);
   console.log("assets", copySceneAssets([scenePath], assetDir));
   writeFileSync(join(genDir, "Ctest.tsx"), readFileSync(scenePath));
   writeRegistry(genDir, ["Ctest"], gen.keepKeys);

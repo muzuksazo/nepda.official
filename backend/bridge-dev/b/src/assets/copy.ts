@@ -9,8 +9,21 @@ const ASSETS = join(HERE, "../../assets");
 /** 장면 코드가 import 하는 공용 부품: 장면 폴더(src/generated)에 B<이름>.tsx 로 넣는다 */
 const LIBS = { BCharacter: "Character.tsx", BSets: "Sets.tsx" } as const;
 
-export function installSceneLib(genDir: string): void {
+/** productModel: src/assets/products/<model>.tsx 를 BProduct.tsx 로 (반전 장면의 제품) */
+export function installSceneLib(genDir: string, productModel?: string): void {
   for (const [name, file] of Object.entries(LIBS)) writeFileSync(join(genDir, `${name}.tsx`), readFileSync(join(HERE, file)));
+  const model = productModel ?? process.env.B_PRODUCT_MODEL;
+  if (model) {
+    const src = join(HERE, "products", `${model}.tsx`);
+    if (!existsSync(src)) throw new Error(`제품 모델이 없습니다: src/assets/products/${model}.tsx`);
+    writeFileSync(join(genDir, "BProduct.tsx"), readFileSync(src));
+  }
+}
+
+/** 만들어 둔 제품 모델 이름들 */
+export function productModels(): string[] {
+  const d = join(HERE, "products");
+  return existsSync(d) ? readdirSync(d).filter((f) => f.endsWith(".tsx")).map((f) => f.slice(0, -4)) : [];
 }
 
 export function copySceneAssets(sceneFiles: string[], assetDir: string): string[] {
