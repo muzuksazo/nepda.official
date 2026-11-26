@@ -13,7 +13,7 @@ import { mergeResearch, RESEARCH_MODEL, researchProduct, researchWarnings, type 
 import { DraftScenarioSchema, WorkerInputSchema } from "./schema.js";
 
 const USAGE = `사용법:
-  npm run research -- "<제품명>" [--project <id>] [--count N]
+  npm run research -- "<제품명>" [--project <id>] [--count N] [--known "<아는 정보: 제품 사진에서 본 생김새 등>"]
       제품 이름만으로 웹에서 제품 정보를 찾아 out/<project_id>/research.json 과 입력 파일 input.json 을 만든다.
       Claude API + 웹 검색(1회 $0.01) 호출(과금). 결과를 확인한 뒤 npm run scenarios -- out/<project_id>/input.json
   npm run scenarios -- <입력.json> [--next] [--cuts] [--count N] [--no-ideate] [--attempts N]
@@ -150,7 +150,7 @@ async function main() {
     }
     const name = file.trim();
     const projectId = arg("--project") ?? projectIdOf(name);
-    const { research, steps } = await ensureResearch(name, projectId, { force: true });
+    const { research, steps } = await ensureResearch(name, projectId, { force: true, known: arg("--known") });
     printResearch(research);
     const input = WorkerInputSchema.parse({
       hook_type: "B",
