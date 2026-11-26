@@ -5,6 +5,16 @@
  * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] v0.2: ABC 훅 작업자 흐름(product-info, scenarios append, select, hooks, outputs) 추가. v0.1 경로는 유지.
  * OpenAPI spec version: 0.2.0
  */
+import {
+  useMutation
+} from '@tanstack/react-query';
+import type {
+  MutationFunction,
+  QueryClient,
+  UseMutationOptions,
+  UseMutationResult
+} from '@tanstack/react-query';
+
 import type {
   EstimateRequest,
   EstimateResponse,
@@ -12,6 +22,10 @@ import type {
 } from '../model';
 
 import { customFetch } from '../../mutator';
+
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | number | boolean | bigint | readonly string[] | undefined>)[]) => {
   const seen = new Set<string>();
@@ -32,6 +46,7 @@ const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string 
   }
   return Object.fromEntries(layers.reverse().flat()) as Extract<RequestInit['headers'], Record<string, unknown>>;
 };
+
 
 export type estimateCreditsV1ProjectsProjectIdEstimatePostResponse200 = {
   data: EstimateResponse
@@ -76,3 +91,51 @@ export const estimateCreditsV1ProjectsProjectIdEstimatePost = async (projectId: 
 );}
 
 
+
+
+
+export const getEstimateCreditsV1ProjectsProjectIdEstimatePostMutationKey = () => ['estimateCreditsV1ProjectsProjectIdEstimatePost'] as const;
+
+export const getEstimateCreditsV1ProjectsProjectIdEstimatePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof estimateCreditsV1ProjectsProjectIdEstimatePost>>, TError,EstimateCreditsV1ProjectsProjectIdEstimatePostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof estimateCreditsV1ProjectsProjectIdEstimatePost>>, TError,EstimateCreditsV1ProjectsProjectIdEstimatePostMutationVariables, TContext> => {
+
+const mutationKey = getEstimateCreditsV1ProjectsProjectIdEstimatePostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof estimateCreditsV1ProjectsProjectIdEstimatePost>>, EstimateCreditsV1ProjectsProjectIdEstimatePostMutationVariables> = (props) => {
+          const {projectId,data} = props ?? {};
+
+          return  estimateCreditsV1ProjectsProjectIdEstimatePost(projectId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EstimateCreditsV1ProjectsProjectIdEstimatePostMutationResult = NonNullable<Awaited<ReturnType<typeof estimateCreditsV1ProjectsProjectIdEstimatePost>>>
+    export type EstimateCreditsV1ProjectsProjectIdEstimatePostMutationBody = EstimateRequest
+    export type EstimateCreditsV1ProjectsProjectIdEstimatePostMutationError = HTTPValidationError
+    export type EstimateCreditsV1ProjectsProjectIdEstimatePostMutationVariables = {projectId: string;data: EstimateRequest}
+
+    /** @summary Estimate Credits */
+export const useEstimateCreditsV1ProjectsProjectIdEstimatePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof estimateCreditsV1ProjectsProjectIdEstimatePost>>, TError,EstimateCreditsV1ProjectsProjectIdEstimatePostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof estimateCreditsV1ProjectsProjectIdEstimatePost>>,
+        TError,
+        EstimateCreditsV1ProjectsProjectIdEstimatePostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getEstimateCreditsV1ProjectsProjectIdEstimatePostMutationOptions(options), queryClient);
+    }

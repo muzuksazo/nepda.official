@@ -5,6 +5,25 @@
  * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] v0.2: ABC 훅 작업자 흐름(product-info, scenarios append, select, hooks, outputs) 추가. v0.1 경로는 유지.
  * OpenAPI spec version: 0.2.0
  */
+import {
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
+import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
+  MutationFunction,
+  QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult
+} from '@tanstack/react-query';
+
 import type {
   CreateHookRequest,
   CreateHookResponse,
@@ -14,6 +33,10 @@ import type {
 } from '../model';
 
 import { customFetch } from '../../mutator';
+
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | number | boolean | bigint | readonly string[] | undefined>)[]) => {
   const seen = new Set<string>();
@@ -33,6 +56,22 @@ const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string 
     layers.push(layer);
   }
   return Object.fromEntries(layers.reverse().flat()) as Extract<RequestInit['headers'], Record<string, unknown>>;
+};
+
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
 };
 
 export type createHookV1ProjectsProjectIdHooksPostResponse202 = {
@@ -79,7 +118,58 @@ export const createHookV1ProjectsProjectIdHooksPost = async (projectId: string,
 );}
 
 
-export type getHookV1ProjectsProjectIdHooksHookIdGetResponse200 = {
+
+
+
+export const getCreateHookV1ProjectsProjectIdHooksPostMutationKey = () => ['createHookV1ProjectsProjectIdHooksPost'] as const;
+
+export const getCreateHookV1ProjectsProjectIdHooksPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createHookV1ProjectsProjectIdHooksPost>>, TError,CreateHookV1ProjectsProjectIdHooksPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createHookV1ProjectsProjectIdHooksPost>>, TError,CreateHookV1ProjectsProjectIdHooksPostMutationVariables, TContext> => {
+
+const mutationKey = getCreateHookV1ProjectsProjectIdHooksPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createHookV1ProjectsProjectIdHooksPost>>, CreateHookV1ProjectsProjectIdHooksPostMutationVariables> = (props) => {
+          const {projectId,data} = props ?? {};
+
+          return  createHookV1ProjectsProjectIdHooksPost(projectId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateHookV1ProjectsProjectIdHooksPostMutationResult = NonNullable<Awaited<ReturnType<typeof createHookV1ProjectsProjectIdHooksPost>>>
+    export type CreateHookV1ProjectsProjectIdHooksPostMutationBody = CreateHookRequest
+    export type CreateHookV1ProjectsProjectIdHooksPostMutationError = HTTPValidationError
+    export type CreateHookV1ProjectsProjectIdHooksPostMutationVariables = {projectId: string;data: CreateHookRequest}
+
+    /**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] FR-005 훅 생성 + TTS 접수. 선택된 시나리오만 허용(아니면 409 INVALID_STATE). 상태 HOOK_RENDERING.
+ * @summary Create Hook (+TTS)
+ */
+export const useCreateHookV1ProjectsProjectIdHooksPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createHookV1ProjectsProjectIdHooksPost>>, TError,CreateHookV1ProjectsProjectIdHooksPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createHookV1ProjectsProjectIdHooksPost>>,
+        TError,
+        CreateHookV1ProjectsProjectIdHooksPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateHookV1ProjectsProjectIdHooksPostMutationOptions(options), queryClient);
+    }
+    export type getHookV1ProjectsProjectIdHooksHookIdGetResponse200 = {
   data: HookStatusResponse
   status: 200
 }
@@ -124,6 +214,101 @@ export const getHookV1ProjectsProjectIdHooksHookIdGet = async (projectId: string
 );}
 
 
+
+
+
+export const getGetHookV1ProjectsProjectIdHooksHookIdGetQueryKey = (projectId: string,
+    hookId: string,) => {
+    return [
+    `/v1/projects/${projectId}/hooks/${hookId}`
+    ] as const;
+    }
+
+
+export const getGetHookV1ProjectsProjectIdHooksHookIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError = HTTPValidationError>(projectId: string,
+    hookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHookV1ProjectsProjectIdHooksHookIdGetQueryKey(projectId,hookId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>> = ({ signal }) => getHookV1ProjectsProjectIdHooksHookIdGet(projectId,hookId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: projectId !== null && projectId !== undefined && hookId !== null && hookId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetHookV1ProjectsProjectIdHooksHookIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>>
+export type GetHookV1ProjectsProjectIdHooksHookIdGetQueryError = HTTPValidationError
+
+
+/**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 훅 상태 폴링. done이면 OUTPUT_DIR/{project_id}/{hook_id}/ 에 파일 저장 완료, 프로젝트 상태 HOOK_READY.
+ * @summary Get Hook
+ */
+export function useGetHookV1ProjectsProjectIdHooksHookIdGet<TData = Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError = HTTPValidationError>(
+ projectId: string,
+    hookId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 훅 상태 폴링. done이면 OUTPUT_DIR/{project_id}/{hook_id}/ 에 파일 저장 완료, 프로젝트 상태 HOOK_READY.
+ * @summary Get Hook
+ */
+export function useGetHookV1ProjectsProjectIdHooksHookIdGet<TData = Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError = HTTPValidationError>(
+ projectId: string,
+    hookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 훅 상태 폴링. done이면 OUTPUT_DIR/{project_id}/{hook_id}/ 에 파일 저장 완료, 프로젝트 상태 HOOK_READY.
+ * @summary Get Hook
+ */
+export function useGetHookV1ProjectsProjectIdHooksHookIdGet<TData = Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError = HTTPValidationError>(
+ projectId: string,
+    hookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 훅 상태 폴링. done이면 OUTPUT_DIR/{project_id}/{hook_id}/ 에 파일 저장 완료, 프로젝트 상태 HOOK_READY.
+ * @summary Get Hook
+ */
+export function useGetHookV1ProjectsProjectIdHooksHookIdGet<TData = Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError = HTTPValidationError>(
+ projectId: string,
+    hookId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHookV1ProjectsProjectIdHooksHookIdGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetHookV1ProjectsProjectIdHooksHookIdGetQueryOptions(projectId,hookId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 export type listOutputsV1ProjectsProjectIdOutputsGetResponse200 = {
   data: OutputsResponse
   status: 200
@@ -165,5 +350,94 @@ export const listOutputsV1ProjectsProjectIdOutputsGet = async (projectId: string
 
   }
 );}
+
+
+
+
+
+export const getListOutputsV1ProjectsProjectIdOutputsGetQueryKey = (projectId: string,) => {
+    return [
+    `/v1/projects/${projectId}/outputs`
+    ] as const;
+    }
+
+
+export const getListOutputsV1ProjectsProjectIdOutputsGetQueryOptions = <TData = Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError = HTTPValidationError>(projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOutputsV1ProjectsProjectIdOutputsGetQueryKey(projectId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>> = ({ signal }) => listOutputsV1ProjectsProjectIdOutputsGet(projectId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: projectId !== null && projectId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListOutputsV1ProjectsProjectIdOutputsGetQueryResult = NonNullable<Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>>
+export type ListOutputsV1ProjectsProjectIdOutputsGetQueryError = HTTPValidationError
+
+
+/**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 프로젝트에 저장된 결과 파일 목록.
+ * @summary List Outputs
+ */
+export function useListOutputsV1ProjectsProjectIdOutputsGet<TData = Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError = HTTPValidationError>(
+ projectId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 프로젝트에 저장된 결과 파일 목록.
+ * @summary List Outputs
+ */
+export function useListOutputsV1ProjectsProjectIdOutputsGet<TData = Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError = HTTPValidationError>(
+ projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 프로젝트에 저장된 결과 파일 목록.
+ * @summary List Outputs
+ */
+export function useListOutputsV1ProjectsProjectIdOutputsGet<TData = Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError = HTTPValidationError>(
+ projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 프로젝트에 저장된 결과 파일 목록.
+ * @summary List Outputs
+ */
+export function useListOutputsV1ProjectsProjectIdOutputsGet<TData = Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError = HTTPValidationError>(
+ projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listOutputsV1ProjectsProjectIdOutputsGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListOutputsV1ProjectsProjectIdOutputsGetQueryOptions(projectId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
 
 

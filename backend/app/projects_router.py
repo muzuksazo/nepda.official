@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, Response, status
 
 from .auth import (
     SESSION_COOKIE_NAME,
@@ -551,10 +551,12 @@ def build_projects_router(
 
     @router.get("/v1/projects", response_model=ProjectListResponse, tags=["Projects"])
     def list_projects(
-        limit: int = 50,
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
         user: AuthenticatedUser = Depends(require_user),
     ) -> ProjectListResponse:
-        rows = project_store.list_projects_for_user(user.user_id, limit=limit)
+        total = project_store.count_projects_for_user(user.user_id)
+        rows = project_store.list_projects_for_user(user.user_id, limit=limit, offset=offset)
         summaries = [
             ProjectSummary(
                 project_id=r["project_id"],
@@ -571,7 +573,17 @@ def build_projects_router(
             )
             for r in rows
         ]
-        return ProjectListResponse(projects=summaries, quota=_quota(user.user_id))
+        has_more = (offset + len(rows)) < total
+        next_offset = (offset + len(rows)) if has_more else None
+        return ProjectListResponse(
+            projects=summaries,
+            quota=_quota(user.user_id),
+            total=total,
+            offset=offset,
+            limit=limit,
+            has_more=has_more,
+            next_offset=next_offset,
+        )
 
     @router.get("/v1/projects/{project_id}", response_model=ProjectDetailResponse, tags=["Projects"])
     def get_project(

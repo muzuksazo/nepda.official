@@ -5,6 +5,30 @@
  * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] v0.2: ABC 훅 작업자 흐름(product-info, scenarios append, select, hooks, outputs) 추가. v0.1 경로는 유지.
  * OpenAPI spec version: 0.2.0
  */
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
+import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseInfiniteQueryResult,
+  DefinedUseQueryResult,
+  InfiniteData,
+  MutationFunction,
+  QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
+  UseInfiniteQueryOptions,
+  UseInfiniteQueryResult,
+  UseMutationOptions,
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult
+} from '@tanstack/react-query';
+
 import type {
   CreateJobRequest,
   CreateJobV1JobsPost202,
@@ -19,6 +43,10 @@ import type {
 } from '../model';
 
 import { customFetch } from '../../mutator';
+
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | number | boolean | bigint | readonly string[] | undefined>)[]) => {
   const seen = new Set<string>();
@@ -38,6 +66,22 @@ const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string 
     layers.push(layer);
   }
   return Object.fromEntries(layers.reverse().flat()) as Extract<RequestInit['headers'], Record<string, unknown>>;
+};
+
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
 };
 
 export type healthHealthGetResponse200 = {
@@ -73,6 +117,83 @@ export const healthHealthGet = async ( options?: Parameters<typeof customFetch>[
 
   }
 );}
+
+
+
+
+
+export const getHealthHealthGetQueryKey = () => {
+    return [
+    `/health`
+    ] as const;
+    }
+
+
+export const getHealthHealthGetQueryOptions = <TData = Awaited<ReturnType<typeof healthHealthGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthHealthGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getHealthHealthGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof healthHealthGet>>> = ({ signal }) => healthHealthGet({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof healthHealthGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type HealthHealthGetQueryResult = NonNullable<Awaited<ReturnType<typeof healthHealthGet>>>
+export type HealthHealthGetQueryError = unknown
+
+
+/** @summary Health */
+export function useHealthHealthGet<TData = Awaited<ReturnType<typeof healthHealthGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthHealthGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof healthHealthGet>>,
+          TError,
+          Awaited<ReturnType<typeof healthHealthGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Health */
+export function useHealthHealthGet<TData = Awaited<ReturnType<typeof healthHealthGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthHealthGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof healthHealthGet>>,
+          TError,
+          Awaited<ReturnType<typeof healthHealthGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Health */
+export function useHealthHealthGet<TData = Awaited<ReturnType<typeof healthHealthGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthHealthGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Health */
+export function useHealthHealthGet<TData = Awaited<ReturnType<typeof healthHealthGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthHealthGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getHealthHealthGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
 
 
 export type presignUploadV1UploadsPresignPostResponse200 = {
@@ -117,7 +238,55 @@ export const presignUploadV1UploadsPresignPost = async (presignRequest: PresignR
 );}
 
 
-export type createJobV1JobsPostResponse202 = {
+
+
+
+export const getPresignUploadV1UploadsPresignPostMutationKey = () => ['presignUploadV1UploadsPresignPost'] as const;
+
+export const getPresignUploadV1UploadsPresignPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof presignUploadV1UploadsPresignPost>>, TError,PresignUploadV1UploadsPresignPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof presignUploadV1UploadsPresignPost>>, TError,PresignUploadV1UploadsPresignPostMutationVariables, TContext> => {
+
+const mutationKey = getPresignUploadV1UploadsPresignPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof presignUploadV1UploadsPresignPost>>, PresignUploadV1UploadsPresignPostMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  presignUploadV1UploadsPresignPost(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PresignUploadV1UploadsPresignPostMutationResult = NonNullable<Awaited<ReturnType<typeof presignUploadV1UploadsPresignPost>>>
+    export type PresignUploadV1UploadsPresignPostMutationBody = PresignRequest
+    export type PresignUploadV1UploadsPresignPostMutationError = HTTPValidationError
+    export type PresignUploadV1UploadsPresignPostMutationVariables = {data: PresignRequest}
+
+    /** @summary Presign Upload */
+export const usePresignUploadV1UploadsPresignPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof presignUploadV1UploadsPresignPost>>, TError,PresignUploadV1UploadsPresignPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof presignUploadV1UploadsPresignPost>>,
+        TError,
+        PresignUploadV1UploadsPresignPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPresignUploadV1UploadsPresignPostMutationOptions(options), queryClient);
+    }
+    export type createJobV1JobsPostResponse202 = {
   data: CreateJobV1JobsPost202
   status: 202
 }
@@ -159,7 +328,55 @@ export const createJobV1JobsPost = async (createJobRequest: CreateJobRequest, op
 );}
 
 
-export type listJobsV1JobsGetResponse200 = {
+
+
+
+export const getCreateJobV1JobsPostMutationKey = () => ['createJobV1JobsPost'] as const;
+
+export const getCreateJobV1JobsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createJobV1JobsPost>>, TError,CreateJobV1JobsPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createJobV1JobsPost>>, TError,CreateJobV1JobsPostMutationVariables, TContext> => {
+
+const mutationKey = getCreateJobV1JobsPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createJobV1JobsPost>>, CreateJobV1JobsPostMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createJobV1JobsPost(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateJobV1JobsPostMutationResult = NonNullable<Awaited<ReturnType<typeof createJobV1JobsPost>>>
+    export type CreateJobV1JobsPostMutationBody = CreateJobRequest
+    export type CreateJobV1JobsPostMutationError = HTTPValidationError
+    export type CreateJobV1JobsPostMutationVariables = {data: CreateJobRequest}
+
+    /** @summary Create Job */
+export const useCreateJobV1JobsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createJobV1JobsPost>>, TError,CreateJobV1JobsPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createJobV1JobsPost>>,
+        TError,
+        CreateJobV1JobsPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateJobV1JobsPostMutationOptions(options), queryClient);
+    }
+    export type listJobsV1JobsGetResponse200 = {
   data: ListJobsV1JobsGet200
   status: 200
 }
@@ -208,6 +425,156 @@ export const listJobsV1JobsGet = async (params?: ListJobsV1JobsGetParams, option
 );}
 
 
+
+
+
+export const getListJobsV1JobsGetInfiniteQueryKey = (params?: ListJobsV1JobsGetParams,) => {
+    return [
+    'infinite', `/v1/jobs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+export const getListJobsV1JobsGetQueryKey = (params?: ListJobsV1JobsGetParams,) => {
+    return [
+    `/v1/jobs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListJobsV1JobsGetInfiniteQueryOptions = <TData = InfiniteData<Awaited<ReturnType<typeof listJobsV1JobsGet>>, ListJobsV1JobsGetParams['offset']>, TError = HTTPValidationError>(params?: ListJobsV1JobsGetParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData, QueryKey, ListJobsV1JobsGetParams['offset']>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListJobsV1JobsGetInfiniteQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listJobsV1JobsGet>>, QueryKey, ListJobsV1JobsGetParams['offset']> = ({ signal, pageParam }) => listJobsV1JobsGet({...params, 'offset': pageParam ?? params?.['offset']}, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseInfiniteQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData, QueryKey, ListJobsV1JobsGetParams['offset']> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListJobsV1JobsGetInfiniteQueryResult = NonNullable<Awaited<ReturnType<typeof listJobsV1JobsGet>>>
+export type ListJobsV1JobsGetInfiniteQueryError = HTTPValidationError
+
+
+/** @summary List Jobs */
+export function useListJobsV1JobsGetInfinite<TData = InfiniteData<Awaited<ReturnType<typeof listJobsV1JobsGet>>, ListJobsV1JobsGetParams['offset']>, TError = HTTPValidationError>(
+ params: undefined |  ListJobsV1JobsGetParams, options: { query:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData, QueryKey, ListJobsV1JobsGetParams['offset']>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listJobsV1JobsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listJobsV1JobsGet>>, QueryKey
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Jobs */
+export function useListJobsV1JobsGetInfinite<TData = InfiniteData<Awaited<ReturnType<typeof listJobsV1JobsGet>>, ListJobsV1JobsGetParams['offset']>, TError = HTTPValidationError>(
+ params?: ListJobsV1JobsGetParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData, QueryKey, ListJobsV1JobsGetParams['offset']>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listJobsV1JobsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listJobsV1JobsGet>>, QueryKey
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Jobs */
+export function useListJobsV1JobsGetInfinite<TData = InfiniteData<Awaited<ReturnType<typeof listJobsV1JobsGet>>, ListJobsV1JobsGetParams['offset']>, TError = HTTPValidationError>(
+ params?: ListJobsV1JobsGetParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData, QueryKey, ListJobsV1JobsGetParams['offset']>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Jobs */
+export function useListJobsV1JobsGetInfinite<TData = InfiniteData<Awaited<ReturnType<typeof listJobsV1JobsGet>>, ListJobsV1JobsGetParams['offset']>, TError = HTTPValidationError>(
+ params?: ListJobsV1JobsGetParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData, QueryKey, ListJobsV1JobsGetParams['offset']>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListJobsV1JobsGetInfiniteQueryOptions(params,options)
+
+  const query = useInfiniteQuery(queryOptions, queryClient) as  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getListJobsV1JobsGetQueryOptions = <TData = Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError = HTTPValidationError>(params?: ListJobsV1JobsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListJobsV1JobsGetQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listJobsV1JobsGet>>> = ({ signal }) => listJobsV1JobsGet(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListJobsV1JobsGetQueryResult = NonNullable<Awaited<ReturnType<typeof listJobsV1JobsGet>>>
+export type ListJobsV1JobsGetQueryError = HTTPValidationError
+
+
+/** @summary List Jobs */
+export function useListJobsV1JobsGet<TData = Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError = HTTPValidationError>(
+ params: undefined |  ListJobsV1JobsGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listJobsV1JobsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listJobsV1JobsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Jobs */
+export function useListJobsV1JobsGet<TData = Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError = HTTPValidationError>(
+ params?: ListJobsV1JobsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listJobsV1JobsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listJobsV1JobsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Jobs */
+export function useListJobsV1JobsGet<TData = Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError = HTTPValidationError>(
+ params?: ListJobsV1JobsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Jobs */
+export function useListJobsV1JobsGet<TData = Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError = HTTPValidationError>(
+ params?: ListJobsV1JobsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listJobsV1JobsGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListJobsV1JobsGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 export type getJobV1JobsJobIdGetResponse200 = {
   data: GetJobV1JobsJobIdGet200
   status: 200
@@ -248,6 +615,83 @@ export const getJobV1JobsJobIdGet = async (jobId: string, options?: Parameters<t
 
   }
 );}
+
+
+
+
+
+export const getGetJobV1JobsJobIdGetQueryKey = (jobId: string,) => {
+    return [
+    `/v1/jobs/${jobId}`
+    ] as const;
+    }
+
+
+export const getGetJobV1JobsJobIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError = HTTPValidationError>(jobId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobV1JobsJobIdGetQueryKey(jobId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>> = ({ signal }) => getJobV1JobsJobIdGet(jobId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: jobId !== null && jobId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetJobV1JobsJobIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>>
+export type GetJobV1JobsJobIdGetQueryError = HTTPValidationError
+
+
+/** @summary Get Job */
+export function useGetJobV1JobsJobIdGet<TData = Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError = HTTPValidationError>(
+ jobId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Get Job */
+export function useGetJobV1JobsJobIdGet<TData = Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError = HTTPValidationError>(
+ jobId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Get Job */
+export function useGetJobV1JobsJobIdGet<TData = Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError = HTTPValidationError>(
+ jobId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Get Job */
+export function useGetJobV1JobsJobIdGet<TData = Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError = HTTPValidationError>(
+ jobId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJobV1JobsJobIdGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetJobV1JobsJobIdGetQueryOptions(jobId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
 
 
 export type retryUnitV1JobsJobIdRetryUnitUnitIdPostResponse202 = {
@@ -294,3 +738,51 @@ export const retryUnitV1JobsJobIdRetryUnitUnitIdPost = async (jobId: string,
 );}
 
 
+
+
+
+export const getRetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationKey = () => ['retryUnitV1JobsJobIdRetryUnitUnitIdPost'] as const;
+
+export const getRetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryUnitV1JobsJobIdRetryUnitUnitIdPost>>, TError,RetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryUnitV1JobsJobIdRetryUnitUnitIdPost>>, TError,RetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationVariables, TContext> => {
+
+const mutationKey = getRetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryUnitV1JobsJobIdRetryUnitUnitIdPost>>, RetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationVariables> = (props) => {
+          const {jobId,unitId} = props ?? {};
+
+          return  retryUnitV1JobsJobIdRetryUnitUnitIdPost(jobId,unitId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationResult = NonNullable<Awaited<ReturnType<typeof retryUnitV1JobsJobIdRetryUnitUnitIdPost>>>
+
+    export type RetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationError = HTTPValidationError
+    export type RetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationVariables = {jobId: string;unitId: string}
+
+    /** @summary Retry Unit */
+export const useRetryUnitV1JobsJobIdRetryUnitUnitIdPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryUnitV1JobsJobIdRetryUnitUnitIdPost>>, TError,RetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof retryUnitV1JobsJobIdRetryUnitUnitIdPost>>,
+        TError,
+        RetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRetryUnitV1JobsJobIdRetryUnitUnitIdPostMutationOptions(options), queryClient);
+    }

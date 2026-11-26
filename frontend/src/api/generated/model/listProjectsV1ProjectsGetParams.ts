@@ -8,4 +8,6 @@
 
 export type ListProjectsV1ProjectsGetParams = {
   limit?: number;
+  /** @minimum 0 */
+  offset?: number;
 };

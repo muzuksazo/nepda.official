@@ -8,4 +8,6 @@
 
 export type ListJobsV1JobsGetParams = {
   limit?: number;
+  /** @minimum 0 */
+  offset?: number;
 };

@@ -11,4 +11,12 @@ import type { QuotaStatus } from './quotaStatus';
 export interface ProjectListResponse {
   projects: ProjectSummary[];
   quota: QuotaStatus;
+  /** @minimum 0 */
+  total: number;
+  /** @minimum 0 */
+  offset: number;
+  /** @minimum 1 */
+  limit: number;
+  has_more: boolean;
+  next_offset?: number | null;
 }

@@ -5,6 +5,16 @@
  * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] v0.2: ABC 훅 작업자 흐름(product-info, scenarios append, select, hooks, outputs) 추가. v0.1 경로는 유지.
  * OpenAPI spec version: 0.2.0
  */
+import {
+  useMutation
+} from '@tanstack/react-query';
+import type {
+  MutationFunction,
+  QueryClient,
+  UseMutationOptions,
+  UseMutationResult
+} from '@tanstack/react-query';
+
 import type {
   CompleteUploadsRequest,
   CompleteUploadsResponse,
@@ -12,6 +22,10 @@ import type {
 } from '../model';
 
 import { customFetch } from '../../mutator';
+
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | number | boolean | bigint | readonly string[] | undefined>)[]) => {
   const seen = new Set<string>();
@@ -32,6 +46,7 @@ const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string 
   }
   return Object.fromEntries(layers.reverse().flat()) as Extract<RequestInit['headers'], Record<string, unknown>>;
 };
+
 
 export type completeUploadsV1ProjectsProjectIdUploadsCompletePostResponse200 = {
   data: CompleteUploadsResponse
@@ -76,3 +91,51 @@ export const completeUploadsV1ProjectsProjectIdUploadsCompletePost = async (proj
 );}
 
 
+
+
+
+export const getCompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationKey = () => ['completeUploadsV1ProjectsProjectIdUploadsCompletePost'] as const;
+
+export const getCompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeUploadsV1ProjectsProjectIdUploadsCompletePost>>, TError,CompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeUploadsV1ProjectsProjectIdUploadsCompletePost>>, TError,CompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationVariables, TContext> => {
+
+const mutationKey = getCompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeUploadsV1ProjectsProjectIdUploadsCompletePost>>, CompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationVariables> = (props) => {
+          const {projectId,data} = props ?? {};
+
+          return  completeUploadsV1ProjectsProjectIdUploadsCompletePost(projectId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationResult = NonNullable<Awaited<ReturnType<typeof completeUploadsV1ProjectsProjectIdUploadsCompletePost>>>
+    export type CompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationBody = CompleteUploadsRequest
+    export type CompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationError = HTTPValidationError
+    export type CompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationVariables = {projectId: string;data: CompleteUploadsRequest}
+
+    /** @summary Complete Uploads */
+export const useCompleteUploadsV1ProjectsProjectIdUploadsCompletePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeUploadsV1ProjectsProjectIdUploadsCompletePost>>, TError,CompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof completeUploadsV1ProjectsProjectIdUploadsCompletePost>>,
+        TError,
+        CompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteUploadsV1ProjectsProjectIdUploadsCompletePostMutationOptions(options), queryClient);
+    }

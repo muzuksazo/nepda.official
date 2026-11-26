@@ -143,6 +143,11 @@ class ProjectSummary(BaseModel):
 class ProjectListResponse(BaseModel):
     projects: List[ProjectSummary]
     quota: QuotaStatus
+    total: int = 0
+    offset: int = 0
+    limit: int = 50
+    has_more: bool = False
+    next_offset: Optional[int] = None
 
 
 class ScenarioBeat(BaseModel):

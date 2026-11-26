@@ -63,11 +63,16 @@ class TestOpenApiCodegenParity(unittest.TestCase):
         projects_ts = (gen_root / "projects" / "projects.ts").read_text(encoding="utf-8")
         planning_ts = (gen_root / "planning" / "planning.ts").read_text(encoding="utf-8")
         hooks_ts = (gen_root / "hooks" / "hooks.ts").read_text(encoding="utf-8")
+        default_ts = (gen_root / "default" / "default.ts").read_text(encoding="utf-8")
         self.assertIn("createProductInfoV1ProductInfoPost", projects_ts)
-        self.assertIn("selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost", planning_ts)
-        self.assertIn("createHookV1ProjectsProjectIdHooksPost", hooks_ts)
+        self.assertIn("useListProjectsV1ProjectsGet", projects_ts)
+        self.assertIn("useListProjectsV1ProjectsGetInfinite", projects_ts)
+        self.assertIn("useCreateProjectV1ProjectsPost", projects_ts)
+        self.assertIn("useSelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost", planning_ts)
+        self.assertIn("useCreateHookV1ProjectsProjectIdHooksPost", hooks_ts)
         self.assertIn("getHookV1ProjectsProjectIdHooksHookIdGet", hooks_ts)
         self.assertIn("listOutputsV1ProjectsProjectIdOutputsGet", hooks_ts)
+        self.assertIn("useListJobsV1JobsGetInfinite", default_ts)
 
     def test_v02_worker_flow_e2e(self) -> None:
         with temporary_directory() as td:
@@ -153,3 +158,48 @@ class TestOpenApiCodegenParity(unittest.TestCase):
             self.assertEqual(outs.status_code, 200, outs.text)
             self.assertEqual(len(outs.json()["outputs"]), 1)
             self.assertEqual(outs.json()["outputs"][0]["hook_id"], hid)
+
+    def test_projects_and_jobs_offset_pagination(self) -> None:
+        with temporary_directory() as td:
+            client = build_test_client(Path(td))
+            login_client(client)
+
+            created_ids = []
+            for i in range(3):
+                resp = client.post(
+                    "/v1/projects",
+                    json={
+                        "product": {"name": f"페이지 제품 {i}", "category": "living"},
+                        "selected_types": ["A"],
+                    },
+                )
+                self.assertEqual(resp.status_code, 201, resp.text)
+                created_ids.append(resp.json()["project_id"])
+
+            p1 = client.get("/v1/projects?limit=2&offset=0")
+            self.assertEqual(p1.status_code, 200, p1.text)
+            b1 = p1.json()
+            self.assertEqual(len(b1["projects"]), 2)
+            self.assertEqual(b1["total"], 3)
+            self.assertEqual(b1["offset"], 0)
+            self.assertEqual(b1["limit"], 2)
+            self.assertTrue(b1["has_more"])
+            self.assertEqual(b1["next_offset"], 2)
+
+            p2 = client.get("/v1/projects?limit=2&offset=2")
+            self.assertEqual(p2.status_code, 200, p2.text)
+            b2 = p2.json()
+            self.assertEqual(len(b2["projects"]), 1)
+            self.assertEqual(b2["total"], 3)
+            self.assertEqual(b2["offset"], 2)
+            self.assertFalse(b2["has_more"])
+            self.assertIsNone(b2["next_offset"])
+
+            jobs = client.get("/v1/jobs?limit=1&offset=0")
+            self.assertEqual(jobs.status_code, 200, jobs.text)
+            jb = jobs.json()
+            self.assertEqual(jb["total"], 0)
+            self.assertEqual(jb["offset"], 0)
+            self.assertEqual(jb["limit"], 1)
+            self.assertFalse(jb["has_more"])
+            self.assertIsNone(jb["next_offset"])

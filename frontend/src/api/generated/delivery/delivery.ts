@@ -5,12 +5,47 @@
  * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] v0.2: ABC 훅 작업자 흐름(product-info, scenarios append, select, hooks, outputs) 추가. v0.1 경로는 유지.
  * OpenAPI spec version: 0.2.0
  */
+import {
+  useQuery
+} from '@tanstack/react-query';
+import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
+  QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
+  UseQueryOptions,
+  UseQueryResult
+} from '@tanstack/react-query';
+
 import type {
   DeliverablesResponse,
   HTTPValidationError
 } from '../model';
 
 import { customFetch } from '../../mutator';
+
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
+};
 
 export type getDeliverablesV1ProjectsProjectIdDeliverablesGetResponse200 = {
   data: DeliverablesResponse
@@ -52,5 +87,82 @@ export const getDeliverablesV1ProjectsProjectIdDeliverablesGet = async (projectI
 
   }
 );}
+
+
+
+
+
+export const getGetDeliverablesV1ProjectsProjectIdDeliverablesGetQueryKey = (projectId: string,) => {
+    return [
+    `/v1/projects/${projectId}/deliverables`
+    ] as const;
+    }
+
+
+export const getGetDeliverablesV1ProjectsProjectIdDeliverablesGetQueryOptions = <TData = Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError = HTTPValidationError>(projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDeliverablesV1ProjectsProjectIdDeliverablesGetQueryKey(projectId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>> = ({ signal }) => getDeliverablesV1ProjectsProjectIdDeliverablesGet(projectId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: projectId !== null && projectId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetDeliverablesV1ProjectsProjectIdDeliverablesGetQueryResult = NonNullable<Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>>
+export type GetDeliverablesV1ProjectsProjectIdDeliverablesGetQueryError = HTTPValidationError
+
+
+/** @summary Get Deliverables */
+export function useGetDeliverablesV1ProjectsProjectIdDeliverablesGet<TData = Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError = HTTPValidationError>(
+ projectId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Get Deliverables */
+export function useGetDeliverablesV1ProjectsProjectIdDeliverablesGet<TData = Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError = HTTPValidationError>(
+ projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Get Deliverables */
+export function useGetDeliverablesV1ProjectsProjectIdDeliverablesGet<TData = Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError = HTTPValidationError>(
+ projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Get Deliverables */
+export function useGetDeliverablesV1ProjectsProjectIdDeliverablesGet<TData = Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError = HTTPValidationError>(
+ projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDeliverablesV1ProjectsProjectIdDeliverablesGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetDeliverablesV1ProjectsProjectIdDeliverablesGetQueryOptions(projectId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
 
 

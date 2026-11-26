@@ -5,6 +5,16 @@
  * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] v0.2: ABC 훅 작업자 흐름(product-info, scenarios append, select, hooks, outputs) 추가. v0.1 경로는 유지.
  * OpenAPI spec version: 0.2.0
  */
+import {
+  useMutation
+} from '@tanstack/react-query';
+import type {
+  MutationFunction,
+  QueryClient,
+  UseMutationOptions,
+  UseMutationResult
+} from '@tanstack/react-query';
+
 import type {
   CreateFilmingGuideRequest,
   FilmingGuideResponse,
@@ -12,6 +22,10 @@ import type {
 } from '../model';
 
 import { customFetch } from '../../mutator';
+
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | number | boolean | bigint | readonly string[] | undefined>)[]) => {
   const seen = new Set<string>();
@@ -32,6 +46,7 @@ const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string 
   }
   return Object.fromEntries(layers.reverse().flat()) as Extract<RequestInit['headers'], Record<string, unknown>>;
 };
+
 
 export type createFilmingGuideV1ProjectsProjectIdFilmingGuidePostResponse200 = {
   data: FilmingGuideResponse
@@ -76,3 +91,51 @@ export const createFilmingGuideV1ProjectsProjectIdFilmingGuidePost = async (proj
 );}
 
 
+
+
+
+export const getCreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationKey = () => ['createFilmingGuideV1ProjectsProjectIdFilmingGuidePost'] as const;
+
+export const getCreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFilmingGuideV1ProjectsProjectIdFilmingGuidePost>>, TError,CreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFilmingGuideV1ProjectsProjectIdFilmingGuidePost>>, TError,CreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationVariables, TContext> => {
+
+const mutationKey = getCreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFilmingGuideV1ProjectsProjectIdFilmingGuidePost>>, CreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationVariables> = (props) => {
+          const {projectId,data} = props ?? {};
+
+          return  createFilmingGuideV1ProjectsProjectIdFilmingGuidePost(projectId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationResult = NonNullable<Awaited<ReturnType<typeof createFilmingGuideV1ProjectsProjectIdFilmingGuidePost>>>
+    export type CreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationBody = CreateFilmingGuideRequest
+    export type CreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationError = HTTPValidationError
+    export type CreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationVariables = {projectId: string;data: CreateFilmingGuideRequest}
+
+    /** @summary Create Filming Guide */
+export const useCreateFilmingGuideV1ProjectsProjectIdFilmingGuidePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFilmingGuideV1ProjectsProjectIdFilmingGuidePost>>, TError,CreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createFilmingGuideV1ProjectsProjectIdFilmingGuidePost>>,
+        TError,
+        CreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateFilmingGuideV1ProjectsProjectIdFilmingGuidePostMutationOptions(options), queryClient);
+    }

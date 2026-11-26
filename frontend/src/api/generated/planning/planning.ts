@@ -5,6 +5,25 @@
  * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] v0.2: ABC 훅 작업자 흐름(product-info, scenarios append, select, hooks, outputs) 추가. v0.1 경로는 유지.
  * OpenAPI spec version: 0.2.0
  */
+import {
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
+import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
+  MutationFunction,
+  QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult
+} from '@tanstack/react-query';
+
 import type {
   GenerateScenariosRequest,
   GenerateScenariosResponse,
@@ -16,6 +35,10 @@ import type {
 } from '../model';
 
 import { customFetch } from '../../mutator';
+
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | number | boolean | bigint | readonly string[] | undefined>)[]) => {
   const seen = new Set<string>();
@@ -35,6 +58,22 @@ const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string 
     layers.push(layer);
   }
   return Object.fromEntries(layers.reverse().flat()) as Extract<RequestInit['headers'], Record<string, unknown>>;
+};
+
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
 };
 
 export type listHookTypesV1HookTypesGetResponse200 = {
@@ -70,6 +109,83 @@ export const listHookTypesV1HookTypesGet = async ( options?: Parameters<typeof c
 
   }
 );}
+
+
+
+
+
+export const getListHookTypesV1HookTypesGetQueryKey = () => {
+    return [
+    `/v1/hook-types`
+    ] as const;
+    }
+
+
+export const getListHookTypesV1HookTypesGetQueryOptions = <TData = Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListHookTypesV1HookTypesGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>> = ({ signal }) => listHookTypesV1HookTypesGet({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListHookTypesV1HookTypesGetQueryResult = NonNullable<Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>>
+export type ListHookTypesV1HookTypesGetQueryError = unknown
+
+
+/** @summary List Hook Types */
+export function useListHookTypesV1HookTypesGet<TData = Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>,
+          TError,
+          Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Hook Types */
+export function useListHookTypesV1HookTypesGet<TData = Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>,
+          TError,
+          Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Hook Types */
+export function useListHookTypesV1HookTypesGet<TData = Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Hook Types */
+export function useListHookTypesV1HookTypesGet<TData = Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listHookTypesV1HookTypesGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListHookTypesV1HookTypesGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
 
 
 export type generateScenariosV1ProjectsProjectIdScenariosPostResponse200 = {
@@ -116,7 +232,58 @@ export const generateScenariosV1ProjectsProjectIdScenariosPost = async (projectI
 );}
 
 
-export type generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostResponse200 = {
+
+
+
+export const getGenerateScenariosV1ProjectsProjectIdScenariosPostMutationKey = () => ['generateScenariosV1ProjectsProjectIdScenariosPost'] as const;
+
+export const getGenerateScenariosV1ProjectsProjectIdScenariosPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateScenariosV1ProjectsProjectIdScenariosPost>>, TError,GenerateScenariosV1ProjectsProjectIdScenariosPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateScenariosV1ProjectsProjectIdScenariosPost>>, TError,GenerateScenariosV1ProjectsProjectIdScenariosPostMutationVariables, TContext> => {
+
+const mutationKey = getGenerateScenariosV1ProjectsProjectIdScenariosPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateScenariosV1ProjectsProjectIdScenariosPost>>, GenerateScenariosV1ProjectsProjectIdScenariosPostMutationVariables> = (props) => {
+          const {projectId,data} = props ?? {};
+
+          return  generateScenariosV1ProjectsProjectIdScenariosPost(projectId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateScenariosV1ProjectsProjectIdScenariosPostMutationResult = NonNullable<Awaited<ReturnType<typeof generateScenariosV1ProjectsProjectIdScenariosPost>>>
+    export type GenerateScenariosV1ProjectsProjectIdScenariosPostMutationBody = GenerateScenariosRequest
+    export type GenerateScenariosV1ProjectsProjectIdScenariosPostMutationError = HTTPValidationError
+    export type GenerateScenariosV1ProjectsProjectIdScenariosPostMutationVariables = {projectId: string;data: GenerateScenariosRequest}
+
+    /**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 호출할 때마다 기존 시나리오를 유지하고 새 시나리오를 추가(append)한다. 응답 scenarios는 누적 전체 목록, round는 이번 회차.
+ * @summary Generate Scenarios (append, v0.2)
+ */
+export const useGenerateScenariosV1ProjectsProjectIdScenariosPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateScenariosV1ProjectsProjectIdScenariosPost>>, TError,GenerateScenariosV1ProjectsProjectIdScenariosPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof generateScenariosV1ProjectsProjectIdScenariosPost>>,
+        TError,
+        GenerateScenariosV1ProjectsProjectIdScenariosPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getGenerateScenariosV1ProjectsProjectIdScenariosPostMutationOptions(options), queryClient);
+    }
+    export type generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostResponse200 = {
   data: StoryboardResponse
   status: 200
 }
@@ -161,7 +328,55 @@ export const generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardP
 );}
 
 
-export type selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostResponse200 = {
+
+
+
+export const getGenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationKey = () => ['generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost'] as const;
+
+export const getGenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost>>, TError,GenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost>>, TError,GenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationVariables, TContext> => {
+
+const mutationKey = getGenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost>>, GenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationVariables> = (props) => {
+          const {projectId,scenarioId,data} = props ?? {};
+
+          return  generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost(projectId,scenarioId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationResult = NonNullable<Awaited<ReturnType<typeof generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost>>>
+    export type GenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationBody = GenerateStoryboardRequest
+    export type GenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationError = HTTPValidationError
+    export type GenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationVariables = {projectId: string;scenarioId: string;data: GenerateStoryboardRequest}
+
+    /** @summary Generate Storyboard */
+export const useGenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost>>, TError,GenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost>>,
+        TError,
+        GenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getGenerateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPostMutationOptions(options), queryClient);
+    }
+    export type selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostResponse200 = {
   data: SelectScenarioResponse
   status: 200
 }
@@ -206,3 +421,54 @@ export const selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost = as
 );}
 
 
+
+
+
+export const getSelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationKey = () => ['selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost'] as const;
+
+export const getSelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost>>, TError,SelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost>>, TError,SelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationVariables, TContext> => {
+
+const mutationKey = getSelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost>>, SelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationVariables> = (props) => {
+          const {projectId,scenarioId} = props ?? {};
+
+          return  selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost(projectId,scenarioId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationResult = NonNullable<Awaited<ReturnType<typeof selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost>>>
+
+    export type SelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationError = HTTPValidationError
+    export type SelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationVariables = {projectId: string;scenarioId: string}
+
+    /**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 시나리오 선택. FR-007 촬영 가이드 선택과 별개.
+ * @summary Select Scenario
+ */
+export const useSelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost>>, TError,SelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof selectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPost>>,
+        TError,
+        SelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSelectScenarioV1ProjectsProjectIdScenariosScenarioIdSelectPostMutationOptions(options), queryClient);
+    }

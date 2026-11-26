@@ -212,13 +212,23 @@ class ProjectStore:
                 ).fetchone()
         return self._row_to_project(row) if row else None
 
-    def list_projects_for_user(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def list_projects_for_user(
+        self, user_id: str, limit: int = 50, offset: int = 0
+    ) -> List[Dict[str, Any]]:
         with self._lock, self._connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?",
-                (user_id, int(limit)),
+                "SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?",
+                (user_id, int(limit), max(0, int(offset))),
             ).fetchall()
         return [self._row_to_project(r) for r in rows]
+
+    def count_projects_for_user(self, user_id: str) -> int:
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS cnt FROM projects WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+        return int(row["cnt"] if row else 0)
 
     def update_project(
         self,

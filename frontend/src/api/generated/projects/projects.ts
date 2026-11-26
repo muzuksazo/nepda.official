@@ -5,6 +5,30 @@
  * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] v0.2: ABC 훅 작업자 흐름(product-info, scenarios append, select, hooks, outputs) 추가. v0.1 경로는 유지.
  * OpenAPI spec version: 0.2.0
  */
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
+import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseInfiniteQueryResult,
+  DefinedUseQueryResult,
+  InfiniteData,
+  MutationFunction,
+  QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
+  UseInfiniteQueryOptions,
+  UseInfiniteQueryResult,
+  UseMutationOptions,
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult
+} from '@tanstack/react-query';
+
 import type {
   CreateProjectRequest,
   HTTPValidationError,
@@ -17,6 +41,10 @@ import type {
 } from '../model';
 
 import { customFetch } from '../../mutator';
+
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | number | boolean | bigint | readonly string[] | undefined>)[]) => {
   const seen = new Set<string>();
@@ -36,6 +64,22 @@ const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string 
     layers.push(layer);
   }
   return Object.fromEntries(layers.reverse().flat()) as Extract<RequestInit['headers'], Record<string, unknown>>;
+};
+
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
 };
 
 export type createProjectV1ProjectsPostResponse201 = {
@@ -80,7 +124,55 @@ export const createProjectV1ProjectsPost = async (createProjectRequest: CreatePr
 );}
 
 
-export type listProjectsV1ProjectsGetResponse200 = {
+
+
+
+export const getCreateProjectV1ProjectsPostMutationKey = () => ['createProjectV1ProjectsPost'] as const;
+
+export const getCreateProjectV1ProjectsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProjectV1ProjectsPost>>, TError,CreateProjectV1ProjectsPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProjectV1ProjectsPost>>, TError,CreateProjectV1ProjectsPostMutationVariables, TContext> => {
+
+const mutationKey = getCreateProjectV1ProjectsPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProjectV1ProjectsPost>>, CreateProjectV1ProjectsPostMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProjectV1ProjectsPost(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProjectV1ProjectsPostMutationResult = NonNullable<Awaited<ReturnType<typeof createProjectV1ProjectsPost>>>
+    export type CreateProjectV1ProjectsPostMutationBody = CreateProjectRequest
+    export type CreateProjectV1ProjectsPostMutationError = HTTPValidationError
+    export type CreateProjectV1ProjectsPostMutationVariables = {data: CreateProjectRequest}
+
+    /** @summary Create Project */
+export const useCreateProjectV1ProjectsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProjectV1ProjectsPost>>, TError,CreateProjectV1ProjectsPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createProjectV1ProjectsPost>>,
+        TError,
+        CreateProjectV1ProjectsPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateProjectV1ProjectsPostMutationOptions(options), queryClient);
+    }
+    export type listProjectsV1ProjectsGetResponse200 = {
   data: ProjectListResponse
   status: 200
 }
@@ -129,6 +221,156 @@ export const listProjectsV1ProjectsGet = async (params?: ListProjectsV1ProjectsG
 );}
 
 
+
+
+
+export const getListProjectsV1ProjectsGetInfiniteQueryKey = (params?: ListProjectsV1ProjectsGetParams,) => {
+    return [
+    'infinite', `/v1/projects`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+export const getListProjectsV1ProjectsGetQueryKey = (params?: ListProjectsV1ProjectsGetParams,) => {
+    return [
+    `/v1/projects`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListProjectsV1ProjectsGetInfiniteQueryOptions = <TData = InfiniteData<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, ListProjectsV1ProjectsGetParams['offset']>, TError = HTTPValidationError>(params?: ListProjectsV1ProjectsGetParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData, QueryKey, ListProjectsV1ProjectsGetParams['offset']>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProjectsV1ProjectsGetInfiniteQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, QueryKey, ListProjectsV1ProjectsGetParams['offset']> = ({ signal, pageParam }) => listProjectsV1ProjectsGet({...params, 'offset': pageParam ?? params?.['offset']}, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseInfiniteQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData, QueryKey, ListProjectsV1ProjectsGetParams['offset']> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListProjectsV1ProjectsGetInfiniteQueryResult = NonNullable<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>>
+export type ListProjectsV1ProjectsGetInfiniteQueryError = HTTPValidationError
+
+
+/** @summary List Projects */
+export function useListProjectsV1ProjectsGetInfinite<TData = InfiniteData<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, ListProjectsV1ProjectsGetParams['offset']>, TError = HTTPValidationError>(
+ params: undefined |  ListProjectsV1ProjectsGetParams, options: { query:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData, QueryKey, ListProjectsV1ProjectsGetParams['offset']>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, QueryKey
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Projects */
+export function useListProjectsV1ProjectsGetInfinite<TData = InfiniteData<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, ListProjectsV1ProjectsGetParams['offset']>, TError = HTTPValidationError>(
+ params?: ListProjectsV1ProjectsGetParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData, QueryKey, ListProjectsV1ProjectsGetParams['offset']>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, QueryKey
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Projects */
+export function useListProjectsV1ProjectsGetInfinite<TData = InfiniteData<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, ListProjectsV1ProjectsGetParams['offset']>, TError = HTTPValidationError>(
+ params?: ListProjectsV1ProjectsGetParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData, QueryKey, ListProjectsV1ProjectsGetParams['offset']>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Projects */
+export function useListProjectsV1ProjectsGetInfinite<TData = InfiniteData<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, ListProjectsV1ProjectsGetParams['offset']>, TError = HTTPValidationError>(
+ params?: ListProjectsV1ProjectsGetParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData, QueryKey, ListProjectsV1ProjectsGetParams['offset']>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListProjectsV1ProjectsGetInfiniteQueryOptions(params,options)
+
+  const query = useInfiniteQuery(queryOptions, queryClient) as  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getListProjectsV1ProjectsGetQueryOptions = <TData = Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError = HTTPValidationError>(params?: ListProjectsV1ProjectsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProjectsV1ProjectsGetQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>> = ({ signal }) => listProjectsV1ProjectsGet(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListProjectsV1ProjectsGetQueryResult = NonNullable<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>>
+export type ListProjectsV1ProjectsGetQueryError = HTTPValidationError
+
+
+/** @summary List Projects */
+export function useListProjectsV1ProjectsGet<TData = Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError = HTTPValidationError>(
+ params: undefined |  ListProjectsV1ProjectsGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Projects */
+export function useListProjectsV1ProjectsGet<TData = Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError = HTTPValidationError>(
+ params?: ListProjectsV1ProjectsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Projects */
+export function useListProjectsV1ProjectsGet<TData = Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError = HTTPValidationError>(
+ params?: ListProjectsV1ProjectsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary List Projects */
+export function useListProjectsV1ProjectsGet<TData = Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError = HTTPValidationError>(
+ params?: ListProjectsV1ProjectsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listProjectsV1ProjectsGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListProjectsV1ProjectsGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 export type getProjectV1ProjectsProjectIdGetResponse200 = {
   data: ProjectDetailResponse
   status: 200
@@ -169,6 +411,83 @@ export const getProjectV1ProjectsProjectIdGet = async (projectId: string, option
 
   }
 );}
+
+
+
+
+
+export const getGetProjectV1ProjectsProjectIdGetQueryKey = (projectId: string,) => {
+    return [
+    `/v1/projects/${projectId}`
+    ] as const;
+    }
+
+
+export const getGetProjectV1ProjectsProjectIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError = HTTPValidationError>(projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProjectV1ProjectsProjectIdGetQueryKey(projectId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>> = ({ signal }) => getProjectV1ProjectsProjectIdGet(projectId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: projectId !== null && projectId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetProjectV1ProjectsProjectIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>>
+export type GetProjectV1ProjectsProjectIdGetQueryError = HTTPValidationError
+
+
+/** @summary Get Project */
+export function useGetProjectV1ProjectsProjectIdGet<TData = Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError = HTTPValidationError>(
+ projectId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Get Project */
+export function useGetProjectV1ProjectsProjectIdGet<TData = Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError = HTTPValidationError>(
+ projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Get Project */
+export function useGetProjectV1ProjectsProjectIdGet<TData = Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError = HTTPValidationError>(
+ projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/** @summary Get Project */
+export function useGetProjectV1ProjectsProjectIdGet<TData = Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError = HTTPValidationError>(
+ projectId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProjectV1ProjectsProjectIdGet>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetProjectV1ProjectsProjectIdGetQueryOptions(projectId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
 
 
 export type createProductInfoV1ProductInfoPostResponse200 = {
@@ -214,3 +533,54 @@ export const createProductInfoV1ProductInfoPost = async (productInfoRequest: Pro
 );}
 
 
+
+
+
+export const getCreateProductInfoV1ProductInfoPostMutationKey = () => ['createProductInfoV1ProductInfoPost'] as const;
+
+export const getCreateProductInfoV1ProductInfoPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProductInfoV1ProductInfoPost>>, TError,CreateProductInfoV1ProductInfoPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProductInfoV1ProductInfoPost>>, TError,CreateProductInfoV1ProductInfoPostMutationVariables, TContext> => {
+
+const mutationKey = getCreateProductInfoV1ProductInfoPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProductInfoV1ProductInfoPost>>, CreateProductInfoV1ProductInfoPostMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProductInfoV1ProductInfoPost(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProductInfoV1ProductInfoPostMutationResult = NonNullable<Awaited<ReturnType<typeof createProductInfoV1ProductInfoPost>>>
+    export type CreateProductInfoV1ProductInfoPostMutationBody = ProductInfoRequest
+    export type CreateProductInfoV1ProductInfoPostMutationError = HTTPValidationError
+    export type CreateProductInfoV1ProductInfoPostMutationVariables = {data: ProductInfoRequest}
+
+    /**
+ * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] FR-001 제품 정보 가져오기 + 잠시 캐싱. 같은 입력이면 cached=true.
+ * @summary Fetch Product Info (cache)
+ */
+export const useCreateProductInfoV1ProductInfoPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProductInfoV1ProductInfoPost>>, TError,CreateProductInfoV1ProductInfoPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createProductInfoV1ProductInfoPost>>,
+        TError,
+        CreateProductInfoV1ProductInfoPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateProductInfoV1ProductInfoPostMutationOptions(options), queryClient);
+    }

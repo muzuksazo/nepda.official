@@ -442,6 +442,11 @@ class HTTPValidationError(BaseModel):
 class ProjectListResponse(BaseModel):
     projects: list[ProjectSummary] = Field(..., title="Projects")
     quota: QuotaStatus
+    total: conint(ge=0) = Field(..., title="Total")
+    offset: conint(ge=0) = Field(..., title="Offset")
+    limit: conint(ge=1) = Field(..., title="Limit")
+    has_more: bool = Field(..., title="Has More")
+    next_offset: conint(ge=0) | None = Field(None, title="Next Offset")
 
 
 class ScenarioItem(BaseModel):

@@ -5,6 +5,16 @@
  * [v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] v0.2: ABC 훅 작업자 흐름(product-info, scenarios append, select, hooks, outputs) 추가. v0.1 경로는 유지.
  * OpenAPI spec version: 0.2.0
  */
+import {
+  useMutation
+} from '@tanstack/react-query';
+import type {
+  MutationFunction,
+  QueryClient,
+  UseMutationOptions,
+  UseMutationResult
+} from '@tanstack/react-query';
+
 import type {
   CreateRenderRequest,
   CreateRenderResponse,
@@ -12,6 +22,10 @@ import type {
 } from '../model';
 
 import { customFetch } from '../../mutator';
+
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | number | boolean | bigint | readonly string[] | undefined>)[]) => {
   const seen = new Set<string>();
@@ -32,6 +46,7 @@ const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string 
   }
   return Object.fromEntries(layers.reverse().flat()) as Extract<RequestInit['headers'], Record<string, unknown>>;
 };
+
 
 export type createRenderV1ProjectsProjectIdRendersPostResponse202 = {
   data: CreateRenderResponse
@@ -77,3 +92,54 @@ export const createRenderV1ProjectsProjectIdRendersPost = async (projectId: stri
 );}
 
 
+
+
+
+export const getCreateRenderV1ProjectsProjectIdRendersPostMutationKey = () => ['createRenderV1ProjectsProjectIdRendersPost'] as const;
+
+export const getCreateRenderV1ProjectsProjectIdRendersPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRenderV1ProjectsProjectIdRendersPost>>, TError,CreateRenderV1ProjectsProjectIdRendersPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRenderV1ProjectsProjectIdRendersPost>>, TError,CreateRenderV1ProjectsProjectIdRendersPostMutationVariables, TContext> => {
+
+const mutationKey = getCreateRenderV1ProjectsProjectIdRendersPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRenderV1ProjectsProjectIdRendersPost>>, CreateRenderV1ProjectsProjectIdRendersPostMutationVariables> = (props) => {
+          const {projectId,data} = props ?? {};
+
+          return  createRenderV1ProjectsProjectIdRendersPost(projectId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRenderV1ProjectsProjectIdRendersPostMutationResult = NonNullable<Awaited<ReturnType<typeof createRenderV1ProjectsProjectIdRendersPost>>>
+    export type CreateRenderV1ProjectsProjectIdRendersPostMutationBody = CreateRenderRequest
+    export type CreateRenderV1ProjectsProjectIdRendersPostMutationError = HTTPValidationError
+    export type CreateRenderV1ProjectsProjectIdRendersPostMutationVariables = {projectId: string;data: CreateRenderRequest}
+
+    /**
+ * [FR-010 훅 합치기 — 이번 v0.2 흐름 밖(후속). 기존 동작 유지]
+ * @summary Create Render
+ */
+export const useCreateRenderV1ProjectsProjectIdRendersPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRenderV1ProjectsProjectIdRendersPost>>, TError,CreateRenderV1ProjectsProjectIdRendersPostMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createRenderV1ProjectsProjectIdRendersPost>>,
+        TError,
+        CreateRenderV1ProjectsProjectIdRendersPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateRenderV1ProjectsProjectIdRendersPostMutationOptions(options), queryClient);
+    }
