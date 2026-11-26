@@ -82,6 +82,21 @@ with tempfile.TemporaryDirectory() as d:
 expect("SRT 는 장면당 한 개", srt.count("-->") == len(scenarios[0]["beats"]))
 expect("SRT 첫 장면은 0초부터", "00:00:00,000 --> 00:00:03,000" in srt, srt[:80])
 
+print("5-1. 소구포인트 입력")
+from src.prompt import build_user_prompt  # noqa: E402
+
+sp_inp = read("examples", "piev", "05_worker-input.round3.json")
+sp = parse_worker_input(sp_inp)
+expect("소구포인트를 읽는다", sp["selling_points"][0]["point"] == "탈취·악취 제거" and len(sp["selling_points"][0]["evidence"]) == 3)
+expect("문자열만 줘도 된다", parse_worker_input({**inp, "product_info": {**inp["product_info"], "selling_points": ["탈취"]}})
+       ["selling_points"] == [{"point": "탈취", "source": "", "evidence": []}])
+expect("없으면 빈 목록", parsed["selling_points"] == [])
+text = build_user_prompt(sp)
+expect("프롬프트에 소구포인트와 근거가 들어간다", "탈취·악취 제거" in text and "청량한 향기" in text)
+sp_run = generate_scenarios(sp_inp, offline=True)
+expect("시나리오에 겨냥한 소구포인트가 남는다", sp_run["response"]["scenarios"][0]["ad_spec"].get("selling_point") == "탈취·악취 제거")
+expect("소구포인트가 없으면 필드를 넣지 않는다", "selling_point" not in scenarios[0]["ad_spec"])
+
 print("6. Veo 문제 장면 (가짜 응답, 과금 없음)")
 import base64  # noqa: E402
 

@@ -26,7 +26,11 @@ from .assets import assets_dir
 FPS = 24
 W, H = 1080, 1920
 HERE = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES = {"spill_diffuser": {"script": os.path.join(HERE, "blender_scene.py"), "frames": 84, "impact_sec": 1.25}}
+TEMPLATES = {
+    "spill_diffuser": {"script": os.path.join(HERE, "blender_scene.py"), "frames": 84, "impact_sec": 1.25},
+    "evaporate_diffuser": {"script": os.path.join(HERE, "blender_scene_evaporate.py"), "frames": 96, "impact_sec": None},
+    "drain_smell": {"script": os.path.join(HERE, "blender_scene_drain.py"), "frames": 240, "impact_sec": None},
+}
 GOLD, WHITE = "&H0047E0FF&", "&H00FFFFFF&"
 
 
@@ -146,9 +150,16 @@ def plan_sources(scenario: dict, assets: dict) -> list[dict]:
         raise RenderError(f"실물 영상이 없습니다: {footage}")
     plan = []
     footage_beats = []
+    # 문제 장면은 첫 장면부터, role 이 "문제"인 장면이 이어지는 동안 한 영상으로 계속 쓴다 (긴 훅: 문제 장면 여러 개).
+    lead = 1 if template else 0
+    while template and lead < len(beats) and any(k in str(beats[lead].get("role", "")) for k in ("문제", "problem")):
+        lead += 1
+    span = sum(b["duration_sec"] for b in beats[:lead])
+    offset = 0.0
     for i, b in enumerate(beats):
-        if i == 0 and template:
-            plan.append({"kind": "template", "template": template, "engine": engine})
+        if i < lead:
+            plan.append({"kind": "template", "template": template, "engine": engine, "offset": offset, "span": span})
+            offset += b["duration_sec"]
         elif footage:
             plan.append({"kind": "footage", "path": footage})
             footage_beats.append(i)
@@ -171,16 +182,17 @@ def _segment(index: int, beat: dict, src: dict, inputs: list[str], filters: list
     pad = f"tpad=stop_mode=clone:stop_duration={beat['duration_sec'] + 1:.2f},trim=end_frame={n},setpts=PTS-STARTPTS,setsar=1,format=yuv420p"
     k = len(inputs_index(inputs))
     if src["kind"] == "template":
-        got = problem_source(src, beat["duration_sec"], log)
+        got = problem_source(src, src["span"], log)
         src["resolved"] = got
         if got["kind"] == "clip":
-            # Veo 는 4·6·8초로만 나온다. 장면보다 길면 동작이 잘리지 않게 빠르게 돌려 맞춘다 (최대 1.6배속, 그 이상은 뒤를 자른다).
-            speed = max(1.0, min(1.6, _duration(got["path"]) / beat["duration_sec"]))
-            inputs += ["-i", got["path"]]
+            # Veo 는 4·6·8초로만 나온다. 문제 장면 전체 길이에 맞춰 속도를 조절한다 (0.75~1.6배속, 넘치면 뒤를 자르고 모자라면 마지막 화면 정지).
+            speed = max(0.75, min(1.6, _duration(got["path"]) / src["span"]))
+            inputs += ["-ss", f"{src['offset'] * speed:.3f}", "-i", got["path"]]
             filters.append(f"[{k}:v]setpts=(PTS-STARTPTS)/{speed:.3f},fps={FPS},"
                            f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H},{pad}[s{index}]")
         else:
-            inputs += ["-framerate", str(FPS), "-start_number", "1", "-i", os.path.join(got["dir"], "p_%04d.jpg")]
+            start = min(TEMPLATES[src["template"]]["frames"], 1 + int(round(src["offset"] * FPS)))
+            inputs += ["-framerate", str(FPS), "-start_number", str(start), "-i", os.path.join(got["dir"], "p_%04d.jpg")]
             filters.append(f"[{k}:v]scale={W}:{H}:flags=lanczos,eq=saturation=1.1:brightness=0.02,noise=alls=3:allf=t,{pad}[s{index}]")
     elif src["kind"] == "footage":
         inputs += ["-ss", str(src["start"]), "-t", f"{beat['duration_sec'] + 1:.2f}", "-i", src["path"]]
@@ -251,13 +263,15 @@ def storyboard(scenario: dict, assets: dict, out_dir: str, log: Callable[[str], 
         ass = _ass_head() + f"Dialogue: 0,{_ts(0)},{_ts(10)},Big,,0,0,0,,{{\\pos({W // 2},1340)\\fs84}}" + beat["caption"].replace("\n", "\\N") + "\n"
         open(os.path.join(out_dir, "_sb.ass"), "w", encoding="utf-8").write(ass)
         if src["kind"] == "template":
-            got = problem_source(src, beat["duration_sec"], log, generate=False)      # 콘티는 과금 호출을 하지 않는다
+            got = problem_source(src, src["span"], log, generate=False)      # 콘티는 과금 호출을 하지 않는다
+            at = src["offset"] + beat["duration_sec"] * 0.75
             if got["kind"] == "clip":
-                inp = ["-ss", f"{_duration(got['path']) * 0.75:.2f}", "-i", got["path"]]
+                clip_len = _duration(got["path"])
+                inp = ["-ss", f"{min(clip_len - 0.1, at * max(0.75, min(1.6, clip_len / src['span']))):.2f}", "-i", got["path"]]
                 pre = f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H}"
             else:
                 spec = TEMPLATES[src["template"]]
-                frame_no = min(spec["frames"], int(beat["duration_sec"] * FPS * 0.75) + 1)
+                frame_no = min(spec["frames"], int(at * FPS) + 1)
                 inp = ["-i", os.path.join(got["dir"], f"p_{frame_no:04d}.jpg")]
                 pre = f"scale={W}:{H}:flags=lanczos"
         elif src["kind"] == "footage":
@@ -320,7 +334,7 @@ def render_hook(scenario: dict, assets: dict, out_dir: str, *, tts: dict | None 
     ass = _ass_head() + f"Dialogue: 2,{_ts(0)},{_ts(total)},Badge,,0,0,0,,{{\\pos(64,186)}}AI 연출 포함\n"
     pov = (scenario.get("ad_spec") or {}).get("pov_label")
     if pov and plan[0]["kind"] == "template":
-        ass += f"Dialogue: 1,{_ts(0)},{_ts(beats[0]['duration_sec'] - 0.05)},Pov,,0,0,0,,{{\\pos({W // 2},340)}}*{pov}*\n"
+        ass += f"Dialogue: 1,{_ts(0)},{_ts(plan[0]['span'] - 0.05)},Pov,,0,0,0,,{{\\pos({W // 2},340)}}*{pov}*\n"
     pop = "\\fscx84\\fscy84\\t(0,110,\\fscx100\\fscy100)"
     vo_inputs: list[str] = []
     vo_filters: list[str] = []
@@ -358,11 +372,11 @@ def render_hook(scenario: dict, assets: dict, out_dir: str, *, tts: dict | None 
     _run([ffmpeg, "-v", "error", "-y", "-i", vo_wav, "-c:a", "libmp3lame", "-b:a", "160k", os.path.join(out_dir, "tts.mp3")])
 
     # 3) 배경음(합성): 문제 장면이 끝난 뒤 잔잔한 패드, 쓰러지는 순간 쿵, 전환 휙, CTA 차임
-    t1 = beats[0]["duration_sec"]
+    t1 = plan[0]["span"] if plan[0]["kind"] == "template" else beats[0]["duration_sec"]      # 문제 장면이 끝나는 시각
     cta_at = next((s for b, s in zip(beats, starts) if "CTA" in b["role"].upper()), max(0.0, total - 4))
     resolved = plan[0].get("resolved") or {}
     # 쿵 소리는 쓰러지는 시점을 아는 Blender 렌더에만 넣는다. Veo 영상은 그 시점이 매번 다르다.
-    thud = TEMPLATES[plan[0]["template"]]["impact_sec"] if resolved.get("kind") == "frames" else None
+    thud = TEMPLATES[plan[0]["template"]]["impact_sec"] if resolved.get("kind") == "frames" else None      # 충격이 없는 템플릿은 None
     pad = ("aevalsrc='0.10*sin(2*PI*146.83*t)+0.07*sin(2*PI*220*t)+0.05*sin(2*PI*277.18*t)"
            "+0.045*sin(2*PI*329.63*t)*(0.6+0.4*sin(2*PI*0.11*t))+0.03*sin(2*PI*440*t)*(0.5+0.5*sin(2*PI*0.07*t+1))':s=48000:d=40,"
            f"aecho=0.8:0.7:90|180:0.35|0.25,lowpass=f=2200,afade=t=in:st={max(0.0, t1 - 0.2):.2f}:d=1.2,volume=0.26")

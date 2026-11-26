@@ -34,6 +34,18 @@ PROMPTS = {
         "and amber liquid pours out of the bottle's neck and spreads into a puddle across the table. "
         "The camera stays on the fallen bottle and the growing puddle. Realistic physics, natural light."
     ),
+    "evaporate_diffuser": (
+        "Time-lapse over several days, locked-off smartphone camera on a shelf, bright living room, casual and unpolished. "
+        "A clear glass reed diffuser bottle on a wooden table, a strip of masking tape marks the original liquid level. "
+        "The amber liquid inside steadily evaporates and its level sinks far below the tape until only a thin layer is left "
+        "at the bottom, while the reed sticks dry out and turn pale. Sunlight and shadows sweep across the table as days pass. "
+        "The bottle and the tape do not move. Realistic, natural light."
+    ),
+    "drain_smell": (
+        "Handheld smartphone POV stepping into a small tiled bathroom just as the light flickers on, casual and unpolished. "
+        "Wavy, cartoonish yellow-green stink fumes rise from the round metal floor drain and drift upward. "
+        "The camera flinches and pulls back from the smell, then holds on the drain. Bright, flat bathroom lighting."
+    ),
 }
 NEGATIVE = "text, captions, subtitles, logos, watermark, brand names, faces, cartoon, slow motion"
 

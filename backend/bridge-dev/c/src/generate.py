@@ -31,6 +31,7 @@ def offline_drafts(inp: dict) -> list[dict]:
     for i in range(inp["count"]):
         drafts.append({
             "hook_title": f"(오프라인 초안 {i + 1}) {short(proof[1])}",
+            "selling_point": inp["selling_points"][i % len(inp["selling_points"])]["point"] if inp["selling_points"] else "",
             "replacement_test_note": f"문제 해결 근거가 이 제품의 검증된 사실({proof[0]})이라 다른 제품에 옮겨 붙일 수 없다.",
             "pov_label": "또 같은 일이 생긴 나",
             "claim_ids": sorted({proof[0], benefit[0]}),

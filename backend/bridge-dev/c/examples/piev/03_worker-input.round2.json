@@ -1,0 +1,22 @@
+{
+  "_comment": "2회차: 문제 상황을 '쏟음'에서 '액체가 증발해 줄어듦'으로 바꾼 실행 예시. 사실은 1회차와 같은 VERIFIED 4개. 젤의 지속 기간은 검증되지 않아 '안 줄어든다·오래간다'는 쓰지 않는다.",
+  "hook_type": "C",
+  "project_id": "proj_piev01",
+  "round": 2,
+  "count": 1,
+  "product_info": {
+    "name": "피에브 에어워셔 피톤치드",
+    "category": "home_fragrance",
+    "verified_facts": [
+      "무광 화이트 원통 컵 디자인으로 전면 라벨에 PIEV AIRWASHER · PHYTONCIDE 표기",
+      "상단 브러시드 실버 메탈 뚜껑을 열면 내부에 짙은 에메랄드 초록빛 고체 젤 제형이 담겨 있음",
+      "뚜껑을 연 채 손에 들고 90도 가까이 기울여도 초록 고체 젤이 흘러내리거나 쏟아지지 않음",
+      "원목 테이블·거실 바닥·욕실 우드 선반 등 실내 공간 어디든 컵처럼 자연스럽게 올려두고 사용 가능"
+    ]
+  },
+  "assets": {
+    "problem_template": "evaporate_diffuser",
+    "product_footage": "../../../../IMG_3302.MOV"
+  },
+  "previous_scenarios": []
+}

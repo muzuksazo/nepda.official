@@ -6,7 +6,11 @@ from .schema import fact_ids
 # 생성 문제 장면 템플릿 설명. 문제 훅 문구가 화면과 맞도록 모델에 알려 준다.
 PROBLEM_TEMPLATES = {
     "spill_diffuser": "밝은 실내 테이블에서 지나가던 손이 액체형 리드 디퓨저를 쳐서 쓰러뜨리고, 병 입구에서 액체가 쏟아져 번지는 장면 (3D 생성, 약 3초)",
+    "evaporate_diffuser": "밝은 실내 테이블 위 액체형 리드 디퓨저의 며칠짜리 타임랩스. 처음 채운 높이에 붙인 테이프는 그대로인데 "
+                          "액체만 바닥까지 줄어들고 막대가 말라 간다 (3D 생성, 약 4초)",
+    "drain_smell": "욕실 불을 켜고 들어선 POV. 바닥 배수구에서 냄새가 물결 모양 연기로 올라오고 카메라가 움찔 물러난다 (3D 생성, 약 3.5초)",
 }
+PROBLEM_SECONDS = {"spill_diffuser": 3, "evaporate_diffuser": 4, "drain_smell": 3.5}
 
 SYSTEM = """당신은 한국어 숏폼 광고의 C 유형 훅(C_direct_proof: 제품과 직접 연결된 훅) 시나리오 작가입니다.
 
@@ -36,13 +40,24 @@ def build_user_prompt(inp: dict, violations: list[str] | None = None) -> str:
         "검증된 사실:",
         *[f"- [{fid}] {text}" for fid, text in fact_ids(product).items()],
     ]
+    points = inp.get("selling_points") or []
+    if points:
+        lines += ["", "소구포인트 (구매자가 이 제품을 사는 이유. 문제 상황은 여기에서 고릅니다):"]
+        for p in points:
+            lines.append(f"- {p['point']}" + (f" (출처: {p['source']})" if p["source"] else ""))
+            lines += [f"    근거: “{e}”" for e in p["evidence"][:4]]
+        lines += ["소구포인트는 어떤 문제 상황으로 시작할지 정하는 방향입니다. 근거에 나온 장소와 상황을 문제 장면으로 쓰세요.",
+                  "제품에 대한 말은 여전히 검증된 사실에 있는 내용만 쓰고, 소구포인트의 수치나 효능을 사실처럼 옮기지 않습니다.",
+                  "selling_point 에는 이 시나리오가 겨냥한 소구포인트를 위 목록의 문장 그대로 적습니다."]
+    else:
+        lines.append("소구포인트 입력이 없습니다. selling_point 는 빈 문자열로 둡니다.")
     if product.get("target_audience"):
         lines.append(f"대상: {product['target_audience']}")
     assets = inp.get("assets") or {}
     template = assets.get("problem_template")
     if template in PROBLEM_TEMPLATES:
         lines += ["", f"첫 장면(문제)은 이 생성 영상으로 만들어집니다: {PROBLEM_TEMPLATES[template]}",
-                  "문제 훅의 나레이션과 자막은 이 화면에 맞춰 주세요. 첫 장면 길이는 3초로 합니다."]
+                  f"문제 훅의 나레이션과 자막은 이 화면에 맞춰 주세요. 첫 장면 길이는 {PROBLEM_SECONDS[template]}초로 합니다."]
     if assets.get("product_footage"):
         lines.append("둘째 장면부터는 실물 제품 영상 한 컷을 이어서 씁니다. visual 은 그 영상에 나올 법한 실물 장면으로 써 주세요.")
     prev = inp.get("previous_scenarios") or []

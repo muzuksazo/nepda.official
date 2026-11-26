@@ -72,6 +72,9 @@ def check_scenario(s: dict, product_info: dict) -> dict:
     unknown = [c for c in claims if c not in facts]
     if unknown:
         errors.append(f"verified_facts 에 없는 근거 ID: {', '.join(unknown)}")
+    points = [p["point"] if isinstance(p, dict) else str(p) for p in product_info.get("selling_points") or []]
+    if points and spec.get("selling_point") not in points:
+        warnings.append(f"ad_spec.selling_point 가 입력의 소구포인트 목록에 없습니다: {spec.get('selling_point')!r}")
     if not (2 <= len(claims) <= 3) and len(facts) >= 2:
         warnings.append(f"검증된 장점은 2~3개를 권장합니다 (claim_ids {len(claims)}개).")
 

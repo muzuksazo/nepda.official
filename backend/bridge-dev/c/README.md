@@ -117,7 +117,7 @@ python -m src.cli hook proj_piev01 <scenario_id>                                
 
 | 설정 | 내용 |
 | --- | --- |
-| `GOOGLE_CLOUD_PROJECT` | Google Cloud 프로젝트 ID. 결제 계정 연결과 Vertex AI API 사용 설정이 필요합니다 |
+| `GOOGLE_CLOUD_PROJECT` | Google Cloud 프로젝트 ID. 이 작업자는 `project-453b367f-b616-4471-aef` 를 씁니다(`.env.example` 기본값). 결제 계정 연결과 Vertex AI API 사용 설정이 필요합니다 |
 | 인증 | 서비스 계정 키 경로를 `GOOGLE_APPLICATION_CREDENTIALS` 에 넣거나 `gcloud auth application-default login` |
 | `C_VEO_MODEL` | 기본 `veo-3.1-fast-generate-001`. 품질 우선이면 `veo-3.1-generate-001` |
 | `C_PROBLEM_ENGINE` | `auto`(기본) · `veo` · `blender`. 입력의 `assets.problem_engine` 이나 `hook --engine` 으로도 정합니다 |
@@ -130,6 +130,20 @@ python -m src.cli hook proj_piev01 <scenario_id>                                
 
 키 없이 끝까지 확인하려면 `scenarios … --offline`(사실 문장으로 만든 초안) 또는 `import examples/piev/02_scenarios.response.json --input examples/piev/01_worker-input.scenarios.json`(직접 쓴 시나리오 가져오기)을 쓰고, 훅은 `--no-tts` 로 실행합니다.
 
+### 입력 확장: `product_info.selling_points` (소구포인트)
+
+구매자가 이 제품을 사는 이유를 입력으로 받아, 문제 장면을 거기에서 고르게 합니다. 지금은 사람이 넣고, 나중에 리뷰 수집 서비스가 같은 형태로 채우면 됩니다. 예시: [`examples/piev/05_worker-input.round3.json`](examples/piev/05_worker-input.round3.json)
+
+```json
+"selling_points": [
+  { "point": "탈취·악취 제거", "source": "11번가 구매 후기", "evidence": ["화장실에서는 청량한 향기가 납니다."] }
+]
+```
+
+- `point` 만 필수이고 문자열 하나로 줘도 됩니다. `evidence` 는 그 소구포인트가 나온 후기 원문으로, 문제 장면의 장소와 상황을 고르는 데 씁니다.
+- 소구포인트는 방향일 뿐 근거가 아닙니다. 제품에 대한 말은 여전히 `verified_facts` 에 있는 내용만 쓰고, 규칙 검사도 그대로 적용됩니다.
+- 시나리오가 겨냥한 소구포인트는 `ad_spec.selling_point` 에 남습니다. 입력 목록에 없는 값이면 검사에서 경고가 납니다.
+
 ### 입력 확장: `assets`
 
 가이드의 제안 인터페이스에 없는 필드입니다. 영상에 쓸 소재를 알려 줍니다. 예시: [`examples/piev/01_worker-input.scenarios.json`](examples/piev/01_worker-input.scenarios.json)
@@ -137,7 +151,7 @@ python -m src.cli hook proj_piev01 <scenario_id>                                
 | 필드 | 설명 |
 | --- | --- |
 | `assets.product_footage` | 실물 제품 영상 경로. 둘째 장면부터 장면 길이 비율로 나눠 이어 씁니다. 길이가 모자라면 0.85배속까지 늘리고 나머지는 정지 화면 |
-| `assets.problem_template` | 첫 장면(문제)에 쓸 생성 영상 템플릿. 지금은 `spill_diffuser`(손이 액체 디퓨저를 쳐서 쏟는 장면) 하나 |
+| `assets.problem_template` | 첫 장면(문제)에 쓸 생성 영상 템플릿. `spill_diffuser`(손이 액체 디퓨저를 쳐서 쏟는 장면, 3초), `evaporate_diffuser`(액체 디퓨저가 며칠 사이 바닥까지 줄어드는 타임랩스, 4초. 예시: `examples/piev/03_…`, `04_…`), `drain_smell`(욕실 배수구 냄새, 방향제를 뿌려도 다시 올라옴, 최대 10초. 예시: `05_…`~`07_…`). role 이 "문제"인 장면이 처음부터 이어지면 그 장면들에 걸쳐 한 영상으로 씁니다 |
 | `assets.problem_engine` | 문제 장면을 만드는 방법. `auto`(기본) · `veo` · `blender` |
 
 둘 다 없으면 자막만 있는 단색 카드로 만들어집니다. 화면에 띄우는 상황 라벨은 `ad_spec.pov_label` 에 들어갑니다.

@@ -18,6 +18,30 @@ def fact_ids(product_info: dict) -> dict[str, str]:
     return {f"F{i:02d}": text for i, text in enumerate(product_info.get("verified_facts", []), 1)}
 
 
+def parse_selling_points(raw) -> list[dict]:
+    """소구포인트 입력을 [{point, source, evidence[]}] 로 맞춘다.
+
+    지금은 사람이 넣고, 나중에는 리뷰 수집 서비스가 같은 형태로 채운다. 문자열만 줘도 된다.
+    소구포인트는 "무엇을 문제로 잡을지"의 방향이고, 제품에 대한 말의 근거는 여전히 verified_facts 다.
+    """
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise InputError("product_info.selling_points 는 배열이어야 합니다.")
+    out = []
+    for item in raw:
+        if isinstance(item, str):
+            item = {"point": item}
+        if not isinstance(item, dict) or not str(item.get("point", "")).strip():
+            raise InputError("selling_points 항목에는 point(소구포인트 문장)가 필요합니다.")
+        evidence = item.get("evidence") or []
+        if isinstance(evidence, str):
+            evidence = [evidence]
+        out.append({"point": str(item["point"]).strip(), "source": str(item.get("source", "")).strip(),
+                    "evidence": [str(e).strip() for e in evidence if str(e).strip()]})
+    return out
+
+
 def parse_worker_input(data: dict) -> dict:
     """01_worker-input.scenarios.json 형태를 확인하고 기본값을 채워 돌려준다."""
     if not isinstance(data, dict):
@@ -41,6 +65,7 @@ def parse_worker_input(data: dict) -> dict:
         "round": int(data.get("round", 1)),
         "count": max(1, min(10, int(data.get("count", 1)))),
         "product_info": product,
+        "selling_points": parse_selling_points(product.get("selling_points")),
         "previous_scenarios": list(data.get("previous_scenarios") or []),
         # 가이드의 제안 인터페이스에 없는 확장 필드. 영상에 쓸 실물 소재와 문제 장면 템플릿을 알려 준다.
         "assets": {
@@ -62,9 +87,10 @@ SCENARIO_SCHEMA = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["hook_title", "replacement_test_note", "pov_label", "beats", "claim_ids", "cta_text"],
+                "required": ["hook_title", "selling_point", "replacement_test_note", "pov_label", "beats", "claim_ids", "cta_text"],
                 "properties": {
                     "hook_title": {"type": "string"},
+                    "selling_point": {"type": "string"},
                     "replacement_test_note": {"type": "string"},
                     "pov_label": {"type": "string"},
                     "claim_ids": {"type": "array", "items": {"type": "string"}},
@@ -104,6 +130,7 @@ def to_scenario_item(draft: dict, *, scenario_id: str, round_no: int, body_durat
             "narration": str(b["narration"]).strip(),
             "caption": str(b["caption"]).strip(),
         })
+    selling_point = str(draft.get("selling_point", "")).strip()
     return {
         "scenario_id": scenario_id,
         "round": round_no,
@@ -120,5 +147,6 @@ def to_scenario_item(draft: dict, *, scenario_id: str, round_no: int, body_durat
             "cta": {"type": "comment_engagement", "text": str(draft.get("cta_text", "")).strip()},
             "disclosure": "ai_assisted",
             "pov_label": str(draft.get("pov_label", "")).strip(),
+            **({"selling_point": selling_point} if selling_point else {}),      # 이 시나리오가 겨냥한 소구포인트
         },
     }
