@@ -115,7 +115,12 @@ export function Character({
           return new THREE.MeshStandardMaterial({ color: isJoint ? jointColor : bodyColor, roughness: 0.75, metalness: 0 });
         }
         const orig = (src as THREE.MeshStandardMaterial).color ?? new THREE.Color('#888');
-        return new THREE.MeshStandardMaterial({ color: colors?.[src.name] ?? orig.clone(), roughness: 0.65, metalness: 0 });
+        // 직업 캐릭터 팩(glTF)은 색이 뒤바뀌어 있다: 'Skin'(몸·머리·손)이 거의 검정, 'Face'(눈·눈썹 모양)가 흰색.
+        // 피부를 살색으로 칠하면 눈·눈썹은 진한 색으로 (원래 모습: 살색 피부, 검은 눈)
+        const eyes = src.name === 'Face' && colors?.Skin && !colors.Face ? new THREE.Color(colors.Eyes ?? '#2a1c15') : null;
+        const mat = new THREE.MeshStandardMaterial({ color: eyes ?? colors?.[src.name] ?? orig.clone(), roughness: 0.65, metalness: 0 });
+        mat.name = src.name;
+        return mat;
       });
       m.material = Array.isArray(m.material) ? mats : mats[0];
     });
