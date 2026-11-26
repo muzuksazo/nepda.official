@@ -67,7 +67,7 @@ const good = {
   beats: [
     { order: 1, role: "발단", duration_sec: 5, visual: "야전 병원 침대 줄", narration: "나이팅게일은 전쟁터 병원에서 병사들이 죽는 이유를 세어 봤습니다.", caption: "1854년\n야전 병원" },
     { order: 2, role: "전개", duration_sec: 5, visual: "부채꼴 그래프가 펼쳐짐", narration: "그래서 그녀는 원을 부채꼴로 나눠 죽음을 면적으로 그렸습니다.", caption: "원을 나눠\n면적으로" },
-    { order: 3, role: "반전: 제품 첫 등장", duration_sec: 7, visual: "제품", narration: "비주얼 타이머는 남은 시간을 빨간 면적으로 보여 줍니다. 그래서 비주얼 타이머가 뭐냐고요?", caption: "남은 시간\n빨간 면적" },
+    { order: 3, role: "반전: 제품 첫 등장", duration_sec: 7, visual: "제품", narration: "그런데 비주얼 타이머는 남은 시간을 빨간 면적으로 보여 줍니다. 그래서 비주얼 타이머가 뭐냐고요?", caption: "남은 시간\n빨간 면적" },
   ],
   ad_spec: {
     track_archetype: "B_info_hook_offset",
@@ -186,3 +186,28 @@ assert.ok(html.indexOf("2회차") < html.indexOf("1회차"), "최신 회차가 �
 assert.ok(html.includes("$0.098") && html.includes("이야기 씨앗") && html.includes(SEED));
 if (process.env.MOCK_REPORT) (await import("node:fs")).writeFileSync(process.env.MOCK_REPORT, html);
 console.log("OK mock-run: 씨앗 → 후보 → 재시도 → 비용 → pipeline plan → 리포트");
+
+// 제품 조사 합치기: 빈 칸만 채우고, 리뷰·기타 출처는 사실 목록에서 뺀다
+{
+  const { mergeResearch, researchWarnings } = await import("../src/research.js");
+  const r = {
+    found: { official_name: "테스트 타이머 T1", brand: "테스트", main_url: "https://example.com/t1", confidence: 0.6, ambiguity: "같은 이름의 앱이 있음" },
+    short_name: "비주얼 타이머", category: "문구", one_liner: "남은 시간을 빨간 면적으로 보여 주는 타이머",
+    facts: [
+      { fact: "60분 다이얼", source_url: "https://example.com/t1", source_type: "공식" as const },
+      { fact: "소리가 조용하다", source_url: "https://blog.example.com", source_type: "리뷰·기타" as const },
+    ],
+    appearance: { shape: "정사각 판 + 원형 다이얼", colors: "흰색, 빨강", parts: "가운데 손잡이", size: "", source_url: "https://example.com/t1" },
+    usage: "공부·업무 시간 관리", query: "테스트 타이머", searches: 3, at: "2026-11-26T00:00:00Z",
+  };
+  const filled = mergeResearch({ name: "테스트 타이머", verified_facts: [] }, r);
+  assert.equal(filled.category, "문구");
+  assert.ok(filled.verified_facts.includes("60분 다이얼"));
+  assert.ok(!filled.verified_facts.includes("소리가 조용하다"), "리뷰 출처는 뺀다");
+  assert.ok(filled.verified_facts.some((f) => f.startsWith("생김새:")), "생김새 한 줄");
+  const kept = mergeResearch({ name: "x", category: "주방", verified_facts: ["백엔드 사실"] }, r);
+  assert.deepEqual(kept.verified_facts, ["백엔드 사실"]);
+  assert.equal(kept.category, "주방");
+  assert.equal(researchWarnings(r).length, 3, "확신 낮음·동명 제품·출처 부족");
+  console.log("OK 제품 조사 합치기");
+}

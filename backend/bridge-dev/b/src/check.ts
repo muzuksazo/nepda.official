@@ -79,17 +79,18 @@ export function checkScenario(s: DraftScenario, product: ProductInfo): CheckResu
   if (last && !productNameTokens(product.name).some((w) => last.narration.includes(w)))
     errors.push(`반전 장면 나레이션에 제품 이름이 없음`);
 
-  // 반전 템플릿: "<제품>은 <특징>합니다. 그래서 <제품>이 뭐냐고요?"
+  // 반전 템플릿: "그런데 <제품>은 <특징>합니다. 그래서 <제품>이 뭐냐고요?"
   if (last) {
     const sentences = last.narration.split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean);
     const [feature, question] = sentences;
     if (sentences.length !== 2 || !question || !/^그래서 .+뭐냐고요\?$/.test(question))
-      errors.push(`반전 나레이션 템플릿 위반: "<제품>은 <특징>합니다. 그래서 <제품>이 뭐냐고요?" 두 문장이어야 함`);
+      errors.push(`반전 나레이션 템플릿 위반: "그런데 <제품>은 <특징>합니다. 그래서 <제품>이 뭐냐고요?" 두 문장이어야 함`);
+    if (feature && !/^그런데 /.test(feature)) errors.push(`반전 특징 문장이 "그런데 "로 시작하지 않음`);
     if (feature) {
-      const len = [...feature.replace(/\s/g, "")].length;
+      const len = [...feature.replace(/^그런데 /, "").replace(/\s/g, "")].length;
       if (len > REVEAL_MAX_CHARS) errors.push(`반전 특징 문장 ${len}자 (공백 제외 ${REVEAL_MAX_CHARS}자 이내, 핵심 특징 하나만)`);
       if (!/니다\.?$/.test(feature)) errors.push(`반전 특징 문장이 '~합니다'로 끝나지 않음`);
-      if (/^그래서/.test(feature)) warnings.push(`반전 특징 문장은 "그래서" 없이 제품명으로 시작`);
+      if (/^그래서/.test(feature)) warnings.push(`반전 특징 문장은 "그래서"가 아니라 "그런데 <제품명>은"으로 시작`);
     }
   }
   if ([...spec.anchor.replace(/\s/g, "")].length > ANCHOR_WARN_CHARS)

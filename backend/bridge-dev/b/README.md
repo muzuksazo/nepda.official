@@ -103,7 +103,9 @@ cp .env.example .env        # ANTHROPIC_API_KEY 입력 (.env는 커밋되지 않
 
 npm test                                                         # 가짜 모델로 전체 흐름 확인 (API 호출 없음)
 npm run check -- examples/02_scenarios.response.json             # 규칙 검사만 (API 호출 없음)
-npm run scenarios -- examples/01_worker-input.scenarios.json     # 1회차 생성 (Claude API 과금)
+npm run research -- "제품 이름"                                   # 이름만으로 웹에서 제품 조사 → out/<project_id>/input.json (Claude + 웹 검색 과금)
+npm run scenarios -- examples/01_worker-input.scenarios.json     # 1회차 생성 (Claude API 과금). verified_facts 가 비어 있으면 먼저 제품 조사
+
 npm run scenarios -- examples/01_worker-input.scenarios.json --next   # 다음 회차 (앞선 시작 소재 제외)
 npm run scenarios -- examples/01_worker-input.scenarios.json --next --cuts   # 다음 회차 + 장면 컷 이미지
 npm run cuts -- proj_demo01 3                                    # 이미 만든 3회차의 컷 이미지만 렌더

@@ -1,5 +1,6 @@
 // 프로젝트 하나의 모든 회차를 한 HTML로 만든다. 회차·시나리오·3D 명세는 접었다 펼 수 있다.
 import { krw, PRICES, totals } from "./cost.js";
+import { researchWarnings, type ProductResearch } from "./research.js";
 import type { RunRecord } from "./generate.js";
 import type { Scene3D } from "./schema.js";
 
@@ -132,12 +133,15 @@ function roundBlock(run: RunRecord, open: boolean) {
           .filter((x) => x.scenario_id === s.scenario_id)
           .sort((a, b) => ((a.variant ?? "3d") === "3d" ? -1 : 1) - ((b.variant ?? "3d") === "3d" ? -1 : 1))
           .map((v) => {
-            const g = v.variant === "gclips";
+            const g = (v.variant ?? "").startsWith("gclips");
+            const inw = !!v.variant?.endsWith("_inworld");
+            const vb = (v.variant ?? "3d").replace(/_inworld$/, "");
+            const ch = vb.startsWith("char");
             const rows = v.scenes
-              .map((x) => `<tr><td class="num">${x.order}</td><td class="num">${x.planned}초</td><td class="num">${x.final}초</td><td class="num">${x.voiceSec ?? "—"}초</td><td>${g && x.order !== v.scenes[v.scenes.length - 1].order ? "Google 클립" : x.usedGen ? "3D 코드" : "기본 도형"}</td></tr>`)
+              .map((x) => `<tr><td class="num">${x.order}</td><td class="num">${x.planned}초</td><td class="num">${x.final}초</td><td class="num">${x.voiceSec ?? "—"}초</td><td>${g && x.order !== v.scenes[v.scenes.length - 1].order ? "Google 클립" : ch && x.order !== v.scenes[v.scenes.length - 1].order ? "인물 + 3D 코드" : x.usedGen ? "3D 코드" : "기본 도형"}</td></tr>`)
               .join("");
             return `<div class="video"><video controls preload="metadata" src="${esc(v.file)}"></video>
-            <div><b>훅 영상 · ${g ? "Google 클립 + 3D 반전" : "3D"}</b> ${v.seconds}초 · <a href="${esc(v.file)}" target="_blank">mp4 열기</a>
+            <div><b>훅 영상 · ${g ? "Google 클립 + 3D 반전" : ch ? (vb === "char" ? "재사용 인물(Quaternius 마네킹) + 3D 반전" : vb === "char_stage" ? "캐릭터 + 무대·자연광·감정 표현 + 3D 반전" : "캐릭터(Quaternius 직업 캐릭터) + 3D 반전") : "3D"}${inw ? " · Inworld 음성" : ""}</b> ${v.seconds}초 · <a href="${esc(v.file)}" target="_blank">mp4 열기</a>
             <table><thead><tr><th>장면</th><th>계획</th><th>최종</th><th>음성</th><th>화면</th></tr></thead><tbody>${rows}</tbody></table>
             <p class="muted">음성이 장면보다 길면 장면이 늘어납니다(+0.25초 여유).</p></div></div>${
               g && (v.sourceClips?.length || v.refImage)
@@ -174,7 +178,23 @@ function roundBlock(run: RunRecord, open: boolean) {
     </div></details>`;
 }
 
-export function renderReport(runs: RunRecord[], productName: string): string {
+/** 제품 조사 결과 (research.json) 접기 상자 */
+function researchBlock(r: ProductResearch | null | undefined): string {
+  if (!r) return "";
+  const warn = researchWarnings(r);
+  const link = (u: string) => (/^https?:\/\//.test(u) ? `<a href="${esc(u)}" target="_blank" rel="noopener">출처</a>` : esc(u));
+  return `<details class="round"><summary><span class="rnum">제품 조사</span><span class="meta">${esc(r.found.official_name)} · 확신 ${r.found.confidence.toFixed(2)} · 웹 검색 ${r.searches}번</span>${
+    warn.length ? `<span class="badge bad">확인 필요 ${warn.length}</span>` : `<span class="badge good">확인됨</span>`
+  }</summary><div class="round-body">
+  ${warn.length ? `<ul>${warn.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+  <p><b>${esc(r.short_name)}</b> · ${esc(r.category)} · ${esc(r.one_liner)}<br><span class="meta">용도: ${esc(r.usage)}</span><br>${link(r.found.main_url)}</p>
+  <p><b>생김새</b> ${esc(r.appearance.shape)} / ${esc(r.appearance.colors)} / ${esc(r.appearance.parts)}${r.appearance.size ? ` / ${esc(r.appearance.size)}` : ""} ${link(r.appearance.source_url)}</p>
+  <div class="scroll"><table><thead><tr><th>사실</th><th>출처</th></tr></thead><tbody>${r.facts
+    .map((f) => `<tr><td>${esc(f.fact)}${f.source_type === "리뷰·기타" ? ' <span class="meta">(사실 목록에서 뺌)</span>' : ""}</td><td>${esc(f.source_type)} ${link(f.source_url)}</td></tr>`)
+    .join("")}</tbody></table></div></div></details>`;
+}
+
+export function renderReport(runs: RunRecord[], productName: string, research?: ProductResearch | null): string {
   const sorted = [...runs].sort((a, b) => b.response.round - a.response.round);
   const all = totals(sorted.flatMap((r) => r.steps));
   const scenarioCount = sorted.reduce((a, r) => a + r.response.scenarios.length, 0);
@@ -229,6 +249,7 @@ footer{color:var(--muted);font-size:12px;margin-top:24px}
 .cutfail{font-size:12px;color:var(--warn);background:var(--warnbg);border-radius:6px;padding:2px 8px;margin:4px 0}.codelink{font-size:12px}
 </style></head><body><main>
 <header><h1>B 훅 시나리오 — ${esc(productName)}</h1><p class="mono">${esc(project)}</p></header>
+${researchBlock(research)}
 <div class="stats">
   <div class="stat"><b>${sorted.length}</b><span>회차</span></div>
   <div class="stat"><b>${scenarioCount}</b><span>시나리오</span></div>
