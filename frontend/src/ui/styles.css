@@ -1,4 +1,5 @@
-/* 서체(Pretendard, Black Han Sans)는 index.html / .storybook/preview-head.html 의 <link>로 불러온다 */
+/* 서체(Pretendard, Black Han Sans)는 <link>로, 부크크 명조 Bold는 ./styles/fonts.css 로컬 번들로 불러온다 */
+@import './styles/fonts.css';
 @import './styles/tokens.css';
 @import './styles/base.css';
 @import './styles/components.css';

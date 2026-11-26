@@ -1,60 +1,28 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { brand } from '../brand';
 import {
+  computeSerifOutlineFontSize,
+  SANS_FONT_FAMILY,
+  SERIF_FONT_FAMILY,
   THUMBNAIL_HEIGHT,
   THUMBNAIL_WIDTH,
   type ThumbnailTemplateProps,
 } from './presets';
 
-function renderHighlightedText(
-  text: string,
-  highlightWord?: string,
-  accentColor = '#d6ff3f',
-  asMarker = false,
-): ReactNode {
-  const lines = text.split('\n');
-  return lines.map((line, lineIdx) => {
-    const content =
-      highlightWord && highlightWord.trim().length > 0 && line.includes(highlightWord)
-        ? splitHighlight(line, highlightWord, accentColor, asMarker)
-        : line;
-    return (
-      <span key={lineIdx} style={{ display: 'block' }}>
-        {content}
-      </span>
-    );
-  });
-}
-
-function splitHighlight(
+function renderHighlightedLine(
   line: string,
-  target: string,
-  accentColor: string,
-  asMarker = false,
+  highlightWord: string | undefined,
+  highlightStyle: CSSProperties,
 ): ReactNode {
+  const target = highlightWord?.trim();
+  if (!target || !line.includes(target)) return line;
   const idx = line.indexOf(target);
-  if (idx === -1) return line;
   const before = line.slice(0, idx);
   const after = line.slice(idx + target.length);
   return (
     <>
       {before}
-      <span
-        style={
-          asMarker
-            ? {
-                backgroundColor: accentColor,
-                color: '#000000',
-                padding: '2px 12px',
-                borderRadius: 12,
-                display: 'inline-block',
-                lineHeight: 1.08,
-              }
-            : { color: accentColor }
-        }
-      >
-        {target}
-      </span>
+      <span style={highlightStyle}>{target}</span>
       {after}
     </>
   );
@@ -69,6 +37,37 @@ const imageFillStyle: CSSProperties = {
   display: 'block',
 };
 
+function buildImageTransformStyle(
+  scale = 1,
+  offsetX = 0,
+  offsetY = 0,
+): CSSProperties {
+  return {
+    ...imageFillStyle,
+    transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
+    transformOrigin: 'center center',
+  };
+}
+
+function BottomGradientScrim({ visible }: { visible?: boolean }) {
+  if (!visible) return null;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: 980,
+        background:
+          'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.48) 42%, rgba(0,0,0,0.92) 100%)',
+        pointerEvents: 'none',
+        zIndex: 2,
+      }}
+    />
+  );
+}
+
 const placeholderLabelStyle: CSSProperties = {
   fontSize: 30,
   fontWeight: 600,
@@ -77,6 +76,23 @@ const placeholderLabelStyle: CSSProperties = {
   textAlign: 'center',
   userSelect: 'none',
 };
+
+function EmptyBackdrop({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'radial-gradient(circle at 50% 45%, #232730 0%, #101216 75%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <span style={placeholderLabelStyle}>{label}</span>
+    </div>
+  );
+}
 
 function SafeZoneOverlay() {
   return (
@@ -88,7 +104,26 @@ function SafeZoneOverlay() {
         zIndex: 30,
       }}
     >
-      {/* 3:4 프로필 피드 크롭 영역 (y: 240..1680) */}
+      {/* 피그마 #114:383 릴스 금지 영역 마스크 (단일 SVG evenodd 경로로 경계 이음매 없음) */}
+      <svg
+        width={1080}
+        height={1920}
+        viewBox="0 0 1080 1920"
+        style={{ position: 'absolute', inset: 0, display: 'block' }}
+      >
+        <path
+          fillRule="evenodd"
+          fill="rgba(220, 24, 24, 0.5)"
+          d="M0,0 H1080 V1920 H0 Z M63,168 H1016 V1094 H924 V1396 H63 Z"
+        />
+        <path
+          fill="none"
+          stroke="rgba(255, 72, 72, 0.85)"
+          strokeWidth={2}
+          d="M63,168 H1016 V1094 H924 V1396 H63 Z"
+        />
+      </svg>
+      {/* 3:4 프로필 피드 크롭 기준선 (y: 240..1680) */}
       <div
         style={{
           position: 'absolute',
@@ -96,44 +131,114 @@ function SafeZoneOverlay() {
           right: 0,
           top: 240,
           height: 1440,
-          borderTop: '3px dashed rgba(214, 255, 63, 0.7)',
-          borderBottom: '3px dashed rgba(214, 255, 63, 0.7)',
-        }}
-      />
-      {/* 릴스 안전 영역 (x: 96..984, y: 260..1500) */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 96,
-          top: 260,
-          width: 888,
-          height: 1240,
-          border: '3px solid rgba(56, 189, 248, 0.78)',
-          borderRadius: 24,
+          borderTop: '3px dashed rgba(214, 255, 63, 0.65)',
+          borderBottom: '3px dashed rgba(214, 255, 63, 0.65)',
         }}
       />
       <div
         style={{
           position: 'absolute',
-          left: 96,
-          top: 204,
-          backgroundColor: 'rgba(10, 10, 10, 0.85)',
-          color: '#38bdf8',
+          left: 63,
+          top: 112,
+          backgroundColor: 'rgba(185, 28, 28, 0.92)',
+          color: '#ffffff',
           fontSize: 22,
           fontWeight: 700,
           padding: '6px 14px',
           borderRadius: 999,
         }}
       >
-        REELS SAFE ZONE (96..984 × 260..1500)
+        넘으면 안 되는 릴스 UI 영역
       </div>
     </div>
   );
 }
 
+function OptionalWordmark({ visible }: { visible?: boolean }) {
+  if (!visible) return null;
+  return (
+    <img
+      src={brand.wordmarkWhite}
+      alt="NAPDA"
+      draggable={false}
+      style={{
+        position: 'absolute',
+        right: 96,
+        top: 1410,
+        height: 40,
+        width: 'auto',
+        opacity: 0.92,
+        filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.65))',
+        zIndex: 10,
+        pointerEvents: 'none',
+      }}
+    />
+  );
+}
+
+function OptionalBadgePill({ text }: { text?: string }) {
+  const clean = text?.trim();
+  if (!clean) return null;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        backgroundColor: '#d6ff3f',
+        color: '#000000',
+        fontSize: 28,
+        fontWeight: 800,
+        letterSpacing: '-0.02em',
+        padding: '10px 26px',
+        borderRadius: 999,
+        marginBottom: 18,
+      }}
+    >
+      {clean}
+    </span>
+  );
+}
+
+function OptionalSubtitlePill({ text }: { text?: string }) {
+  const clean = text?.trim();
+  if (!clean) return null;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        backgroundColor: '#020202',
+        color: '#ffffff',
+        fontSize: 36,
+        fontWeight: 700,
+        letterSpacing: '-0.02em',
+        padding: '12px 28px',
+        borderRadius: 12,
+        marginTop: 22,
+      }}
+    >
+      {clean}
+    </span>
+  );
+}
+
+type CanvasCommonProps = Pick<
+  ThumbnailTemplateProps,
+  | 'badge'
+  | 'headline'
+  | 'highlightWord'
+  | 'subtitle'
+  | 'imageUrl'
+  | 'showBottomGradient'
+  | 'imageScale'
+  | 'imageOffsetX'
+  | 'imageOffsetY'
+  | 'showWordmark'
+>;
+
 /**
- * 1080×1920 릴스·쇼츠 썸네일 템플릿 컴포넌트.
- * 냅다 DESIGN.md 토큰(#0a0a0a / #ffffff / #d6ff3f 포인트 1단어·배지)을 따른다.
+ * 1080×1920 Figma 릴스 커버 4가지 제목 스타일 템플릿 컴포넌트.
+ * 하단 검은 그라데이션 스크림은 기본 꺼짐이며 토글로 켜고 끌 수 있다.
  */
 export function ThumbnailTemplate({
   variant,
@@ -142,14 +247,29 @@ export function ThumbnailTemplate({
   highlightWord,
   subtitle,
   imageUrl,
-  bottomImageUrl,
-  realityBadge = '현실 · REALITY',
-  showWordmark = true,
+  showBottomGradient = false,
+  imageScale = 1,
+  imageOffsetX = 0,
+  imageOffsetY = 0,
+  showWordmark = false,
   showSafeZone = false,
   scale = 0.33,
 }: ThumbnailTemplateProps) {
   const outerW = Math.round(THUMBNAIL_WIDTH * scale);
   const outerH = Math.round(THUMBNAIL_HEIGHT * scale);
+
+  const canvasProps: CanvasCommonProps = {
+    badge,
+    headline,
+    highlightWord,
+    subtitle,
+    imageUrl,
+    showBottomGradient,
+    imageScale,
+    imageOffsetX,
+    imageOffsetY,
+    showWordmark,
+  };
 
   return (
     <div
@@ -160,7 +280,7 @@ export function ThumbnailTemplate({
         overflow: 'hidden',
         borderRadius: 16,
         boxShadow: '0 12px 36px rgb(0 0 0 / 0.24)',
-        backgroundColor: variant === 'commerce' ? '#f7f7f5' : '#0a0a0a',
+        backgroundColor: '#000000',
         flexShrink: 0,
       }}
     >
@@ -172,654 +292,412 @@ export function ThumbnailTemplate({
           transformOrigin: 'top left',
           position: 'relative',
           overflow: 'hidden',
-          fontFamily: "var(--font-sans, 'Pretendard Variable', Pretendard, sans-serif)",
+          fontFamily: SANS_FONT_FAMILY,
         }}
       >
-        {variant === 'editorial' && (
-          <EditorialCanvas
-            badge={badge}
-            headline={headline}
-            highlightWord={highlightWord}
-            subtitle={subtitle}
-            imageUrl={imageUrl}
-            showWordmark={showWordmark}
-          />
-        )}
-        {variant === 'viral-hook' && (
-          <ViralHookCanvas
-            badge={badge}
-            headline={headline}
-            highlightWord={highlightWord}
-            subtitle={subtitle}
-            imageUrl={imageUrl}
-            showWordmark={showWordmark}
-          />
-        )}
-        {variant === 'split-vs' && (
-          <SplitVsCanvas
-            badge={badge}
-            realityBadge={realityBadge}
-            headline={headline}
-            highlightWord={highlightWord}
-            subtitle={subtitle}
-            imageUrl={imageUrl}
-            bottomImageUrl={bottomImageUrl}
-          />
-        )}
-        {variant === 'commerce' && (
-          <CommerceCanvas
-            badge={badge}
-            headline={headline}
-            highlightWord={highlightWord}
-            subtitle={subtitle}
-            imageUrl={imageUrl}
-            showWordmark={showWordmark}
-          />
-        )}
+        {variant === 'invert-box' && <InvertBoxCanvas {...canvasProps} />}
+        {variant === 'white-label' && <WhiteLabelCanvas {...canvasProps} />}
+        {variant === 'serif-outline' && <SerifOutlineCanvas {...canvasProps} />}
+        {variant === 'pov-bar' && <PovBarCanvas {...canvasProps} />}
         {showSafeZone && <SafeZoneOverlay />}
       </div>
     </div>
   );
 }
 
-function EditorialCanvas({
+/** 스타일 1: 화이트/블랙 반전 2줄 박스 (#101:842 · #114:389) */
+function InvertBoxCanvas({
   badge,
   headline,
   highlightWord,
   subtitle,
   imageUrl,
+  showBottomGradient,
+  imageScale,
+  imageOffsetX,
+  imageOffsetY,
   showWordmark,
-}: Pick<ThumbnailTemplateProps, 'badge' | 'headline' | 'highlightWord' | 'subtitle' | 'imageUrl' | 'showWordmark'>) {
+}: CanvasCommonProps) {
+  const lines = headline?.trim() ? headline.split('\n').filter((l) => l.length > 0) : [];
+
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#111317' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#111317', overflow: 'hidden' }}>
       {imageUrl ? (
-        <img src={imageUrl} alt="배경 이미지" style={imageFillStyle} />
+        <img
+          src={imageUrl}
+          alt="배경 이미지"
+          draggable={false}
+          style={buildImageTransformStyle(imageScale, imageOffsetX, imageOffsetY)}
+        />
       ) : (
+        <EmptyBackdrop label="배경 스틸컷 / 영상 캡처 영역 (1080×1920)" />
+      )}
+
+      <BottomGradientScrim visible={showBottomGradient} />
+
+      {(badge?.trim() || lines.length > 0 || subtitle?.trim()) && (
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(circle at 50% 35%, #232730 0%, #101216 70%)',
+            left: 64,
+            right: 64,
+            top: 296,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            paddingBottom: 260,
+            zIndex: 4,
+            pointerEvents: 'none',
           }}
         >
-          <span style={placeholderLabelStyle}>배경 스틸컷 / 영상 캡처 영역 (1080×1920)</span>
+          <OptionalBadgePill text={badge} />
+          {lines.map((line, idx) => {
+            const isOdd = idx % 2 === 1;
+            return (
+              <div
+                key={idx}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: isOdd ? '#020202' : '#ffffff',
+                  color: isOdd ? '#ffffff' : '#111111',
+                  fontSize: 78,
+                  fontWeight: 500,
+                  lineHeight: 1.16,
+                  letterSpacing: '-0.03em',
+                  padding: '10px 22px',
+                  maxWidth: '100%',
+                  textAlign: 'center',
+                }}
+              >
+                <span>
+                  {renderHighlightedLine(
+                    line,
+                    highlightWord,
+                    isOdd
+                      ? { color: '#d6ff3f', fontWeight: 700 }
+                      : {
+                          backgroundColor: '#d6ff3f',
+                          color: '#000000',
+                          padding: '0 8px',
+                          borderRadius: 8,
+                          fontWeight: 700,
+                        },
+                  )}
+                </span>
+              </div>
+            );
+          })}
+          <OptionalSubtitlePill text={subtitle} />
         </div>
       )}
 
-      {/* 하단 가독성 그라디언트 스크림 */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 980,
-          background:
-            'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.48) 42%, rgba(0,0,0,0.92) 100%)',
-        }}
-      />
+      <OptionalWordmark visible={showWordmark} />
+    </div>
+  );
+}
 
-      {/* 상단 배지 + 선택적 워드마크 */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 96,
-          right: 96,
-          top: 280,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: badge?.trim() ? 'space-between' : 'flex-end',
-        }}
-      >
-        {badge?.trim() && (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              backgroundColor: '#d6ff3f',
-              color: '#000000',
-              fontSize: 30,
-              fontWeight: 800,
-              letterSpacing: '-0.02em',
-              padding: '16px 32px',
-              borderRadius: 16,
-            }}
-          >
-            {badge}
-          </span>
-        )}
-        {showWordmark && (
-          <img
-            src={brand.wordmarkWhite}
-            alt="NAPDA"
-            style={{ height: 40, width: 'auto', opacity: 0.92 }}
-          />
-        )}
-      </div>
+/** 스타일 2: 좌측정렬 화이트 라벨 2줄 (#105:263) */
+function WhiteLabelCanvas({
+  badge,
+  headline,
+  highlightWord,
+  subtitle,
+  imageUrl,
+  showBottomGradient,
+  imageScale,
+  imageOffsetX,
+  imageOffsetY,
+  showWordmark,
+}: CanvasCommonProps) {
+  const lines = headline?.trim() ? headline.split('\n').filter((l) => l.length > 0) : [];
 
-      {/* 하단 타이포 */}
-      {(headline?.trim() || subtitle?.trim()) && (
-        <div style={{ position: 'absolute', left: 96, right: 96, top: 1110 }}>
-          {headline?.trim() && (
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#12151c', overflow: 'hidden' }}>
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt="배경 이미지"
+          draggable={false}
+          style={buildImageTransformStyle(imageScale, imageOffsetX, imageOffsetY)}
+        />
+      ) : (
+        <EmptyBackdrop label="배경 스틸컷 / 영상 캡처 영역 (1080×1920)" />
+      )}
+
+      <BottomGradientScrim visible={showBottomGradient} />
+
+      {(badge?.trim() || lines.length > 0 || subtitle?.trim()) && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 68,
+            right: 68,
+            top: 340,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            gap: 0,
+            zIndex: 4,
+            pointerEvents: 'none',
+          }}
+        >
+          <OptionalBadgePill text={badge} />
+          {lines.map((line, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                backgroundColor: '#ffffff',
+                color: '#000000',
+                fontSize: 92,
+                fontWeight: 700,
+                lineHeight: 1.12,
+                letterSpacing: '-0.03em',
+                padding: '10px 20px',
+                maxWidth: '100%',
+              }}
+            >
+              <span>
+                {renderHighlightedLine(line, highlightWord, {
+                  backgroundColor: '#d6ff3f',
+                  color: '#000000',
+                  padding: '0 8px',
+                  borderRadius: 8,
+                })}
+              </span>
+            </div>
+          ))}
+          <OptionalSubtitlePill text={subtitle} />
+        </div>
+      )}
+
+      <OptionalWordmark visible={showWordmark} />
+    </div>
+  );
+}
+
+/** 스타일 3: 대형 명조 외곽선 임팩트 (#105:264 · #105:265) */
+function SerifOutlineCanvas({
+  badge,
+  headline,
+  highlightWord,
+  subtitle,
+  imageUrl,
+  showBottomGradient,
+  imageScale,
+  imageOffsetX,
+  imageOffsetY,
+  showWordmark,
+}: CanvasCommonProps) {
+  const headlineText = headline?.trim() ?? '';
+  const lines = headlineText ? headlineText.split('\n') : [];
+  const fontSize = computeSerifOutlineFontSize(headlineText || '제목');
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#141414', overflow: 'hidden' }}>
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt="배경 이미지"
+          draggable={false}
+          style={buildImageTransformStyle(imageScale, imageOffsetX, imageOffsetY)}
+        />
+      ) : (
+        <EmptyBackdrop label="배경 스틸컷 / 제품 풀샷 영역 (1080×1920)" />
+      )}
+
+      <BottomGradientScrim visible={showBottomGradient} />
+
+      {(badge?.trim() || lines.length > 0 || subtitle?.trim()) && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 56,
+            right: 56,
+            top: 235,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            gap: 16,
+            zIndex: 4,
+            pointerEvents: 'none',
+          }}
+        >
+          {badge?.trim() && (
+            <div
+              style={{
+                fontFamily: SERIF_FONT_FAMILY,
+                fontStyle: 'italic',
+                fontWeight: 700,
+                fontSize: 52,
+                lineHeight: 1.2,
+                letterSpacing: '-0.02em',
+                color: '#ffffff',
+                WebkitTextStroke: '10px #000000',
+                paintOrder: 'stroke fill',
+                filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.45))',
+              }}
+            >
+              {badge}
+            </div>
+          )}
+
+          {lines.length > 0 && (
             <h1
               style={{
                 margin: 0,
-                color: '#ffffff',
-                fontSize: 80,
-                fontWeight: 800,
-                lineHeight: 1.18,
+                fontFamily: SERIF_FONT_FAMILY,
+                fontWeight: 700,
+                fontSize,
+                lineHeight: 1.06,
                 letterSpacing: '-0.03em',
-                textShadow: '0 8px 40px rgba(0,0,0,0.85)',
+                color: '#000000',
+                WebkitTextStroke: '22px #ffffff',
+                paintOrder: 'stroke fill',
+                filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.32))',
               }}
             >
-              {renderHighlightedText(headline, highlightWord)}
+              {lines.map((line, i) => (
+                <span key={i} style={{ display: 'block' }}>
+                  {renderHighlightedLine(line, highlightWord, {
+                    color: '#d6ff3f',
+                    WebkitTextStroke: '22px #000000',
+                    paintOrder: 'stroke fill',
+                  })}
+                </span>
+              ))}
             </h1>
           )}
-          {subtitle?.trim() && (
-            <p
-              style={{
-                margin: headline?.trim() ? '28px 0 0' : 0,
-                color: '#d4d4d4',
-                fontSize: 48,
-                fontWeight: 300,
-                letterSpacing: '-0.02em',
-                lineHeight: 1.25,
-              }}
-            >
-              {subtitle}
-            </p>
-          )}
+
+          <OptionalSubtitlePill text={subtitle} />
         </div>
       )}
+
+      <OptionalWordmark visible={showWordmark} />
     </div>
   );
 }
 
-function ViralHookCanvas({
+/** 스타일 4: 상단 블랙 바 POV 밈형 (#121:404) */
+function PovBarCanvas({
   badge,
   headline,
   highlightWord,
   subtitle,
   imageUrl,
+  showBottomGradient,
+  imageScale,
+  imageOffsetX,
+  imageOffsetY,
   showWordmark,
-}: Pick<ThumbnailTemplateProps, 'badge' | 'headline' | 'highlightWord' | 'subtitle' | 'imageUrl' | 'showWordmark'>) {
-  return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#12151c' }}>
-      {imageUrl ? (
-        <img src={imageUrl} alt="바이럴 훅 배경" style={imageFillStyle} />
-      ) : (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(160deg, #1b2230 0%, #0f1117 65%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingBottom: 320,
-          }}
-        >
-          <span style={placeholderLabelStyle}>바이럴 훅 1프레임 스틸컷 (1080×1920)</span>
-        </div>
-      )}
+}: CanvasCommonProps) {
+  const headlineText = headline?.trim() ?? '';
+  const lines = headlineText ? headlineText.split('\n') : [];
 
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#000000' }}>
+      {/* 상단 솔리드 블랙 바 (3:4·9:16 안전 영역 y >= 250 내부에 2~3줄 POV 텍스트 배치) */}
       <div
         style={{
           position: 'absolute',
           left: 0,
           right: 0,
-          bottom: 0,
-          height: 1060,
-          background:
-            'linear-gradient(180deg, rgba(10,10,10,0) 0%, rgba(10,10,10,0.72) 38%, rgba(10,10,10,0.95) 100%)',
-        }}
-      />
-
-      <div
-        style={{
-          position: 'absolute',
-          left: 96,
-          right: 96,
-          top: 296,
+          top: 0,
+          height: 560,
+          backgroundColor: '#000000',
+          padding: '248px 72px 28px',
+          boxSizing: 'border-box',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: badge?.trim() ? 'space-between' : 'flex-end',
+          justifyContent: 'center',
+          textAlign: 'center',
+          zIndex: 4,
+          pointerEvents: 'none',
         }}
       >
-        {badge?.trim() && (
-          <span
+        <OptionalBadgePill text={badge} />
+        {lines.length > 0 && (
+          <h1
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              backgroundColor: '#d6ff3f',
-              color: '#000000',
-              fontSize: 36,
-              fontWeight: 800,
-              letterSpacing: '-0.02em',
-              padding: '16px 38px',
-              borderRadius: 999,
+              margin: 0,
+              color: '#ffffff',
+              fontSize: 60,
+              fontWeight: 700,
+              lineHeight: 1.32,
+              letterSpacing: '-0.025em',
             }}
           >
-            {badge}
-          </span>
-        )}
-        {showWordmark && (
-          <img src={brand.wordmarkWhite} alt="NAPDA" style={{ height: 38, opacity: 0.85 }} />
+            {lines.map((line, i) => (
+              <span key={i} style={{ display: 'block' }}>
+                {renderHighlightedLine(line, highlightWord, { color: '#d6ff3f' })}
+              </span>
+            ))}
+          </h1>
         )}
       </div>
 
-      {/* 세로 라임 포인트 바 + 2줄 헤드라인 */}
-      {(headline?.trim() || subtitle?.trim()) && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 96,
-            right: 96,
-            top: 1080,
-            display: 'flex',
-            alignItems: 'stretch',
-            gap: 26,
-          }}
-        >
-          <div
-            style={{
-              width: 14,
-              borderRadius: 999,
-              backgroundColor: '#d6ff3f',
-              flexShrink: 0,
-            }}
-          />
-          <div style={{ flex: 1 }}>
-            {headline?.trim() && (
-              <h1
-                style={{
-                  margin: 0,
-                  color: '#ffffff',
-                  fontSize: 74,
-                  fontWeight: 800,
-                  lineHeight: 1.2,
-                  letterSpacing: '-0.03em',
-                  textShadow: '0 6px 28px rgba(0,0,0,0.8)',
-                }}
-              >
-                {renderHighlightedText(headline, highlightWord)}
-              </h1>
-            )}
-            {subtitle?.trim() && (
-              <p
-                style={{
-                  margin: headline?.trim() ? '24px 0 0' : 0,
-                  color: '#d4d4d4',
-                  fontSize: 36,
-                  fontWeight: 500,
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                {subtitle}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SplitVsCanvas({
-  badge,
-  realityBadge,
-  headline,
-  highlightWord,
-  subtitle,
-  imageUrl,
-  bottomImageUrl,
-}: Pick<
-  ThumbnailTemplateProps,
-  'badge' | 'realityBadge' | 'headline' | 'highlightWord' | 'subtitle' | 'imageUrl' | 'bottomImageUrl'
->) {
-  return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#0a0a0a' }}>
-      {/* 상단 50% 비교 컷 */}
+      {/* 하단 이미지 영역 (그라데이션 토글 지원) */}
       <div
         style={{
           position: 'absolute',
           left: 0,
-          top: 0,
-          width: 1080,
-          height: 954,
+          right: 0,
+          top: 560,
+          height: 1360,
           overflow: 'hidden',
-          background: 'linear-gradient(180deg, #1b2434 0%, #111622 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          backgroundColor: '#111317',
         }}
       >
         {imageUrl ? (
           <img
             src={imageUrl}
-            alt="상단 비교 컷"
-            style={{ ...imageFillStyle, objectPosition: 'center 25%' }}
+            alt="본문 이미지"
+            draggable={false}
+            style={buildImageTransformStyle(imageScale, imageOffsetX, imageOffsetY)}
           />
         ) : (
-          <span style={placeholderLabelStyle}>상단 비교 컷 (기대 / BEFORE)</span>
+          <EmptyBackdrop label="이미지 / 영상 캡처 영역 (1080×1360)" />
         )}
       </div>
 
-      {/* 하단 50% 비교 컷 */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: 966,
-          width: 1080,
-          height: 954,
-          overflow: 'hidden',
-          background: 'linear-gradient(180deg, #241921 0%, #140f13 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingBottom: 180,
-        }}
-      >
-        {bottomImageUrl ? (
-          <img
-            src={bottomImageUrl}
-            alt="하단 비교 컷"
-            style={{ ...imageFillStyle, objectPosition: 'center 6%' }}
-          />
-        ) : (
-          <span style={{ ...placeholderLabelStyle, color: '#a38d98' }}>하단 비교 컷 (현실 / AFTER)</span>
-        )}
-      </div>
+      <BottomGradientScrim visible={showBottomGradient} />
 
-      {/* 라임 구분선 + 중앙 VS */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: 954,
-          width: 1080,
-          height: 12,
-          backgroundColor: '#d6ff3f',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          left: 460,
-          top: 880,
-          width: 160,
-          height: 160,
-          borderRadius: 999,
-          backgroundColor: '#d6ff3f',
-          border: '10px solid #0a0a0a',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 64,
-          fontWeight: 900,
-          color: '#000000',
-          letterSpacing: '-0.03em',
-          boxSizing: 'border-box',
-        }}
-      >
-        VS
-      </div>
-
-      {/* 상단 기대 배지 */}
-      {badge?.trim() && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 96,
-            top: 290,
-            backgroundColor: '#0a0a0a',
-            border: '3px solid #ffffff',
-            color: '#ffffff',
-            fontSize: 32,
-            fontWeight: 700,
-            padding: '16px 34px',
-            borderRadius: 999,
-          }}
-        >
-          {badge}
-        </div>
-      )}
-
-      {/* 하단 현실 배지 */}
-      {realityBadge?.trim() && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 96,
-            top: 1044,
-            backgroundColor: '#d6ff3f',
-            border: '3px solid #0a0a0a',
-            color: '#000000',
-            fontSize: 32,
-            fontWeight: 800,
-            padding: '16px 34px',
-            borderRadius: 999,
-          }}
-        >
-          {realityBadge}
-        </div>
-      )}
-
-      {/* 하단 펀치라인 카드 */}
-      {(headline?.trim() || subtitle?.trim()) && (
+      {/* 선택적 하단 블랙 캡션 박스 */}
+      {subtitle?.trim() && (
         <div
           style={{
             position: 'absolute',
             left: 72,
             right: 72,
-            top: 1256,
-            backgroundColor: 'rgba(10, 10, 10, 0.92)',
-            border: '3px solid #d6ff3f',
-            borderRadius: 28,
-            padding: '34px 44px',
-            textAlign: 'center',
-          }}
-        >
-          {headline?.trim() && (
-            <h1
-              style={{
-                margin: 0,
-                color: '#ffffff',
-                fontSize: 54,
-                fontWeight: 800,
-                letterSpacing: '-0.03em',
-                lineHeight: 1.2,
-              }}
-            >
-              {renderHighlightedText(headline, highlightWord)}
-            </h1>
-          )}
-          {subtitle?.trim() && (
-            <p
-              style={{
-                margin: headline?.trim() ? '14px 0 0' : 0,
-                color: '#a6a6a6',
-                fontSize: 32,
-                fontWeight: 500,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              {subtitle}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CommerceCanvas({
-  badge,
-  headline,
-  highlightWord,
-  subtitle,
-  imageUrl,
-  showWordmark,
-}: Pick<ThumbnailTemplateProps, 'badge' | 'headline' | 'highlightWord' | 'subtitle' | 'imageUrl' | 'showWordmark'>) {
-  return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#f7f7f5' }}>
-      {/* 풀샷 스튜디오 배경 이미지 */}
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt="제품 스튜디오 풀샷"
-          style={{ ...imageFillStyle, objectPosition: 'center center' }}
-        />
-      ) : (
-        <div
-          style={{
-            position: 'absolute',
-            left: 96,
-            top: 636,
-            width: 888,
-            height: 690,
-            borderRadius: 36,
-            backgroundColor: '#ffffff',
-            border: '3px dashed #cfcfcf',
+            top: 1340,
             display: 'flex',
-            alignItems: 'center',
             justifyContent: 'center',
+            zIndex: 6,
+            pointerEvents: 'none',
           }}
         >
-          <span style={placeholderLabelStyle}>제품 스튜디오 풀샷 이미지 영역 (1080×1920)</span>
-        </div>
-      )}
-
-      {/* 상단/하단 타이포 가독성 소프트 그라디언트 */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          top: 0,
-          height: 620,
-          background:
-            'linear-gradient(180deg, rgba(247,247,245,0.92) 0%, rgba(247,247,245,0.68) 62%, rgba(247,247,245,0) 100%)',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 580,
-          background:
-            'linear-gradient(0deg, rgba(247,247,245,0.92) 0%, rgba(247,247,245,0.6) 55%, rgba(247,247,245,0) 100%)',
-        }}
-      />
-
-      {/* 상단 신뢰 배지 + 블랙 워드마크 */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 96,
-          right: 96,
-          top: 280,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: badge?.trim() ? 'space-between' : 'flex-end',
-        }}
-      >
-        {badge?.trim() && (
           <span
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 14,
-              backgroundColor: '#0a0a0a',
+              backgroundColor: '#000000',
               color: '#ffffff',
-              fontSize: 30,
+              fontSize: 44,
               fontWeight: 700,
-              padding: '16px 32px',
-              borderRadius: 999,
-            }}
-          >
-            <span
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: 999,
-                backgroundColor: '#d6ff3f',
-                display: 'inline-block',
-              }}
-            />
-            {badge}
-          </span>
-        )}
-        {showWordmark && (
-          <img src={brand.wordmarkBlack} alt="NAPDA" style={{ height: 36, opacity: 0.9 }} />
-        )}
-      </div>
-
-      {/* 메인 헤드라인 */}
-      {headline?.trim() && (
-        <h1
-          style={{
-            position: 'absolute',
-            left: 96,
-            right: 96,
-            top: 392,
-            margin: 0,
-            color: '#0a0a0a',
-            fontSize: 74,
-            fontWeight: 800,
-            lineHeight: 1.2,
-            letterSpacing: '-0.03em',
-          }}
-        >
-          {renderHighlightedText(headline, highlightWord, '#d6ff3f', true)}
-        </h1>
-      )}
-
-      {/* 하단 제품명/혜택 배너 */}
-      {subtitle?.trim() && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 96,
-            top: 1376,
-            width: 888,
-            height: 112,
-            borderRadius: 999,
-            backgroundColor: '#0a0a0a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 16,
-          }}
-        >
-          <span
-            style={{
-              width: 14,
-              height: 14,
-              borderRadius: 999,
-              backgroundColor: '#d6ff3f',
-              display: 'inline-block',
-            }}
-          />
-          <span
-            style={{
-              color: '#ffffff',
-              fontSize: 38,
-              fontWeight: 700,
+              lineHeight: 1.25,
               letterSpacing: '-0.02em',
+              padding: '14px 28px',
+              textAlign: 'center',
             }}
           >
             {subtitle}
           </span>
         </div>
       )}
+
+      <OptionalWordmark visible={showWordmark} />
     </div>
   );
 }

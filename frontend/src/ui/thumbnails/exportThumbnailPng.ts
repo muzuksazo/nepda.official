@@ -1,10 +1,13 @@
+import { brand } from '../brand';
 import {
+  computeSerifOutlineFontSize,
   THUMBNAIL_HEIGHT,
   THUMBNAIL_WIDTH,
   type ThumbnailTemplateProps,
 } from './presets';
 
-const SANS_FONT = "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif";
+const SANS_FONT = "'Pretendard Variable', Pretendard, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const SERIF_FONT = "'Bookk Myungjo', 'Noto Serif KR', serif";
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -41,7 +44,9 @@ function drawCoverImage(
   dy: number,
   dw: number,
   dh: number,
-  focusY = 0.5,
+  imageScale = 1,
+  imageOffsetX = 0,
+  imageOffsetY = 0,
 ): void {
   const srcRatio = img.naturalWidth / img.naturalHeight;
   const dstRatio = dw / dh;
@@ -54,116 +59,137 @@ function drawCoverImage(
     sx = (img.naturalWidth - sw) / 2;
   } else {
     sh = img.naturalWidth / dstRatio;
-    sy = (img.naturalHeight - sh) * focusY;
+    sy = (img.naturalHeight - sh) / 2;
   }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(dx, dy, dw, dh);
+  ctx.clip();
+
+  const cx = dx + dw / 2;
+  const cy = dy + dh / 2;
+  ctx.translate(cx + imageOffsetX, cy + imageOffsetY);
+  ctx.scale(imageScale, imageScale);
+  ctx.translate(-cx, -cy);
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  ctx.restore();
 }
 
-function drawHighlightedLines(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  lineHeight: number,
-  font: string,
-  baseColor: string,
-  accentColor: string,
-  highlightWord?: string,
-  align: 'left' | 'center' = 'left',
-  markerBg?: string,
-): void {
-  ctx.font = font;
-  ctx.textBaseline = 'top';
-  const lines = text.split('\n');
-  lines.forEach((line, idx) => {
-    const ly = y + idx * lineHeight;
-    const target = highlightWord?.trim();
-    if (!target || !line.includes(target)) {
-      ctx.fillStyle = baseColor;
-      ctx.textAlign = align;
-      ctx.fillText(line, x, ly);
-      return;
-    }
-
-    const pos = line.indexOf(target);
-    const parts: Array<{ str: string; color: string; isHighlight: boolean }> = [
-      { str: line.slice(0, pos), color: baseColor, isHighlight: false },
-      { str: target, color: accentColor, isHighlight: true },
-      { str: line.slice(pos + target.length), color: baseColor, isHighlight: false },
-    ];
-
-    const markerPadX = markerBg ? 12 : 0;
-    let curX = x;
-    if (align === 'center') {
-      const totalWidth = ctx.measureText(line).width + markerPadX * 2;
-      curX = x - totalWidth / 2;
-    }
-    ctx.textAlign = 'left';
-    for (const part of parts) {
-      if (!part.str) continue;
-      const textWidth = ctx.measureText(part.str).width;
-      if (part.isHighlight && markerBg) {
-        const boxH = Math.round(lineHeight * 0.9);
-        const boxY = ly - Math.round((boxH - lineHeight * 0.83) / 2);
-        ctx.fillStyle = markerBg;
-        roundRectPath(ctx, curX, boxY, textWidth + markerPadX * 2, boxH, 12);
-        ctx.fill();
-        ctx.fillStyle = part.color;
-        ctx.fillText(part.str, curX + markerPadX, ly);
-        curX += textWidth + markerPadX * 2;
-      } else {
-        ctx.fillStyle = part.color;
-        ctx.fillText(part.str, curX, ly);
-        curX += textWidth;
-      }
-    }
-  });
+function drawBottomGradientIfNeeded(ctx: CanvasRenderingContext2D, visible?: boolean): void {
+  if (!visible) return;
+  const grad = ctx.createLinearGradient(0, 940, 0, 1920);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(0.42, 'rgba(0,0,0,0.48)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.92)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 940, 1080, 980);
 }
 
-function drawPill(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  text: string,
-  options: {
-    bg: string;
-    fg: string;
-    font: string;
-    padX?: number;
-    height?: number;
-    radius?: number;
-    stroke?: string;
-    dotColor?: string;
-  },
-): void {
-  const { bg, fg, font, padX = 32, height = 68, radius = 999, stroke, dotColor } = options;
-  ctx.font = font;
-  const textW = ctx.measureText(text).width;
-  const dotSpace = dotColor ? 28 : 0;
-  const w = textW + padX * 2 + dotSpace;
+function drawBadgePill(ctx: CanvasRenderingContext2D, centerX: number | null, x: number, y: number, text: string): number {
+  const clean = text.trim();
+  if (!clean) return y;
+  ctx.font = `800 28px ${SANS_FONT}`;
+  const tw = ctx.measureText(clean).width;
+  const padX = 26;
+  const h = 56;
+  const w = tw + padX * 2;
+  const bx = centerX !== null ? centerX - w / 2 : x;
 
-  roundRectPath(ctx, x, y, w, height, radius);
-  ctx.fillStyle = bg;
+  roundRectPath(ctx, bx, y, w, h, 999);
+  ctx.fillStyle = '#d6ff3f';
   ctx.fill();
-  if (stroke) {
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = stroke;
-    ctx.stroke();
-  }
 
-  let textX = x + padX;
-  if (dotColor) {
-    ctx.beginPath();
-    ctx.arc(x + padX + 8, y + height / 2, 8, 0, Math.PI * 2);
-    ctx.fillStyle = dotColor;
-    ctx.fill();
-    textX += dotSpace;
-  }
-
-  ctx.fillStyle = fg;
+  ctx.fillStyle = '#000000';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, textX, y + height / 2 + 1);
+  ctx.fillText(clean, bx + padX, y + h / 2 + 1);
+  return y + h + 18;
+}
+
+function drawSubtitlePill(
+  ctx: CanvasRenderingContext2D,
+  centerX: number | null,
+  x: number,
+  y: number,
+  text: string,
+  radius = 12,
+  fontSize = 36,
+  padX = 28,
+  padY = 12,
+): void {
+  const clean = text.trim();
+  if (!clean) return;
+  ctx.font = `700 ${fontSize}px ${SANS_FONT}`;
+  const tw = ctx.measureText(clean).width;
+  const h = Math.round(fontSize * 1.25 + padY * 2);
+  const w = tw + padX * 2;
+  const bx = centerX !== null ? centerX - w / 2 : x;
+
+  roundRectPath(ctx, bx, y, w, h, radius);
+  ctx.fillStyle = '#020202';
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(clean, bx + padX, y + h / 2 + 1);
+}
+
+function drawLineWithHighlight(
+  ctx: CanvasRenderingContext2D,
+  line: string,
+  startX: number,
+  y: number,
+  baseColor: string,
+  highlightWord: string | undefined,
+  highlightColor: string,
+  highlightBg?: string,
+  strokeColor?: string,
+  strokeWidth = 0,
+  highlightStrokeColor?: string,
+): void {
+  const target = highlightWord?.trim();
+  const segments =
+    target && line.includes(target)
+      ? (() => {
+          const idx = line.indexOf(target);
+          return [
+            { text: line.slice(0, idx), isHi: false },
+            { text: target, isHi: true },
+            { text: line.slice(idx + target.length), isHi: false },
+          ];
+        })()
+      : [{ text: line, isHi: false }];
+
+  ctx.textAlign = 'left';
+  let curX = startX;
+  for (const seg of segments) {
+    if (!seg.text) continue;
+    const w = ctx.measureText(seg.text).width;
+    if (seg.isHi && highlightBg) {
+      const m = ctx.measureText(seg.text);
+      const asc = m.actualBoundingBoxAscent || 40;
+      const desc = m.actualBoundingBoxDescent || 10;
+      ctx.fillStyle = highlightBg;
+      roundRectPath(ctx, curX - 6, y - asc - 4, w + 12, asc + desc + 8, 8);
+      ctx.fill();
+    }
+    const sc = seg.isHi && highlightStrokeColor ? highlightStrokeColor : strokeColor;
+    if (sc && strokeWidth > 0) {
+      ctx.save();
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = strokeWidth;
+      ctx.strokeStyle = sc;
+      ctx.strokeText(seg.text, curX, y);
+      ctx.restore();
+    }
+    ctx.fillStyle = seg.isHi ? highlightColor : baseColor;
+    ctx.fillText(seg.text, curX, y);
+    curX += w;
+  }
 }
 
 /**
@@ -172,6 +198,7 @@ function drawPill(
 export async function exportThumbnailPng(
   props: Omit<ThumbnailTemplateProps, 'scale' | 'showSafeZone'>,
 ): Promise<void> {
+  await document.fonts.load("700 180px 'Bookk Myungjo'").catch(() => {});
   await document.fonts.ready;
 
   const canvas = document.createElement('canvas');
@@ -182,248 +209,197 @@ export async function exportThumbnailPng(
     throw new Error('2D 캔버스 컨텍스트를 초기화할 수 없습니다.');
   }
 
-  const [topImg, bottomImg] = await Promise.all([
+  const [img, wordmarkImg] = await Promise.all([
     props.imageUrl ? loadImage(props.imageUrl).catch(() => null) : Promise.resolve(null),
-    props.bottomImageUrl ? loadImage(props.bottomImageUrl).catch(() => null) : Promise.resolve(null),
+    props.showWordmark ? loadImage(brand.wordmarkWhite).catch(() => null) : Promise.resolve(null),
   ]);
 
   const badgeText = props.badge?.trim() ?? '';
   const headlineText = props.headline?.trim() ?? '';
   const subtitleText = props.subtitle?.trim() ?? '';
-  const realityText = props.realityBadge?.trim() ?? '';
+  const lines = headlineText ? headlineText.split('\n').filter((l) => l.length > 0) : [];
+  const imgScale = props.imageScale ?? 1;
+  const imgOffX = props.imageOffsetX ?? 0;
+  const imgOffY = props.imageOffsetY ?? 0;
 
-  if (props.variant === 'editorial') {
+  if (props.variant === 'invert-box') {
     ctx.fillStyle = '#111317';
     ctx.fillRect(0, 0, 1080, 1920);
-    if (topImg) drawCoverImage(ctx, topImg, 0, 0, 1080, 1920);
+    if (img) drawCoverImage(ctx, img, 0, 0, 1080, 1920, imgScale, imgOffX, imgOffY);
+    drawBottomGradientIfNeeded(ctx, props.showBottomGradient);
 
-    const grad = ctx.createLinearGradient(0, 940, 0, 1920);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(0.42, 'rgba(0,0,0,0.48)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.92)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 940, 1080, 980);
+    let curY = drawBadgePill(ctx, 540, 540, 296, badgeText);
+    const fontSize = 78;
+    const boxHeight = Math.round(fontSize * 1.16 + 20);
+    ctx.font = `500 ${fontSize}px ${SANS_FONT}`;
+    ctx.textBaseline = 'middle';
 
-    if (badgeText) {
-      drawPill(ctx, 96, 280, badgeText, {
-        bg: '#d6ff3f',
-        fg: '#000000',
-        font: `800 30px ${SANS_FONT}`,
-        radius: 16,
-      });
+    lines.forEach((line, idx) => {
+      const isOdd = idx % 2 === 1;
+      const tw = ctx.measureText(line).width;
+      const bw = Math.min(952, tw + 44);
+      const bx = 540 - bw / 2;
+      ctx.fillStyle = isOdd ? '#020202' : '#ffffff';
+      ctx.fillRect(bx, curY, bw, boxHeight);
+
+      drawLineWithHighlight(
+        ctx,
+        line,
+        540 - tw / 2,
+        curY + boxHeight / 2 + 2,
+        isOdd ? '#ffffff' : '#111111',
+        props.highlightWord,
+        isOdd ? '#d6ff3f' : '#000000',
+        isOdd ? undefined : '#d6ff3f',
+      );
+      curY += boxHeight;
+    });
+
+    if (subtitleText) {
+      drawSubtitlePill(ctx, 540, 540, curY + 22, subtitleText);
+    }
+  } else if (props.variant === 'white-label') {
+    ctx.fillStyle = '#12151c';
+    ctx.fillRect(0, 0, 1080, 1920);
+    if (img) drawCoverImage(ctx, img, 0, 0, 1080, 1920, imgScale, imgOffX, imgOffY);
+    drawBottomGradientIfNeeded(ctx, props.showBottomGradient);
+
+    let curY = drawBadgePill(ctx, null, 68, 340, badgeText);
+    const fontSize = 92;
+    const boxHeight = Math.round(fontSize * 1.12 + 20);
+    ctx.font = `700 ${fontSize}px ${SANS_FONT}`;
+    ctx.textBaseline = 'middle';
+
+    for (const line of lines) {
+      const tw = ctx.measureText(line).width;
+      const bw = Math.min(944, tw + 40);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(68, curY, bw, boxHeight);
+
+      drawLineWithHighlight(
+        ctx,
+        line,
+        68 + 20,
+        curY + boxHeight / 2 + 2,
+        '#000000',
+        props.highlightWord,
+        '#000000',
+        '#d6ff3f',
+      );
+      curY += boxHeight;
     }
 
-    if (headlineText) {
+    if (subtitleText) {
+      drawSubtitlePill(ctx, null, 68, curY + 22, subtitleText);
+    }
+  } else if (props.variant === 'serif-outline') {
+    ctx.fillStyle = '#141414';
+    ctx.fillRect(0, 0, 1080, 1920);
+    if (img) drawCoverImage(ctx, img, 0, 0, 1080, 1920, imgScale, imgOffX, imgOffY);
+    drawBottomGradientIfNeeded(ctx, props.showBottomGradient);
+
+    let curY = 235;
+    if (badgeText) {
       ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.85)';
-      ctx.shadowBlur = 32;
-      drawHighlightedLines(
-        ctx,
-        headlineText,
-        96,
-        1110,
-        94,
-        `800 80px ${SANS_FONT}`,
-        '#ffffff',
-        '#d6ff3f',
-        props.highlightWord,
-      );
+      ctx.font = `italic 700 52px ${SERIF_FONT}`;
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(0,0,0,0.45)';
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetY = 4;
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = '#000000';
+      ctx.strokeText(badgeText, 540, curY);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(badgeText, 540, curY);
+      ctx.restore();
+      curY += 78;
+    }
+
+    if (lines.length > 0) {
+      const fontSize = computeSerifOutlineFontSize(headlineText);
+      const lineHeight = Math.round(fontSize * 1.06);
+      ctx.save();
+      ctx.font = `700 ${fontSize}px ${SERIF_FONT}`;
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = 'rgba(0,0,0,0.32)';
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetY = 8;
+
+      for (const line of lines) {
+        const tw = ctx.measureText(line).width;
+        drawLineWithHighlight(
+          ctx,
+          line,
+          540 - tw / 2,
+          curY,
+          '#000000',
+          props.highlightWord,
+          '#d6ff3f',
+          undefined,
+          '#ffffff',
+          22,
+          '#000000',
+        );
+        curY += lineHeight;
+      }
       ctx.restore();
     }
 
     if (subtitleText) {
-      ctx.font = `300 48px ${SANS_FONT}`;
-      ctx.fillStyle = '#d4d4d4';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText(subtitleText, 96, headlineText ? 1326 : 1110);
-    }
-  } else if (props.variant === 'viral-hook') {
-    ctx.fillStyle = '#12151c';
-    ctx.fillRect(0, 0, 1080, 1920);
-    if (topImg) drawCoverImage(ctx, topImg, 0, 0, 1080, 1920);
-
-    const grad = ctx.createLinearGradient(0, 860, 0, 1920);
-    grad.addColorStop(0, 'rgba(10,10,10,0)');
-    grad.addColorStop(0.38, 'rgba(10,10,10,0.72)');
-    grad.addColorStop(1, 'rgba(10,10,10,0.95)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 860, 1080, 1060);
-
-    if (badgeText) {
-      drawPill(ctx, 96, 296, badgeText, {
-        bg: '#d6ff3f',
-        fg: '#000000',
-        font: `800 36px ${SANS_FONT}`,
-        padX: 38,
-        height: 76,
-      });
-    }
-
-    if (headlineText || subtitleText) {
-      const lineCount = headlineText ? headlineText.split('\n').length : 0;
-      const barHeight = Math.max(56, lineCount * 88 + (subtitleText ? 54 : 0));
-      roundRectPath(ctx, 96, 1080, 14, barHeight, 7);
-      ctx.fillStyle = '#d6ff3f';
-      ctx.fill();
-
-      if (headlineText) {
-        drawHighlightedLines(
-          ctx,
-          headlineText,
-          136,
-          1078,
-          89,
-          `800 74px ${SANS_FONT}`,
-          '#ffffff',
-          '#d6ff3f',
-          props.highlightWord,
-        );
-      }
-
-      if (subtitleText) {
-        ctx.font = `500 36px ${SANS_FONT}`;
-        ctx.fillStyle = '#d4d4d4';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(subtitleText, 136, headlineText ? 1078 + lineCount * 89 + 24 : 1084);
-      }
-    }
-  } else if (props.variant === 'split-vs') {
-    ctx.fillStyle = '#1b2434';
-    ctx.fillRect(0, 0, 1080, 954);
-    if (topImg) drawCoverImage(ctx, topImg, 0, 0, 1080, 954, 0.25);
-
-    ctx.fillStyle = '#241921';
-    ctx.fillRect(0, 966, 1080, 954);
-    if (bottomImg) drawCoverImage(ctx, bottomImg, 0, 966, 1080, 954, 0.06);
-
-    ctx.fillStyle = '#d6ff3f';
-    ctx.fillRect(0, 954, 1080, 12);
-
-    ctx.beginPath();
-    ctx.arc(540, 960, 80, 0, Math.PI * 2);
-    ctx.fillStyle = '#d6ff3f';
-    ctx.fill();
-    ctx.lineWidth = 10;
-    ctx.strokeStyle = '#0a0a0a';
-    ctx.stroke();
-
-    ctx.font = `900 64px ${SANS_FONT}`;
-    ctx.fillStyle = '#000000';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('VS', 540, 962);
-
-    if (badgeText) {
-      drawPill(ctx, 96, 290, badgeText, {
-        bg: '#0a0a0a',
-        fg: '#ffffff',
-        font: `700 32px ${SANS_FONT}`,
-        stroke: '#ffffff',
-        height: 72,
-      });
-    }
-
-    if (realityText) {
-      drawPill(ctx, 96, 1044, realityText, {
-        bg: '#d6ff3f',
-        fg: '#000000',
-        font: `800 32px ${SANS_FONT}`,
-        stroke: '#0a0a0a',
-        height: 72,
-      });
-    }
-
-    if (headlineText || subtitleText) {
-      roundRectPath(ctx, 72, 1256, 936, subtitleText && headlineText ? 196 : 136, 28);
-      ctx.fillStyle = 'rgba(10, 10, 10, 0.92)';
-      ctx.fill();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = '#d6ff3f';
-      ctx.stroke();
-
-      if (headlineText) {
-        drawHighlightedLines(
-          ctx,
-          headlineText,
-          540,
-          1292,
-          64,
-          `800 54px ${SANS_FONT}`,
-          '#ffffff',
-          '#d6ff3f',
-          props.highlightWord,
-          'center',
-        );
-      }
-
-      if (subtitleText) {
-        ctx.font = `500 32px ${SANS_FONT}`;
-        ctx.fillStyle = '#a6a6a6';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(subtitleText, 540, headlineText ? 1372 : 1306);
-      }
+      drawSubtitlePill(ctx, 540, 540, curY + 22, subtitleText);
     }
   } else {
-    ctx.fillStyle = '#f7f7f5';
+    // pov-bar: 상단 솔리드 블랙 바 + 하단 이미지
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, 1080, 1920);
-    if (topImg) {
-      drawCoverImage(ctx, topImg, 0, 0, 1080, 1920);
-    }
+    if (img) drawCoverImage(ctx, img, 0, 560, 1080, 1360, imgScale, imgOffX, imgOffY);
+    drawBottomGradientIfNeeded(ctx, props.showBottomGradient);
 
-    const topGrad = ctx.createLinearGradient(0, 0, 0, 620);
-    topGrad.addColorStop(0, 'rgba(247,247,245,0.92)');
-    topGrad.addColorStop(0.62, 'rgba(247,247,245,0.68)');
-    topGrad.addColorStop(1, 'rgba(247,247,245,0)');
-    ctx.fillStyle = topGrad;
-    ctx.fillRect(0, 0, 1080, 620);
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, 1080, 560);
 
-    const botGrad = ctx.createLinearGradient(0, 1920, 0, 1340);
-    botGrad.addColorStop(0, 'rgba(247,247,245,0.92)');
-    botGrad.addColorStop(0.55, 'rgba(247,247,245,0.6)');
-    botGrad.addColorStop(1, 'rgba(247,247,245,0)');
-    ctx.fillStyle = botGrad;
-    ctx.fillRect(0, 1340, 1080, 580);
+    const fontSize = 60;
+    const lineHeight = Math.round(fontSize * 1.32);
+    const badgeH = badgeText ? 74 : 0;
+    const blockH = badgeH + lines.length * lineHeight;
+    let curY = 248 + Math.max(0, (284 - blockH) / 2);
 
     if (badgeText) {
-      drawPill(ctx, 96, 280, badgeText, {
-        bg: '#0a0a0a',
-        fg: '#ffffff',
-        font: `700 30px ${SANS_FONT}`,
-        height: 70,
-        dotColor: '#d6ff3f',
-      });
+      curY = drawBadgePill(ctx, 540, 540, curY, badgeText);
     }
 
-    if (headlineText) {
-      drawHighlightedLines(
+    ctx.font = `700 ${fontSize}px ${SANS_FONT}`;
+    ctx.textBaseline = 'top';
+    for (const line of lines) {
+      const tw = ctx.measureText(line).width;
+      drawLineWithHighlight(
         ctx,
-        headlineText,
-        96,
-        392,
-        89,
-        `800 74px ${SANS_FONT}`,
-        '#0a0a0a',
-        '#000000',
+        line,
+        540 - tw / 2,
+        curY,
+        '#ffffff',
         props.highlightWord,
-        'left',
         '#d6ff3f',
       );
+      curY += lineHeight;
     }
 
     if (subtitleText) {
-      roundRectPath(ctx, 96, 1376, 888, 112, 56);
-      ctx.fillStyle = '#0a0a0a';
-      ctx.fill();
-
-      ctx.font = `700 38px ${SANS_FONT}`;
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(subtitleText, 540, 1433);
+      drawSubtitlePill(ctx, 540, 540, 1340, subtitleText, 0, 44, 28, 14);
     }
+  }
+
+  if (wordmarkImg && wordmarkImg.naturalWidth > 0 && wordmarkImg.naturalHeight > 0) {
+    const h = 40;
+    const w = Math.round((wordmarkImg.naturalWidth / wordmarkImg.naturalHeight) * h);
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.shadowColor = 'rgba(0,0,0,0.65)';
+    ctx.shadowBlur = 10;
+    ctx.drawImage(wordmarkImg, 1080 - 96 - w, 1410, w, h);
+    ctx.restore();
   }
 
   const dataUrl = canvas.toDataURL('image/png');
