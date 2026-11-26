@@ -10,6 +10,8 @@ import { generateText, type LanguageModel, type ModelMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { priceOf, type StepUsage } from "./cost.js";
 import { toPipelinePlan } from "./pipeline-plan.js";
+import { copySceneAssets, installSceneLib } from "./assets/copy.js";
+import { characterNames, hdris, searchAssets } from "./catalog.js";
 import type { ScenarioItem } from "./schema.js";
 
 const FPS = 30;
@@ -66,11 +68,77 @@ use \`color\` as the accent. The motion must make the FACT readable at a glance.
 
 Output ONLY the code inside one \`\`\`tsx block.`;
 
+
+// 무대·인물·받아 둔 물건·제품 모델을 쓰는 장면 (기본). B_SCENE_STYLE=basic 이면 위 RULES(기본 도형만)
+const RULES_RICH = `
+Write ONE React Three Fiber scene component as a .tsx file for a Remotion video (1080x1920 vertical, 30fps).
+
+Contract:
+- \`export default function Scene({ durationInFrames, color }: { durationInFrames: number; color: string })\`
+- Return ONLY 3D children. It is mounted INSIDE an existing <ThreeCanvas>. Do NOT render <Canvas>/<ThreeCanvas> or any HTML.
+- Captions are drawn by the caller over the lower ~40% of the frame; a number counter (if any) at the very top.
+
+Scene kit (already available next to your file — import exactly like this):
+  import { Stage, Character, Prop, FLOOR_Y, CAMERAS, blendCamera, SlamIn, Quake, DustBurst, BackDim, SLAM_IMPACT } from './BCharacter';
+  import Product from './BProduct';   // ONLY in the reveal scene, ONLY if told a product model exists
+
+- <Stage camera={...} floorColor="#hex" wallColor="#hex" back={-4.8} hdri="bassets/polyhaven/hdri/<file>" />  — put it FIRST.
+  Gives the floor (y = FLOOR_Y = -0.35), a back wall that curves up behind z ≈ -2.6, soft window daylight, shadows,
+  and sets the camera. Do NOT add your own ambient/directional lights (a small extra point light for a glow is fine).
+- Camera = focus. Use the presets: CAMERAS.wide (whole stage), CAMERAS.person (the character's face), CAMERAS.visual
+  (the visualization spot), CAMERAS.product (reveal). Move between them with
+  \`blendCamera('wide', 'visual', interpolate(frame, [a, b], [0, 1], {extrapolateLeft:'clamp', extrapolateRight:'clamp'}))\`.
+- Layout (meters, a person is ~1.7 tall). Floor y = FLOOR_Y. Screen center column x≈0.
+  * Character stands at [-1.2, FLOOR_Y, -0.2], rotationY 0.55 (faces the visualization), height 1.7.
+  * Visualization spot: center [0.4, 1.3, -0.6], fits a ~1.4 wide object; or on the floor around x 0..1.4, z -0.6.
+  * Decor (assets): back row z -1.4..-2.4 across x -2.2..2.2, plus 1-2 items near the character. Fill the space: the stage
+    must not look empty, but keep the visualization spot clear.
+  * Everything must stay fully in frame. With CAMERAS.wide the visible width at z=-0.6 is about x -2.1..2.1.
+- <Prop file="<one of the given asset files>" position={[x, FLOOR_Y, z]} height={meters} rotationY={rad} />
+  Scales the model to that height and stands it on position (base centered). Optional: width={m} instead of height,
+  colors={{ <materialName>: '#hex' }}, tone="#c9b9a6" (multiplies all colors — use a warm mid tone to calm toy-like colors).
+  Realistic heights: desk 0.78, chair 0.9, bookcase 1.9, barrel 0.9, crate 0.6, lamp 1.6, tree 2.6, rock 0.5, pot 0.35, cup 0.12.
+  Use ONLY the asset file paths given below, as string literals exactly as written.
+- <Character file="bassets/uacp/<Name>.gltf" position={[-1.2, FLOOR_Y, -0.2]} rotationY={0.55} height={1.7}
+     colors={{ Skin: '#f0c9a6' }}
+     timeline={[{ clip: 'Idle', from: 0, to: durationInFrames + 1 }]}
+     emotes={[{ type: 'look', from: 0, to: durationInFrames, amount: 0.45 }, { type: 'surprise', from: 40, to: 70 }]} />
+  Emotes (frame ranges): look (turn head, amount ±rad), tilt (curious), nod (understanding), surprise (jolt), bounce (excited),
+  droop (sad). For joy add a timeline segment { clip: 'Victory', from, to }, for disappointment { clip: 'Defeat', from, to }
+  (then back to 'Idle'). The character acts with emotions only — no walking, no picking things up.
+- Visualization: build the FACT with three primitives (Box, Sphere, Cylinder with thetaLength for wedges, Torus, Tube,
+  InstancedMesh ≤ 2000) at the visualization spot, big and clear. Use meshStandardMaterial / meshPhysicalMaterial.
+  Colors the story needs are fine (e.g. the 7 real rainbow colors); use \`color\` as the accent.
+- Reveal scene template (when told this is the reveal):
+    <Quake impact={SLAM_IMPACT}>
+      <Stage camera={CAMERAS.product} ... />
+      ...the previous scene's place, character and decor (they get darkened)...
+      <BackDim impact={SLAM_IMPACT} z={0.25} />
+      <SlamIn impact={SLAM_IMPACT} position={[0, FLOOR_Y, 0.6]}> <Product height={1.5} lidOpen={...} /> </SlamIn>
+      <DustBurst impact={SLAM_IMPACT} position={[0, FLOOR_Y, 0.6]} radius={1.0} />
+      ...after landing, show the product's feature with motion in front of it (z > 0.3), e.g. particles pulled into it...
+    </Quake>
+  Everything that should be darkened must be at z < 0.25; the product and its feature effect at z > 0.3.
+- Never draw text or digits in 3D.
+
+Determinism (rendered frame by frame by several browsers):
+- ALL motion from \`const frame = useCurrentFrame()\` with \`interpolate\`/\`spring\` from 'remotion'.
+- FORBIDDEN: useFrame, requestAnimationFrame, Date, performance.now, Math.random, setTimeout, useEffect-driven animation.
+- Randomness only via \`random('seed-' + i)\` from 'remotion'.
+
+Allowed imports ONLY: 'react', 'remotion', 'three', '@react-three/fiber' (no useFrame), './BCharacter', './BProduct'.
+No @react-three/drei, no URLs, no other model files than the given ones.
+
+Output ONLY the code inside one \`\`\`tsx block.`;
+
+const SCENE_STYLE = (process.env.B_SCENE_STYLE?.trim() || "rich") as "rich" | "basic";
+
 function staticCheck(code: string): string | null {
   const bad = [/useFrame/, /requestAnimationFrame/, /Date\.now|new Date/, /performance\.now/, /Math\.random/, /setTimeout|setInterval/, /@react-three\/drei/, /https?:\/\//, /<ThreeCanvas|<Canvas/];
   const hit = bad.filter((r) => r.test(code)).map(String);
   const imports = [...code.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
-  const extra = imports.filter((i) => !["react", "remotion", "three", "@react-three/fiber"].includes(i));
+  const allowed = ["react", "remotion", "three", "@react-three/fiber", ...(SCENE_STYLE === "rich" ? ["./BCharacter", "./BProduct"] : [])];
+  const extra = imports.filter((i) => !allowed.includes(i));
   if (!/export\s+default/.test(code)) hit.push("missing export default");
   if (extra.length) hit.push(`disallowed imports: ${extra.join(", ")}`);
   return hit.length ? `Forbidden patterns: ${hit.join("; ")}` : null;
@@ -135,6 +203,26 @@ export interface CutsOptions {
   /** out/<project_id> 절대 경로 */
   projectDir: string;
   round: number;
+  /** 반전 장면 제품 3D 모델 (src/assets/products/<model>.tsx) */
+  productModel?: string;
+}
+
+/** 3D 명세의 assets·character 를 실제 파일로 바꿔 장면 코드 프롬프트에 넣을 글로 */
+export function assetBrief(sc: NonNullable<ScenarioItem["beats"][number]["scene3d"]> | undefined): string {
+  if (!sc) return "";
+  const lines: string[] = [];
+  if (sc.stage) lines.push(`Stage: place "${sc.stage.place}", floorColor ${sc.stage.floor_color}, wallColor ${sc.stage.wall_color}. HDRI files: ${hdris().map((h) => `bassets/polyhaven/hdri/${h}`).join(", ")}`);
+  if (sc.character) {
+    const ok = characterNames().includes(sc.character.model);
+    lines.push(`Character: ${sc.character.role} → file "bassets/uacp/${ok ? sc.character.model : "OldClassy_Male"}.gltf"; emotions: ${sc.character.emotions.map((e) => `${e.type} ${Math.round(e.from * 100)}%~${Math.round(e.to * 100)}%`).join(", ")}`);
+  }
+  const files: string[] = [];
+  for (const a of sc.assets ?? []) {
+    const hits = searchAssets(a.query, 2);
+    if (hits.length) files.push(`- ${a.role} (${a.place}): "${hits[0].file}"${hits[1] ? ` (alternative: "${hits[1].file}")` : ""}`);
+  }
+  if (files.length) lines.push(`Asset files to decorate the place (use these exact paths):\n${files.join("\n")}`);
+  return lines.join("\n");
 }
 
 /** 시나리오들의 장면 컷을 만든다. 반환: 컷 결과 + 비용 단계 */
@@ -159,10 +247,18 @@ export async function renderCuts(
     const beats = [...s.beats].sort((a, b) => a.order - b.order);
     plan.scenes.forEach((scene, i) => {
       const key = `B${s.scenario_id.replace(/[^A-Za-z0-9]/g, "")}_${beats[i].order}`;
+      const isReveal = i === plan.scenes.length - 1;
+      const rich = SCENE_STYLE === "rich";
+      const extra = rich
+        ? `\n${assetBrief(beats[i].scene3d)}\n` +
+          (isReveal
+            ? `This is the REVEAL scene (product first appears). ${opts.productModel ? "A product model EXISTS: import Product from './BProduct' — <Product height={1.5} lidOpen={0..1} /> stands on y=0 (lidOpen 1 = lid off, leaning beside it, green gel visible). Use it, do not build the product yourself." : "No product model: build the product from primitives as described."}\n`
+            : "This is NOT the reveal: do not show the product or its shape.\n")
+        : "";
       jobs.push({
         s, order: beats[i].order, key, scene, tries: 0, ok: false,
         convo: [{ role: "user", content:
-          `${RULES}\n\nScene to build (${scene.durationSec}s = ${Math.round(scene.durationSec * FPS)} frames, accent ${scene.color}, background ${scene.bg}):\n` +
+          `${rich ? RULES_RICH : RULES}${extra}\n\nScene to build (${scene.durationSec}s = ${Math.round(scene.durationSec * FPS)} frames, accent ${scene.color}, background ${scene.bg}):\n` +
           `Caption on screen (drawn by caller): ${JSON.stringify(scene.text)}\n` +
           `Counter overlay at the top: ${scene.counter ? `YES (${scene.counter.from}→${scene.counter.to}${scene.counter.suffix ?? ""}) — keep 3D below y 2.2` : "no"}\n` +
           `What the 3D must show:\n${scene.visual}` }],
@@ -178,7 +274,12 @@ export async function renderCuts(
   const keepKeys = [...(origFiles.get("index.ts") ?? "").matchAll(/import (\w+) from '\.\/\1'/g)].map((m) => m[1]);
 
   const passed = new Set<string>();
+  // 무대·인물·물건 모델: 부품은 generated/B*.tsx, 모델 파일은 public/bassets (끝나면 원래대로)
+  const assetDir = join(pdir, "public/bassets");
+  const assetSnap = snapshotDir(assetDir);
+  const assetDirExisted = readdirSync(assetDir).length > 0;
   try {
+    if (SCENE_STYLE === "rich") installSceneLib(genDir, opts.productModel);
     let pending = jobs;
     for (let attempt = 1; attempt <= maxTries && pending.length; attempt++) {
       log(`[B 컷] 3D 장면 코드 생성 ${attempt}/${maxTries} (${pending.length}개)`);
@@ -222,6 +323,7 @@ export async function renderCuts(
     for (const j of jobs) if (!j.ok) rmSync(join(genDir, `${j.key}.tsx`), { force: true });
     writeRegistry(genDir, [...passed], keepKeys);
 
+    if (SCENE_STYLE === "rich") copySceneAssets([...passed].map((k) => join(genDir, `${k}.tsx`)), assetDir);
     // 렌더: 장면마다 처음·중간·끝 프레임
     log(`[B 컷] Remotion 번들·렌더 (${jobs.length}장면 × 3컷)`);
     const req = createRequire(join(pdir, "package.json"));
@@ -264,6 +366,8 @@ export async function renderCuts(
     // pipeline/src/generated 원래대로
     for (const f of readdirSync(genDir)) if (!origFiles.has(f)) rmSync(join(genDir, f), { force: true });
     for (const [f, text] of origFiles) writeFileSync(join(genDir, f), text);
+    assetSnap.restore();
+    if (!assetDirExisted) rmSync(assetDir, { recursive: true, force: true });
   }
 }
 

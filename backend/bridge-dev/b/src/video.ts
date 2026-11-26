@@ -75,6 +75,8 @@ export async function renderHookVideos(
     charVariant?: `char_${string}` | "char";
     /** 나레이션: edge(기본, Edge TTS) / inworld (b/.env 의 INWORLD_*) */
     tts?: "edge" | "inworld";
+    /** 반전 장면 제품 3D 모델 (src/assets/products/<model>.tsx) */
+    productModel?: string;
   }
 ): Promise<{ videos: HookVideo[]; steps: StepUsage[] }> {
   const log = opts.log ?? (() => {});
@@ -102,12 +104,9 @@ export async function renderHookVideos(
   const scenesOrig = readFileSync(scenesPath, "utf8");
   try {
     if (base === "gclips") writeFileSync(scenesPath, patchScenes(scenesOrig));
-    if (isChar) {
-      // 재사용 인물: 컴포넌트는 generated/BCharacter.tsx, 모델은 public/bassets/
-      const here = dirname(fileURLToPath(import.meta.url));
-      installSceneLib(genDir);
-      copySceneAssets(Object.values(opts.charScenes ?? {}).filter((p) => existsSync(p)), assetDir);
-    }
+    // 장면 부품(무대·인물·물건·제품 모델)은 generated/B*.tsx, 모델 파일은 public/bassets/ (끝나면 원래대로)
+    installSceneLib(genDir, opts.productModel);
+    const sceneFiles: string[] = Object.values(opts.charScenes ?? {}).filter((p) => existsSync(p));
     // 1) 장면 코드 복원 + plan 작성
     const plans: { s: ScenarioItem; planPath: string; plan: { id: string; scenes: PipelineScene[]; hookSeconds: number } }[] = [];
     const keys: string[] = [];
@@ -134,6 +133,7 @@ export async function renderHookVideos(
         const codePath = cb?.code ? join(opts.projectDir, cb.code) : "";
         if (cb?.ok && codePath && existsSync(codePath)) {
           writeFileSync(join(genDir, `${cb.key}.tsx`), readFileSync(codePath));
+          sceneFiles.push(codePath);
           keys.push(cb.key);
           return { ...sc, gen: cb.key };
         }
@@ -148,6 +148,7 @@ export async function renderHookVideos(
       plans.push({ s, planPath, plan });
     }
     writeRegistry(genDir, keys, gen.keepKeys);
+    copySceneAssets(sceneFiles, assetDir);
 
     // 2) TTS (pipeline/scripts/tts.mjs 의 addVoice: 음성이 장면보다 길면 장면을 늘림)
     log("[B 영상] TTS 나레이션");

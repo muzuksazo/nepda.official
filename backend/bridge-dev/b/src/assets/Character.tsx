@@ -511,3 +511,39 @@ export function DustBurst({ impact = SLAM_IMPACT, position = [0, 0, 0], radius =
     </group>
   );
 }
+
+/**
+ * 반전 템플릿 "뒤쪽 어두워짐": impact 부터 약 0.5초에 걸쳐 z 보다 뒤에 있는 것(배경·물건·인물)을 어둡게 덮는다.
+ * 제품을 z 보다 앞(카메라 쪽)에 두면 제품만 밝게 남는다. 예: 제품 z=0.6 → <BackDim z={0.25} />
+ */
+export function BackDim({ impact = SLAM_IMPACT, z = 0.25, amount = 0.72, frames = 15 }: { impact?: number; z?: number; amount?: number; frames?: number }) {
+  const f = useCurrentFrame();
+  const k = interpolate(f, [impact, impact + frames], [0, amount], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  if (k <= 0) return null;
+  return (
+    <mesh position={[0, 2, z]} renderOrder={10}>
+      <planeGeometry args={[40, 30]} />
+      <meshBasicMaterial color="#000000" transparent opacity={k} depthWrite={false} toneMapped={false} />
+    </mesh>
+  );
+}
+
+/** 카메라 포커스 프리셋 (Stage 기본 배치 기준: 인물 x≈-1.2, 시각화 자리 [0.4, 1.3, -0.6], 반전 제품 [0, FLOOR_Y, 0.6]) */
+export const CAMERAS = {
+  wide: { position: [0, 1.55, 9.2] as [number, number, number], lookAt: [0, 0.55, -1] as [number, number, number], fov: 40 },
+  person: { position: [-0.9, 1.35, 5.4] as [number, number, number], lookAt: [-1.1, 0.75, -0.4] as [number, number, number], fov: 38 },
+  visual: { position: [0.4, 1.55, 6.0] as [number, number, number], lookAt: [0.4, 1.05, -0.6] as [number, number, number], fov: 38 },
+  product: { position: [0, 2.5, 7.4] as [number, number, number], lookAt: [0, 0.35, 0.3] as [number, number, number], fov: 38 },
+};
+export type CameraName = keyof typeof CAMERAS;
+type Cam = { position: [number, number, number]; lookAt: [number, number, number]; fov: number };
+
+/** 두 카메라 사이를 t(0~1) 만큼 옮긴 카메라. Stage 의 camera 로 넘긴다: <Stage camera={blendCamera('wide', 'visual', t)} /> */
+export function blendCamera(a: CameraName | Cam, b: CameraName | Cam, t: number): Cam {
+  const A = typeof a === 'string' ? CAMERAS[a] : a;
+  const B = typeof b === 'string' ? CAMERAS[b] : b;
+  const k = Math.min(1, Math.max(0, t));
+  const e = k * k * (3 - 2 * k);
+  const mix = (x: number[], y: number[]) => x.map((v, i) => v + (y[i] - v) * e) as [number, number, number];
+  return { position: mix(A.position, B.position), lookAt: mix(A.lookAt, B.lookAt), fov: A.fov + (B.fov - A.fov) * e };
+}

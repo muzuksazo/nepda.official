@@ -6,6 +6,7 @@ import { z } from "zod";
 import { checkScenario } from "./check.js";
 import { priceOf, type StepUsage } from "./cost.js";
 import { SCENE3D_PROMPT } from "./prompt.js";
+import { catalogSummary, characterNames, searchAssets } from "./catalog.js";
 import { Scene3DSchema, type ProductInfoSchema, type ScenarioItem } from "./schema.js";
 
 const BatchSchema = z.object({
@@ -37,9 +38,11 @@ export async function addScene3d(
         model,
         system: SCENE3D_PROMPT,
         prompt:
-          `제품 verified_facts:\n${product.verified_facts.map((f) => `- ${f}`).join("\n")}\n\n` +
+          `제품 verified_facts:\n${product.verified_facts.map((f) => `- ${f}`).join("\n")}\n` +
+          (product.model ? `제품 3D 모델 있음: 반전 장면은 이 모델(Product)을 씁니다. objects에 제품을 따로 만들지 않습니다.\n` : "") +
+          `\n## 있는 에셋\n${catalogSummary()}\n\n` +
           `시나리오(JSON):\n${JSON.stringify({ hook_title: s.hook_title, beats: s.beats.map(({ scene3d: _x, ...b }) => b), anchor: s.ad_spec.anchor }, null, 1)}\n\n` +
-          `모든 장면(order)마다 scene3d를 쓰세요.${feedback ? `\n\n직전 결과의 규칙 위반(모두 고치세요):\n${feedback}` : ""}`,
+          `모든 장면(order)마다 scene3d를 쓰세요. stage·assets(3~6개)는 모든 장면에, character는 사람이 나오는 이야기면 모든 장면에 채웁니다.${feedback ? `\n\n직전 결과의 규칙 위반(모두 고치세요):\n${feedback}` : ""}`,
         output: Output.object({ schema: BatchSchema }),
         maxOutputTokens: 16000,
         providerOptions: { anthropic: { effort: "medium" } },
@@ -50,6 +53,15 @@ export async function addScene3d(
       next = { ...s, beats: s.beats.map((b) => ({ ...b, scene3d: byOrder.get(b.order) ?? b.scene3d })) };
       const errs = checkScenario(next, product).errors.filter((e) => /3D|움직임|오브젝트/.test(e));
       const missing = next.beats.filter((b) => !b.scene3d).map((b) => `장면 ${b.order} scene3d 없음`);
+      const names = new Set(characterNames());
+      for (const b of next.beats) {
+        const sc = b.scene3d;
+        if (!sc) continue;
+        if (!sc.stage) missing.push(`장면 ${b.order} stage 없음`);
+        if (!sc.assets?.length) missing.push(`장면 ${b.order} assets 없음 (3~6개)`);
+        for (const a of sc.assets ?? []) if (!searchAssets(a.query, 1).length) missing.push(`장면 ${b.order} assets "${a.query}" 에 맞는 모델이 없음 — 있는 에셋 목록의 다른 영어 낱말로 바꾸거나 빼세요`);
+        if (sc.character && !names.has(sc.character.model)) missing.push(`장면 ${b.order} character "${sc.character.model}" 는 목록에 없는 이름 — 목록의 이름 그대로 쓰세요`);
+      }
       if (!errs.length && !missing.length) break;
       feedback = [...errs, ...missing].map((e) => `- ${e}`).join("\n");
     }

@@ -75,7 +75,7 @@ async function attachCuts(run: RunRecord, projectId: string, product: ProductInf
   // 시나리오 단계에서 뺀 3D 명세를 여기서(고른 시나리오에만) 만든다
   const s3d = await addScene3d(run.response.scenarios, product, { log });
   const scenarios = s3d.scenarios;
-  const { cuts, steps } = await renderCuts(scenarios, { projectDir: join(OUT, projectId), round: run.response.round, log });
+  const { cuts, steps } = await renderCuts(scenarios, { projectDir: join(OUT, projectId), round: run.response.round, log, productModel: product.model });
   const kept = run.steps.filter((s) => !s.step.startsWith("컷:")); // 다시 렌더하면 이전 컷 비용을 대체
   const allSteps = [...kept, ...s3d.steps, ...steps];
   return { ...run, response: { ...run.response, scenarios }, cuts, steps: allSteps, total: totals(allSteps) };
@@ -261,6 +261,7 @@ async function main() {
       charScenes,
       charVariant,
       tts,
+      productModel: productOf(run).model,
     });
     const base = gclips ? "gclips" : char ? charVariant : "3d";
     const variant = tts === "inworld" ? `${base}_inworld` : base;

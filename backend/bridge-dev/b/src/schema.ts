@@ -51,8 +51,42 @@ export const Scene3DSchema = z.object({
     .object({ from: z.number(), to: z.number(), unit: z.string() })
     .nullable()
     .describe("숫자 카운터(화면 위쪽, 3D와 같은 spring으로 동기화). 숫자 없는 장면은 null"),
-  background: z.string().describe("배경 hex(어두운 단색)"),
-  lighting: z.string().describe("ambient + directional/point 구성"),
+  background: z.string().describe("배경 hex(어두운 단색). 무대 벽색과 맞춘다"),
+  lighting: z.string().describe("무대 자연광 위에 더할 빛이 있으면 한 줄(없으면 '무대 기본')"),
+  stage: z
+    .object({
+      place: z.string().describe("이야기 장소 한 줄 (예: 19세기 실험실)"),
+      floor_color: z.string().describe("바닥 hex (중간 밝기)"),
+      wall_color: z.string().describe("뒤 벽 hex (어둡게)"),
+    })
+    .optional(),
+  character: z
+    .object({
+      model: z.string().describe("캐릭터 모델 이름 (있는 에셋 목록의 인물 이름 그대로)"),
+      role: z.string().describe("이야기 속 누구인지"),
+      emotions: z
+        .array(
+          z.object({
+            type: z.enum(["look", "tilt", "nod", "surprise", "bounce", "droop", "victory", "defeat"]),
+            from: z.number().min(0).max(1),
+            to: z.number().min(0).max(1),
+          })
+        )
+        .describe("감정 표현 (장면 진행 비율)"),
+    })
+    .nullable()
+    .optional()
+    .describe("이야기 주인공 인물. 사람이 없으면 null"),
+  assets: z
+    .array(
+      z.object({
+        query: z.string().describe("영어 1~3단어 모델 검색어 (예: desk, bookcase, pine tree)"),
+        role: z.string().describe("이야기에서 무엇인지"),
+        place: z.string().describe("어디에 놓는지 (예: 바닥 뒤 오른쪽)"),
+      })
+    )
+    .optional()
+    .describe("장소를 꾸미는 3D 물건 3~6개"),
 });
 export type Scene3D = z.infer<typeof Scene3DSchema>;
 
