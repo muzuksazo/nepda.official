@@ -1,0 +1,91 @@
+{
+  "scenario_id": "piev-C-r1-01",
+  "round": 1,
+  "type": "C",
+  "hook_title": "디퓨저 쏟을까 조마조마 → 흐르지 않는 초록 고체 젤",
+  "hook_duration_sec": 15,
+  "body_duration_sec": 5,
+  "replacement_test_note": "C 판정: '쏟을까 조마조마'는 액체가 아닌 고체 젤 제형(F02·F03)이어야만 해소되는 문제라 액체형·스프레이형 방향제 광고에는 옮겨 붙일 수 없음.",
+  "beats": [
+    {
+      "order": 1,
+      "role": "problem",
+      "duration_sec": 3,
+      "visual": "실물 원본(IMG_3302) 밝은 거실 바닥 POV, 무보정 날것 그대로",
+      "narration": "디퓨저 옆 지날 때마다, 쏟을까 조마조마하죠?",
+      "caption": "디퓨저 옆 지날 때마다\n쏟을까 조마조마하죠?",
+      "claim_ids": []
+    },
+    {
+      "order": 2,
+      "role": "proof",
+      "duration_sec": 4,
+      "visual": "실물 원본(IMG_3302) 컵 안의 초록 고체 젤이 그대로 보이는 구간",
+      "narration": "이건 액체가 아니라 고체 젤이에요. 기울여도 흐르지 않아요.",
+      "caption": "이건 액체가 아니라\n{초록 고체 젤}이에요",
+      "claim_ids": [
+        "F02",
+        "F03"
+      ]
+    },
+    {
+      "order": 3,
+      "role": "spec",
+      "duration_sec": 4,
+      "visual": "Blender 3D 젤 표면 매크로, 나뭇잎 그림자 조명",
+      "narration": "뚜껑을 열면, 짙은 초록빛 젤이 그대로 담겨 있어요.",
+      "caption": "뚜껑을 열면 그대로 보이는\n{짙은 초록빛 젤}",
+      "claim_ids": [
+        "F02"
+      ]
+    },
+    {
+      "order": 4,
+      "role": "solve",
+      "duration_sec": 4,
+      "visual": "Blender 3D 석재 단상 + 황동 트레이 위 히어로 컷, 빛이 들어오는 아크 무빙",
+      "narration": "테이블이든 욕실 선반이든, 컵처럼 올려두면 끝이에요.",
+      "caption": "테이블·거실·욕실 선반\n{컵처럼 올려두면 끝}",
+      "claim_ids": [
+        "F04"
+      ]
+    }
+  ],
+  "body_beats": [
+    {
+      "order": 5,
+      "role": "brand",
+      "duration_sec": 2.2083333333333335,
+      "visual": "Blender 3D 전면 라벨 클로즈업 슬라이드",
+      "narration": "피에브 에어워셔 피톤치드.",
+      "caption": "피에브 에어워셔 피톤치드",
+      "claim_ids": [
+        "F01"
+      ]
+    },
+    {
+      "order": 6,
+      "role": "cta",
+      "duration_sec": 2.7916666666666665,
+      "visual": "Blender 3D 최종 히어로 컷, 풀백",
+      "narration": "여러분은 디퓨저, 어디에 두세요?",
+      "caption": "여러분은 디퓨저\n{어디에 두세요?}",
+      "claim_ids": []
+    }
+  ],
+  "ad_spec": {
+    "track_archetype": "C_direct_proof",
+    "claim_ids": [
+      "F01",
+      "F02",
+      "F03",
+      "F04"
+    ],
+    "proof_first": true,
+    "cta": {
+      "type": "comment_engagement",
+      "text": "여러분은 디퓨저, 어디에 두세요?"
+    },
+    "disclosure": "ai_assisted"
+  }
+}
