@@ -7,7 +7,7 @@
 import React from 'react';
 import { interpolate } from 'remotion';
 import { useCurrentFrame } from 'remotion';
-import { BackDim, blendCamera, CAMERAS, Character, DustBurst, FLOOR_Y, Prop, Quake, SLAM_IMPACT, SlamIn, Stage, type CameraName } from './BCharacter';
+import { blendCamera, CAMERAS, Character, DustBurst, FLOOR_Y, Prop, Quake, SLAM_IMPACT, SlamIn, Stage, type CameraName } from './BCharacter';
 
 export type Slot = 'back-left' | 'back-center' | 'back-right' | 'side-left' | 'side-right' | 'near-person' | 'front-right';
 export type Emote = 'look' | 'tilt' | 'nod' | 'surprise' | 'bounce' | 'droop' | 'victory' | 'defeat';
@@ -98,9 +98,11 @@ export function KitScene({ plan, durationInFrames: d, children, Product }: { pla
     .map((e) => ({ type: e.type as 'look' | 'tilt' | 'nod' | 'surprise' | 'bounce' | 'droop', from: fr(e.from), to: fr(e.to), amount: e.type === 'look' ? 0.45 : undefined }));
   if (plan.reveal && ch) emotes.push({ type: 'surprise', from: SLAM_IMPACT, to: SLAM_IMPACT + 26, amount: undefined });
 
+  // 반전: 착지 순간부터 0.5초에 걸쳐 무대 조명을 낮춘다 (판을 씌우지 않음 → 화면 전체가 고르게 어두워지고 잘림이 없다)
+  const dim = plan.reveal ? interpolate(f, [SLAM_IMPACT, SLAM_IMPACT + 15], [0, 0.9], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }) : 0;
   const world = (
     <>
-      <Stage camera={camera} floorColor={clampLight(plan.stage.floor, 0.12, 0.3)} wallColor={clampLight(plan.stage.wall, 0.04, 0.12)} back={-4.8} hdri={plan.stage.hdri} envIntensity={0.35} />
+      <Stage dim={dim} camera={camera} floorColor={clampLight(plan.stage.floor, 0.12, 0.3)} wallColor={clampLight(plan.stage.wall, 0.04, 0.12)} back={-4.8} hdri={plan.stage.hdri} envIntensity={0.35} />
       {placeProps(plan.props).filter((pr) => !plan.reveal || pr.position[2] < 0.1).map((pr, i) => ( // 반전: 앞쪽 소품은 빼서 제품·뚜껑 자리를 비운다
         <Prop key={i} file={pr.file} position={pr.position} height={pr.height} maxWidth={pr.maxW} rotationY={pr.rotationY ?? 0} tone={pr.tone} />
       ))}
@@ -125,7 +127,17 @@ export function KitScene({ plan, durationInFrames: d, children, Product }: { pla
   return (
     <Quake impact={SLAM_IMPACT}>
       {world}
-      <BackDim impact={SLAM_IMPACT} z={0.2} />
+      {/* 제품만 비추는 스포트라이트: 무대가 어두워지는 만큼 켜진다 */}
+      <spotLight
+        userData={{ keepLit: true }}
+        position={[0.15, PRODUCT_AT[1] + 5.2, PRODUCT_AT[2] + 1.1]}
+        target-position={[0, PRODUCT_AT[1] + 0.5, PRODUCT_AT[2]]}
+        angle={0.17}
+        penumbra={0.45}
+        decay={0}
+        intensity={4.6 * (dim / 0.9)}
+        color="#fff6ea"
+      />
       <SlamIn impact={SLAM_IMPACT} position={PRODUCT_AT}>
         {Product ? <Product height={1.35} lidOpen={lidOpen} /> : null}
       </SlamIn>

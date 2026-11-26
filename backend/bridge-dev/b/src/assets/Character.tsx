@@ -10,7 +10,7 @@
 //   rotationY={Math.PI / 2} height={2.2} />
 //
 // 동작은 프레임으로만 정해진다(Remotion 결정적 렌더). 구간이 바뀔 때 blend 프레임만큼 섞는다.
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { continueRender, delayRender, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
@@ -312,12 +312,15 @@ export function Stage({
   hdri,
   envIntensity = 0.25,
   back = -3.2,
+  dim = 0,
 }: {
   /** 실내 반사·간접광용 HDRI (예 'bassets/polyhaven/hdri/brown_photostudio_02_1k.hdr'). 배경에는 안 보인다 */
   hdri?: string;
   envIntensity?: number;
   /** 바닥이 뒤쪽 벽으로 휘기 시작하는 깊이 (벽·가구를 뒤에 세울 땐 더 뒤로, 예 -4.8) */
   back?: number;
+  /** 0~1: 무대 전체(조명·반사광)를 이만큼 어둡게 (반전에서 제품만 남길 때). 판을 씌우지 않아 경계·잘림이 없다 */
+  dim?: number;
   floorY?: number;
   floorColor?: string;
   wallColor?: string;
@@ -335,9 +338,8 @@ export function Stage({
     gl.toneMappingExposure = 1.05;
     const pm = new THREE.PMREMGenerator(gl);
     scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
-    (scene as THREE.Scene & { environmentIntensity?: number }).environmentIntensity = envIntensity;
     scene.fog = new THREE.Fog('#100f14', 11, 20);
-  }, [gl, scene, envIntensity]);
+  }, [gl, scene]);
   const advance = useThree((st) => st.advance);
   const [hdrHandle] = useState(() => (hdri ? delayRender('hdri ' + hdri) : null));
   useEffect(() => {
@@ -353,6 +355,22 @@ export function Stage({
       .catch((e) => console.warn('[BStage] hdri load failed', e))
       .finally(() => requestAnimationFrame(() => continueRender(hdrHandle)));
   }, [hdri, hdrHandle, gl, scene, advance]);
+  const lit = 1 - Math.min(1, Math.max(0, dim));
+  (scene as THREE.Scene & { environmentIntensity?: number }).environmentIntensity = envIntensity * lit;
+  // 파이프라인 ThreeCanvas 가 깔아 둔 기본 조명 등 무대 밖 조명도 같이 낮춘다 (무대 조명·keepLit 조명은 빼고).
+  // 처음 그릴 때는 조명이 아직 장면에 붙기 전이라, 붙은 뒤(layout effect)에 바꾸고 한 번 더 그린다. 처음 밝기는 userData 에 기억
+  const advanceStage = useThree((st) => st.advance);
+  useLayoutEffect(() => {
+    let changed = false;
+    scene.traverse((o) => {
+      const l = o as THREE.Light;
+      if (!l.isLight || l.userData.stage || l.userData.keepLit) return;
+      if (l.userData.baseIntensity === undefined) l.userData.baseIntensity = l.intensity;
+      const want = (l.userData.baseIntensity as number) * lit;
+      if (l.intensity !== want) { l.intensity = want; changed = true; }
+    });
+    if (changed) advanceStage(performance.now());
+  });
   // 매 프레임 적용: 바깥 ThreeCanvas 가 camera prop(기본 [0, 0.8, 7])을 다시 넣어도 무대 카메라가 이기게
   cam.position.set(...camera.position);
   cam.fov = camera.fov;
@@ -391,21 +409,23 @@ export function Stage({
 
   return (
     <group>
-      <hemisphereLight args={['#c9d3ff', '#2a2018', 0.3]} />
+      <hemisphereLight userData={{ stage: true }} args={['#c9d3ff', '#2a2018', 0.3 * lit]} />
       {/* 창가 햇빛: 바닥에 빛이 고이고 가장자리는 어둡게 */}
       <spotLight
+        userData={{ stage: true }}
         position={[sun[0] * 0.8, sun[1] * 1.1, sun[2]]}
         angle={0.55}
         penumbra={0.9}
         decay={0}
-        intensity={2.2}
+        intensity={2.2 * lit}
         color={warmth}
         target-position={[0.2, 0, -0.8]}
       />
       <directionalLight
+        userData={{ stage: true }}
         castShadow
         position={sun}
-        intensity={1.4}
+        intensity={1.4 * lit}
         color={warmth}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -420,7 +440,7 @@ export function Stage({
         shadow-radius={5}
       />
       {/* 뒤에서 살짝 비추는 테두리 빛 */}
-      <directionalLight position={[3, 3, -4]} intensity={0.9} color="#cfd8ff" />
+      <directionalLight userData={{ stage: true }} position={[3, 3, -4]} intensity={0.9 * lit} color="#cfd8ff" />
       <mesh geometry={cyc} position={[0, floorY, 0]} receiveShadow>
         <meshStandardMaterial vertexColors roughness={0.92} metalness={0} side={THREE.DoubleSide} />
       </mesh>
