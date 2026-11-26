@@ -45,7 +45,7 @@ export const Home: Story = {
 };
 
 export const MyVideos: Story = {
-  name: '안3-2 내 영상 · 만드는 중 탭',
+  name: '안3-2 내 영상 · 진행 중 탭',
   render: () => (
     <MyVideosScreen inProgress={SAMPLE_IN_PROGRESS} completed={SAMPLE_COMPLETED} onBack={fn()} onContinue={fn()} onDownloadAgain={fn()} />
   ),

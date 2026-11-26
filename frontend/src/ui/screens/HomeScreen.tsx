@@ -37,7 +37,7 @@ export interface HomeScreenProps {
   /** 상단 이벤트 배너 (없으면 영역을 숨긴다) */
   banners?: BannerItem[];
   onBannerSelect?: (id: string) => void;
-  /** 진행 중 화살표 → 내 영상(만드는 중 탭) */
+  /** 진행 중 화살표 → 내 영상(진행 중 탭) */
   onSeeAllInProgress?: () => void;
   /** 완성 화살표 → 내 영상(완성 탭) */
   onSeeAllCompleted?: () => void;

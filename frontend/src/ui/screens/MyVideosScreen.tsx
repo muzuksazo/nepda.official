@@ -15,7 +15,7 @@ export interface MyVideosScreenProps {
   onDownloadAgain?: (id: string) => void;
 }
 
-/** 안3-2 내 영상 — '만드는 중'과 '완성'을 탭 하나로 묶은 전체 목록 */
+/** 안3-2 내 영상 — '진행 중'과 '완성'을 탭 하나로 묶은 전체 목록 */
 export function MyVideosScreen({
   inProgress,
   completed,
@@ -40,14 +40,14 @@ export function MyVideosScreen({
           value={tab}
           onChange={setTab}
           items={[
-            { value: 'inProgress', label: '만드는 중', count: inProgress.length },
+            { value: 'inProgress', label: '진행 중', count: inProgress.length },
             { value: 'completed', label: '완성', count: completed.length },
           ]}
         >
           <div style={{ paddingTop: 20 }} className="n-stack">
             {tab === 'inProgress' ? (
               inProgress.length === 0 ? (
-                empty('만드는 중인 영상이 없어요.')
+                empty('진행 중인 영상이 없어요.')
               ) : (
                 <Stack gap={12}>
                   {inProgress.map((p) => (
