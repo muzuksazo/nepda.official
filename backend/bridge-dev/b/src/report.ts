@@ -108,7 +108,10 @@ function roundBlock(run: RunRecord, open: boolean) {
             .map((b) => {
               const cb = cutOf(b.order);
               const mid = cb?.images[1] ?? cb?.images[0];
-              return mid ? `<figure><img src="${esc(mid)}" alt="장면 ${b.order}" loading="lazy"><figcaption>${b.order}. ${esc(b.role)} · ${b.duration_sec}초${cb && !cb.ok ? " ⚠" : ""}</figcaption></figure>` : "";
+              return mid ? `<figure><img src="${esc(mid)}" alt="장면 ${b.order}" loading="lazy"><figcaption>${b.order}. ${esc(b.role)} · ${b.duration_sec}초${cb && !cb.ok ? " ⚠" : ""}${
+                cb?.qa ? `<br><span class="lic ${cb.qa.pass ? "cc0" : "by"}" title="${esc(cb.qa.issues.map((i) => `${i.severity} ${i.kind}/${i.owner}: ${i.detail}`).join("
+"))}">검수 ${cb.qa.pass ? "통과" : "탈락"} ${cb.qa.score}/5 · ${cb.qa.rounds}차</span>` : ""
+              }</figcaption></figure>` : "";
             })
             .join("")}</div>`
         : "";
@@ -223,6 +226,7 @@ details>summary::before{content:"▸";display:inline-block;width:1em;color:var(-
 .card{border:1px solid var(--line);border-radius:12px;margin:12px 0;padding:0 14px 12px}.card>summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0}
 .card .title{font-weight:700;font-size:16px}
 .path{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 8px}.chip{background:var(--chip);border-radius:8px;padding:4px 10px;font-size:13px}
+.lic{font-size:11px;padding:1px 6px;border-radius:4px;color:#fff}.lic.cc0{background:#2d6a3e}.lic.by{background:#a2321f}
 .chip b{font-weight:600;color:var(--muted);margin-right:4px}.chip.start{outline:1px solid var(--line)}.chip.anchor{background:var(--accent);color:#fff}.chip.anchor b{color:#ffd9d6}.arrow{color:var(--muted)}
 .scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;margin:6px 0}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
 th{color:var(--muted);font-weight:600;font-size:12px;white-space:nowrap}td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}

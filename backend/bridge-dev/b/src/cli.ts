@@ -8,6 +8,7 @@ import { renderCuts } from "./cuts.js";
 import { renderHookVideos } from "./video.js";
 import { addScene3d } from "./scene3d.js";
 import { totals, type StepUsage } from "./cost.js";
+import { measureRuns, measureText } from "./measure.js";
 import { createHash } from "node:crypto";
 import { mergeResearch, RESEARCH_MODEL, researchProduct, researchWarnings, type ProductResearch } from "./research.js";
 import { DraftScenarioSchema, WorkerInputSchema } from "./schema.js";
@@ -29,6 +30,8 @@ const USAGE = `사용법:
   npm run video -- <project_id> <round> [--tts=inworld] [--no-captions]
       컷 단계의 장면 코드 + TTS 나레이션으로 훅 영상(mp4)을 렌더. Claude 호출 없음.
       자막을 굽고, 같은 이름의 .captions.json(장면별 시작·끝·자막·나레이션)도 남긴다. --no-captions 면 자막 없이.
+  npm run measure -- <project_id>
+      회차 기록의 화면 검수 결과로 통과율(사람 손 안 대고 쓸 수 있는 비율)·자주 나온 문제·영상당 비용. API 호출 없음.
   npm run report -- <project_id>
       out/<project_id>/ 의 회차 기록으로 report.html 다시 만들기. API 호출 없음.
   npm run check -- <시나리오응답.json> [--input <입력.json>]
@@ -87,7 +90,12 @@ function printCuts(run: RunRecord) {
     const ok = c.beats.filter((b) => b.ok).length;
     console.log(`\n컷 ${c.scenario_id}: 장면 ${ok}/${c.beats.length}개 생성 성공`);
     for (const b of c.beats)
-      console.log(`  장면 ${b.order} ${b.ok ? "✓" : "✗ 기본 도형"} (시도 ${b.tries}회) ${b.images.length}컷${b.error ? " — " + b.error.split("\n")[0].slice(0, 100) : ""}`);
+      console.log(
+        `  장면 ${b.order} ${b.ok ? "✓" : "✗ 기본 도형"} (시도 ${b.tries}회) ${b.images.length}컷` +
+          (b.qa ? ` · 검수 ${b.qa.pass ? "통과" : "탈락"} ${b.qa.score}/5 (${b.qa.rounds}차${b.qa.firstPass ? ", 처음에 통과" : ""})` : "") +
+          (b.qa && !b.qa.pass ? ` — ${b.qa.issues.filter((i) => i.severity === "major").map((i) => `${i.kind}/${i.owner}: ${i.detail}`).join(" | ").slice(0, 220)}` : "") +
+          (b.error ? " — " + b.error.split("\n")[0].slice(0, 100) : "")
+      );
   }
 }
 
@@ -168,6 +176,11 @@ async function main() {
     for (const s of steps) console.log(`  ${s.step.padEnd(18)} ${s.model}  입력 ${s.inputTokens} / 출력 ${s.outputTokens}  ${s.costUsd === null ? "단가 미상" : "$" + s.costUsd.toFixed(4)}  ${dur(s.ms)}`);
     console.log(`  합계  $${t.costUsd.toFixed(4)}  ⏱ ${dur(t.ms)}`);
     console.log(`\n조사: ${join(OUT, projectId, "research.json")}\n입력: ${inputPath}\n다음: npm run scenarios -- ${inputPath.split("\\").join("/")}`);
+    process.exit(0);
+  }
+
+  if (cmd === "measure") {
+    console.log(measureText(measureRuns(loadRuns(file))));
     process.exit(0);
   }
 

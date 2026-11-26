@@ -533,7 +533,7 @@ export const CAMERAS = {
   wide: { position: [0, 1.55, 9.2] as [number, number, number], lookAt: [0, 0.55, -1] as [number, number, number], fov: 40 },
   person: { position: [-0.9, 1.35, 5.4] as [number, number, number], lookAt: [-1.1, 0.75, -0.4] as [number, number, number], fov: 38 },
   visual: { position: [0.4, 1.55, 6.0] as [number, number, number], lookAt: [0.4, 1.05, -0.6] as [number, number, number], fov: 38 },
-  product: { position: [0, 2.5, 7.4] as [number, number, number], lookAt: [0, 0.35, 0.3] as [number, number, number], fov: 38 },
+  product: { position: [0, 3.0, 6.9] as [number, number, number], lookAt: [0.2, 0.02, 0.5] as [number, number, number], fov: 40 },
 };
 export type CameraName = keyof typeof CAMERAS;
 type Cam = { position: [number, number, number]; lookAt: [number, number, number]; fov: number };

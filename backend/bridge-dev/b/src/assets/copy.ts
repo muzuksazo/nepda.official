@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ASSETS = join(HERE, "../../assets");
 /** 장면 코드가 import 하는 공용 부품: 장면 폴더(src/generated)에 B<이름>.tsx 로 넣는다 */
-const LIBS = { BCharacter: "Character.tsx", BSets: "Sets.tsx" } as const;
+const LIBS = { BCharacter: "Character.tsx", BSets: "Sets.tsx", BKit: "Kit.tsx" } as const;
 
 /** productModel: src/assets/products/<model>.tsx 를 BProduct.tsx 로 (반전 장면의 제품) */
 export function installSceneLib(genDir: string, productModel?: string): void {

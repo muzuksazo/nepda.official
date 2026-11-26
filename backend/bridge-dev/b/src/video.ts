@@ -135,6 +135,8 @@ export async function renderHookVideos(
         const codePath = cb?.code ? join(opts.projectDir, cb.code) : "";
         if (cb?.ok && codePath && existsSync(codePath)) {
           writeFileSync(join(genDir, `${cb.key}.tsx`), readFileSync(codePath));
+          const vizPath = codePath.replace(/\.tsx$/, "V.tsx");
+          if (existsSync(vizPath)) writeFileSync(join(genDir, `${cb.key}V.tsx`), readFileSync(vizPath)); // 키트 방식: 시각화 코드
           sceneFiles.push(codePath);
           keys.push(cb.key);
           return { ...sc, gen: cb.key };

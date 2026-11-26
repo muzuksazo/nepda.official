@@ -60,6 +60,16 @@ export const Scene3DSchema = z.object({
       wall_color: z.string().describe("뒤 벽 hex (어둡게)"),
     })
     .optional(),
+  shots: z
+    .array(z.object({ at: z.number().min(0).max(1), view: z.enum(["wide", "person", "visual", "product"]) }))
+    .optional()
+    .describe("카메라 키프레임 (장면 진행 비율 → 보는 곳). 예: [{at:0,view:wide},{at:0.5,view:visual}]"),
+  viz_place: z.enum(["air", "floor"]).optional().describe("시각화 자리: air = 인물 오른쪽 공중, floor = 인물 오른쪽 바닥 위"),
+  lid_open: z
+    .object({ from: z.number().min(0).max(1), to: z.number().min(0).max(1) })
+    .nullable()
+    .optional()
+    .describe("반전 장면에서 제품 뚜껑을 여는 구간 (제품에 뚜껑이 있을 때). 없으면 null"),
   character: z
     .object({
       model: z.string().describe("캐릭터 모델 이름 (있는 에셋 목록의 인물 이름 그대로)"),
@@ -83,6 +93,11 @@ export const Scene3DSchema = z.object({
         query: z.string().describe("영어 1~3단어 모델 검색어 (예: desk, bookcase, pine tree)"),
         role: z.string().describe("이야기에서 무엇인지"),
         place: z.string().describe("어디에 놓는지 (예: 바닥 뒤 오른쪽)"),
+        slot: z
+          .enum(["back-left", "back-center", "back-right", "side-left", "side-right", "near-person", "front-right"])
+          .optional()
+          .describe("놓을 자리"),
+        height: z.number().optional().describe("실제 높이(m). 사람 1.7 기준"),
       })
     )
     .optional()
