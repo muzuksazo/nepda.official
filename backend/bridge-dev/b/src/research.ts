@@ -23,7 +23,7 @@ export const ResearchSchema = z.object({
     confidence: z.number().min(0).max(1).describe("입력한 이름과 이 제품이 같은 제품이라는 확신 (0~1)"),
     ambiguity: z.string().describe("같은·비슷한 이름의 다른 제품이 있으면 무엇인지 한 줄. 없으면 빈 문자열"),
   }),
-  short_name: z.string().describe("나레이션에서 부를 짧은 제품명 2~8자 (예: '비주얼 타이머'). 브랜드명 대신 무엇인지 알 수 있는 이름"),
+  short_name: z.string().describe("나레이션에서 부를 제품 고유 이름: 브랜드·제품명을 한글로 읽은 것 2~8자 (예: 'PIEV' → '피에브'). 제품군 이름(예: '탈취제')이 아니라 고유 이름"),
   category: z.string().describe("제품 분류 한 단어~짧은 구 (예: 문구, 주방 가전, 스킨케어)"),
   one_liner: z.string().describe("이 제품이 무엇인지 한 줄 (30자 안팎)"),
   facts: z
@@ -157,7 +157,7 @@ export function mergeResearch(p: WorkerInput["product_info"], r: ProductResearch
         ...r.facts.filter((f) => f.source_type !== "리뷰·기타").map((f) => f.fact),
         ...(appearanceLine(r) ? [appearanceLine(r)] : []),
       ];
-  return { ...p, category: p.category ?? r.category, verified_facts: facts };
+  return { ...p, call_name: p.call_name ?? r.short_name, category: p.category ?? r.category, verified_facts: facts };
 }
 
 function appearanceLine(r: ProductResearch): string {

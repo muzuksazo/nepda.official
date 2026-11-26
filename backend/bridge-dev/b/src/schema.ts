@@ -3,6 +3,10 @@ import { z } from "zod";
 /** 백엔드가 B 작업자에게 넘기는 입력 (b/examples/01_worker-input.scenarios.json). */
 export const ProductInfoSchema = z.object({
   name: z.string().min(1),
+  /** 나레이션에서 제품을 부르는 이름 (브랜드·제품 고유 이름을 한글로 읽은 것, 예: PIEV → 피에브). 없으면 모델이 짧은 이름을 정한다 */
+  call_name: z.string().optional(),
+  /** 반전 장면에 쓰는 직접 만든 제품 3D 모델 이름 (src/assets/products/<model>.tsx) */
+  model: z.string().optional(),
   category: z.string().optional(),
   verified_facts: z.array(z.string()).default([]),
   price_or_offer: z.string().optional(),

@@ -69,14 +69,17 @@ export function checkScenario(s: DraftScenario, product: ProductInfo): CheckResu
   const last = beats[beats.length - 1];
   if (last && spec.product_first_mention_beat !== last.order)
     errors.push(`product_first_mention_beat ${spec.product_first_mention_beat} ≠ 마지막 장면 ${last.order}`);
-  const taboo = [...new Set([...productNameTokens(product.name), ...spec.product_taboo_keywords])].filter(Boolean);
+  const taboo = [...new Set([...productNameTokens(product.name), ...(product.call_name ? [product.call_name] : []), ...spec.product_taboo_keywords])].filter(Boolean);
   for (const b of beats) {
     if (b.order >= spec.product_first_mention_beat) continue;
     const text = `${b.narration} ${b.caption}`;
     const hits = taboo.filter((w) => text.includes(w));
     if (hits.length) errors.push(`장면 ${b.order}에 반전 전 금지어: ${hits.join(", ")}`);
   }
-  if (last && !productNameTokens(product.name).some((w) => last.narration.includes(w)))
+  if (last && product.call_name) {
+    const n = last.narration.split(product.call_name).length - 1;
+    if (n < 2) errors.push(`반전 나레이션에 제품을 "${product.call_name}"(으)로 두 번 불러야 함 (지금 ${n}번)`);
+  } else if (last && !productNameTokens(product.name).some((w) => last.narration.includes(w)))
     errors.push(`반전 장면 나레이션에 제품 이름이 없음`);
 
   // 반전 템플릿: "그런데 <제품>은 <특징>합니다. 그래서 <제품>이 뭐냐고요?"
