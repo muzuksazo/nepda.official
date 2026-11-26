@@ -81,6 +81,27 @@ export function splitEmphasis(say: string): [string, string] | null {
   return m ? ["그런데!!", m[1].trim()] : null;
 }
 
+/** 반전 읽기 조각: 조각마다 다음 조각 앞 쉼(초)과 음량 배율 */
+export interface RevealPart { text: string; gap: number; gain: number }
+
+/**
+ * 반전 문장 "그런데 <제품>은 ~합니다. 그래서 <제품>이 뭐냐고요?" 를 끊어 읽는다:
+ *   [그런데!!] 쉼 → [<제품>은 ~합니다.] 긴 쉼 → [그래서] 쉼 → [<제품>이 뭐냐고요?]
+ * "그래서" 앞뒤 쉼으로 반전 효과를 키운다. 모양이 다르면 "그런데!!" 만 떼거나 null.
+ */
+export function splitReveal(say: string): RevealPart[] | null {
+  const m = say.match(/^그런데[\s,!.]+(.+?[.!])\s*그래서[\s,]+(.+)$/s);
+  if (m)
+    return [
+      { text: "그런데!!", gap: Number(process.env.B_PAUSE_AFTER_HOWEVER ?? 0.22), gain: EMPH_GAIN },
+      { text: m[1].trim(), gap: Number(process.env.B_PAUSE_BEFORE_SO ?? 0.5), gain: 1 },
+      { text: "그래서", gap: Number(process.env.B_PAUSE_AFTER_SO ?? 0.32), gain: 1.15 },
+      { text: m[2].trim(), gap: 0, gain: 1.05 },
+    ];
+  const e = splitEmphasis(say);
+  return e ? [{ text: e[0], gap: EMPH_PAUSE, gain: EMPH_GAIN }, { text: e[1], gap: 0, gain: 1 }] : null;
+}
+
 export async function synthInworld(text: string): Promise<{ wav: Buffer; chars: number; ms: number }> {
   const c = inworldConfig();
   const t0 = performance.now();
@@ -111,13 +132,16 @@ export async function addVoiceInworld(planPath: string, pipelineDir: string, log
   const lastIdx = plan.scenes.map((s) => !!s.say).lastIndexOf(true);
   for (const [i, s] of plan.scenes.entries()) {
     if (!s.say) continue;
-    const emph = i === lastIdx ? splitEmphasis(s.say) : null;
+    const parts = i === lastIdx ? splitReveal(s.say) : null;
     let r: { wav: Buffer; chars: number; ms: number };
-    if (emph) {
-      const [a, b] = await Promise.all(emph.map((t) => synthInworld(t)));
-      r = { wav: joinWav([a.wav, b.wav], [EMPH_PAUSE], [EMPH_GAIN, 1]), chars: a.chars + b.chars, ms: Math.max(a.ms, b.ms) };
-      const ai = wavInfo(a.wav);
-      log(`[tts] inworld s${i} 강조 "${emph[0]}" ${(ai.size / ai.byteRate).toFixed(2)}s + 쉼 ${EMPH_PAUSE}s`);
+    if (parts) {
+      const got = await Promise.all(parts.map((p) => synthInworld(p.text)));
+      r = {
+        wav: joinWav(got.map((g) => g.wav), parts.map((p) => p.gap), parts.map((p) => p.gain)),
+        chars: got.reduce((a, g) => a + g.chars, 0),
+        ms: Math.max(...got.map((g) => g.ms)),
+      };
+      log(`[tts] inworld s${i} 반전 끊어 읽기: ${parts.map((p) => `"${p.text}"${p.gap ? ` +${p.gap}s` : ""}`).join(" ")}`);
     } else r = await synthInworld(s.say);
     chars += r.chars;
     const file = join(dir, `${prefix}s${i}.wav`);
