@@ -4,19 +4,22 @@
 //   - 일반 장면: Viz 는 단위 상자(x·y -1..1, z -0.6..0.6) 안에 그린다 → 키트가 시각화 자리(인물 오른쪽 공중 또는 바닥)에 0.7배로 놓는다
 //   - 반전 장면: 키트가 제품을 쾅 착지시키고 뒤쪽을 어둡게 한다. Viz 는 제품 둘레의 "기능 효과"를 미터 단위로 그린다
 //     (원점 = 제품 바닥 가운데, 제품은 x -0.4..0.4, y 0..1.35, 뚜껑은 오른쪽 바닥 x≈0.9 에 놓인다)
-import React from 'react';
+import React, { useState } from 'react';
 import { interpolate } from 'remotion';
 import { useCurrentFrame } from 'remotion';
 import { blendCamera, CAMERAS, Character, DustBurst, FLOOR_Y, Prop, Quake, SLAM_IMPACT, SlamIn, Stage, type CameraName } from './BCharacter';
 
-export type Slot = 'back-left' | 'back-center' | 'back-right' | 'side-left' | 'side-right' | 'near-person' | 'front-right';
+export type Slot = 'back-left' | 'back-center' | 'back-right' | 'side-left' | 'side-right' | 'mid-left' | 'mid-right' | 'near-person' | 'front-right' | 'fg-left' | 'fg-right';
+/** 같은 물건 여러 개 놓는 모양: row 한 줄, grid 두 줄, stack 위로 쌓기, cluster 촘촘한 무리, arc 부채꼴 */
+export type Pattern = 'single' | 'row' | 'grid' | 'stack' | 'cluster' | 'arc';
 export type Emote = 'look' | 'tilt' | 'nod' | 'surprise' | 'bounce' | 'droop' | 'victory' | 'defeat';
 
 export interface KitPlan {
   stage: { floor: string; wall: string; hdri?: string };
   /** 카메라 키프레임: at = 장면 진행 비율(0~1), view = 보는 곳 */
   shots: { at: number; view: CameraName }[];
-  props: { file: string; slot: Slot; height: number; rotationY?: number; tone?: string }[];
+  /** on = 다른 소품(배열 번호) 위에 올림 (탁자·책상·선반 위), count·pattern = 같은 물건 여러 개 */
+  props: { file: string; slot: Slot; height: number; rotationY?: number; tone?: string; on?: number; count?: number; pattern?: Pattern }[];
   character?: { file: string; emotions: { type: Emote; from: number; to: number }[] } | null;
   /** 시각화 자리: air = 인물 오른쪽 공중, floor = 인물 오른쪽 바닥 위 */
   viz: 'air' | 'floor';
@@ -32,8 +35,13 @@ const SLOTS: Record<Slot, { x: number; z: number; maxH: number; maxW: number }> 
   'back-right': { x: 1.5, z: -2.2, maxH: 2.6, maxW: 1.6 },
   'side-left': { x: -1.6, z: -1.1, maxH: 2.0, maxW: 1.1 },
   'side-right': { x: 1.65, z: -1.2, maxH: 2.0, maxW: 1.1 },
+  'mid-left': { x: -1.45, z: -0.6, maxH: 1.8, maxW: 0.8 },
+  'mid-right': { x: 1.45, z: -0.7, maxH: 1.8, maxW: 0.8 },
   'near-person': { x: -1.45, z: 0.45, maxH: 0.9, maxW: 0.55 },
   'front-right': { x: 1.25, z: 0.45, maxH: 0.55, maxW: 0.6 },
+  // 전경: 카메라 가까이 화면 양 끝에 걸치는 낮은 물체 (깊이감, 일부 잘려도 된다)
+  'fg-left': { x: -1.05, z: 2.0, maxH: 0.8, maxW: 0.7 },
+  'fg-right': { x: 1.05, z: 2.0, maxH: 0.9, maxW: 0.7 },
 };
 const PERSON: [number, number, number] = [-0.95, FLOOR_Y, -0.1];
 const VIZ_AIR: [number, number, number] = [0.45, 1.4, -0.5];
@@ -65,21 +73,69 @@ function cameraAt(shots: KitPlan['shots'], p: number) {
   return CAMERAS[s[s.length - 1].view];
 }
 
-/** 같은 자리에 여러 개면 옆으로 비켜 놓는다 */
-function placeProps(props: KitPlan['props']) {
+type Size = { x: number; y: number; z: number };
+type Placed = { key: string; file: string; position: [number, number, number]; height: number; maxW: number; rotationY: number; tone?: string; base: number };
+
+/** 패턴대로 n 개의 자리(가운데 기준 dx, dy, dz)와 각 물건의 최대 가로. area = 놓을 수 있는 가로·깊이 */
+function patternOffsets(pattern: Pattern, n: number, itemH: number, area: { w: number; d: number }): { dx: number; dy: number; dz: number; rot: number }[] {
+  const out: { dx: number; dy: number; dz: number; rot: number }[] = [];
+  const jit = (i: number, k: number) => ((Math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1) - 0.5; // 결정적 흔들림
+  for (let i = 0; i < n; i++) {
+    if (pattern === 'stack') out.push({ dx: jit(i, 1) * 0.04, dy: i * itemH * 0.98, dz: jit(i, 2) * 0.04, rot: jit(i, 3) * 0.5 });
+    else if (pattern === 'grid') {
+      const cols = Math.ceil(n / 2), col = i % cols, row = Math.floor(i / cols);
+      out.push({ dx: cols > 1 ? (col / (cols - 1) - 0.5) * area.w : 0, dy: 0, dz: (row - 0.5) * area.d * 0.6, rot: jit(i, 3) * 0.3 });
+    } else if (pattern === 'cluster') {
+      const a = i * 2.39996, r = Math.sqrt((i + 0.5) / n) * 0.5;
+      out.push({ dx: Math.cos(a) * r * area.w, dy: 0, dz: Math.sin(a) * r * area.d, rot: jit(i, 3) * 1.2 });
+    } else if (pattern === 'arc') {
+      const t = n > 1 ? i / (n - 1) - 0.5 : 0;
+      out.push({ dx: t * area.w, dy: 0, dz: -Math.cos(t * Math.PI) * area.d * 0.4 + area.d * 0.2, rot: -t * 0.8 });
+    } else out.push({ dx: n > 1 ? (i / (n - 1) - 0.5) * area.w : 0, dy: 0, dz: 0, rot: jit(i, 3) * 0.2 }); // row / single
+  }
+  return out;
+}
+
+/** 소품 배치: 바닥 자리(slot)의 물건 → 그 위에 올리는 물건(on, 받침의 실제 크기를 알아야 해서 받침이 불러와진 뒤) */
+function placeProps(props: KitPlan['props'], sizes: Record<number, Size>): Placed[] {
+  const out: Placed[] = [];
+  const list = props.slice(0, 8);
   const used = new Map<Slot, number>();
-  return props.slice(0, 7).map((p) => {
-    const slot = SLOTS[p.slot] ?? SLOTS['back-center'];
-    const n = used.get(p.slot) ?? 0;
-    used.set(p.slot, n + 1);
-    const dir = slot.x >= 0 ? -1 : 1; // 화면 안쪽으로 비킨다
-    return { ...p, maxW: slot.maxW, position: [slot.x + dir * n * 0.7, FLOOR_Y, slot.z + n * 0.15] as [number, number, number], height: Math.min(Math.max(0.1, p.height), slot.maxH) };
+  list.forEach((p, idx) => {
+    const n = Math.max(1, Math.min(8, Math.round(p.count ?? 1)));
+    const pattern: Pattern = p.pattern ?? (n > 1 ? 'row' : 'single');
+    const onBase = p.on !== undefined && p.on !== idx && list[p.on] && list[p.on].on === undefined ? p.on : undefined;
+    if (onBase === undefined) {
+      const slot = SLOTS[p.slot] ?? SLOTS['back-center'];
+      const k = used.get(p.slot) ?? 0;
+      used.set(p.slot, k + 1);
+      const dir = slot.x >= 0 ? -1 : 1; // 같은 자리 두 번째부터는 화면 안쪽으로 비킨다
+      const h = Math.min(Math.max(0.1, p.height), slot.maxH);
+      const each = n > 1 ? Math.min(slot.maxW, Math.max(0.25, (slot.maxW * 1.6) / n)) : slot.maxW;
+      const offs = patternOffsets(pattern, n, h, { w: Math.min(2.2, each * (n - 1) * 1.05), d: 0.8 });
+      offs.forEach((o, j) =>
+        out.push({ key: `p${idx}-${j}`, file: p.file, position: [slot.x + dir * k * 0.7 + o.dx, FLOOR_Y + o.dy, slot.z + k * 0.15 + o.dz], height: h, maxW: each, rotationY: (p.rotationY ?? 0) + o.rot, tone: p.tone, base: j === 0 ? idx : -1 })
+      );
+    } else {
+      const baseSize = sizes[onBase];
+      const basePlaced = out.find((x) => x.key === `p${onBase}-0`);
+      if (!baseSize || !basePlaced) return; // 받침이 아직 안 불러와졌으면 다음 그림에서
+      const top = basePlaced.position[1] + baseSize.y;
+      const area = { w: baseSize.x * 0.72, d: baseSize.z * 0.55 };
+      const h = Math.min(Math.max(0.05, p.height), 0.9);
+      const each = Math.max(0.08, Math.min(area.w / Math.max(1, pattern === 'stack' ? 1 : n) * 0.9, 0.6));
+      patternOffsets(pattern, n, h, area).forEach((o, j) =>
+        out.push({ key: `p${idx}-${j}`, file: p.file, position: [basePlaced.position[0] + o.dx, top + o.dy, basePlaced.position[2] + o.dz], height: h, maxW: each, rotationY: (p.rotationY ?? 0) + o.rot, tone: p.tone, base: -1 })
+      );
+    }
   });
+  return out;
 }
 
 export function KitScene({ plan, durationInFrames: d, children, Product }: { plan: KitPlan; durationInFrames: number; color: string; children?: React.ReactNode; Product?: React.ComponentType<{ height?: number; lidOpen?: number }> }) {
   const f = useCurrentFrame();
   const p = f / Math.max(1, d);
+  const [sizes, setSizes] = useState<Record<number, Size>>({});
   // 인물이 없으면 인물·시각화 자리 대신 가운데 카메라로 (person → center, wide → center, visual → centerClose)
   const solo = !plan.character && !plan.reveal;
   const shots = solo
@@ -111,8 +167,17 @@ export function KitScene({ plan, durationInFrames: d, children, Product }: { pla
   const world = (
     <>
       <Stage dim={dim} camera={camera} floorColor={clampLight(plan.stage.floor, 0.12, 0.3)} wallColor={clampLight(plan.stage.wall, 0.04, 0.12)} back={-4.8} hdri={plan.stage.hdri} envIntensity={0.35} />
-      {placeProps(plan.props).filter((pr) => !plan.reveal || pr.position[2] < 0.1).map((pr, i) => ( // 반전: 앞쪽 소품은 빼서 제품·뚜껑 자리를 비운다
-        <Prop key={i} file={pr.file} position={pr.position} height={pr.height} maxWidth={pr.maxW} rotationY={pr.rotationY ?? 0} tone={pr.tone} />
+      {placeProps(plan.props, sizes).filter((pr) => !plan.reveal || pr.position[2] < 0.1).map((pr) => ( // 반전: 앞쪽 소품은 빼서 제품·뚜껑 자리를 비운다
+        <Prop
+          key={pr.key}
+          file={pr.file}
+          position={pr.position}
+          height={pr.height}
+          maxWidth={pr.maxW}
+          rotationY={pr.rotationY}
+          tone={pr.tone}
+          onSize={pr.base >= 0 ? (sz) => setSizes((m) => (m[pr.base] ? m : { ...m, [pr.base]: sz })) : undefined}
+        />
       ))}
       {ch && (
         <Character file={ch.file} colors={{ Skin: '#f0c9a6' }} timeline={clips} emotes={emotes} position={PERSON} rotationY={0.5} height={1.7} />

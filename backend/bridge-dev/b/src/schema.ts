@@ -94,10 +94,13 @@ export const Scene3DSchema = z.object({
         role: z.string().describe("이야기에서 무엇인지"),
         place: z.string().describe("어디에 놓는지 (예: 바닥 뒤 오른쪽)"),
         slot: z
-          .enum(["back-left", "back-center", "back-right", "side-left", "side-right", "near-person", "front-right"])
+          .enum(["back-left", "back-center", "back-right", "side-left", "side-right", "mid-left", "mid-right", "near-person", "front-right", "fg-left", "fg-right"])
           .optional()
-          .describe("놓을 자리"),
-        height: z.number().optional().describe("실제 높이(m). 사람 1.7 기준"),
+          .describe("놓을 자리 (on 이 있으면 무시)"),
+        height: z.number().optional().describe("한 개의 실제 높이(m). 사람 1.7 기준"),
+        on: z.number().int().optional().describe("이 assets 목록에서 받침이 되는 항목의 번호(0부터). 탁자·책상·선반 위에 올릴 때"),
+        count: z.number().int().min(1).max(8).optional().describe("같은 물건 개수 (기본 1)"),
+        pattern: z.enum(["single", "row", "grid", "stack", "cluster", "arc"]).optional().describe("여러 개 놓는 모양: row 한 줄, grid 두 줄, stack 위로 쌓기, cluster 촘촘한 무리, arc 부채꼴"),
       })
     )
     .optional()

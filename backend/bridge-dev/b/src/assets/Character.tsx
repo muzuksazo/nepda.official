@@ -233,9 +233,12 @@ export function Prop({
   roughness = 0.7,
   shadow = true,
   maxWidth,
+  onSize,
 }: {
   /** 가로(x·z 중 큰 쪽) 최대 크기(m). 납작한 물건(키보드·러그)을 높이로 맞추면 거대해지는 것을 막는다 */
   maxWidth?: number;
+  /** 불러와 크기를 맞춘 뒤 실제 크기(m: x 가로, y 높이, z 깊이)를 알려 준다 */
+  onSize?: (size: { x: number; y: number; z: number }) => void;
   file: string;
   position?: [number, number, number];
   rotationY?: number;
@@ -286,10 +289,12 @@ export function Prop({
     root.position.set(-c.x * s, -box.min.y * s, -c.z * s);
     const holder = new THREE.Group();
     holder.add(root);
+    holder.userData.size = { x: size.x * s, y: size.y * s, z: size.z * s };
     return holder;
   }, [gltf, height, width, maxWidth, tone, roughness, shadow, JSON.stringify(colors ?? {}), JSON.stringify(glow ?? {})]);
   useEffect(() => {
     if (!obj) return;
+    onSize?.(obj.userData.size);
     advance(performance.now());
     requestAnimationFrame(() => continueRender(handle));
   }, [obj, handle, advance]);

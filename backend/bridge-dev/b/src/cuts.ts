@@ -316,14 +316,23 @@ export function kitPlanOf(sc: NonNullable<ScenarioItem["beats"][number]["scene3d
   const names = new Set(characterNames());
   const hdr = hdris();
   const used = new Set<string>();
-  const props = (sc?.assets ?? [])
-    .map((a) => {
-      const hit = searchAssets(a.query, 3).find((h) => !used.has(h.file));
-      if (!hit) return null;
-      used.add(hit.file);
-      return { file: hit.file, slot: a.slot ?? "back-center", height: a.height ?? 1.0 };
-    })
-    .filter((x): x is NonNullable<typeof x> => !!x);
+  // 검색에 실패한 항목을 빼면 번호가 바뀌므로 on(받침 번호)을 새 번호로 옮긴다. 받침이 빠진 항목은 바닥 자리로
+  const found = (sc?.assets ?? []).map((a) => {
+    const hit = searchAssets(a.query, 3).find((h) => !used.has(h.file)) ?? searchAssets(a.query, 1)[0];
+    if (hit) used.add(hit.file);
+    return hit ? { a, file: hit.file } : null;
+  });
+  const newIndex = new Map<number, number>();
+  found.forEach((x, i) => { if (x) newIndex.set(i, newIndex.size); });
+  const props = found
+    .filter((x): x is NonNullable<typeof x> => !!x)
+    .map(({ a, file }) => ({
+      file,
+      slot: a.slot ?? "back-center",
+      height: a.height ?? 1.0,
+      ...(a.on !== undefined && newIndex.has(a.on) ? { on: newIndex.get(a.on) } : {}),
+      ...(a.count && a.count > 1 ? { count: a.count, pattern: a.pattern ?? "row" } : {}),
+    }));
   const ch = withPerson && sc?.character && names.has(sc.character.model) ? { file: `bassets/uacp/${sc.character.model}.gltf`, emotions: sc.character.emotions } : null;
   return {
     stage: {
