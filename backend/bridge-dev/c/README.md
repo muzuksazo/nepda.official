@@ -63,6 +63,81 @@ OUTPUT_DIR/{project_id}/{hook_id}/
 
 회차가 달라지면 `hook_id`가 다른 새 폴더가 생기고 기존 폴더는 지우지 않습니다.
 
+## C 작업자 코드 (FR-003 · FR-004 · FR-005, 로컬 실행)
+
+시나리오 생성, 콘티 이미지, 훅 영상 + TTS 까지 구현되어 있습니다. Python 표준 라이브러리로 돌고, 시나리오 생성에만 `anthropic` 패키지를 씁니다.
+
+```text
+1. 시나리오 (src/generate.py) — Claude 로 C 규칙에 맞는 시나리오 count 개 생성
+   → 규칙 검사 (src/check.py). 위반이 있으면 위반 내용을 붙여 한 번 더 생성
+2. 콘티 (src/render.py: storyboard) — 장면마다 대표 화면 한 장에 자막을 얹어 저장
+3. 훅 (src/render.py: render_hook)
+   화면: 문제 장면 = Blender 로 만든 생성 영상 / 나머지 장면 = 실물 제품 영상 (증명은 실물만)
+   음성: Inworld TTS, 단어별 타임스탬프로 화면 자막을 2어절 안팎씩 끊어 맞춤
+   합성: ffmpeg (자막 번인, 배경음·효과음, "AI 연출 포함" 배지)
+   → hook.mp4 · tts.mp3 · hook.srt · scenario.json · storyboard_NN.png
+```
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/schema.py` | 입력(01_worker-input) 확인, ScenarioItem 조립, Claude 구조화 출력 스키마 |
+| `src/prompt.py` | C 규칙 프롬프트, 문제 장면 템플릿 설명 |
+| `src/generate.py` | `generate_scenarios(input)` — 백엔드가 import 해서 부를 함수 (FR-003) |
+| `src/check.py` | 규칙 검사 (장면 3~5개, 15초, 문제→증명 순서, 근거 ID, 미검증·판매 표현, 자막 길이, 단일 CTA) |
+| `src/render.py` | `storyboard(scenario, assets, out_dir)` (FR-004), `render_hook(scenario, assets, out_dir, tts=…)` (FR-005) |
+| `src/tts.py` | Inworld TTS 호출과 캐시 |
+| `src/blender_scene.py` | 문제 장면 템플릿 `spill_diffuser` (Blender 안에서 실행: 강체 물리, 흐르는 액체, 손) |
+| `src/assets.py` | 문제 장면용 무료(CC0) 에셋 내려받기 |
+| `src/cli.py` | 명령줄 실행 |
+| `test/mock_run.py` | API·Blender·ffmpeg 없이 도는 흐름 확인 |
+
+필요한 프로그램: Python 3.10 이상, ffmpeg·ffprobe(자막 번인용 libass 포함), 문제 장면 템플릿을 쓸 때는 Blender 4.2 이상.
+
+```bash
+cd backend/bridge-dev/c
+pip install -r requirements.txt
+cp .env.example .env        # ANTHROPIC_API_KEY, INWORLD_API_KEY 입력 (.env 는 커밋되지 않음)
+
+python -m test.mock_run                                              # 흐름 확인 (API 호출 없음)
+python -m src.cli check examples/02_scenarios.response.json          # 규칙 검사만 (API 호출 없음)
+python -m src.cli assets                                             # 문제 장면용 에셋 받기 (약 80MB, 한 번만)
+
+python -m src.cli scenarios examples/piev/01_worker-input.scenarios.json          # 1회차 생성 (Claude API 과금)
+python -m src.cli scenarios examples/piev/01_worker-input.scenarios.json --next   # 다음 회차 (앞선 소재 제외)
+python -m src.cli storyboard proj_piev01 <scenario_id>                            # 콘티 이미지
+python -m src.cli hook proj_piev01 <scenario_id>                                  # 훅 영상 + TTS (Inworld 과금)
+```
+
+키 없이 끝까지 확인하려면 `scenarios … --offline`(사실 문장으로 만든 초안) 또는 `import examples/piev/02_scenarios.response.json --input examples/piev/01_worker-input.scenarios.json`(직접 쓴 시나리오 가져오기)을 쓰고, 훅은 `--no-tts` 로 실행합니다.
+
+### 입력 확장: `assets`
+
+가이드의 제안 인터페이스에 없는 필드입니다. 영상에 쓸 소재를 알려 줍니다. 예시: [`examples/piev/01_worker-input.scenarios.json`](examples/piev/01_worker-input.scenarios.json)
+
+| 필드 | 설명 |
+| --- | --- |
+| `assets.product_footage` | 실물 제품 영상 경로. 둘째 장면부터 장면 길이 비율로 나눠 이어 씁니다. 길이가 모자라면 0.85배속까지 늘리고 나머지는 정지 화면 |
+| `assets.problem_template` | 첫 장면(문제)에 쓸 생성 영상 템플릿. 지금은 `spill_diffuser`(손이 액체 디퓨저를 쳐서 쏟는 장면) 하나 |
+
+둘 다 없으면 자막만 있는 단색 카드로 만들어집니다. 화면에 띄우는 상황 라벨은 `ad_spec.pov_label` 에 들어갑니다.
+
+### 결과와 기록
+
+```text
+out/{project_id}/round-{n}.json            회차 기록 (응답 + 규칙 검사 + 비용 + assets)
+{OUTPUT_DIR}/{project_id}/{scenario_id}/   storyboard 명령의 콘티 이미지
+{OUTPUT_DIR}/{project_id}/{hook_id}/       hook 명령의 결과 (위 "결과 파일 저장 위치와 이름"과 같은 구성)
+assets/                                    내려받은 에셋과 문제 장면 렌더 캐시 (커밋 안 함)
+```
+
+- `OUTPUT_DIR` 기본값은 `output`(c/ 기준)이고 `.env` 로 바꿉니다. `out/`, `output/`, `assets/` 는 커밋하지 않습니다.
+- 모델은 `.env` 의 `C_MODEL`(기본 `claude-opus-5-5`), 목소리는 `C_TTS_VOICE` 또는 `hook --voice`.
+- 문제 장면은 처음 한 번만 Blender 로 렌더하고(물리 계산 포함 1~2분) `assets/cache/` 의 프레임을 다시 씁니다. 장면을 고쳤으면 그 폴더를 지우세요.
+- 에셋은 Poly Haven(텍스처·HDRI·소품)과 Blender Human Base Meshes(손)이고 모두 CC0 입니다. 받지 않아도 기본 도형으로 만들어집니다.
+- 화면 자막은 음성에 맞춰 끊어 넣고, `hook.srt` 는 가이드대로 장면당 한 개(`beats[].caption`, 장면 시작·끝 시각)입니다.
+- 검사 결과의 ✗는 규칙 위반(종료 코드 2), △는 사람이 볼 경고입니다.
+- 아직 없는 것: 백엔드(`backend/app`) 연결, 훅 작업 큐·폴링 상태 저장, `spill_diffuser` 외의 문제 장면 템플릿.
+
 ## index.html로 테스트하기
 
 1. `python -m http.server 5500 --directory backend/bridge-dev` 후 `http://127.0.0.1:5500/`를 엽니다(파일로 열어도 됩니다).

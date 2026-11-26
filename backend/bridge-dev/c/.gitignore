@@ -1,0 +1,5 @@
+out/
+output/
+assets/
+.env
+__pycache__/
