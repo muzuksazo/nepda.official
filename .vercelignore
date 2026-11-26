@@ -3,6 +3,10 @@ backend/
 contracts/
 libraries/
 prototypes/campaigns/
+prototypes/zackd-jet-umbrella/
+prototypes/viral-3d-templates/
+prototypes/ps2-kr-subway/
+prototypes/ps2-remarried-office/
 tests/
 skills/
 Makefile

@@ -1,0 +1,31 @@
+{
+  "id": "T3_hydraulic_crush",
+  "title": "T3. 유압프레스·파쇄 (500t Press & 48-Shard Fracture)",
+  "template": "T3_hydraulic_crush",
+  "width": 720,
+  "height": 1280,
+  "fps": 30,
+  "total_frames": 150,
+  "sfx_profile": "hydraulic_press",
+  "sfx_cues": [3.23],
+  "params": {
+    "fracture_frame": 97,
+    "target_type": "barrel"
+  },
+  "vo_slots": [
+    {
+      "file": "t3_s1.mp3",
+      "text": "오백 톤 유압프레스로 강철 드럼통을 누르면 어떻게 될까요?",
+      "start": 0.05,
+      "dur": 2.48,
+      "caption": ["500톤 유압프레스로", "강철 드럼통을 누르면,"]
+    },
+    {
+      "file": "t3_s2.mp3",
+      "text": "압력이 한계에 달한 순간 산산조각 폭발해 버립니다!",
+      "start": 2.60,
+      "dur": 2.32,
+      "caption": ["한계 압력에 달한 순간", "산산조각 폭발해 버립니다!"]
+    }
+  ]
+}

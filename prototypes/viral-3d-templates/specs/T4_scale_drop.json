@@ -1,0 +1,31 @@
+{
+  "id": "T4_scale_drop",
+  "title": "T4. 스케일 에스컬레이션 (3-Stage Scale Drop)",
+  "template": "T4_scale_drop",
+  "width": 720,
+  "height": 1280,
+  "fps": 30,
+  "total_frames": 150,
+  "sfx_profile": "scale_drop",
+  "sfx_cues": [0.73, 2.40, 4.07],
+  "params": {
+    "car_color": [0.98, 0.72, 0.02],
+    "asteroid_radius": 5.5
+  },
+  "vo_slots": [
+    {
+      "file": "t4_s1.mp3",
+      "text": "볼링공이 떨어지면 바닥만 살짝 튕기지만,",
+      "start": 0.05,
+      "dur": 2.40,
+      "caption": ["볼링공은 바닥만 튕기지만,"]
+    },
+    {
+      "file": "t4_s2.mp3",
+      "text": "자동차와 거대 운석이 떨어지면 활주로 전체가 흔들립니다!",
+      "start": 2.52,
+      "dur": 2.40,
+      "caption": ["자동차와 11m 거대 운석이 떨어지면", "활주로 전체가 흔들립니다!"]
+    }
+  ]
+}
