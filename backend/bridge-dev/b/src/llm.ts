@@ -22,6 +22,14 @@ export function isGemini(modelId: string): boolean {
   return /^gemini/i.test(modelId);
 }
 
+/** Gemini 공급자 (검색 같은 Google 도구를 쓸 때) */
+export function geminiProvider(): ReturnType<typeof createGoogleGenerativeAI> {
+  const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) throw new Error("b/.env 에 GEMINI_API_KEY 가 필요합니다 (Gemini 모델을 쓰려면).");
+  google ??= createGoogleGenerativeAI({ apiKey });
+  return google;
+}
+
 export function llm(modelId: string): LanguageModel {
   if (isGemini(modelId)) {
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;

@@ -3,9 +3,10 @@
 //   2) 정리: 메모 → 정해진 형식 (분류, 짧은 이름, 사실+출처, 생김새, 용도, 같은 이름의 다른 제품 경고)
 // 백엔드가 넘긴 값은 그대로 두고 빈 칸만 채운다. 리뷰·블로그에서만 나온 내용은 사실 목록에 넣지 않고 따로 남긴다.
 import { anthropic } from "@ai-sdk/anthropic";
-import { generateText, Output, type LanguageModel } from "ai";
+import { generateText, Output, type LanguageModel, type ToolSet } from "ai";
 import { z } from "zod";
 import { priceOf, type StepUsage } from "./cost.js";
+import { geminiProvider, isGemini, llm, stepOptions } from "./llm.js";
 import type { WorkerInput } from "./schema.js";
 
 /** 웹 검색 1회 요금 (USD, $10 / 1,000회). 웹 페이지 읽기는 토큰 요금만 든다 */
@@ -87,6 +88,9 @@ type SearchCountable = {
   steps?: { content?: { type: string; toolName?: string }[] }[];
 };
 function countSearches(r: SearchCountable): number {
+  // Gemini: Google 검색 근거 정보의 검색어 수
+  const g = (r.providerMetadata?.google as { groundingMetadata?: { webSearchQueries?: string[] | null } } | undefined)?.groundingMetadata;
+  if (g?.webSearchQueries) return g.webSearchQueries.length;
   const meta = (r.providerMetadata?.anthropic as { usage?: { server_tool_use?: { web_search_requests?: number } } } | undefined)?.usage;
   const fromMeta = meta?.server_tool_use?.web_search_requests;
   if (typeof fromMeta === "number") return fromMeta;
@@ -101,7 +105,9 @@ export async function researchProduct(
   opts: { modelId: string; model?: LanguageModel; known?: string; track: Track; log?: (m: string) => void }
 ): Promise<ProductResearch> {
   const log = opts.log ?? (() => {});
-  const model = opts.model ?? anthropic(opts.modelId);
+  const model = opts.model ?? llm(opts.modelId);
+  // Claude: 웹 검색·페이지 읽기 서버 도구 / Gemini: Google 검색·URL 읽기 도구 (Claude API 없이도 조사 가능)
+  const gem = isGemini(opts.modelId);
 
   // 1) 조사 (웹 검색 + 페이지 읽기)
   log(`[B 조사] 1/2 웹에서 "${name}" 찾는 중 (검색 최대 ${MAX_SEARCHES}번)`);
@@ -109,23 +115,26 @@ export async function researchProduct(
   const r1 = await generateText({
     model,
     prompt: RESEARCH_PROMPT(name, opts.known ?? ""),
-    tools: {
-      web_search: anthropic.tools.webSearch_20260209({ maxUses: MAX_SEARCHES }),
-      web_fetch: anthropic.tools.webFetch_20260209({ maxUses: MAX_FETCHES }),
-    },
+    tools: (gem
+      ? { google_search: geminiProvider().tools.googleSearch({}), url_context: geminiProvider().tools.urlContext({}) }
+      : {
+          web_search: anthropic.tools.webSearch_20260209({ maxUses: MAX_SEARCHES }),
+          web_fetch: anthropic.tools.webFetch_20260209({ maxUses: MAX_FETCHES }),
+        }) as unknown as ToolSet,
     maxOutputTokens: 8000,
-    providerOptions: { anthropic: { effort: "medium" } },
+    providerOptions: stepOptions("research", "medium"),
   });
   const searches = countSearches(r1 as unknown as SearchCountable);
   const in1 = r1.totalUsage?.inputTokens ?? r1.usage?.inputTokens ?? 0;
   const out1 = r1.totalUsage?.outputTokens ?? r1.usage?.outputTokens ?? 0;
   const tok1 = priceOf(opts.modelId, in1, out1);
   opts.track({
-    step: `조사: 웹 검색 ${searches}번`,
-    model: `${opts.modelId} + web_search`,
+    // Gemini 검색 근거(grounding) 요금은 단가를 확인하지 못해 토큰 요금만 적는다
+    step: `조사: 웹 검색 ${searches}번${gem ? " (Google 검색 요금 별도)" : ""}`,
+    model: `${opts.modelId} + ${gem ? "google_search" : "web_search"}`,
     inputTokens: in1,
     outputTokens: out1,
-    costUsd: tok1 === null ? null : tok1 + searches * WEB_SEARCH_USD,
+    costUsd: tok1 === null ? null : tok1 + (gem ? 0 : searches * WEB_SEARCH_USD),
     ms: Math.round(performance.now() - t0),
   });
   const notes = r1.text.trim();
@@ -139,7 +148,7 @@ export async function researchProduct(
     prompt: STRUCTURE_PROMPT(name, notes, opts.known ?? ""),
     output: Output.object({ schema: ResearchSchema }),
     maxOutputTokens: 6000,
-    providerOptions: { anthropic: { effort: "low" } },
+    providerOptions: stepOptions("research", "low"),
   });
   const in2 = r2.usage?.inputTokens ?? 0, out2 = r2.usage?.outputTokens ?? 0;
   opts.track({ step: "조사: 정리", model: opts.modelId, inputTokens: in2, outputTokens: out2, costUsd: priceOf(opts.modelId, in2, out2), ms: Math.round(performance.now() - t0) });

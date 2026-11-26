@@ -191,7 +191,8 @@ async function main() {
   }
 
   if (cmd === "research") {
-    if (!process.env.ANTHROPIC_API_KEY) {
+    const researchModel = process.env.B_RESEARCH_MODEL?.trim() || RESEARCH_MODEL;
+    if (!/^gemini/i.test(researchModel) && !process.env.ANTHROPIC_API_KEY) {
       console.error("ANTHROPIC_API_KEY가 없습니다. b/.env.example을 b/.env로 복사해 키를 넣으세요.");
       process.exit(1);
     }
