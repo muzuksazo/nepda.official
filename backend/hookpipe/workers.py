@@ -1,0 +1,335 @@
+"""A·B·C 시나리오 작업자 연결 (WORKER_CONTRACT.md 의 `WORKERS["A"|"B"|"C"]`).
+
+작업자 코드는 `backend/bridge-dev/{a,b,c}` 에 그대로 두고, 여기서는 부르기만 한다.
+- A, B: TypeScript → Node 명령으로 실행하고 결과 JSON 을 읽는다.
+- C: Python → 같은 프로세스에서 함수로 부른다.
+작업자가 실패하면(노드·키 없음, 규칙 오류 등) 넘겨받은 대체 생성기(planner-api)로 넘어간다.
+"""
+
+from __future__ import annotations
+
+import importlib
+import importlib.util
+import json
+import logging
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
+from fastapi import HTTPException
+
+logger = logging.getLogger("hookpipe.workers")
+
+TRACK_BY_TYPE = {
+    "A": "A_bgrade_reversal",
+    "B": "B_info_hook_offset",
+    "C": "C_direct_proof",
+}
+
+ScenarioGenerator = Callable[[Dict[str, Any], List[str], str], List[Dict[str, Any]]]
+WorkerFn = Callable[[Dict[str, Any], Any], Dict[str, Any]]
+
+_C_IMPORT_LOCK = threading.Lock()
+_C_PACKAGE = "hookpipe_c_worker"
+# c/.env 에서 서버 프로세스로 가져오는 값. 저장소·구글 설정처럼 서버 설정과 이름이 겹치는 값은 가져오지 않는다.
+_C_ENV_KEYS = ("ANTHROPIC_API_KEY", "C_MODEL")
+
+
+class WorkerError(RuntimeError):
+    """작업자를 부르지 못했거나 쓸 수 있는 시나리오가 나오지 않았을 때."""
+
+
+def build_worker_input(
+    project: Dict[str, Any],
+    hook_type: str,
+    *,
+    round_no: int,
+    previous_scenarios: List[Dict[str, Any]],
+    count: int = 1,
+) -> Dict[str, Any]:
+    """코어의 프로젝트 → 작업자 입력(`01_worker-input.scenarios.json` 형태). 빈 값은 넣지 않는다."""
+    product = project.get("product") or {}
+    info: Dict[str, Any] = {"name": product.get("name") or ""}
+    for key in ("call_name", "model", "category", "price_or_offer", "target_audience"):
+        value = product.get(key)
+        if isinstance(value, str) and value.strip():
+            info[key] = value.strip()
+    info["verified_facts"] = [str(f).strip() for f in (product.get("verified_facts") or []) if str(f).strip()]
+    return {
+        "hook_type": hook_type,
+        "project_id": str(project["project_id"]),
+        "round": max(1, int(round_no)),
+        "count": max(1, min(5, int(count))),
+        "product_info": info,
+        "previous_scenarios": [s for s in previous_scenarios if s.get("type") == hook_type],
+    }
+
+
+def _tail(text: str, lines: int = 8) -> str:
+    return "\n".join((text or "").strip().splitlines()[-lines:])
+
+
+def _node_command(worker_dir: Path) -> List[str]:
+    node = shutil.which("node")
+    if not node:
+        raise WorkerError("node 를 찾지 못했습니다 (A·B 작업자는 Node 22 이상이 필요합니다).")
+    if not (worker_dir / "node_modules").is_dir():
+        raise WorkerError(f"{worker_dir} 에 node_modules 가 없습니다. 그 폴더에서 `npm ci` 를 먼저 실행해 주세요.")
+    return [node, "--env-file-if-exists=.env", "--import", "tsx", "src/cli.ts"]
+
+
+def _run_node(cmd: List[str], worker_dir: Path, timeout: float, label: str) -> subprocess.CompletedProcess:
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(worker_dir),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise WorkerError(f"{label} 작업자가 {timeout:.0f}초 안에 끝나지 않았습니다.") from exc
+    # 계약: 0 = 통과, 2 = 규칙 위반(결과는 저장됨), 1 = 실행 오류
+    if proc.returncode not in (0, 2):
+        raise WorkerError(f"{label} 작업자 실행 오류 (종료 코드 {proc.returncode}):\n{_tail(proc.stderr or proc.stdout)}")
+    if proc.returncode == 2:
+        logger.warning("%s 작업자가 규칙 위반을 보고했습니다:\n%s", label, _tail(proc.stderr))
+    return proc
+
+
+def _read_json(path: Path, label: str) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise WorkerError(f"{label} 작업자 결과 파일을 읽지 못했습니다: {path.name} ({exc})") from exc
+
+
+def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
+    worker_dir = Path(settings.hook_workers_dir) / "a"
+    cmd = _node_command(worker_dir)
+    with tempfile.TemporaryDirectory(prefix="hookpipe_a_") as tmp:
+        in_path = Path(tmp) / "worker_input.json"
+        out_path = Path(tmp) / "scenarios_response.json"
+        in_path.write_text(json.dumps(worker_input, ensure_ascii=False), encoding="utf-8")
+        _run_node(
+            [*cmd, "generate", "--input", str(in_path), "--out", str(out_path)],
+            worker_dir,
+            float(settings.hook_worker_timeout_sec),
+            "A",
+        )
+        return _read_json(out_path, "A")
+
+
+def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
+    """B 는 결과를 `b/out/<project_id>/round-<n>.json` 에 회차 기록으로 남긴다 (response 키가 계약 응답)."""
+    worker_dir = Path(settings.hook_workers_dir) / "b"
+    cmd = _node_command(worker_dir)
+    record = worker_dir / "out" / str(worker_input["project_id"]) / f"round-{int(worker_input['round'])}.json"
+    with tempfile.TemporaryDirectory(prefix="hookpipe_b_") as tmp:
+        in_path = Path(tmp) / "worker_input.json"
+        in_path.write_text(json.dumps(worker_input, ensure_ascii=False), encoding="utf-8")
+        _run_node(
+            [*cmd, "generate", str(in_path), "--force"],
+            worker_dir,
+            float(settings.hook_worker_timeout_sec),
+            "B",
+        )
+    data = _read_json(record, "B")
+    response = data.get("response") if isinstance(data, dict) else None
+    if not isinstance(response, dict):
+        raise WorkerError("B 작업자 회차 기록에 response 가 없습니다.")
+    return response
+
+
+def _load_c_env(worker_dir: Path) -> None:
+    env_file = worker_dir / ".env"
+    if not env_file.is_file():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key, value = key.strip(), value.strip().strip('"').strip("'")
+        if key in _C_ENV_KEYS and value:
+            os.environ.setdefault(key, value)
+
+
+def _import_c_generate(worker_dir: Path) -> Any:
+    """`bridge-dev/c/src` 를 별칭 패키지로 불러온다 (폴더 이름에 하이픈이 있어 일반 import 가 안 된다)."""
+    with _C_IMPORT_LOCK:
+        if _C_PACKAGE not in sys.modules:
+            init = worker_dir / "src" / "__init__.py"
+            if not init.is_file():
+                raise WorkerError(f"C 작업자 코드를 찾지 못했습니다: {init}")
+            spec = importlib.util.spec_from_file_location(
+                _C_PACKAGE, init, submodule_search_locations=[str(init.parent)]
+            )
+            if spec is None or spec.loader is None:
+                raise WorkerError("C 작업자 패키지를 불러오지 못했습니다.")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[_C_PACKAGE] = module
+            try:
+                spec.loader.exec_module(module)
+            except Exception:
+                sys.modules.pop(_C_PACKAGE, None)
+                raise
+        return importlib.import_module(f"{_C_PACKAGE}.generate")
+
+
+def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
+    worker_dir = Path(settings.hook_workers_dir) / "c"
+    try:
+        generate = _import_c_generate(worker_dir)
+    except WorkerError:
+        raise
+    except Exception as exc:
+        raise WorkerError(f"C 작업자 코드를 불러오지 못했습니다: {exc}") from exc
+    _load_c_env(worker_dir)
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise WorkerError("ANTHROPIC_API_KEY 가 없습니다 (C 작업자는 Claude 로 시나리오를 만듭니다).")
+    try:
+        run = generate.generate_scenarios(worker_input, log=lambda m: logger.info("[C] %s", m))
+    except ModuleNotFoundError as exc:
+        raise WorkerError(f"C 작업자에 필요한 패키지가 없습니다: {exc.name} (bridge-dev/c/requirements.txt)") from exc
+    except Exception as exc:
+        raise WorkerError(f"C 작업자 실행 오류: {exc}") from exc
+    violations = [e for check in run.get("checks") or [] for e in check.get("errors") or []]
+    if violations:
+        logger.warning("C 작업자가 규칙 위반을 보고했습니다: %s", "; ".join(violations[:5]))
+    return run["response"]
+
+
+WORKERS: Dict[str, WorkerFn] = {"A": run_worker_a, "B": run_worker_b, "C": run_worker_c}
+
+
+def normalize_scenarios(
+    response: Dict[str, Any], hook_type: str, *, max_hook_sec: float
+) -> List[Dict[str, Any]]:
+    """작업자 응답 → 코어가 저장하는 시나리오 목록. 형태가 맞지 않거나 길이가 넘는 것은 뺀다."""
+    items: List[Dict[str, Any]] = []
+    for raw in (response or {}).get("scenarios") or []:
+        if not isinstance(raw, dict):
+            continue
+        beats = [dict(b) for b in (raw.get("beats") or []) if isinstance(b, dict)]
+        if not beats or not raw.get("scenario_id") or not raw.get("hook_title"):
+            logger.warning("%s 작업자 시나리오에 필수 항목이 없어 뺍니다.", hook_type)
+            continue
+        beats.sort(key=lambda b: int(b.get("order") or 0))
+        total = round(sum(float(b.get("duration_sec") or 0.0) for b in beats), 3)
+        if total <= 0 or total > float(max_hook_sec) + 0.05:
+            logger.warning("%s 작업자 시나리오 %s: 훅 길이 %.1f초가 허용 범위(%.0f초 이하)를 벗어나 뺍니다.",
+                           hook_type, raw.get("scenario_id"), total, max_hook_sec)
+            continue
+        for beat in beats:
+            beat.setdefault("role", "beat")
+            beat["visual"] = str(beat.get("visual") or "")
+            beat["narration"] = str(beat.get("narration") or "")
+            beat["caption"] = str(beat.get("caption") or "")
+            beat["duration_sec"] = float(beat.get("duration_sec") or 0.0)
+            beat["order"] = int(beat.get("order") or 0)
+        item = dict(raw)
+        item["type"] = hook_type
+        item["beats"] = beats
+        item["hook_duration_sec"] = total
+        item["body_duration_sec"] = float(raw.get("body_duration_sec") or 0.0)
+        item["replacement_test_note"] = str(raw.get("replacement_test_note") or "")
+        item["storyboard_frames"] = []
+        spec = dict(raw.get("ad_spec") or {})
+        spec.setdefault("track_archetype", TRACK_BY_TYPE[hook_type])
+        item["ad_spec"] = spec
+        items.append(item)
+    return items
+
+
+def generate_with_worker(
+    hook_type: str,
+    project: Dict[str, Any],
+    settings: Any,
+    *,
+    round_no: int,
+    previous_scenarios: List[Dict[str, Any]],
+    workers: Optional[Dict[str, WorkerFn]] = None,
+) -> List[Dict[str, Any]]:
+    registry = workers if workers is not None else WORKERS
+    worker = registry.get(hook_type)
+    if worker is None:
+        raise WorkerError(f"{hook_type} 유형 작업자가 등록되어 있지 않습니다.")
+    worker_input = build_worker_input(
+        project, hook_type, round_no=round_no, previous_scenarios=previous_scenarios
+    )
+    if not worker_input["product_info"]["name"]:
+        raise WorkerError("제품 이름이 비어 있습니다.")
+    response = worker(worker_input, settings)
+    items = normalize_scenarios(response, hook_type, max_hook_sec=float(settings.hook_max_sec))
+    if not items:
+        raise WorkerError(f"{hook_type} 작업자가 쓸 수 있는 시나리오를 돌려주지 않았습니다.")
+    return items
+
+
+def make_scenario_generator(
+    settings: Any,
+    project_store: Any,
+    *,
+    fallback: Optional[ScenarioGenerator] = None,
+    workers: Optional[Dict[str, WorkerFn]] = None,
+) -> ScenarioGenerator:
+    """코어 라우터에 끼우는 시나리오 생성기. 유형마다 작업자를 부르고, 실패하면 fallback 을 쓴다."""
+
+    def _generate(project: Dict[str, Any], hook_types: List[str], provider: str) -> List[Dict[str, Any]]:
+        project_id = str(project["project_id"])
+        previous = project_store.list_scenarios(project_id)
+        round_no = int(project.get("scenario_round") or 0) + 1
+        out: List[Dict[str, Any]] = []
+        for hook_type in hook_types:
+            if getattr(settings, "hook_worker_mode", "auto") == "off":
+                if fallback is None:
+                    raise _unavailable(hook_type, "작업자 호출이 꺼져 있고(HOOK_WORKER_MODE=off) 대체 생성기도 없습니다.")
+                out.extend(fallback(project, [hook_type], provider))
+                continue
+            try:
+                out.extend(
+                    generate_with_worker(
+                        hook_type,
+                        project,
+                        settings,
+                        round_no=round_no,
+                        previous_scenarios=previous,
+                        workers=workers,
+                    )
+                )
+                continue
+            except WorkerError as exc:
+                worker_error = str(exc)
+                logger.warning("%s 작업자 실패 → 대체 생성기로 넘어갑니다: %s", hook_type, worker_error)
+            if fallback is None:
+                raise _unavailable(hook_type, worker_error)
+            try:
+                out.extend(fallback(project, [hook_type], provider))
+            except HTTPException as exc:
+                detail = exc.detail if isinstance(exc.detail, dict) else {}
+                planner_msg = (detail.get("error") or {}).get("message") or str(exc.detail)
+                raise _unavailable(hook_type, f"{worker_error} / 대체 생성기도 실패: {planner_msg}") from exc
+        return out
+
+    return _generate
+
+
+def _unavailable(hook_type: str, message: str) -> HTTPException:
+    return HTTPException(
+        status_code=502,
+        detail={
+            "error": {
+                "code": "HOOK_WORKER_UNAVAILABLE",
+                "message": f"{hook_type} 유형 시나리오를 만들지 못했습니다: {message}",
+                "details": {"hook_type": hook_type},
+            }
+        },
+    )

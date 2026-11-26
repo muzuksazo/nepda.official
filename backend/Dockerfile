@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY libraries/media-tools /app/scripts
 COPY backend/app /app/app
+COPY backend/hookpipe /app/hookpipe
 
 EXPOSE 8080
 

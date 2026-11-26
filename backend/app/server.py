@@ -22,10 +22,13 @@ from .projects_router import (
     GoogleTokenVerifier,
     ScenarioGenerator,
     StoryboardGenerator,
+    _default_scenario_generator,
     build_projects_router,
 )
 from .storage import StorageBackend, build_storage
 from .store import JobStore
+
+from hookpipe import HookPipeline, make_scenario_generator  # backend/hookpipe: A·B·C 훅 영상 파이프라인
 
 
 class PresignRequest(BaseModel):
@@ -76,6 +79,14 @@ def create_app(
         provider_factory=provider_factory,
     )
     executor = ThreadPoolExecutor(max_workers=max(1, cfg.concurrency))
+    if scenario_generator is None:
+        # 유형별 작업자(bridge-dev/a·b·c)로 시나리오를 만들고, 작업자를 못 쓰면 기존 planner-api 로 넘어간다
+        scenario_generator = make_scenario_generator(
+            cfg, proj_store, fallback=_default_scenario_generator(cfg)
+        )
+    hook_pipeline = HookPipeline(
+        cfg, proj_store, job_store, storage_backend, provider_factory=provider_factory
+    )
 
     app = FastAPI(title="NAPDA Backend API", version="0.2.0")
     app.state.settings = cfg
@@ -204,6 +215,7 @@ def create_app(
             google_token_verifier=google_token_verifier,
             scenario_generator=scenario_generator,
             storyboard_generator=storyboard_generator,
+            hook_pipeline=hook_pipeline,
         )
     )
 

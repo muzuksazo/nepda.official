@@ -67,6 +67,19 @@ class Settings(BaseSettings):
     s3_secret_access_key: Optional[str] = None
     s3_prefix: str = "shortform-ad-studio"
 
+    # Hook video pipeline (backend/hookpipe): A/B/C 시나리오 작업자 → 영상 모델 훅 → 본편 붙이기
+    hook_worker_mode: Literal["auto", "off"] = "auto"  # auto: 작업자 호출, 실패하면 planner-api
+    hook_workers_dir: str = str(_PROD_ROOT / "bridge-dev")
+    hook_worker_timeout_sec: float = 900.0
+    hook_render_mode: Literal["video_model", "dry_run"] = "video_model"  # dry_run: 과금 호출 없이 scenario.json·hook.srt 만
+    hook_max_sec: float = 20.0
+    hook_clip_resolution: str = "720p"
+    hook_burn_captions: bool = True
+    hook_max_clip_sec_per_hook: int = 45  # 훅 하나에서 영상 모델에 요청하는 클립 길이 합 상한(과금 방어)
+    body_max_sec: float = 60.0
+    ffmpeg_bin: Optional[str] = None
+    ffprobe_bin: Optional[str] = None
+
     @property
     def auth_mode(self) -> str:
         return "vertex_ai" if self.google_genai_use_vertexai else "ai_studio"

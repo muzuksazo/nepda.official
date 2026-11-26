@@ -1,0 +1,120 @@
+"""시나리오 장면(beat) → 영상 모델 프롬프트. 유형별 화면 톤과 제품 장면 판정을 담는다."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+COMMON_RULES = """RULES (apply to every shot):
+- Framing: vertical 9:16. Main subject in the UPPER two thirds of the frame. Keep the bottom third calm (subtitles go there).
+- Camera: one continuous shot with gentle movement. No cuts inside the clip.
+- FORBIDDEN: any readable text, letters, numbers or digits in the image; subtitles; watermarks; logos; real brand marks.
+- Keep the same look, palette and main character across all shots of this story."""
+
+STYLE_BY_TYPE: Dict[str, str] = {
+    "A": "LOOK: cinematic genre short film, strong mood lighting, shallow depth of field. Commit fully to the genre of the story.",
+    "B": (
+        "LOOK: stylized 3D animation like a small diorama stage, soft clay / low-poly feel, matte materials, "
+        "warm soft window light. NOT photorealistic. One vivid red accent for the key detail."
+    ),
+    "C": (
+        "LOOK: realistic everyday footage shot on a smartphone in a bright home, natural light, "
+        "believable hands and props. Honest and plain, not glossy advertising."
+    ),
+}
+
+
+def style_text(scenario: Dict[str, Any]) -> str:
+    """유형 기본 톤 + 시나리오가 직접 정한 visual_style(있으면)."""
+    hook_type = str(scenario.get("type") or "C")
+    base = STYLE_BY_TYPE.get(hook_type, STYLE_BY_TYPE["C"])
+    own = str((scenario.get("ad_spec") or {}).get("visual_style") or "").strip()
+    if own:
+        base = f"{base}\nSTYLE REQUESTED BY THE SCENARIO: {own}"
+    return f"{base}\n{COMMON_RULES}"
+
+
+def ordered_beats(scenario: Dict[str, Any]) -> List[Dict[str, Any]]:
+    beats = [b for b in (scenario.get("beats") or []) if isinstance(b, dict)]
+    return sorted(beats, key=lambda b: int(b.get("order") or 0))
+
+
+def product_beat_orders(scenario: Dict[str, Any]) -> List[int]:
+    """제품이 화면에 나와야 하는 장면 번호.
+
+    B: ad_spec.product_first_mention_beat 부터. C: '문제' 장면을 뺀 전부. A·그 밖: 마지막 장면.
+    """
+    beats = ordered_beats(scenario)
+    if not beats:
+        return []
+    orders = [int(b.get("order") or 0) for b in beats]
+    spec = scenario.get("ad_spec") or {}
+    first = spec.get("product_first_mention_beat")
+    if isinstance(first, (int, float)) and not isinstance(first, bool) and int(first) in orders:
+        return [o for o in orders if o >= int(first)]
+    if str(scenario.get("type")) == "C":
+        picked = [
+            int(b.get("order") or 0)
+            for b in beats
+            if "문제" not in str(b.get("role") or "") and "problem" not in str(b.get("role") or "").lower()
+        ]
+        return picked or [orders[-1]]
+    return [orders[-1]]
+
+
+def _story(scenario: Dict[str, Any]) -> str:
+    spec = scenario.get("ad_spec") or {}
+    return str(spec.get("story_seed") or scenario.get("hook_title") or "")
+
+
+def reference_image_prompt(scenario: Dict[str, Any]) -> str:
+    return (
+        f"{style_text(scenario)}\n"
+        f"A single style and character reference frame for this story: {_story(scenario)}. "
+        "Show the main character (or main object) of the story, full body, centered in the upper two thirds, plain background."
+    )
+
+
+def beat_prompt(
+    scenario: Dict[str, Any],
+    beat: Dict[str, Any],
+    index: int,
+    total: int,
+    *,
+    product: Optional[Dict[str, Any]] = None,
+    shows_product: bool = False,
+    has_product_reference: bool = False,
+    has_style_reference: bool = False,
+) -> str:
+    lines = [
+        style_text(scenario),
+        f"STORY (told over {total} shots): {_story(scenario)}",
+        f"THIS SHOT ({index}/{total}): {beat.get('visual', '')}",
+    ]
+    scene3d = beat.get("scene3d") or {}
+    if isinstance(scene3d, dict):
+        if scene3d.get("fact_shown"):
+            lines.append(f"What the viewer must understand: {scene3d['fact_shown']}")
+        motions = [m for m in (scene3d.get("motion") or []) if isinstance(m, dict) and m.get("action")]
+        if motions:
+            ordered = sorted(motions, key=lambda m: m.get("from", 0))
+            lines.append("Motion to show: " + "; ".join(str(m["action"]) for m in ordered))
+    if shows_product and product:
+        name = product.get("call_name") or product.get("name") or ""
+        facts = [str(f) for f in (product.get("verified_facts") or []) if str(f).strip()]
+        if has_product_reference:
+            lines.append(
+                f'PRODUCT IN THIS SHOT: "{name}". It must look EXACTLY like the product in the reference photos '
+                "(same shape, colors, label design). Do not invent a different product. Keep it large and clearly visible."
+            )
+        else:
+            lines.append(f'PRODUCT IN THIS SHOT: "{name}". Show it large and clearly, as the facts below describe it.')
+        if facts:
+            lines.append(
+                "Product facts (do not show anything that contradicts them):\n" + "\n".join(f"- {f}" for f in facts[:8])
+            )
+    elif has_style_reference:
+        lines.append("Keep the same main character, look and palette as the reference image.")
+    narration = str(beat.get("narration") or "").strip()
+    if narration:
+        lines.append(f"Narration heard over this shot (Korean, for context only, do NOT render as text): {narration}")
+    return "\n".join(lines)
