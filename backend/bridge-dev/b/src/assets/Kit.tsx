@@ -3,7 +3,7 @@
 // 모델(Claude)이 쓰는 코드는 "사실을 보여 주는 시각화(Viz)" 하나뿐이고, 키트가 그것을 정해진 상자 안에 놓는다.
 //   - 일반 장면: Viz 는 단위 상자(x·y -1..1, z -0.6..0.6) 안에 그린다 → 키트가 시각화 자리(인물 오른쪽 공중 또는 바닥)에 0.7배로 놓는다
 //   - 반전 장면: 키트가 제품을 쾅 착지시키고 뒤쪽을 어둡게 한다. Viz 는 제품 둘레의 "기능 효과"를 미터 단위로 그린다
-//     (원점 = 제품 바닥 가운데, 제품은 x -0.45..0.45, y 0..1.5, 뚜껑은 오른쪽 바닥 x≈1.0 에 놓인다)
+//     (원점 = 제품 바닥 가운데, 제품은 x -0.4..0.4, y 0..1.35, 뚜껑은 오른쪽 바닥 x≈0.9 에 놓인다)
 import React from 'react';
 import { interpolate } from 'remotion';
 import { useCurrentFrame } from 'remotion';
@@ -25,21 +25,32 @@ export interface KitPlan {
   lid?: { from: number; to: number };
 }
 
-// 자리 (x, z) 와 그 자리에 놓을 수 있는 최대 높이
-const SLOTS: Record<Slot, { x: number; z: number; maxH: number }> = {
-  'back-left': { x: -1.65, z: -2.1, maxH: 2.8 },
-  'back-center': { x: 0.1, z: -2.45, maxH: 2.8 },
-  'back-right': { x: 1.7, z: -2.1, maxH: 2.8 },
-  'side-left': { x: -2.15, z: -1.0, maxH: 2.2 },
-  'side-right': { x: 2.05, z: -1.1, maxH: 2.2 },
-  'near-person': { x: -2.0, z: 0.05, maxH: 1.2 },
-  'front-right': { x: 1.55, z: 0.25, maxH: 0.6 },
+// 자리 (x, z), 최대 높이, 최대 가로 (카메라 wide 기준으로 화면 안에 들어오게 맞춘 값)
+const SLOTS: Record<Slot, { x: number; z: number; maxH: number; maxW: number }> = {
+  'back-left': { x: -1.35, z: -2.2, maxH: 2.6, maxW: 1.6 },
+  'back-center': { x: 0.15, z: -2.5, maxH: 2.6, maxW: 1.8 },
+  'back-right': { x: 1.5, z: -2.2, maxH: 2.6, maxW: 1.6 },
+  'side-left': { x: -1.6, z: -1.1, maxH: 2.0, maxW: 1.1 },
+  'side-right': { x: 1.65, z: -1.2, maxH: 2.0, maxW: 1.1 },
+  'near-person': { x: -1.45, z: 0.45, maxH: 0.9, maxW: 0.55 },
+  'front-right': { x: 1.25, z: 0.45, maxH: 0.55, maxW: 0.6 },
 };
-const PERSON: [number, number, number] = [-1.2, FLOOR_Y, -0.2];
-const VIZ_AIR: [number, number, number] = [0.4, 1.25, -0.6];
-const VIZ_FLOOR: [number, number, number] = [0.45, FLOOR_Y + 0.7, -0.5];
-const VIZ_SCALE = 0.7;
+const PERSON: [number, number, number] = [-0.95, FLOOR_Y, -0.1];
+const VIZ_AIR: [number, number, number] = [0.55, 1.35, -0.5];
+const VIZ_SCALE = 0.72;
 const PRODUCT_AT: [number, number, number] = [0, FLOOR_Y, 0.6];
+
+/** 바닥·벽 색 밝기 제한: 바닥이 하얗게 날아가거나 벽이 너무 밝아 무대가 밋밋해지지 않게 */
+function clampLight(hex: string, min: number, max: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  let r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const k = l > max ? max / l : l < min && l > 0 ? min / l : 1;
+  [r, g, b] = [r, g, b].map((v) => Math.min(1, v * k));
+  return '#' + [r, g, b].map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
+}
 
 function cameraAt(shots: KitPlan['shots'], p: number) {
   const s = [...shots].sort((a, b) => a.at - b.at);
@@ -59,7 +70,7 @@ function placeProps(props: KitPlan['props']) {
     const n = used.get(p.slot) ?? 0;
     used.set(p.slot, n + 1);
     const dir = slot.x >= 0 ? -1 : 1; // 화면 안쪽으로 비킨다
-    return { ...p, position: [slot.x + dir * n * 0.75, FLOOR_Y, slot.z + n * 0.15] as [number, number, number], height: Math.min(Math.max(0.1, p.height), slot.maxH) };
+    return { ...p, maxW: slot.maxW, position: [slot.x + dir * n * 0.7, FLOOR_Y, slot.z + n * 0.15] as [number, number, number], height: Math.min(Math.max(0.1, p.height), slot.maxH) };
   });
 }
 
@@ -89,18 +100,19 @@ export function KitScene({ plan, durationInFrames: d, children, Product }: { pla
 
   const world = (
     <>
-      <Stage camera={camera} floorColor={plan.stage.floor} wallColor={plan.stage.wall} back={-4.8} hdri={plan.stage.hdri} envIntensity={0.35} />
-      {placeProps(plan.props).map((pr, i) => (
-        <Prop key={i} file={pr.file} position={pr.position} height={pr.height} rotationY={pr.rotationY ?? 0} tone={pr.tone} />
+      <Stage camera={camera} floorColor={clampLight(plan.stage.floor, 0.12, 0.3)} wallColor={clampLight(plan.stage.wall, 0.04, 0.12)} back={-4.8} hdri={plan.stage.hdri} envIntensity={0.35} />
+      {placeProps(plan.props).filter((pr) => !plan.reveal || pr.position[2] < 0.1).map((pr, i) => ( // 반전: 앞쪽 소품은 빼서 제품·뚜껑 자리를 비운다
+        <Prop key={i} file={pr.file} position={pr.position} height={pr.height} maxWidth={pr.maxW} rotationY={pr.rotationY ?? 0} tone={pr.tone} />
       ))}
       {ch && (
-        <Character file={ch.file} colors={{ Skin: '#f0c9a6' }} timeline={clips} emotes={emotes} position={PERSON} rotationY={0.55} height={1.7} />
+        <Character file={ch.file} colors={{ Skin: '#f0c9a6' }} timeline={clips} emotes={emotes} position={PERSON} rotationY={0.5} height={1.7} />
       )}
     </>
   );
 
   if (!plan.reveal) {
-    const at = plan.viz === 'floor' ? VIZ_FLOOR : VIZ_AIR;
+    // 바닥 자리는 세로 화면에서 자막에 걸려서 쓰지 않는다: 땅이 필요하면 시각화가 상자 아래(y=-1)에 받침판을 그린다
+    const at = VIZ_AIR;
     return (
       <group>
         {world}
@@ -115,7 +127,7 @@ export function KitScene({ plan, durationInFrames: d, children, Product }: { pla
       {world}
       <BackDim impact={SLAM_IMPACT} z={0.2} />
       <SlamIn impact={SLAM_IMPACT} position={PRODUCT_AT}>
-        {Product ? <Product height={1.5} lidOpen={lidOpen} /> : null}
+        {Product ? <Product height={1.35} lidOpen={lidOpen} /> : null}
       </SlamIn>
       <DustBurst impact={SLAM_IMPACT} position={PRODUCT_AT} radius={1.0} />
       <group position={PRODUCT_AT}>{f >= SLAM_IMPACT ? children : null}</group>

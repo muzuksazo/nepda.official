@@ -105,7 +105,7 @@ export const SCENE3D_PROMPT = `당신은 Remotion + React Three Fiber 숏폼 3D 
 - 인물은 화면 왼쪽(바닥 위)에 서서 오른쪽의 시각화를 바라봅니다.
 
 ## 시각화 (objects)
-- 장면의 사실(fact_shown)은 objects로 크게 보여 줍니다. three.js 기본 도형(Box, Sphere, Cylinder(thetaLength로 부채꼴), Torus, Tube 등)으로 만들고, viz_place(air = 인물 오른쪽 공중, floor = 인물 오른쪽 바닥 위) 자리에 화면 폭의 절반 정도 크기로 둡니다. 시각화는 그 자리의 상자(가로·세로 약 1.4m) 안에서만 움직입니다.
+- 장면의 사실(fact_shown)은 objects로 크게 보여 줍니다. three.js 기본 도형(Box, Sphere, Cylinder(thetaLength로 부채꼴), Torus, Tube 등)으로 만들고, 인물 오른쪽 공중(화면 위쪽 1/3)에 화면 폭의 절반 정도 크기로 둡니다. 땅이 필요한 이야기(모래, 탁자 위)는 시각화 아래쪽에 얇은 받침판을 그립니다. viz_place는 air로 둡니다. 시각화는 그 자리의 상자(가로·세로 약 1.4m) 안에서만 움직입니다.
 - 색: 이야기에 필요한 색은 그대로 씁니다(예: 무지개 일곱 색은 실제 일곱 색). 강조는 빨강 #e8322a.
 - 3D 안에 읽을 수 있는 글자·숫자를 넣지 않습니다. 숫자는 counter(화면 위쪽 오버레이)로만 보여 줍니다.
 - counter는 정수로만 보여 줍니다(소수점은 반올림되어 틀리게 보입니다). 자막에 소수(예: 0.1g, 99.8%)가 나오면 counter의 to를 그 값으로 쓰지 말고, 정수로 맞는 단위로 바꾸거나(0.1g → 100mg) counter를 null로 둡니다.

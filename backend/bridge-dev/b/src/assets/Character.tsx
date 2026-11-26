@@ -232,7 +232,10 @@ export function Prop({
   glow,
   roughness = 0.7,
   shadow = true,
+  maxWidth,
 }: {
+  /** 가로(x·z 중 큰 쪽) 최대 크기(m). 납작한 물건(키보드·러그)을 높이로 맞추면 거대해지는 것을 막는다 */
+  maxWidth?: number;
   file: string;
   position?: [number, number, number];
   rotationY?: number;
@@ -276,14 +279,15 @@ export function Prop({
     root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root, true);
     const size = box.getSize(new THREE.Vector3());
-    const s = height ? height / Math.max(1e-3, size.y) : width ? width / Math.max(1e-3, Math.max(size.x, size.z)) : 1;
+    let s = height ? height / Math.max(1e-3, size.y) : width ? width / Math.max(1e-3, Math.max(size.x, size.z)) : 1;
+    if (maxWidth) s = Math.min(s, maxWidth / Math.max(1e-3, Math.max(size.x, size.z)));
     const c = box.getCenter(new THREE.Vector3());
     root.scale.setScalar(s);
     root.position.set(-c.x * s, -box.min.y * s, -c.z * s);
     const holder = new THREE.Group();
     holder.add(root);
     return holder;
-  }, [gltf, height, width, tone, roughness, shadow, JSON.stringify(colors ?? {}), JSON.stringify(glow ?? {})]);
+  }, [gltf, height, width, maxWidth, tone, roughness, shadow, JSON.stringify(colors ?? {}), JSON.stringify(glow ?? {})]);
   useEffect(() => {
     if (!obj) return;
     advance(performance.now());
@@ -349,12 +353,12 @@ export function Stage({
       .catch((e) => console.warn('[BStage] hdri load failed', e))
       .finally(() => requestAnimationFrame(() => continueRender(hdrHandle)));
   }, [hdri, hdrHandle, gl, scene, advance]);
-  useMemo(() => {
-    cam.position.set(...camera.position);
-    cam.fov = camera.fov;
-    cam.lookAt(...camera.lookAt);
-    cam.updateProjectionMatrix();
-  }, [cam, camera.fov, ...camera.position, ...camera.lookAt]);
+  // 매 프레임 적용: 바깥 ThreeCanvas 가 camera prop(기본 [0, 0.8, 7])을 다시 넣어도 무대 카메라가 이기게
+  cam.position.set(...camera.position);
+  cam.fov = camera.fov;
+  cam.lookAt(...camera.lookAt);
+  cam.updateProjectionMatrix();
+  cam.updateMatrixWorld();
 
   // 바닥에서 뒤쪽 벽으로 부드럽게 휘는 면 (곡률 반경 R)
   const cyc = useMemo(() => {
@@ -528,12 +532,13 @@ export function BackDim({ impact = SLAM_IMPACT, z = 0.25, amount = 0.72, frames 
   );
 }
 
-/** 카메라 포커스 프리셋 (Stage 기본 배치 기준: 인물 x≈-1.2, 시각화 자리 [0.4, 1.3, -0.6], 반전 제품 [0, FLOOR_Y, 0.6]) */
+/** 카메라 포커스 프리셋 (장면 키트 배치 기준: 인물 x≈-0.95, 시각화 자리 [0.55, 1.35, -0.5], 반전 제품 [0, FLOOR_Y, 0.6]) */
 export const CAMERAS = {
-  wide: { position: [0, 1.55, 9.2] as [number, number, number], lookAt: [0, 0.55, -1] as [number, number, number], fov: 40 },
-  person: { position: [-0.9, 1.35, 5.4] as [number, number, number], lookAt: [-1.1, 0.75, -0.4] as [number, number, number], fov: 38 },
-  visual: { position: [0.4, 1.55, 6.0] as [number, number, number], lookAt: [0.4, 1.05, -0.6] as [number, number, number], fov: 38 },
-  product: { position: [0, 3.0, 6.9] as [number, number, number], lookAt: [0.2, 0.02, 0.5] as [number, number, number], fov: 40 },
+  // 모두 살짝 내려다본다: 무대가 화면 위로 올라와 위쪽 빈 공간이 줄고, 시각화가 자막(약 62%) 위에 선다
+  wide: { position: [0.05, 1.9, 7.3] as [number, number, number], lookAt: [0.05, 0.35, -0.6] as [number, number, number], fov: 40 },
+  person: { position: [-0.5, 1.7, 4.8] as [number, number, number], lookAt: [-0.8, 0.55, -0.2] as [number, number, number], fov: 40 },
+  visual: { position: [0.55, 2.0, 5.4] as [number, number, number], lookAt: [0.55, 0.85, -0.5] as [number, number, number], fov: 40 },
+  product: { position: [0, 3.0, 6.9] as [number, number, number], lookAt: [0.2, -0.2, 0.5] as [number, number, number], fov: 40 },
 };
 export type CameraName = keyof typeof CAMERAS;
 type Cam = { position: [number, number, number]; lookAt: [number, number, number]; fov: number };

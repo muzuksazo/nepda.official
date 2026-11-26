@@ -259,12 +259,13 @@ Contract:
 - Coordinates:
   * STORY scene: draw inside the UNIT BOX x -1..1, y -1..1, z -0.6..0.6 (origin = box center). The kit puts this box right of the
     character and scales it x0.7. Nothing may leave the box at any frame, including pops/scale-ups: keep a 10% margin.
-    Fill the box well — the fact must read at a glance on a phone. If the viz place is "floor", y = -1 is the ground:
-    things standing on the ground touch y = -1 exactly (never float above it, never sink below it).
+    Fill the box well — the fact must read at a glance on a phone. If the story needs ground (sand, a table top, water),
+    draw a thin base plate at y = -1 inside the box; things standing on it touch it exactly (never float, never sink).
   * REVEAL scene: units are meters, origin = the product's base center on the floor (y = 0 is the floor).
-    The product body occupies x -0.45..0.45, y 0..1.5, z -0.45..0.45; its lid ends up lying on the floor at x 0.55..1.45, z -0.3..0.6.
+    The product body occupies x -0.42..0.42, y 0..1.35, z -0.42..0.42; its lid ends up lying on the floor at x 0.5..1.35, z -0.3..0.6.
     Draw ONLY the product's feature effect around it (e.g. particles being drawn into the product and vanishing), within
-    x -1.8..1.8, y 0.05..2.6, z -0.3..1.0, never passing through the product body or the lid. Start the effect after frame 20.
+    x -1.6..1.6, y 0.05..2.4, z -0.3..1.0, never passing through the product body or the lid (effects entering the product go in
+    through the open top at y ≈ 1.35 and vanish there). Start the effect after frame 20.
 - No two solid objects may intersect unless the story needs it (e.g. a wedge sliding into a ring stops at its edge).
   Particles that "enter" something must shrink and fade out at its surface, not pass through it.
 - Never draw text or digits in 3D. Use meshStandardMaterial / meshPhysicalMaterial. Colors the story needs are fine
@@ -376,7 +377,7 @@ export async function renderCuts(
         const kp = kitPlanOf(beats[i].scene3d, reveal, hasProduct);
         wrapper = wrapperCode(key, kp, hasProduct);
         content =
-          `${VIZ_RULES}\n\nThis is ${reveal ? "the REVEAL scene (the product slams down at frame 15; draw only its feature effect)" : `a STORY scene; viz place = ${kp.viz}`}.\n` +
+          `${VIZ_RULES}\n\nThis is ${reveal ? "the REVEAL scene (the product slams down at frame 15; draw only its feature effect)" : "a STORY scene"}.\n` +
           `Scene: ${scene.durationSec}s = ${frames} frames, accent ${scene.color}.\n` +
           `Caption (drawn by caller, lower part of the screen): ${JSON.stringify(scene.text)}\n` +
           `Narration: ${scene.say ?? ""}\n` +
