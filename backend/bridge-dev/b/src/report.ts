@@ -109,8 +109,7 @@ function roundBlock(run: RunRecord, open: boolean) {
               const cb = cutOf(b.order);
               const mid = cb?.images[1] ?? cb?.images[0];
               return mid ? `<figure><img src="${esc(mid)}" alt="장면 ${b.order}" loading="lazy"><figcaption>${b.order}. ${esc(b.role)} · ${b.duration_sec}초${cb && !cb.ok ? " ⚠" : ""}${
-                cb?.qa ? `<br><span class="lic ${cb.qa.pass ? "cc0" : "by"}" title="${esc(cb.qa.issues.map((i) => `${i.severity} ${i.kind}/${i.owner}: ${i.detail}`).join("
-"))}">검수 ${cb.qa.pass ? "통과" : "탈락"} ${cb.qa.score}/5 · ${cb.qa.rounds}차</span>` : ""
+                cb?.qa ? `<br><span class="lic ${cb.qa.pass ? "cc0" : "by"}" title="${esc(cb.qa.issues.map((i) => `${i.severity} ${i.kind}/${i.owner}: ${i.detail}`).join(" / "))}">검수 ${cb.qa.pass ? "통과" : "탈락"} ${cb.qa.score}/5 · ${cb.qa.rounds}차</span>` : ""
               }</figcaption></figure>` : "";
             })
             .join("")}</div>`
