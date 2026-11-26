@@ -1,0 +1,6 @@
+# 시나리오 생성(Claude)
+anthropic
+# 문제 장면 생성 영상(Google Veo, Vertex AI) 인증
+google-auth
+requests
+# 나머지는 표준 라이브러리 + ffmpeg + Blender.

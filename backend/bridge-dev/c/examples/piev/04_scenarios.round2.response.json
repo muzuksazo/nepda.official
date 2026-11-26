@@ -1,0 +1,61 @@
+{
+  "project_id": "proj_piev01",
+  "status": "SCENARIOS_READY",
+  "round": 2,
+  "scenarios": [
+    {
+      "scenario_id": "sc_piev01_C2_01",
+      "round": 2,
+      "type": "C",
+      "hook_title": "가득 채웠는데 사라진 디퓨저 액체 → 액체가 아닌 초록 고체 젤",
+      "hook_duration_sec": 15.0,
+      "body_duration_sec": 0.0,
+      "replacement_test_note": "'채운 액체가 증발해 줄어든다'는 액체형 리드 디퓨저에서만 생기는 문제이고 해결 근거가 액체가 아닌 고체 젤 제형(F02·F03)이라, 액체·스프레이형 방향제 광고에는 옮겨 붙일 수 없다.",
+      "beats": [
+        {
+          "order": 1,
+          "role": "문제",
+          "duration_sec": 4.0,
+          "visual": "테이블 위 액체 리드 디퓨저 타임랩스. 처음 높이에 붙인 테이프는 그대로인데 액체만 바닥까지 줄어든다 (생성 영상)",
+          "narration": "가득 채운 디퓨저, 액체 다 어디 갔죠?",
+          "caption": "가득 채웠는데\n액체 어디 갔죠?"
+        },
+        {
+          "order": 2,
+          "role": "가장 강한 증명",
+          "duration_sec": 4.0,
+          "visual": "실물 컵 클로즈업, 뚜껑을 연 컵 안의 초록 고체 젤 [F02]",
+          "narration": "이건 액체가 아니에요. 뚜껑을 열면, 초록 고체 젤.",
+          "caption": "액체가 아니에요\n뚜껑 열면 초록 고체 젤"
+        },
+        {
+          "order": 3,
+          "role": "장점",
+          "duration_sec": 2.5,
+          "visual": "거실 바닥에 컵처럼 놓인 실물 [F03][F04]",
+          "narration": "기울여도 안 흐르고, 컵처럼 두면 끝.",
+          "caption": "기울여도 안 흐르고\n컵처럼 두면 끝"
+        },
+        {
+          "order": 4,
+          "role": "CTA",
+          "duration_sec": 4.5,
+          "visual": "실물 풀샷, 전면 라벨 [F01]",
+          "narration": "피에브 에어워셔. 여러분 디퓨저는, 얼마 만에 바닥났나요?",
+          "caption": "여러분 디퓨저는\n얼마 만에 바닥났나요?"
+        }
+      ],
+      "ad_spec": {
+        "track_archetype": "C_direct_proof",
+        "claim_ids": ["F02", "F03", "F04"],
+        "proof_first": true,
+        "cta": {
+          "type": "comment_engagement",
+          "text": "여러분 디퓨저는 얼마 만에 바닥났나요?"
+        },
+        "disclosure": "ai_assisted",
+        "pov_label": "테이프 붙여 두고 지켜본 나"
+      }
+    }
+  ]
+}

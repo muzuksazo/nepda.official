@@ -1,0 +1,58 @@
+{
+  "scenario_id": "piev-C-r4-01",
+  "round": 4,
+  "type": "C",
+  "hook_title": "또 쏟은 액체 디퓨저 → 기울여도 안 흐르는 초록 고체 젤",
+  "hook_duration_sec": 15.0,
+  "body_duration_sec": 0,
+  "replacement_test_note": "C 판정: '쏟았다'는 액체형 디퓨저에서만 생기는 사고이고 해결 근거가 고체 젤 제형(F02·F03)이라, 액체·스프레이형 방향제 광고에는 옮겨 붙일 수 없음.",
+  "beats": [
+    {
+      "order": 1,
+      "role": "problem",
+      "duration_sec": 3,
+      "visual": "Blender 3D 흑백 인포머셜풍: 지나가던 팔에 리드 디퓨저가 쓰러지고 액체가 번짐. 상단 POV 라벨",
+      "narration": "디퓨저, 또 쏟았어요.",
+      "caption": "디퓨저,\n또 쏟았어요"
+    },
+    {
+      "order": 2,
+      "role": "proof",
+      "duration_sec": 4.5,
+      "visual": "실물 원본(IMG_3302) 0.85배속: 라벨 클로즈업에서 컵 안 초록 젤까지",
+      "narration": "그래서 바꿨어요. 이건 액체가 아니라 고체 젤이라, 기울여도 안 흘러요.",
+      "caption": "액체가 아니라 고체 젤\n기울여도 안 흘러요"
+    },
+    {
+      "order": 3,
+      "role": "solve",
+      "duration_sec": 2.5,
+      "visual": "실물 원본(IMG_3302) 확대 컷: 거실 바닥에 놓인 컵",
+      "narration": "컵처럼, 어디든 올려두면 끝.",
+      "caption": "컵처럼 어디든\n올려두면 끝"
+    },
+    {
+      "order": 4,
+      "role": "cta",
+      "duration_sec": 5,
+      "visual": "실물 원본(IMG_3302) 마지막 구간 + 정지 화면",
+      "narration": "피에브 에어워셔 피톤치드. 여러분은 디퓨저, 어디에 두세요?",
+      "caption": "피에브 에어워셔 피톤치드\n여러분은 어디에 두세요?"
+    }
+  ],
+  "ad_spec": {
+    "track_archetype": "C_direct_proof",
+    "claim_ids": [
+      "F01",
+      "F02",
+      "F03",
+      "F04"
+    ],
+    "proof_first": true,
+    "cta": {
+      "type": "comment_engagement",
+      "text": "여러분은 디퓨저, 어디에 두세요?"
+    },
+    "disclosure": "ai_assisted"
+  }
+}

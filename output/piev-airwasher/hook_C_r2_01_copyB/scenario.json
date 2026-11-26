@@ -1,0 +1,87 @@
+{
+  "scenario_id": "piev-C-r2-01-copyB",
+  "round": 2,
+  "type": "C",
+  "hook_title": "팔꿈치 한 번에 끝난 디퓨저 → 기울여도 그대로인 고체 젤",
+  "hook_duration_sec": 15,
+  "body_duration_sec": 5,
+  "replacement_test_note": "C 판정: '쏟았다'는 액체형 디퓨저에서만 생기는 사고이고 해결 근거가 고체 젤 제형(F02·F03)이라, 액체·스프레이형 방향제 광고에는 옮겨 붙일 수 없음.",
+  "beats": [
+    {
+      "order": 1,
+      "role": "problem",
+      "duration_sec": 3,
+      "visual": "Blender 3D 흑백 인포머셜풍: 지나가던 팔에 리드 디퓨저가 쓰러지고 액체가 번짐. 상단 POV 라벨",
+      "narration": "팔꿈치 한 번에, 디퓨저 끝났어요.",
+      "claim_ids": [],
+      "caption": "팔꿈치 한 / 번에, / 디퓨저 끝났어요."
+    },
+    {
+      "order": 2,
+      "role": "proof",
+      "duration_sec": 4.5,
+      "visual": "실물 원본(IMG_3302) 3컷: 라벨 클로즈업 / 컵 안 초록 젤 / 바닥에 놓인 전체",
+      "narration": "액체라서 그래요. 이건 고체 젤이라, 기울여도 그대로예요.",
+      "claim_ids": [
+        "F02",
+        "F03"
+      ],
+      "caption": "액체라서 그래요. / 이건 고체 / 젤이라, / 기울여도 / 그대로예요."
+    },
+    {
+      "order": 3,
+      "role": "spec",
+      "duration_sec": 3.5,
+      "visual": "Blender 3D 실버 뚜껑이 들리며 초록 젤이 드러나는 컷",
+      "narration": "뚜껑 열면 보이는 건, 짙은 초록 젤뿐.",
+      "claim_ids": [
+        "F02"
+      ],
+      "caption": "뚜껑 열면 / 보이는 건, / 짙은 초록 / 젤뿐."
+    },
+    {
+      "order": 4,
+      "role": "solve",
+      "duration_sec": 4,
+      "visual": "Blender 3D 히어로 아크 2초 + 전면 라벨 슬라이드 2초",
+      "narration": "테이블, 거실, 욕실 선반. 그냥 올려두세요.",
+      "claim_ids": [
+        "F04"
+      ],
+      "caption": "테이블, / 거실, / 욕실 선반. / 그냥 올려두세요."
+    }
+  ],
+  "body_beats": [
+    {
+      "order": 5,
+      "role": "cta",
+      "duration_sec": 5,
+      "visual": "Blender 3D 히어로 아크 후반 + 최종 풀백(컵 옆에 실버 뚜껑)",
+      "narration": "피에브 에어워셔 피톤치드. 여러분은 디퓨저, 어디에 두세요?",
+      "claim_ids": [
+        "F01"
+      ],
+      "caption": "피에브 에어워셔 / 피톤치드. / 여러분은 디퓨저, / 어디에 두세요?"
+    }
+  ],
+  "ad_spec": {
+    "track_archetype": "C_direct_proof",
+    "claim_ids": [
+      "F01",
+      "F02",
+      "F03",
+      "F04"
+    ],
+    "proof_first": true,
+    "cta": {
+      "type": "comment_engagement",
+      "text": "여러분은 디퓨저, 어디에 두세요?"
+    },
+    "disclosure": "ai_assisted"
+  },
+  "references": [
+    "tiktok.com/@stldylannn/video/7212266092486577451 (상단 POV 상황 라벨)",
+    "tiktok.com/@lhk_37/video/7644121140918504725 (2~3어절 큰 자막, 1초 안팎 컷)",
+    "tiktok.com/@homepixel_/video/7646933978246647058 (1인칭 이야기형 도입, 약 1.3초 컷)"
+  ]
+}
