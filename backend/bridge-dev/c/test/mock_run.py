@@ -151,5 +151,60 @@ with tempfile.TemporaryDirectory() as d:
             os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
 expect("장면 길이 → Veo 길이", [veo.pick_duration(x) for x in (3, 4, 4.5, 7, 12)] == [4, 4, 6, 8, 8])
 
+print("7. Gemini Omni 문제 장면 (가짜 응답, 과금 없음)")
+from src import omni  # noqa: E402
+from src import render as render_mod  # noqa: E402
+
+ocalls: list[tuple[str, str, dict | None]] = []
+
+
+def fake_call(method: str, url: str, body: dict | None, token: str) -> dict:
+    ocalls.append((method, url, body))
+    if method == "POST":
+        return {"id": "int_1", "status": "in_progress", "object": "interaction"}
+    if sum(1 for m, _, _ in ocalls if m == "GET") < 2:
+        return {"id": "int_1", "status": "in_progress"}
+    return {"id": "int_1", "status": "completed", "steps": [{"type": "thought"}, {"type": "model_output", "content": [
+        {"type": "video", "data": base64.b64encode(fake_mp4).decode(), "mime_type": "video/mp4"}]}]}
+
+
+saved = {k: os.environ.get(k) for k in ("GOOGLE_CLOUD_PROJECT", "GOOGLE_ACCESS_TOKEN", "C_OMNI_MODEL", "C_OMNI_RESOLUTION", "C_OMNI_API_VERSION",
+                                         "C_PROBLEM_ENGINE")}
+real_call = omni._call
+with tempfile.TemporaryDirectory() as d:
+    image = os.path.join(d, "first.jpg")
+    open(image, "wb").write(b"\xff\xd8fake-jpeg")
+    for k in saved:
+        os.environ.pop(k, None)
+    os.environ.update({"GOOGLE_CLOUD_PROJECT": "demo-project", "GOOGLE_ACCESS_TOKEN": "test-token"})
+    omni._call = fake_call
+    try:
+        clip = omni.generate("drain_smell", image, os.path.join(d, "cache"), 10.0, log=lambda m: None, poll_sec=0)
+        method, url, body = ocalls[0]
+        expect("Interactions 주소", url == "https://aiplatform.googleapis.com/v1beta1/projects/demo-project/locations/global/interactions", url)
+        expect("모델과 접수 방식", body["model"] == "gemini-omni-1.2-flash" and body["background"] is True)
+        expect("첫 프레임과 프롬프트를 보낸다", body["input"][0]["type"] == "text" and body["input"][1]["type"] == "image"
+               and base64.b64decode(body["input"][1]["data"]) == b"\xff\xd8fake-jpeg" and body["input"][1]["mime_type"] == "image/jpeg")
+        fmt = body["response_format"][0]
+        expect("10초·세로·인라인으로 요청", fmt == {"type": "video", "delivery": "inline", "aspect_ratio": "9:16", "resolution": "720p", "duration": "10s"},
+               str(fmt))
+        expect("이미지→영상 작업", body["generation_config"]["video_config"]["task"] == "image_to_video")
+        expect("끝날 때까지 확인하고 저장한다", open(clip, "rb").read() == fake_mp4 and [m for m, _, _ in ocalls] == ["POST", "GET", "GET"]
+               and ocalls[1][1].endswith("/interactions/int_1"), str([m for m, _, _ in ocalls]))
+        omni.generate("drain_smell", image, os.path.join(d, "cache"), 10.0, log=lambda m: None, poll_sec=0)
+        expect("같은 요청은 캐시를 쓴다 (재과금 없음)", len(ocalls) == 3, str(len(ocalls)))
+        omni._call = lambda method, url, body, token: {"id": "int_2", "status": "failed", "errors": [{"code": "x", "message": "blocked by policy"}]}
+        try:
+            omni.generate("drain_smell", image, os.path.join(d, "cache2"), 10.0, log=lambda m: None, poll_sec=0)
+            expect("실패하면 오류", False)
+        except omni.OmniError as e:
+            expect("실패하면 오류", "blocked by policy" in str(e), str(e))
+        expect("auto 는 omni 를 고른다", render_mod.problem_engine({}) == "auto" and render_mod.GENERATORS["omni"] is omni)
+    finally:
+        omni._call = real_call
+        for k, v in saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+expect("장면 길이 → Omni 길이", [omni.pick_duration(x) for x in (2, 3, 3.5, 10, 12.2, 20)] == [3, 3, 4, 10, 13, 15])
+
 print(f"\n{'모두 통과' if not failures else '실패 ' + str(len(failures)) + '건: ' + ', '.join(failures)}")
 sys.exit(1 if failures else 0)

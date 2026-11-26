@@ -72,6 +72,8 @@ def parse_worker_input(data: dict) -> dict:
             "product_footage": assets.get("product_footage"),      # 실물 제품 영상 경로 (증명 장면에 사용)
             "problem_template": assets.get("problem_template"),    # 생성 문제 장면 템플릿 이름 (예: spill_diffuser)
             "problem_engine": assets.get("problem_engine"),        # auto(기본) · veo(Blender 첫 프레임 → Google Veo) · blender
+            # 실물 영상의 컷 목록 [{t: 시작 초, zoom: 확대, focus: [가로, 세로] 0~1}]. 있으면 실물 장면을 짧은 컷으로 나눠 편집한다.
+            "footage_cuts": assets.get("footage_cuts") if isinstance(assets.get("footage_cuts"), list) else None,
         },
     }
 
