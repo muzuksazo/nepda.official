@@ -6,7 +6,7 @@ import { priceOf, totals, type StepUsage } from "./cost.js";
 import { ideate, rankSeeds, type IdeationResult, type StorySeed } from "./ideate.js";
 import { buildUserPrompt, SYSTEM_PROMPT, type SeedBrief } from "./prompt.js";
 import {
-  DraftResponseSchema,
+  ScenarioOnlyResponseSchema,
   type DraftScenario,
   type ScenarioItem,
   type ScenariosResponse,
@@ -129,7 +129,7 @@ export async function generateScenarios(input: WorkerInput, opts: GenerateOption
       system: SYSTEM_PROMPT,
       prompt: buildUserPrompt(input, feedback, brief),
       // 3D 명세(scene3d)는 여기서 만들지 않는다 → 컷 단계에서 고른 시나리오에만 (src/scene3d.ts)
-      output: Output.object({ schema: DraftResponseSchema }),
+      output: Output.object({ schema: ScenarioOnlyResponseSchema }),
       maxOutputTokens: 16000,
       providerOptions: { anthropic: { effort: "high" } },
     });

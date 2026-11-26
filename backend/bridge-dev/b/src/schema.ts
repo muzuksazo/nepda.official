@@ -135,6 +135,11 @@ export const DraftScenarioSchema = z.object({
 });
 export type DraftScenario = z.infer<typeof DraftScenarioSchema>;
 
+/** 시나리오 단계 출력: 3D 명세(scene3d)는 다음 단계에서 따로 만들므로 뺀다 (구조화 출력 스키마가 너무 커지지 않게) */
+export const ScenarioOnlyResponseSchema = z.object({
+  scenarios: z.array(DraftScenarioSchema.extend({ beats: z.array(BeatSchema.omit({ scene3d: true })) })),
+});
+
 export const DraftResponseSchema = z.object({
   scenarios: z.array(DraftScenarioSchema),
 });
