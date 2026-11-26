@@ -1,0 +1,11 @@
+/*
+ * 포인트(디스플레이) 서체: 페이퍼로지 Paperlogy 7 Bold — SIL OFL 1.1 (src/assets/fonts/OFL.txt)
+ * 화면 제목, 큰 숫자, 썸네일 글자에만 쓴다. 본문은 Pretendard.
+ */
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('../../assets/fonts/Paperlogy-7Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

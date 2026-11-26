@@ -1,3 +1,7 @@
+export { CommunityScreen } from './CommunityScreen';
+export type { CommunityScreenProps, CommunityVideo } from './CommunityScreen';
+export { CommunityViewerScreen } from './CommunityViewerScreen';
+export type { CommunityViewerScreenProps } from './CommunityViewerScreen';
 export { HomeScreen } from './HomeScreen';
 export type { CompletedProject, HomeScreenProps, InProgressProject } from './HomeScreen';
 export { HookTypeScreen } from './HookTypeScreen';
@@ -8,6 +12,8 @@ export { ProductInfoScreen } from './ProductInfoScreen';
 export { MyVideosScreen } from './MyVideosScreen';
 export type { MyVideosTab } from './MyVideosScreen';
 export type { ProductInfo } from './ProductInfoScreen';
+export { ProfileScreen } from './ProfileScreen';
+export type { ProfileConfirm, ProfileDoc, ProfileScreenProps, ProfileUser } from './ProfileScreen';
 export { ScenarioScreen } from './ScenarioScreen';
 export { ShootingGuideScreen } from './ShootingGuideScreen';
 export { StoryboardScreen } from './StoryboardScreen';

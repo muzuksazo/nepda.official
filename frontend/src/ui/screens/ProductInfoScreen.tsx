@@ -43,7 +43,7 @@ export function ProductInfoScreen({ initialValue, onBack, onNext }: ProductInfoS
         />
       }
     >
-      <ScreenTitle title="뭘 팔아 볼까요?">
+      <ScreenTitle title="무엇을 팔까요?">
         <PendingBadge>입력 항목 미정 · FR-001</PendingBadge>
       </ScreenTitle>
 

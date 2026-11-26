@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Home, Lightning, Slate, User, Users, type IconProps } from '../icons';
+import { ChevronLeft, ChevronRight, Folder, Home, Lightning, User, Users, type IconProps } from '../icons';
 import { brand } from '../brand';
 import { IconButton, ProgressBar } from './primitives';
 
@@ -13,9 +13,11 @@ export interface MobileScreenProps {
   footerSummary?: ReactNode;
   /** 하단 내비게이션 바 (탭 최상위 화면에서만) */
   bottomNav?: ReactNode;
+  /** 확인 시트 같은 대화상자가 떠 있는 동안 화면 전체를 조작·읽기 대상에서 뺀다 */
+  isInert?: boolean;
 }
 
-export function MobileScreen({ header, children, footer, footerSummary, bottomNav }: MobileScreenProps) {
+export function MobileScreen({ header, children, footer, footerSummary, bottomNav, isInert }: MobileScreenProps) {
   const footerEl = footer ? (
     <footer className="n-screen__footer">
       {footerSummary ? <div className="n-screen__summary">{footerSummary}</div> : null}
@@ -23,7 +25,7 @@ export function MobileScreen({ header, children, footer, footerSummary, bottomNa
     </footer>
   ) : null;
   return (
-    <div className="n-screen">
+    <div className="n-screen" inert={isInert}>
       <div className="n-screen__header">{header}</div>
       <main className="n-screen__body">{children}</main>
       {bottomNav ? (
@@ -42,7 +44,7 @@ export type NavTab = 'home' | 'myVideos' | 'community' | 'profile';
 
 const NAV_ITEMS: { value: NavTab; label: string; Icon: ComponentType<IconProps> }[] = [
   { value: 'home', label: '홈', Icon: Home },
-  { value: 'myVideos', label: '내 영상', Icon: Slate },
+  { value: 'myVideos', label: '내 영상', Icon: Folder },
   { value: 'community', label: '커뮤니티', Icon: Users },
   { value: 'profile', label: '프로필', Icon: User },
 ];
@@ -115,6 +117,24 @@ export function CreditBadge({ credits, onClick }: CreditBadgeProps) {
   );
 }
 
+export interface AvatarProps {
+  /** 닉네임. 사진이 없으면 첫 글자를 보여 준다 */
+  name?: string;
+  imageUrl?: string;
+  /** sm 32px(상단 GNB) · lg 56px(내 정보) */
+  size?: 'sm' | 'lg';
+}
+
+/** 프로필 원. 사진 → 닉네임 첫 글자 → 사람 아이콘 순으로 대체한다. 장식이라 이름은 옆 글자가 전한다. */
+export function Avatar({ name, imageUrl, size = 'sm' }: AvatarProps) {
+  const initial = name?.trim().charAt(0);
+  return (
+    <span className={`n-avatar${size === 'lg' ? ' n-avatar--lg' : ''}`} aria-hidden="true">
+      {imageUrl ? <img src={imageUrl} alt="" /> : initial ? initial : <User size={size === 'lg' ? 28 : 18} strokeWidth={2.25} />}
+    </span>
+  );
+}
+
 export interface ProfileButtonProps {
   /** 닉네임. 사진이 없으면 첫 글자를 보여 준다 */
   name?: string;
@@ -122,14 +142,11 @@ export interface ProfileButtonProps {
   onClick?: () => void;
 }
 
-/** 상단 GNB 프로필 원. 사진 → 닉네임 첫 글자 → 사람 아이콘 순으로 대체한다. */
+/** 상단 GNB 프로필 원. 누르면 내 정보로 간다. */
 export function ProfileButton({ name, imageUrl, onClick }: ProfileButtonProps) {
-  const initial = name?.trim().charAt(0);
   return (
     <button type="button" className="n-avatar-btn" onClick={onClick} aria-label={name ? `${name} 프로필` : '내 프로필'}>
-      <span className="n-avatar" aria-hidden="true">
-        {imageUrl ? <img src={imageUrl} alt="" /> : initial ? initial : <User size={18} strokeWidth={2.25} />}
-      </span>
+      <Avatar name={name} imageUrl={imageUrl} />
     </button>
   );
 }

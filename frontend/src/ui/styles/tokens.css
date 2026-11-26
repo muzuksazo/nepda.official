@@ -101,7 +101,7 @@
   /* type */
   --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
     'Malgun Gothic', sans-serif;
-  --font-display: 'NapdaChe', 'Black Han Sans', var(--font-sans);
+  --font-display: 'Paperlogy', var(--font-sans);
 
   /* radius */
   --radius-sm: 6px;

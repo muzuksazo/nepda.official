@@ -42,7 +42,7 @@ export interface HomeScreenProps {
   onBannerSelect?: (id: string) => void;
   /** 진행 중 화살표 → 내 영상(진행 중 탭) */
   onSeeAllInProgress?: () => void;
-  /** 완성 화살표 → 내 영상(완성 탭) */
+  /** 완료 화살표 → 내 영상(완료 탭) */
   onSeeAllCompleted?: () => void;
   /** 상단 크레딧 잔액 (못 불러왔으면 생략) */
   credits?: number;
@@ -133,10 +133,10 @@ export function HomeScreen({
 
       {completed.length > 0 ? (
         <Stack gap={12} as="section">
-          <SectionTitle title="완성" count={completed.length} onSeeAll={onSeeAllCompleted}>
+          <SectionTitle title="완료" count={completed.length} onSeeAll={onSeeAllCompleted}>
             <PendingBadge>보관 기간 미정 · OQ-012</PendingBadge>
           </SectionTitle>
-          <Carousel label="완성한 영상">
+          <Carousel label="완료한 영상">
             {completed.map((p) => (
               <ProjectCard
                 key={p.id}

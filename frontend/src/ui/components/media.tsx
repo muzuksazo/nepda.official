@@ -4,19 +4,16 @@ import type { CSSProperties, ReactNode } from 'react';
 export function VideoFrame({
   width,
   size = 'md',
-  topContent,
   caption,
   children,
 }: {
   width: number | string;
   size?: 'sm' | 'md';
-  topContent?: ReactNode;
   caption?: string;
   children?: ReactNode;
 }) {
   return (
     <div className={`n-video${size === 'sm' ? ' n-video--sm' : ''}`} style={{ width }}>
-      {topContent ? <div className="n-video__top">{topContent}</div> : null}
       {children}
       {caption ? <span className="n-video__bottom">{caption}</span> : null}
     </div>

@@ -1,12 +1,30 @@
+import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
+import type { ThemeSetting } from '../NapdaProvider';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
+import { setStorybookTheme } from '../storybook/themeGlobal';
+import { CommunityScreen, type CommunityVideo } from './CommunityScreen';
+import type { HookType as HookKind } from './flowData';
+import { CommunityViewerScreen } from './CommunityViewerScreen';
 import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
 import { OnboardingScreen } from './OnboardingScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
+import { ProfileScreen, type ProfileScreenProps } from './ProfileScreen';
 import { MyVideosScreen } from './MyVideosScreen';
-import { SAMPLE_BANNERS, SAMPLE_COMPLETED, SAMPLE_GUIDE_SCENES, SAMPLE_IN_PROGRESS, SAMPLE_STORYBOARD } from './sampleProjects';
+import {
+  filterCommunityByType,
+  SAMPLE_BANNERS,
+  SAMPLE_COMMUNITY,
+  SAMPLE_COMPLETED,
+  SAMPLE_GUIDE_SCENES,
+  SAMPLE_IN_PROGRESS,
+  SAMPLE_STORYBOARD,
+  SAMPLE_THUMBNAIL_CAPTION,
+  SAMPLE_THUMBNAIL_TEMPLATES,
+  SAMPLE_USER,
+} from './sampleProjects';
 import { ScenarioScreen } from './ScenarioScreen';
 import { ShootingGuideScreen } from './ShootingGuideScreen';
 import { StoryboardScreen } from './StoryboardScreen';
@@ -57,7 +75,7 @@ export const MyVideos: Story = {
 };
 
 export const MyVideosCompleted: Story = {
-  name: '안3-2 내 영상 · 완성 탭',
+  name: '안3-2 내 영상 · 완료 탭',
   render: () => (
     <MyVideosScreen
       inProgress={SAMPLE_IN_PROGRESS}
@@ -68,6 +86,130 @@ export const MyVideosCompleted: Story = {
       onDownloadAgain={fn()}
     />
   ),
+};
+
+/** 내 정보 스토리 공통 값. 화면 모드는 Storybook 툴바의 '모드'와 같은 값을 쓰고, 화면에서 바꾸면 바로 적용된다. */
+const profileProps = (themeMode: ThemeSetting): ProfileScreenProps => ({
+  user: SAMPLE_USER,
+  credits: 120,
+  videoCounts: { inProgress: SAMPLE_IN_PROGRESS.length, completed: SAMPLE_COMPLETED.length },
+  retentionDays: 7,
+  themeMode,
+  onThemeModeChange: setStorybookTheme,
+  onNavigate: fn(),
+  onChargeClick: fn(),
+  onOpenMyVideos: fn(),
+  onOpenDoc: fn(),
+  onLogout: fn(),
+  onDeleteAccount: fn(),
+  onSignIn: fn(),
+});
+
+export const Profile: Story = {
+  name: '안3-3 내 정보',
+  render: (_args, { globals }) => <ProfileScreen {...profileProps(globals.napdaMode)} />,
+};
+
+/** 막 가입한 사용자: 크레딧은 없지만 온보딩 무료 제작 1회가 남아 있다 */
+export const ProfileFreeVideo: Story = {
+  name: '안3-3 내 정보 · 첫 영상 무료 남음',
+  render: (_args, { globals }) => (
+    <ProfileScreen {...profileProps(globals.napdaMode)} credits={0} hasFreeVideo videoCounts={{ inProgress: 0, completed: 0 }} />
+  ),
+};
+
+export const ProfileNoCredits: Story = {
+  name: '안3-3 내 정보 · 크레딧 없음',
+  render: (_args, { globals }) => <ProfileScreen {...profileProps(globals.napdaMode)} credits={0} />,
+};
+
+export const ProfileLoading: Story = {
+  name: '안3-3 내 정보 · 불러오는 중',
+  render: (_args, { globals }) => (
+    <ProfileScreen {...profileProps(globals.napdaMode)} user={undefined} credits={undefined} videoCounts={undefined} isLoading />
+  ),
+};
+
+export const ProfileSignedOut: Story = {
+  name: '안3-3 내 정보 · 로그인 전',
+  render: (_args, { globals }) => <ProfileScreen {...profileProps(globals.napdaMode)} user={null} />,
+};
+
+export const ProfileLogoutConfirm: Story = {
+  name: '안3-3 내 정보 · 로그아웃 확인',
+  render: (_args, { globals }) => <ProfileScreen {...profileProps(globals.napdaMode)} initialConfirm="logout" />,
+};
+
+export const ProfileDeleteConfirm: Story = {
+  name: '안3-3 내 정보 · 탈퇴 확인',
+  render: (_args, { globals }) => <ProfileScreen {...profileProps(globals.napdaMode)} initialConfirm="delete" />,
+};
+
+/** 탭을 누르면 예시 목록이 그 훅 유형으로 걸러진다 */
+function CommunityDemo({ items = SAMPLE_COMMUNITY, initialHookType = null }: { items?: CommunityVideo[]; initialHookType?: HookKind | null }) {
+  const [hookType, setHookType] = useState<HookKind | null>(initialHookType);
+  return (
+    <CommunityScreen
+      items={filterCommunityByType(items, hookType)}
+      hookType={hookType}
+      onHookTypeChange={setHookType}
+      onOpenVideo={fn()}
+      onNavigate={fn()}
+    />
+  );
+}
+
+export const Community: Story = {
+  name: '안3-4 커뮤니티',
+  render: () => <CommunityDemo />,
+};
+
+export const CommunityByType: Story = {
+  name: '안3-4 커뮤니티 · B 유형 탭',
+  render: () => <CommunityDemo initialHookType="B" />,
+};
+
+export const CommunityLoading: Story = {
+  name: '안3-4 커뮤니티 · 불러오는 중',
+  render: () => <CommunityScreen items={[]} hookType={null} status="loading" onNavigate={fn()} />,
+};
+
+export const CommunityLoadingMore: Story = {
+  name: '안3-4 커뮤니티 · 더 불러오는 중',
+  render: () => (
+    <CommunityScreen items={SAMPLE_COMMUNITY.slice(0, 6)} hookType={null} hasMore isLoadingMore onOpenVideo={fn()} onNavigate={fn()} />
+  ),
+};
+
+export const CommunityEmpty: Story = {
+  name: '안3-4 커뮤니티 · 빈 상태',
+  render: () => <CommunityScreen items={[]} hookType={null} onCreate={fn()} onNavigate={fn()} />,
+};
+
+/** 고른 유형에 올라온 영상이 없을 때. "전체 보기"를 누르면 전체 탭으로 돌아간다 */
+export const CommunityNoMatch: Story = {
+  name: '안3-4 커뮤니티 · 이 유형은 아직 없음',
+  render: () => <CommunityDemo items={SAMPLE_COMMUNITY.filter((video) => video.hookType !== 'C')} initialHookType="C" />,
+};
+
+export const CommunityError: Story = {
+  name: '안3-4 커뮤니티 · 불러오기 실패',
+  render: () => <CommunityScreen items={[]} hookType={null} status="error" onRetry={fn()} onNavigate={fn()} />,
+};
+
+const viewerItems = SAMPLE_COMMUNITY;
+
+/** 첫 영상에는 예시 영상이 있어 자동 재생(소리 꺼짐)·일시정지·소리 켜기를 볼 수 있다. 위아래로 넘기면 다음 영상 */
+export const CommunityViewer: Story = {
+  name: '안3-5 영상 보기',
+  render: () => (
+    <CommunityViewerScreen items={viewerItems} onBack={fn()} onToggleLike={fn()} onShare={fn()} onReport={fn()} onRemix={fn()} />
+  ),
+};
+
+export const CommunityViewerReport: Story = {
+  name: '안3-5 영상 보기 · 신고 확인',
+  render: () => <CommunityViewerScreen items={viewerItems} initialId="v03" initialIsReporting onBack={fn()} onReport={fn()} />,
 };
 
 export const HomeEmpty: Story = {
@@ -128,7 +270,43 @@ export const VideoReview: Story = {
   render: () => <VideoReviewScreen onBack={fn()} onPlay={fn()} onMakeThumbnail={fn()} />,
 };
 
+/** 썸네일 화면 스토리들이 함께 쓰는 예시 템플릿·글자·콜백 */
+const thumbnailArgs = {
+  templates: SAMPLE_THUMBNAIL_TEMPLATES,
+  initialCaption: SAMPLE_THUMBNAIL_CAPTION,
+  onBack: fn(),
+  onDownloadVideo: fn(),
+  onDownloadThumbnail: fn(),
+  onTemplateChange: fn(),
+  onPublicChange: fn(),
+};
+
 export const ThumbnailDownload: Story = {
   name: '안1-9 썸네일·내려받기',
-  render: () => <ThumbnailDownloadScreen onBack={fn()} onDownloadVideo={fn()} onDownloadThumbnail={fn()} />,
+  render: () => <ThumbnailDownloadScreen {...thumbnailArgs} />,
+};
+
+export const ThumbnailDownloadLastPicked: Story = {
+  name: '안1-9 썸네일·내려받기 · 뒤쪽 시안을 골라 둠',
+  render: () => <ThumbnailDownloadScreen {...thumbnailArgs} initialTemplateId="split" />,
+};
+
+export const ThumbnailDownloadNoPreview: Story = {
+  name: '안1-9 썸네일·내려받기 · 템플릿 이미지 넣기 전',
+  render: () => (
+    <ThumbnailDownloadScreen
+      {...thumbnailArgs}
+      templates={SAMPLE_THUMBNAIL_TEMPLATES.map((template) => ({ ...template, previewUrl: undefined }))}
+    />
+  ),
+};
+
+export const ThumbnailDownloadPublishConfirm: Story = {
+  name: '안1-9 썸네일·내려받기 · 커뮤니티 올리기 동의',
+  render: () => <ThumbnailDownloadScreen {...thumbnailArgs} initialIsConfirmingPublish />,
+};
+
+export const ThumbnailDownloadPublic: Story = {
+  name: '안1-9 썸네일·내려받기 · 커뮤니티 공개 중',
+  render: () => <ThumbnailDownloadScreen {...thumbnailArgs} initialIsPublic />,
 };

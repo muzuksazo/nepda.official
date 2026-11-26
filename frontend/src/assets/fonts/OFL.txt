@@ -1,0 +1,8 @@
+Paperlogy (페이퍼로지) 7 Bold
+Copyright (c) 2024 PT& (피티앤). Redesigned by Lee Juim (이주임); Hangul from Gmarket Sans, Latin from Montserrat.
+"Paperlogy" is a trademark of Lee Juim.
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+The license text and FAQ are available at: https://openfontlicense.org (https://scripts.sil.org/OFL)
+
+Paperlogy-7Bold.woff2 is the original Paperlogy-7Bold.ttf converted to WOFF2 without glyph changes.

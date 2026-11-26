@@ -1,16 +1,17 @@
 import type { Preview } from '@storybook/react-vite';
-import { NapdaProvider, type ThemeMode } from '../src/ui/NapdaProvider';
+import { NapdaProvider, type ThemeSetting } from '../src/ui/NapdaProvider';
 
 const preview: Preview = {
   globalTypes: {
     napdaMode: {
-      description: '라이트/다크',
+      description: '라이트/다크/기기 설정',
       toolbar: {
         title: '모드',
         icon: 'mirror',
         items: [
           { value: 'light', title: '라이트', icon: 'sun' },
           { value: 'dark', title: '다크', icon: 'moon' },
+          { value: 'system', title: '기기 설정', icon: 'mobile' },
         ],
         dynamicTitle: true,
       },
@@ -21,7 +22,7 @@ const preview: Preview = {
   },
   decorators: [
     (Story, context) => (
-      <NapdaProvider mode={context.globals.napdaMode as ThemeMode}>
+      <NapdaProvider mode={context.globals.napdaMode as ThemeSetting}>
         <Story />
       </NapdaProvider>
     ),
