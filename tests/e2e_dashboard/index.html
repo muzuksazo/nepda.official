@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NAPDA E2E 테스트 & 녹화 대시보드</title>
+  <title>NAPDA E2E 테스트 & 도메인별 스크린샷 · 녹화 대시보드</title>
   <style>
     :root {
       --bg: #1a1a1a;
@@ -120,6 +120,7 @@
       cursor: pointer;
     }
     .btn:hover { background: var(--surface-2); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn-primary {
       background: var(--brand);
       color: var(--brand-ink);
@@ -196,15 +197,21 @@
 
     .filters-bar {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 16px;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px 16px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
       margin-bottom: 24px;
+    }
+
+    .filters-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
 
     .filter-group {
@@ -231,6 +238,7 @@
       font-weight: 600;
       cursor: pointer;
     }
+    .chip:hover { background: var(--surface-2); }
     .chip.is-active {
       background: var(--brand);
       color: var(--brand-ink);
@@ -243,6 +251,7 @@
       margin: 28px 0 14px;
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 8px;
     }
     .count-pill {
@@ -252,7 +261,140 @@
       padding: 2px 9px;
       border-radius: 999px;
     }
+    .section-sub {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-left: auto;
+    }
 
+    .is-hidden { display: none !important; }
+
+    /* Domain Screenshot Gallery */
+    .domain-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .domain-group {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .domain-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .domain-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .domain-desc {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .domain-feature-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .domain-feature-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .domain-feature-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .shots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+      gap: 12px;
+    }
+
+    .shot-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      cursor: pointer;
+      color: var(--text);
+      text-align: left;
+      transition: transform 0.14s ease, border-color 0.14s ease;
+    }
+    .shot-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--brand);
+    }
+
+    .shot-thumb-wrap {
+      position: relative;
+      background: #0f0f0f;
+      border-radius: 9px;
+      overflow: hidden;
+      aspect-ratio: 432 / 932;
+    }
+
+    .shot-thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .shot-step-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      background: rgba(15, 15, 15, 0.85);
+      color: #d4f637;
+      border: 1px solid rgba(212, 246, 55, 0.35);
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 999px;
+    }
+
+    .shot-caption {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: var(--text);
+    }
+
+    /* Inline Videos */
     .video-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
@@ -284,6 +426,7 @@
       border-radius: 18px;
       border: 2px solid #303030;
       background: #000;
+      object-fit: cover;
       display: block;
     }
 
@@ -320,10 +463,36 @@
       flex: 1;
     }
 
+    .card-shots-strip {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 4px 0 2px;
+    }
+
+    .mini-shot-btn {
+      flex: 0 0 auto;
+      width: 44px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      overflow: hidden;
+      background: #0f0f0f;
+      cursor: pointer;
+    }
+    .mini-shot-btn:hover { border-color: var(--brand); }
+    .mini-shot-btn img {
+      width: 100%;
+      aspect-ratio: 432 / 932;
+      object-fit: cover;
+      display: block;
+    }
+
     .card-footer {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
       gap: 8px;
       padding-top: 8px;
       border-top: 1px solid var(--border);
@@ -333,6 +502,7 @@
 
     .card-actions {
       display: flex;
+      flex-wrap: wrap;
       gap: 6px;
     }
 
@@ -385,7 +555,7 @@
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.84);
       display: none;
       align-items: center;
       justify-content: center;
@@ -398,7 +568,7 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 20px;
-      max-width: 520px;
+      max-width: 540px;
       width: 100%;
       max-height: 94vh;
       overflow-y: auto;
@@ -406,10 +576,17 @@
     }
     .modal-head {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
       margin-bottom: 12px;
+    }
+    .modal-controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
     }
     .modal-panel video {
       width: 100%;
@@ -417,6 +594,55 @@
       border-radius: 14px;
       background: #000;
       display: block;
+    }
+
+    .shot-modal-stage {
+      background: #0f0f0f;
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 300px;
+    }
+    .shot-modal-stage img {
+      width: auto;
+      max-width: 100%;
+      max-height: 66vh;
+      border-radius: 12px;
+      display: block;
+    }
+
+    .shot-modal-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .shot-modal-dots {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      margin-top: 10px;
+      padding-bottom: 2px;
+    }
+    .shot-dot-btn {
+      flex: 0 0 auto;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .shot-dot-btn.is-active {
+      background: var(--brand);
+      color: var(--brand-ink);
+      border-color: transparent;
     }
 
     .empty-box {
@@ -436,7 +662,7 @@
       <div>
         <div class="brand-title">
           <span class="logo-pill">NAPDA E2E</span>
-          <h1>풀스택 E2E 테스트 & 기능별 녹화 대시보드</h1>
+          <h1>풀스택 E2E 테스트 · 도메인별 스크린샷 & 녹화 대시보드</h1>
         </div>
         <p class="subtitle" id="metaSubtitle">로딩 중...</p>
       </div>
@@ -451,32 +677,64 @@
 
     <section class="owners-grid" id="ownersGrid"></section>
 
-    <section class="filters-bar" aria-label="필터">
-      <div class="filter-group">
-        <span class="filter-label">담당자</span>
-        <button class="chip is-active" data-filter-owner="all">전체</button>
-        <button class="chip" data-filter-owner="me">나 (A안)</button>
-        <button class="chip" data-filter-owner="siwoo">시우님 (B안)</button>
-        <button class="chip" data-filter-owner="sangyoon">상윤님 (C안)</button>
+    <section class="filters-bar" aria-label="필터 및 재생 설정">
+      <div class="filters-row">
+        <div class="filter-group">
+          <span class="filter-label">도메인</span>
+          <div id="domainFilterGroup" class="filter-group"></div>
+        </div>
       </div>
-      <div class="filter-group">
-        <span class="filter-label">환경</span>
-        <button class="chip is-active" data-filter-env="all">전체</button>
-        <button class="chip" data-filter-env="local">Local</button>
-        <button class="chip" data-filter-env="live">Live</button>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">상태</span>
-        <button class="chip is-active" data-filter-status="all">전체</button>
-        <button class="chip" data-filter-status="pass">PASS</button>
-        <button class="chip" data-filter-status="todo">TODO</button>
+      <div class="filters-row">
+        <div class="filter-group">
+          <span class="filter-label">담당자</span>
+          <button class="chip is-active" data-filter-owner="all">전체</button>
+          <button class="chip" data-filter-owner="me">나 (A안)</button>
+          <button class="chip" data-filter-owner="siwoo">시우님 (B안)</button>
+          <button class="chip" data-filter-owner="sangyoon">상윤님 (C안)</button>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">환경</span>
+          <button class="chip is-active" data-filter-env="all">전체</button>
+          <button class="chip" data-filter-env="local">Local</button>
+          <button class="chip" data-filter-env="live">Live</button>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">상태</span>
+          <button class="chip is-active" data-filter-status="all">전체</button>
+          <button class="chip" data-filter-status="pass">PASS</button>
+          <button class="chip" data-filter-status="todo">TODO</button>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">영상 배속</span>
+          <button class="chip" data-speed="0.5">0.5x</button>
+          <button class="chip is-active" data-speed="0.75">0.75x</button>
+          <button class="chip" data-speed="1">1x</button>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">보기</span>
+          <button class="chip is-active" data-view-mode="all">전체</button>
+          <button class="chip" data-view-mode="shots">스크린샷만</button>
+          <button class="chip" data-view-mode="videos">영상만</button>
+        </div>
       </div>
     </section>
 
-    <h2 class="section-title">
-      인라인 녹화 영상 <span class="count-pill" id="videoCount">0</span>
-    </h2>
-    <section class="video-grid" id="videoGrid"></section>
+    <div id="shotsSection">
+      <h2 class="section-title">
+        도메인 기능별 스크린샷 갤러리
+        <span class="count-pill" id="shotsCount">0</span>
+        <span class="section-sub">카드를 클릭하면 큰 화면에서 이전/다음(←/→)으로 넘겨볼 수 있습니다</span>
+      </h2>
+      <section class="domain-stack" id="domainShotsStack"></section>
+    </div>
+
+    <div id="videosSection">
+      <h2 class="section-title">
+        인라인 녹화 영상 <span class="count-pill" id="videoCount">0</span>
+        <span class="section-sub" id="speedIndicator">현재 기본 배속: 0.75x</span>
+      </h2>
+      <section class="video-grid" id="videoGrid"></section>
+    </div>
 
     <h2 class="section-title">
       API 검증 및 남은 E2E 작업 목록 <span class="count-pill" id="tableCount">0</span>
@@ -485,6 +743,7 @@
       <table>
         <thead>
           <tr>
+            <th>도메인</th>
             <th>TC ID</th>
             <th>담당</th>
             <th>환경</th>
@@ -501,22 +760,60 @@
     <section class="overview-box" id="overviewBox"></section>
   </div>
 
+  <!-- Video Modal -->
   <div class="modal-backdrop" id="videoModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-panel">
       <div class="modal-head">
         <strong id="modalTitle"></strong>
-        <button type="button" class="btn" id="modalClose">닫기</button>
+        <div class="modal-controls">
+          <button type="button" class="chip" data-speed="0.5">0.5x</button>
+          <button type="button" class="chip is-active" data-speed="0.75">0.75x</button>
+          <button type="button" class="chip" data-speed="1">1x</button>
+          <button type="button" class="btn" id="modalClose">닫기</button>
+        </div>
       </div>
       <video id="modalVideo" controls playsinline autoplay></video>
+    </div>
+  </div>
+
+  <!-- Screenshot Lightbox Modal -->
+  <div class="modal-backdrop" id="shotModal" role="dialog" aria-modal="true" aria-labelledby="shotModalTitle">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div>
+          <strong id="shotModalTitle"></strong>
+          <div style="font-size:12px;color:var(--muted);" id="shotModalSub"></div>
+        </div>
+        <div class="modal-controls">
+          <button type="button" class="btn" id="shotModalWatchVideo">이 기능 영상 보기</button>
+          <button type="button" class="btn" id="shotModalClose">닫기</button>
+        </div>
+      </div>
+      <div class="shot-modal-stage">
+        <img id="shotModalImg" alt="" />
+      </div>
+      <div class="shot-modal-dots" id="shotModalDots"></div>
+      <div class="shot-modal-nav">
+        <button type="button" class="btn" id="shotPrev">← 이전</button>
+        <span style="font-size:12px;font-weight:700;color:var(--muted);" id="shotCounter">1 / 1</span>
+        <button type="button" class="btn" id="shotNext">다음 →</button>
+      </div>
     </div>
   </div>
 
   <script>
     const state = {
       manifest: null,
+      domain: 'all',
       owner: 'all',
       env: 'all',
       status: 'all',
+      playbackRate: 0.75,
+      viewMode: 'all',
+      lightbox: {
+        caseItem: null,
+        index: 0,
+      },
     };
 
     const OWNER_LABEL = {
@@ -528,6 +825,7 @@
     function el(tag, attrs = {}, children = []) {
       const node = document.createElement(tag);
       for (const [k, v] of Object.entries(attrs)) {
+        if (v == null) continue;
         if (k === 'className') node.className = v;
         else if (k === 'textContent') node.textContent = v;
         else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2).toLowerCase(), v);
@@ -540,28 +838,159 @@
       return node;
     }
 
-    function openModal(title, src) {
+    function getDomainMap() {
+      const map = new Map();
+      (state.manifest?.domains || []).forEach((d) => map.set(d.id, d));
+      return map;
+    }
+
+    function getDomainName(domainId) {
+      const d = getDomainMap().get(domainId);
+      return d ? d.name : (domainId || '기타');
+    }
+
+    function applyPlaybackRate(rate) {
+      state.playbackRate = rate;
+      document.querySelectorAll('[data-speed]').forEach((b) => {
+        b.classList.toggle('is-active', Number(b.dataset.speed) === rate);
+      });
+      const indicator = document.getElementById('speedIndicator');
+      if (indicator) indicator.textContent = `현재 기본 배속: ${rate}x`;
+      document.querySelectorAll('video').forEach((v) => {
+        v.defaultPlaybackRate = rate;
+        v.playbackRate = rate;
+      });
+    }
+
+    function bindVideoSpeed(videoEl) {
+      const sync = () => {
+        videoEl.defaultPlaybackRate = state.playbackRate;
+        videoEl.playbackRate = state.playbackRate;
+      };
+      videoEl.addEventListener('loadedmetadata', sync);
+      videoEl.addEventListener('play', sync);
+      sync();
+      return videoEl;
+    }
+
+    function openVideoModal(title, src, poster) {
       const modal = document.getElementById('videoModal');
       const v = document.getElementById('modalVideo');
       document.getElementById('modalTitle').textContent = title;
+      if (poster) v.setAttribute('poster', poster);
+      else v.removeAttribute('poster');
       v.src = src;
+      v.defaultPlaybackRate = state.playbackRate;
+      v.playbackRate = state.playbackRate;
       modal.classList.add('is-open');
     }
 
-    function closeModal() {
+    function closeVideoModal() {
       const modal = document.getElementById('videoModal');
       const v = document.getElementById('modalVideo');
       v.pause();
       v.removeAttribute('src');
+      v.removeAttribute('poster');
       modal.classList.remove('is-open');
     }
 
-    document.getElementById('modalClose').addEventListener('click', closeModal);
+    function renderLightboxFrame() {
+      const { caseItem, index } = state.lightbox;
+      if (!caseItem || !caseItem.screenshots?.length) return;
+      const shots = caseItem.screenshots;
+      const safeIdx = Math.max(0, Math.min(index, shots.length - 1));
+      state.lightbox.index = safeIdx;
+      const shot = shots[safeIdx];
+
+      document.getElementById('shotModalTitle').textContent = `${caseItem.id} · ${caseItem.title}`;
+      document.getElementById('shotModalSub').textContent = `${getDomainName(caseItem.domain)} · ${shot.label}`;
+
+      const img = document.getElementById('shotModalImg');
+      img.src = shot.src;
+      img.alt = `${caseItem.title} - ${shot.label}`;
+
+      document.getElementById('shotCounter').textContent = `${safeIdx + 1} / ${shots.length}`;
+      document.getElementById('shotPrev').disabled = safeIdx === 0;
+      document.getElementById('shotNext').disabled = safeIdx === shots.length - 1;
+
+      const watchBtn = document.getElementById('shotModalWatchVideo');
+      watchBtn.style.display = caseItem.video ? 'inline-flex' : 'none';
+
+      const dots = document.getElementById('shotModalDots');
+      dots.replaceChildren(
+        ...shots.map((s, i) =>
+          el('button', {
+            type: 'button',
+            className: `shot-dot-btn${i === safeIdx ? ' is-active' : ''}`,
+            textContent: `${String(i + 1).padStart(2, '0')} ${s.label}`,
+            onClick: () => {
+              state.lightbox.index = i;
+              renderLightboxFrame();
+            },
+          }),
+        ),
+      );
+    }
+
+    function openShotModal(caseItem, index = 0) {
+      if (!caseItem?.screenshots?.length) return;
+      state.lightbox = { caseItem, index };
+      renderLightboxFrame();
+      document.getElementById('shotModal').classList.add('is-open');
+    }
+
+    function closeShotModal() {
+      const modal = document.getElementById('shotModal');
+      modal.classList.remove('is-open');
+      state.lightbox = { caseItem: null, index: 0 };
+    }
+
+    bindVideoSpeed(document.getElementById('modalVideo'));
+    document.getElementById('modalClose').addEventListener('click', closeVideoModal);
     document.getElementById('videoModal').addEventListener('click', (e) => {
-      if (e.target.id === 'videoModal') closeModal();
+      if (e.target.id === 'videoModal') closeVideoModal();
     });
+
+    document.getElementById('shotModalClose').addEventListener('click', closeShotModal);
+    document.getElementById('shotModal').addEventListener('click', (e) => {
+      if (e.target.id === 'shotModal') closeShotModal();
+    });
+    document.getElementById('shotPrev').addEventListener('click', () => {
+      if (state.lightbox.index > 0) {
+        state.lightbox.index -= 1;
+        renderLightboxFrame();
+      }
+    });
+    document.getElementById('shotNext').addEventListener('click', () => {
+      const len = state.lightbox.caseItem?.screenshots?.length || 0;
+      if (state.lightbox.index < len - 1) {
+        state.lightbox.index += 1;
+        renderLightboxFrame();
+      }
+    });
+    document.getElementById('shotModalWatchVideo').addEventListener('click', () => {
+      const c = state.lightbox.caseItem;
+      closeShotModal();
+      if (c?.video) openVideoModal(`${c.id} · ${c.title}`, c.video, c.poster);
+    });
+
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal();
+      const shotOpen = document.getElementById('shotModal').classList.contains('is-open');
+      if (e.key === 'Escape') {
+        if (shotOpen) closeShotModal();
+        closeVideoModal();
+      } else if (shotOpen && e.key === 'ArrowLeft') {
+        if (state.lightbox.index > 0) {
+          state.lightbox.index -= 1;
+          renderLightboxFrame();
+        }
+      } else if (shotOpen && e.key === 'ArrowRight') {
+        const len = state.lightbox.caseItem?.screenshots?.length || 0;
+        if (state.lightbox.index < len - 1) {
+          state.lightbox.index += 1;
+          renderLightboxFrame();
+        }
+      }
     });
 
     document.getElementById('themeToggle').addEventListener('click', (e) => {
@@ -572,6 +1001,9 @@
     });
 
     function syncFilterChips() {
+      document.querySelectorAll('[data-filter-domain]').forEach((b) => {
+        b.classList.toggle('is-active', b.dataset.filterDomain === state.domain);
+      });
       document.querySelectorAll('[data-filter-owner]').forEach((b) => {
         b.classList.toggle('is-active', b.dataset.filterOwner === state.owner);
       });
@@ -581,9 +1013,14 @@
       document.querySelectorAll('[data-filter-status]').forEach((b) => {
         b.classList.toggle('is-active', b.dataset.filterStatus === state.status);
       });
+      document.querySelectorAll('[data-view-mode]').forEach((b) => {
+        b.classList.toggle('is-active', b.dataset.viewMode === state.viewMode);
+      });
       document.querySelectorAll('.owner-card').forEach((card) => {
         card.classList.toggle('is-selected', card.dataset.ownerId === state.owner);
       });
+      document.getElementById('shotsSection').classList.toggle('is-hidden', state.viewMode === 'videos');
+      document.getElementById('videosSection').classList.toggle('is-hidden', state.viewMode === 'shots');
     }
 
     document.querySelectorAll('[data-filter-owner]').forEach((btn) => {
@@ -604,9 +1041,21 @@
         render();
       });
     });
+    document.querySelectorAll('[data-speed]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        applyPlaybackRate(Number(btn.dataset.speed));
+      });
+    });
+    document.querySelectorAll('[data-view-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.viewMode = btn.dataset.viewMode;
+        syncFilterChips();
+      });
+    });
 
     function filterCases(cases) {
       return cases.filter((c) => {
+        if (state.domain !== 'all' && c.domain !== state.domain) return false;
         if (state.owner !== 'all' && c.owner !== state.owner) return false;
         if (state.env !== 'all' && c.env !== state.env) return false;
         if (state.status !== 'all' && c.status !== state.status) return false;
@@ -614,14 +1063,149 @@
       });
     }
 
+    function renderDomainChips(m) {
+      const container = document.getElementById('domainFilterGroup');
+      const totalShots = m.cases.reduce((acc, c) => acc + (c.screenshots?.length || 0), 0);
+      const chips = [
+        el('button', {
+          type: 'button',
+          className: `chip${state.domain === 'all' ? ' is-active' : ''}`,
+          'data-filter-domain': 'all',
+          textContent: `전체 (${totalShots}장)`,
+          onClick: () => {
+            state.domain = 'all';
+            render();
+          },
+        }),
+        ...(m.domains || []).map((d) => {
+          const cnt = m.cases
+            .filter((c) => c.domain === d.id)
+            .reduce((acc, c) => acc + (c.screenshots?.length || 0), 0);
+          return el('button', {
+            type: 'button',
+            className: `chip${state.domain === d.id ? ' is-active' : ''}`,
+            'data-filter-domain': d.id,
+            textContent: cnt > 0 ? `${d.name} (${cnt})` : d.name,
+            onClick: () => {
+              state.domain = d.id;
+              render();
+            },
+          });
+        }),
+      ];
+      container.replaceChildren(...chips);
+    }
+
+    function renderDomainScreenshots(m, matched) {
+      const stack = document.getElementById('domainShotsStack');
+      const casesWithShots = matched.filter((c) => c.screenshots && c.screenshots.length > 0);
+      const totalMatchedShots = casesWithShots.reduce((acc, c) => acc + c.screenshots.length, 0);
+      document.getElementById('shotsCount').textContent = `${totalMatchedShots}장`;
+
+      if (casesWithShots.length === 0) {
+        stack.replaceChildren(
+          el('div', {
+            className: 'empty-box',
+            textContent: '현재 필터에 해당하는 스크린샷이 없습니다. (TODO 항목은 아래 표를 확인하세요.)',
+          }),
+        );
+        return;
+      }
+
+      const domainList = m.domains || [];
+      const groups = [];
+
+      domainList.forEach((dom) => {
+        const domCases = casesWithShots.filter((c) => c.domain === dom.id);
+        if (domCases.length === 0) return;
+
+        const domShotCount = domCases.reduce((acc, c) => acc + c.screenshots.length, 0);
+
+        const featureBlocks = domCases.map((c) =>
+          el('div', { className: 'domain-feature-block' }, [
+            el('div', { className: 'domain-feature-head' }, [
+              el('div', { className: 'domain-feature-meta' }, [
+                el('span', { className: 'badge badge-pass', textContent: 'PASS' }),
+                el('span', {
+                  className: `badge ${c.env === 'live' ? 'badge-live' : 'badge-local'}`,
+                  textContent: c.env === 'live' ? 'LIVE' : 'LOCAL',
+                }),
+                el('span', { className: 'badge badge-brand', textContent: OWNER_LABEL[c.owner] || c.owner }),
+                el('code', { textContent: c.id }),
+                el('span', { textContent: c.title }),
+              ]),
+              c.video
+                ? el('button', {
+                    type: 'button',
+                    className: 'chip',
+                    textContent: `영상 재생 (${c.durationSec}s)`,
+                    onClick: () => openVideoModal(`${c.id} · ${c.title}`, c.video, c.poster),
+                  })
+                : null,
+            ]),
+            el(
+              'div',
+              { className: 'shots-grid' },
+              c.screenshots.map((shot, idx) =>
+                el(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'shot-card',
+                    onClick: () => openShotModal(c, idx),
+                  },
+                  [
+                    el('div', { className: 'shot-thumb-wrap' }, [
+                      el('img', {
+                        src: shot.src,
+                        alt: `${c.title} - ${shot.label}`,
+                        loading: 'lazy',
+                      }),
+                      el('span', {
+                        className: 'shot-step-badge',
+                        textContent: String(idx + 1).padStart(2, '0'),
+                      }),
+                    ]),
+                    el('span', { className: 'shot-caption', textContent: shot.label }),
+                  ],
+                ),
+              ),
+            ),
+          ]),
+        );
+
+        groups.push(
+          el('article', { className: 'domain-group', 'data-domain-id': dom.id }, [
+            el('div', { className: 'domain-header' }, [
+              el('div', {}, [
+                el('h3', { className: 'domain-title' }, [
+                  el('span', { textContent: dom.name }),
+                  el('span', { className: 'count-pill', textContent: `${domShotCount}장` }),
+                ]),
+                el('p', { className: 'domain-desc', textContent: dom.description }),
+              ]),
+              el('span', { className: 'badge badge-local', textContent: `케이스 ${domCases.length}건` }),
+            ]),
+            ...featureBlocks,
+          ]),
+        );
+      });
+
+      stack.replaceChildren(...groups);
+    }
+
     function render() {
       const m = state.manifest;
       if (!m) return;
 
+      renderDomainChips(m);
       syncFilterChips();
 
+      const totalShots = m.cases.reduce((acc, c) => acc + (c.screenshots?.length || 0), 0);
+      const totalVideos = m.cases.filter((c) => c.video).length;
+      const totalDomains = (m.domains || []).length;
       document.getElementById('metaSubtitle').textContent =
-        `기준 커밋 ${m.commit} · 최종 갱신 ${m.updatedAt} · 영상 ${m.cases.filter((c) => c.video).length}편 인라인 재생 가능`;
+        `기준 커밋 ${m.commit} · 최종 갱신 ${m.updatedAt} · 영상 ${totalVideos}편 · 스크린샷 ${totalShots}장 (${totalDomains}개 도메인)`;
       document.getElementById('planDocLink').href = `${m.repoUrl}/blob/main/${m.planDocPath}`;
 
       const suitesStrip = document.getElementById('suitesStrip');
@@ -643,7 +1227,7 @@
           const mine = m.cases.filter((c) => c.owner === o.id);
           const passCnt = mine.filter((c) => c.status === 'pass').length;
           const todoCnt = mine.filter((c) => c.status === 'todo').length;
-          const card = el(
+          return el(
             'button',
             {
               type: 'button',
@@ -667,11 +1251,12 @@
               ]),
             ],
           );
-          return card;
         }),
       );
 
       const matched = filterCases(m.cases);
+      renderDomainScreenshots(m, matched);
+
       const videos = matched.filter((c) => Boolean(c.video));
       const nonVideos = matched.filter((c) => !c.video);
 
@@ -686,16 +1271,19 @@
         );
       } else {
         videoGrid.replaceChildren(
-          ...videos.map((c) =>
-            el('article', { className: 'video-card' }, [
-              el('div', { className: 'phone-stage' }, [
-                el('video', {
-                  src: c.video,
-                  controls: '',
-                  playsinline: '',
-                  preload: 'metadata',
-                }),
-              ]),
+          ...videos.map((c) => {
+            const videoNode = bindVideoSpeed(
+              el('video', {
+                src: c.video,
+                poster: c.poster || null,
+                controls: '',
+                playsinline: '',
+                preload: 'metadata',
+              }),
+            );
+            const shots = c.screenshots || [];
+            return el('article', { className: 'video-card' }, [
+              el('div', { className: 'phone-stage' }, [videoNode]),
               el('div', { className: 'card-body' }, [
                 el('div', { className: 'meta-row' }, [
                   el('span', { className: 'badge badge-pass', textContent: 'PASS' }),
@@ -704,6 +1292,7 @@
                     textContent: c.env === 'live' ? 'LIVE' : 'LOCAL',
                   }),
                   el('span', { className: 'badge badge-brand', textContent: OWNER_LABEL[c.owner] || c.owner }),
+                  el('span', { className: 'badge badge-local', textContent: getDomainName(c.domain) }),
                   el('code', { textContent: c.id }),
                 ]),
                 el('h3', { className: 'card-title', textContent: c.title }),
@@ -712,14 +1301,40 @@
                   { className: 'checks-list' },
                   (c.checks || []).map((line) => el('li', { textContent: line })),
                 ),
+                shots.length > 0
+                  ? el(
+                      'div',
+                      { className: 'card-shots-strip' },
+                      shots.map((s, idx) =>
+                        el(
+                          'button',
+                          {
+                            type: 'button',
+                            className: 'mini-shot-btn',
+                            title: s.label,
+                            onClick: () => openShotModal(c, idx),
+                          },
+                          [el('img', { src: s.src, alt: s.label, loading: 'lazy' })],
+                        ),
+                      ),
+                    )
+                  : null,
                 el('div', { className: 'card-footer' }, [
                   el('span', { textContent: `${c.durationSec}s · ${c.sizeKb} KB · ${c.fr}` }),
                   el('div', { className: 'card-actions' }, [
+                    shots.length > 0
+                      ? el('button', {
+                          type: 'button',
+                          className: 'chip',
+                          textContent: `스크린샷 (${shots.length}장)`,
+                          onClick: () => openShotModal(c, 0),
+                        })
+                      : null,
                     el('button', {
                       type: 'button',
                       className: 'chip',
                       textContent: '크게 보기',
-                      onClick: () => openModal(`${c.id} · ${c.title}`, c.video),
+                      onClick: () => openVideoModal(`${c.id} · ${c.title}`, c.video, c.poster),
                     }),
                     el('a', {
                       className: 'chip',
@@ -732,8 +1347,8 @@
                   ]),
                 ]),
               ]),
-            ]),
-          ),
+            ]);
+          }),
         );
       }
 
@@ -742,13 +1357,14 @@
       if (nonVideos.length === 0) {
         tbody.replaceChildren(
           el('tr', {}, [
-            el('td', { colspan: '6', style: 'text-align:center;color:var(--muted);', textContent: '해당 조건의 대기/API 항목이 없습니다.' }),
+            el('td', { colspan: '7', style: 'text-align:center;color:var(--muted);', textContent: '해당 조건의 대기/API 항목이 없습니다.' }),
           ]),
         );
       } else {
         tbody.replaceChildren(
           ...nonVideos.map((c) =>
             el('tr', {}, [
+              el('td', {}, [el('span', { className: 'badge badge-local', textContent: getDomainName(c.domain) })]),
               el('td', {}, [el('code', { textContent: c.id })]),
               el('td', { textContent: OWNER_LABEL[c.owner] || c.owner }),
               el('td', {}, [
@@ -785,6 +1401,8 @@
           loading: 'lazy',
         }),
       );
+
+      applyPlaybackRate(state.playbackRate);
     }
 
     fetch('./recordings/manifest.json')
@@ -798,7 +1416,7 @@
       })
       .catch((err) => {
         document.getElementById('metaSubtitle').textContent =
-          `manifest.json 로드 실패 (${err.message}) — HTTP/GitHub Pages 환경에서 열어 주세요.`;
+          `manifest.json 로드 실패 (${err.message}) — 로컬 미리보기 시 python3 -m http.server 를 사용하세요.`;
       });
   </script>
 </body>
