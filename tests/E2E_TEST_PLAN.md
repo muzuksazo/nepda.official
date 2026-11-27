@@ -98,8 +98,8 @@
    - 공통/인프라/파이프라인: `<순번>_<local|live>_<feature_slug>.mp4` (예: `08_local_wizard_8step.mp4`, `10_live_paddle_checkout.mp4`)
    - A/B/C 안 각자 녹화본: `abc_A_hook_e2e.mp4` (**나**) · `abc_B_hook_e2e.mp4` (**시우님**) · `abc_C_hook_e2e.mp4` (**상윤님**)
    - 영상 파일과 임시 SQLite DB는 **절대 Git 저장소에 커밋하지 않음**.
-3. **선행 조치 (나 담당)**:
-   - [test_genai_config.py](./infrastructure/test_genai_config.py) 3건과 [test_backend_api.py](./integration/test_backend_api.py) 1건이 로컬 `backend/.env`의 `GOOGLE_GENAI_USE_VERTEXAI`·`GOOGLE_VERTEX_API_KEY` 값을 읽어 실패하는 현상(`.env` 누수)을 `Settings(_env_file=None, ...)` 테스트 격리로 해결 필요.
+3. **선행 조치 (나 담당 — 완료)**:
+   - [test_genai_config.py](./infrastructure/test_genai_config.py) 3건과 [test_backend_api.py](./integration/test_backend_api.py) 1건의 로컬 `backend/.env` 누수 현상을 `Settings(_env_file=None, ...)`로 격리 완료 → Python 회귀 테스트 **54/54 통과**.
 
 ---
 
@@ -129,5 +129,8 @@ npm --prefix frontend run lint && npm --prefix frontend run build
 | `05_local_billing_paddle_webhook.mp4` | Local (`:15173` → `:18080`) | `6.80s` / 219 KB | **PASS** | `POST /v1/billing/checkout`(`txn_01m8dsx2n9cmp2486q88h6esd2`) + Paddle Sandbox 오버레이 오픈 + 실서명 웹훅 → 잔액 **`0 → 100`** |
 | `06_local_logout.mp4` | Local (`:15173` → `:18080`) | `5.32s` / 197 KB | **PASS** | `POST /v1/auth/logout` `204` → `로그인이 풀렸어요` → 홈 온보딩 복귀 |
 | `07_live_prod_smoke.mp4` | Live (`https://napda.vercel.app`) | `10.28s` / 113 KB | **PASS** | `/health` `200`(`status: ok`), `/v1/billing/config` `200`(`sandbox`, 3종), `/v1/auth/me` `401`, `/privacy.html` `200`, `/` 온보딩 정상 |
+| `E2E-P06` (API 보안 검증) | Live (`https://napda-api.vercel.app`) | — | **PASS** | 무서명 `401`, 변조 서명 `401`, 정상 HMAC-SHA256 `200` (`received: true`, `credited: false`) |
+| `E2E-ABC-A` (A안 백엔드 API) | Isolated FastAPI + FFmpeg | — | **PASS** | `product-info` → `projects(A)` → `scenarios` → `select` → `storyboard`(2컷) → `filming-guide`(4샷) → `estimate`(32크레딧) → `presign` + `uploads/complete`(`6.5s`, `UPLOADS_READY`) *(UI 녹화 `abc_A_hook_e2e.mp4`는 동시 작업 중인 `frontend/src/App.tsx` TS 오류 해소 후 진행)* |
 
-- **오프라인 테스트 현황**: Node `7/7` 통과 (`typecheck`/`build` 포함), Frontend `oxlint` 0 error & `vite build` 통과, Python `50/54` 통과 (4건은 로컬 `backend/.env` 누수 이슈).
+- **오프라인 테스트 현황**: Python `54/54` 통과, Node `7/7` 통과 (`typecheck`/`build` 포함), Frontend `oxlint` 0 error (`vite build`는 현재 동시 수정 중인 `frontend/src/App.tsx` TS 오류 8건 해결 대기).
+- **남은 실서버 대화형 QA (실계정 Google 로그인 필요)**: `E2E-P03` (실계정 Google 로그인/쿠키 유지), `E2E-P05` (실서버 Paddle Sandbox 테스트 카드 결제).
