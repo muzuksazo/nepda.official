@@ -41,6 +41,7 @@ import { GoogleSignInButton, useAuth } from './auth';
 import { openPaddleCheckout } from './billing';
 import { NapdaProvider, type ThemeSetting } from './ui/NapdaProvider';
 import {
+  ConfirmSheet,
   formatThumbnailHeadline,
   InfoSheet,
   type AgreementDoc,
@@ -379,9 +380,11 @@ export function App() {
   const [scenarioText, setScenarioText] = useState<string | undefined>(undefined);
   const [storyboardScenes, setStoryboardScenes] = useState<StoryboardScene[] | undefined>(undefined);
   const [storyboardLoading, setStoryboardLoading] = useState(false);
+  // 뒤로가기 확인 시트 (러프 구현 — 문구·디자인은 디자이너 확인 필요)
+  const [isLeaveAskOpen, setIsLeaveAskOpen] = useState(false);
   const [storyboardError, setStoryboardError] = useState<string | null>(null);
   const [guideScenes, setGuideScenes] = useState<GuideScene[] | undefined>(undefined);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [videoUrl, setVideoUrl] = useState<string | undefined>(undefined);
   const [videoDownloadUrl, setVideoDownloadUrl] = useState<string | undefined>(undefined);
   const [deliverableThumb, setDeliverableThumb] = useState<DeliverableThumbnailState | null>(null);
@@ -665,7 +668,7 @@ export function App() {
     setStoryboardLoading(false);
     setStoryboardError(null);
     setGuideScenes(undefined);
-    setUploadFile(null);
+    setUploadFiles([]);
     setVideoUrl(undefined);
     setVideoDownloadUrl(undefined);
     setDeliverableThumb(null);
@@ -674,6 +677,35 @@ export function App() {
     setGenJob(null);
     setCreationStep('product');
   }, []);
+
+  // 페이지를 떠나지 않게 막는 장치 (러프 구현 — 디자이너 확인 필요)
+  // 1) 업로드 중·콘티 만드는 중에는 새로고침·탭 닫기 때 브라우저 경고 (이때 떠나면 업로드가 끊기거나 화면이 결과를 못 받는다)
+  const isBusy = storyboardLoading || (creationStep === 'generating' && genJob?.status === 'queued');
+  useEffect(() => {
+    if (!isBusy) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isBusy]);
+  // 2) 만들기 흐름 안에서 브라우저 뒤로가기: 앱 밖으로 나가지 않고 확인 시트를 띄운다
+  const isInCreation = creationStep !== null;
+  useEffect(() => {
+    if (!isInCreation) return;
+    window.history.pushState({ napdaFlow: true }, '');
+    const onPopState = () => {
+      window.history.pushState({ napdaFlow: true }, '');
+      setIsLeaveAskOpen(true);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      // 흐름을 정상으로 끝냈으면 넣어 둔 기록 한 칸을 되돌린다
+      if (window.history.state?.napdaFlow) window.history.back();
+    };
+  }, [isInCreation]);
 
   const pollRenderCompletion = useCallback(
     (pid: string, nameForNotice?: string) => {
@@ -1070,9 +1102,9 @@ export function App() {
   }, [projectId, scenarioId]);
 
   const handleUploadAndRender = useCallback(
-    async (file: File) => {
-      if (!projectId || !auth.user) return;
-      setUploadFile(file);
+    async (files: File[]) => {
+      if (!projectId || !auth.user || files.length === 0) return;
+      setUploadFiles(files);
       setVideoUrl(undefined);
       setVideoDownloadUrl(undefined);
       setDeliverableThumb(null);
@@ -1082,34 +1114,34 @@ export function App() {
 
       let failedAsVideoProblem = true;
       try {
-        const cleanName = (file.name || 'clip.mp4').replace(/[^a-zA-Z0-9._-]+/g, '_');
-        const objKey = `uploads/${auth.user.user_id}/${projectId}/shot_01_${Date.now()}_${cleanName}`;
-        const presignRes = await presignUploadV1UploadsPresignPost({
-          object_key: objKey,
-          content_type: file.type || 'video/mp4',
-        });
-        if (presignRes.status !== 200) {
-          throw new Error('업로드 주소를 발급받지 못했어요.');
-        }
-
-        const putRes = await fetch(presignRes.data.upload_url, {
-          method: 'PUT',
-          headers: { 'Content-Type': file.type || 'video/mp4' },
-          body: file,
-          credentials: 'include',
-        });
-        if (!putRes.ok) {
-          throw new Error(`올린 영상을 전송하지 못했어요 (HTTP ${putRes.status})`);
-        }
+        // 고른 영상마다 업로드 주소를 받아 올린다. 순서 = 컷 번호 (서버가 이 순서로 본편을 편집한다)
+        const uploaded = await Promise.all(
+          files.map(async (file, index) => {
+            const shotNo = index + 1;
+            const cleanName = (file.name || 'clip.mp4').replace(/[^a-zA-Z0-9._-]+/g, '_');
+            const objKey = `uploads/${auth.user!.user_id}/${projectId}/shot_${String(shotNo).padStart(2, '0')}_${Date.now()}_${cleanName}`;
+            const presignRes = await presignUploadV1UploadsPresignPost({
+              object_key: objKey,
+              content_type: file.type || 'video/mp4',
+            });
+            if (presignRes.status !== 200) {
+              throw new Error('업로드 주소를 발급받지 못했어요.');
+            }
+            const putRes = await fetch(presignRes.data.upload_url, {
+              method: 'PUT',
+              headers: { 'Content-Type': file.type || 'video/mp4' },
+              body: file,
+              credentials: 'include',
+            });
+            if (!putRes.ok) {
+              throw new Error(`올린 영상을 전송하지 못했어요 (HTTP ${putRes.status})`);
+            }
+            return { shot_no: shotNo, object_key: presignRes.data.object_key, file_size_bytes: file.size };
+          }),
+        );
 
         const completeRes = await completeUploadsV1ProjectsProjectIdUploadsCompletePost(projectId, {
-          clips: [
-            {
-              shot_no: 1,
-              object_key: presignRes.data.object_key,
-              file_size_bytes: file.size,
-            },
-          ],
+          clips: uploaded,
         });
         if (completeRes.status !== 200) {
           throw new Error('올린 영상의 길이와 해상도를 확인할 수 없어요.');
@@ -1824,16 +1856,16 @@ export function App() {
       screen = (
         <UploadVideoScreen
           hookType={hookType}
-          initialFile={uploadFile}
+          initialFiles={uploadFiles}
           cost={creditsPerVideo}
           credits={wallet?.credits}
           onBack={() => setCreationStep(skippedDrafts ? 'hook' : 'guide')}
           onReviewGuide={skippedDrafts ? undefined : () => setCreationStep('guide')}
-          onCreate={(file) => {
-            void handleUploadAndRender(file);
+          onCreate={(files) => {
+            void handleUploadAndRender(files);
           }}
-          onCharge={(file, shortfall) => {
-            setUploadFile(file);
+          onCharge={(files, shortfall) => {
+            setUploadFiles(files);
             openCharge('upload', shortfall);
           }}
         />
@@ -1861,7 +1893,7 @@ export function App() {
           }}
           onViewVideo={() => setCreationStep('review')}
           onRetry={() => {
-            if (!uploadFile) {
+            if (uploadFiles.length === 0) {
               setCreationStep('upload');
               return;
             }
@@ -1869,7 +1901,7 @@ export function App() {
             if (currentCredits < creditsPerVideo) {
               openCharge('upload', creditsPerVideo - currentCredits);
             } else {
-              void handleUploadAndRender(uploadFile);
+              void handleUploadAndRender(uploadFiles);
             }
           }}
           onReupload={() => setCreationStep('upload')}
@@ -2118,6 +2150,24 @@ export function App() {
     <div className="napda-app-shell">
       <NapdaProvider mode={themeMode}>
         {screen}
+        {/* TODO(디자인): 뒤로가기 확인 시트 문구·버튼 — 러프하게 넣어 둔 것 */}
+        <ConfirmSheet
+          isOpen={isLeaveAskOpen}
+          title="만들던 걸 두고 나갈까요?"
+          description={
+            creationStep === 'generating'
+              ? '영상은 계속 만들어져요. 다 되면 내 영상에서 볼 수 있어요.'
+              : '지금까지 한 단계는 저장돼 있어서 내 영상에서 이어서 할 수 있어요.'
+          }
+          confirmLabel="나가기"
+          cancelLabel="계속 만들기"
+          onConfirm={() => {
+            setIsLeaveAskOpen(false);
+            setCreationStep(null);
+            setActiveTab('home');
+          }}
+          onClose={() => setIsLeaveAskOpen(false)}
+        />
         <InfoSheet
           isOpen={infoSheet !== null}
           title={infoSheet?.title ?? ''}

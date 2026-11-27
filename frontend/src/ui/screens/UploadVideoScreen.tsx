@@ -5,7 +5,7 @@ import {
   Card,
   ConfirmSheet,
   CreditIcon,
-  FilePicker,
+  FilesPicker,
   FlowHeader,
   MobileScreen,
   ScreenTitle,
@@ -17,16 +17,17 @@ import type { HookType } from './flowData';
 
 export interface UploadVideoScreenProps {
   hookType: HookType;
-  initialFile?: File | null;
+  initialFiles?: File[];
   onBack?: () => void;
   onReviewGuide?: () => void;
-  onCreate?: (file: File) => void;
+  /** 고른 영상들 (촬영 순서). 1개 이상 */
+  onCreate?: (files: File[]) => void;
   /** 이 영상에 드는 크레딧(견적 API). 없으면 예상 소요 시간만 보여 준다 */
   cost?: number;
   /** 지금 보유한 크레딧 */
   credits?: number;
   /** 크레딧이 모자라 "충전하고 만들기"를 눌렀을 때. 충전 뒤 이 화면으로 돌아오도록 고른 영상과 모자란 크레딧을 넘긴다 */
-  onCharge?: (file: File, shortfall: number) => void;
+  onCharge?: (files: File[], shortfall: number) => void;
   /** 처음부터 크레딧 부족 시트를 열어 둔다 (스토리·테스트용) */
   initialIsShort?: boolean;
   /** 예상 소요 시간(서버가 알려 주는 값). 없으면 기본 안내 값을 쓴다 */
@@ -45,7 +46,7 @@ const SAMPLE_ESTIMATE = {
 /** 안1-7 영상 올리기 (6/8) – 영상을 고르기 전에는 만들기 버튼이 꺼져 있다. */
 export function UploadVideoScreen({
   hookType,
-  initialFile = null,
+  initialFiles = [],
   onBack,
   onReviewGuide,
   onCreate,
@@ -55,7 +56,8 @@ export function UploadVideoScreen({
   onCharge,
   initialIsShort = false,
 }: UploadVideoScreenProps) {
-  const [file, setFile] = useState<File | null>(initialFile);
+  const [files, setFiles] = useState<File[]>(initialFiles);
+  const file = files.length > 0;
   const [isShortOpen, setIsShortOpen] = useState(initialIsShort);
   // 단가·잔액을 모르면 막지 않고 서버에 맡긴다
   const shortfall = cost !== undefined && credits !== undefined ? Math.max(0, cost - credits) : 0;
@@ -63,7 +65,7 @@ export function UploadVideoScreen({
   const create = () => {
     if (!file) return;
     if (shortfall > 0) setIsShortOpen(true);
-    else onCreate?.(file);
+    else onCreate?.(files);
   };
 
   // 버튼 바로 위 한 줄: 누르면 무엇이 빠지는지 미리 보여 준다
@@ -104,15 +106,15 @@ export function UploadVideoScreen({
                 <Button label="가이드 다시 보기" variant="ghost" size="sm" onClick={onReviewGuide} />
               ) : null}
             </div>
-            <FilePicker
+            <FilesPicker
               label="촬영한 영상"
               isLabelHidden
               accept="video/*"
-              value={file}
-              onChange={setFile}
-              placeholder="찍은 영상을 골라 주세요"
+              value={files}
+              onChange={setFiles}
+              placeholder="찍은 영상을 골라 주세요 (여러 개 가능)"
             />
-            <p className="n-small n-muted">5~90초 · 100MB 이하 · 세로 9:16 영상</p>
+            <p className="n-small n-muted">합쳐서 5~90초 · 한 개 100MB 이하 · 세로 9:16 영상</p>
           </Stack>
         </Card>
 
@@ -131,7 +133,7 @@ export function UploadVideoScreen({
         cancelLabel="나중에"
         onConfirm={() => {
           setIsShortOpen(false);
-          if (file) onCharge?.(file, shortfall);
+          if (file) onCharge?.(files, shortfall);
         }}
         onClose={() => setIsShortOpen(false)}
       >
