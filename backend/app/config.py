@@ -140,7 +140,7 @@ class Settings(BaseSettings):
     # Shared TTS, body pipeline, upload validation & media delivery
     tts_provider: Literal["inworld", "gemini"] = "inworld"
     inworld_api_key: Optional[str] = None
-    inworld_voice_id: str = "scarlet-mango-0605__gangsangyun"
+    inworld_voice_id: str = "crafty-mocha-3599__gangsangyun"
     # 렌더마다 무작위로 고를 Inworld 목소리 ID (쉼표로 구분). 비우면 inworld_voice_id 하나.
     # 요청에 목소리를 지정하면(나중에 선택 화면) 그 값을 쓴다.
     inworld_voice_ids: str = ""
