@@ -68,6 +68,8 @@ export interface HomeScreenProps {
   /** 피드 영상 크게 보기 */
   onOpenFeed?: (id: string) => void;
   onToggleFeedLike?: (id: string, isLiked: boolean) => void;
+  /** 피드 게시물의 프로필 원·닉네임 → 만든 사람 프로필 */
+  onOpenCreator?: (creatorName: string) => void;
   /** 공유 시트에 쓸 링크·복사·기기 공유 창. 없으면 피드에 공유 버튼을 숨긴다 */
   share?: ShareHandlers;
   /** "이 훅으로 만들기" */
@@ -108,6 +110,7 @@ export function HomeScreen({
   onOpenFeed,
   onToggleFeedLike,
   share,
+  onOpenCreator,
   onRemixFeed,
   onSeeAllFeed,
   comments = {},
@@ -225,6 +228,7 @@ export function HomeScreen({
                   onOpen={() => onOpenFeed?.(video.id)}
                   onToggleLike={(isLiked) => onToggleFeedLike?.(video.id, isLiked)}
                   onShare={share ? () => setShareFor(video.id) : undefined}
+                  onOpenCreator={onOpenCreator ? () => onOpenCreator(video.creatorName) : undefined}
                   commentCount={commentCountOf(video)}
                   onOpenComments={() => setCommentsFor(video.id)}
                   onRemix={() => onRemixFeed?.(video)}

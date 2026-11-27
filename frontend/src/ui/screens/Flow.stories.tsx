@@ -9,6 +9,7 @@ import type { NavTab } from '../components';
 import { ChargeResultScreen } from './ChargeResultScreen';
 import { CommunityScreen } from './CommunityScreen';
 import { CommunityViewerScreen } from './CommunityViewerScreen';
+import { CreatorProfileScreen } from './CreatorProfileScreen';
 import { CreditChargeScreen } from './CreditChargeScreen';
 import { CreditHistoryScreen, type CreditEntry } from './CreditHistoryScreen';
 import { GeneratingScreen } from './GeneratingScreen';
@@ -41,6 +42,7 @@ import {
   SAMPLE_THUMBNAIL_CAPTION,
   SAMPLE_THUMBNAIL_TEMPLATES,
   SAMPLE_USER,
+  sampleCreator,
 } from './sampleProjects';
 import { ScenarioScreen } from './ScenarioScreen';
 import { ShootingGuideScreen } from './ShootingGuideScreen';
@@ -70,7 +72,8 @@ type Step =
   | 'charge'
   | 'chargeResult'
   | 'notifications'
-  | 'creditHistory';
+  | 'creditHistory'
+  | 'creator';
 
 /** 충전 화면으로 들어온 곳 (충전이 끝나면 여기로 돌아간다) */
 type ChargeFrom = 'home' | 'profile' | 'upload' | 'creditHistory';
@@ -87,7 +90,12 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
   const [communityType, setCommunityType] = useState<HookType | null>(null);
   const [viewerId, setViewerId] = useState<string>();
   // 영상 보기에서 뒤로 가면 돌아갈 곳 (홈 피드 · 커뮤니티)
-  const [viewerFrom, setViewerFrom] = useState<'home' | 'community'>('community');
+  const [viewerFrom, setViewerFrom] = useState<'home' | 'community' | 'creator'>('community');
+  // 만든 사람 프로필: 누구의 프로필인지와, 뒤로 가면 돌아갈 곳 (영상 보기에서 왔으면 그때 보던 영상으로)
+  const [creatorName, setCreatorName] = useState('도마왕');
+  const [creatorReturn, setCreatorReturn] = useState<
+    { step: 'home' } | { step: 'communityViewer'; viewerFrom: 'home' | 'community'; viewerId?: string }
+  >({ step: 'home' });
   const [feedCount, setFeedCount] = useState(4);
   const commentProps = useSampleComments(SAMPLE_COMMENTS, SAMPLE_USER.name);
   const communityItems = filterCommunityByType(SAMPLE_COMMUNITY, communityType);
@@ -281,6 +289,11 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
             setHookType(video.hookType);
             setStep('product');
           }}
+          onOpenCreator={(name) => {
+            setCreatorName(name);
+            setCreatorReturn({ step: 'home' });
+            setStep('creator');
+          }}
           onSeeAllFeed={() => setStep('community')}
           {...commentProps}
           profile={{ name: SAMPLE_USER.name }}
@@ -335,10 +348,19 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
         <CommunityViewerScreen
           {...commentProps}
           myName={SAMPLE_USER.name}
-          items={communityItems}
+          items={viewerFrom === 'creator' ? sampleCreator(creatorName).videos : communityItems}
           initialId={viewerId}
           share={sampleShare()}
           onBack={() => setStep(viewerFrom)}
+          onActiveChange={setViewerId}
+          onOpenCreator={(name) => {
+            // 프로필에서 열어 본 영상이면 같은 사람이라 그냥 프로필로 돌아간다
+            if (viewerFrom !== 'creator') {
+              setCreatorName(name);
+              setCreatorReturn({ step: 'communityViewer', viewerFrom, viewerId });
+            }
+            setStep('creator');
+          }}
           // "이 훅으로 만들기": 같은 훅 유형을 고른 채로 만들기 흐름을 시작한다
           onRemix={(video) => {
             setHookType(video.hookType);
@@ -346,6 +368,31 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           }}
         />
       );
+    case 'creator': {
+      const { profile, videos } = sampleCreator(creatorName);
+      return (
+        <CreatorProfileScreen
+          creator={profile}
+          videos={videos}
+          onBack={() => {
+            if (creatorReturn.step === 'communityViewer') {
+              setViewerFrom(creatorReturn.viewerFrom);
+              setViewerId(creatorReturn.viewerId);
+            }
+            setStep(creatorReturn.step);
+          }}
+          onOpenVideo={(id) => {
+            setViewerId(id);
+            setViewerFrom('creator');
+            setStep('communityViewer');
+          }}
+          onRemix={(type) => {
+            setHookType(type);
+            setStep('product');
+          }}
+        />
+      );
+    }
     case 'profile':
       return (
         <ProfileScreen

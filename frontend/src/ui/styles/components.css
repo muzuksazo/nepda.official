@@ -3563,6 +3563,92 @@ button.n-noti:focus-visible {
   cursor: default;
 }
 
+/* ---------- 만든 사람 프로필 ---------- */
+.n-creator {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 4px 0 8px;
+}
+
+.n-creator .n-avatar--lg {
+  width: 72px;
+  height: 72px;
+  font-size: 28px;
+}
+
+.n-creator__stats {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+/* 숫자를 위에 크게: 읽는 순서(dt → dd)는 그대로 두고 보이는 순서만 바꾼다 */
+.n-creator__stat {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.n-creator__stat dd {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 26px;
+  white-space: nowrap;
+}
+
+.n-creator__stat dt {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.n-creator__bar {
+  display: block;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+
+.n-creator__empty {
+  padding: 40px 0 24px;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+/* 피드·영상 보기의 "프로필 원 + 닉네임" 누르는 자리 */
+.n-creator-link {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  margin: -6px 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.n-creator-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
 /* ---------- 영상 보기 (커뮤니티) — 늘 어두운 바탕 ---------- */
 .n-viewer {
   position: relative;

@@ -11,6 +11,8 @@ export interface CommunityViewerScreenProps {
   initialId?: string;
   onBack?: () => void;
   onToggleLike?: (id: string, isLiked: boolean) => void;
+  /** 프로필 원·닉네임을 눌렀을 때 → 만든 사람 프로필 */
+  onOpenCreator?: (creatorName: string) => void;
   /** 공유 시트에 쓸 링크·복사·기기 공유 창. 없으면 공유 버튼을 숨긴다 */
   share?: ShareHandlers;
   onReport?: (id: string) => void;
@@ -41,6 +43,7 @@ export function CommunityViewerScreen({
   onBack,
   onToggleLike,
   share,
+  onOpenCreator,
   onReport,
   onRemix,
   onActiveChange,
@@ -269,11 +272,28 @@ export function CommunityViewerScreen({
 
               <div className="n-viewer__panel">
                 <div className="n-viewer__meta">
-                  <Avatar name={video.creatorName} />
-                  <div className="n-viewer__who">
-                    <span className="n-viewer__creator">{video.creatorName}</span>
-                    <span className="n-viewer__product">{video.productName}</span>
-                  </div>
+                  {onOpenCreator ? (
+                    <button
+                      type="button"
+                      className="n-creator-link"
+                      onClick={() => onOpenCreator(video.creatorName)}
+                      aria-label={`${video.creatorName} 프로필 보기, ${video.productName}`}
+                    >
+                      <Avatar name={video.creatorName} />
+                      <span className="n-viewer__who" aria-hidden="true">
+                        <span className="n-viewer__creator">{video.creatorName}</span>
+                        <span className="n-viewer__product">{video.productName}</span>
+                      </span>
+                    </button>
+                  ) : (
+                    <>
+                      <Avatar name={video.creatorName} />
+                      <div className="n-viewer__who">
+                        <span className="n-viewer__creator">{video.creatorName}</span>
+                        <span className="n-viewer__product">{video.productName}</span>
+                      </div>
+                    </>
+                  )}
                   <Badge tone="brand">{video.hookType} 유형</Badge>
                 </div>
                 <Button label="이 훅으로 만들기" isBlock onClick={() => onRemix?.(video)} />

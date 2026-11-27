@@ -20,6 +20,7 @@ import event2 from '../../assets/events/event2.webp';
 import event3 from '../../assets/events/event3.webp';
 import type { BannerItem, CreditPackage, ThumbnailTemplate, VideoComment } from '../components';
 import type { CommunityVideo } from './CommunityScreen';
+import type { CreatorProfile } from './CreatorProfileScreen';
 import type { CreditEntry } from './CreditHistoryScreen';
 import type { HookType } from './flowData';
 import type { CompletedProject, InProgressProject } from './HomeScreen';
@@ -159,16 +160,36 @@ export const SAMPLE_COMMUNITY: CommunityVideo[] = [
   { id: 'v03', productName: '스테인리스 텀블러', creatorName: '텀블러수집가', hookType: 'C', thumbnailUrl: thumb03, caption: '텀블러 던져 봤습니다', likeCount: 12300, isLiked: true },
   { id: 'v04', productName: '원목 데스크 정리함', creatorName: '책상정리단', hookType: 'B', thumbnailUrl: thumb04, caption: '책상이 3초 만에', likeCount: 547 },
   { id: 'v05', productName: '접이식 빨래 건조대', creatorName: '빨래요정', hookType: 'A', thumbnailUrl: thumb05, caption: '빨래, 접지 마세요', likeCount: 318 },
-  { id: 'v06', productName: '휴대용 블렌더', creatorName: '갈아만든사장', hookType: 'C', thumbnailUrl: thumb06, caption: '갈아 버렸습니다', likeCount: 2051 },
+  { id: 'v06', productName: '휴대용 블렌더', creatorName: '도마왕', hookType: 'C', thumbnailUrl: thumb06, caption: '갈아 버렸습니다', likeCount: 2051 },
   { id: 'v07', productName: '육각 젤펜', creatorName: '문구덕후', hookType: 'B', thumbnailUrl: thumb07, caption: '펜이 안 굴러가요', likeCount: 96 },
   { id: 'v08', productName: '충전식 무드등', creatorName: '방구석조명', hookType: 'A', thumbnailUrl: thumb08, caption: '자취방 조명 끝판왕', likeCount: 771 },
-  { id: 'v09', productName: '실리콘 수세미', creatorName: '설거지장인', hookType: 'C', thumbnailUrl: thumb09, caption: '설거지 3분 컷', likeCount: 433 },
+  { id: 'v09', productName: '실리콘 수세미', creatorName: '도마왕', hookType: 'C', thumbnailUrl: thumb09, caption: '설거지 3분 컷', likeCount: 433 },
   { id: 'v10', productName: '접이식 노트', creatorName: '필기왕', hookType: 'A', thumbnailUrl: thumb10, caption: '노트가 접힌다고?', likeCount: 1502 },
   { id: 'v11', productName: '침대 트레이', creatorName: '눕방전문', hookType: 'B', thumbnailUrl: thumb11, caption: '침대 밖은 위험해', likeCount: 254 },
-  { id: 'v12', productName: '실리콘 냄비 받침', creatorName: '주방템연구소', hookType: 'C', thumbnailUrl: thumb12, caption: '냄비 받침의 반란', likeCount: 688 },
+  { id: 'v12', productName: '실리콘 냄비 받침', creatorName: '도마왕', hookType: 'C', thumbnailUrl: thumb12, caption: '냄비 받침의 반란', likeCount: 688 },
 ];
 
 /** 스토리·프로토타입에서 서버 대신 예시 목록을 훅 유형으로 거른다 (순서는 추천 순서라고 보고 그대로 둔다) */
 export function filterCommunityByType(items: CommunityVideo[], hookType: HookType | null): CommunityVideo[] {
   return hookType === null ? items : items.filter((video) => video.hookType === hookType);
+}
+
+/**
+ * 예시: 만든 사람 프로필 — 예시 커뮤니티 영상에서 그 닉네임의 영상을 모아 숫자를 센다.
+ * (도마왕은 주방용품 영상 4편을 올린 사람으로 잡아 두었다.) 사람별 공개 프로필 API는 아직 없다.
+ */
+export function sampleCreator(name: string): { profile: CreatorProfile; videos: CommunityVideo[] } {
+  const videos = SAMPLE_COMMUNITY.filter((video) => video.creatorName === name);
+  const counts = new Map<HookType, number>();
+  for (const video of videos) counts.set(video.hookType, (counts.get(video.hookType) ?? 0) + 1);
+  const mainHookType = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  return {
+    profile: {
+      name,
+      videoCount: videos.length,
+      likeCount: videos.reduce((sum, video) => sum + video.likeCount, 0),
+      mainHookType,
+    },
+    videos,
+  };
 }

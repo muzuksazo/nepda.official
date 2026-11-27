@@ -8,6 +8,7 @@ import { sampleShare } from '../storybook/sampleShare';
 import { useSampleComments } from '../storybook/useSampleComments';
 import { ChargeResultScreen } from './ChargeResultScreen';
 import { CommunityScreen, type CommunityVideo } from './CommunityScreen';
+import { CreatorProfileScreen } from './CreatorProfileScreen';
 import { CreditChargeScreen } from './CreditChargeScreen';
 import { CreditHistoryScreen } from './CreditHistoryScreen';
 import type { HookType as HookKind } from './flowData';
@@ -41,6 +42,7 @@ import {
   SAMPLE_THUMBNAIL_CAPTION,
   SAMPLE_THUMBNAIL_TEMPLATES,
   SAMPLE_USER,
+  sampleCreator,
 } from './sampleProjects';
 import { ScenarioScreen } from './ScenarioScreen';
 import { ShootingGuideScreen } from './ShootingGuideScreen';
@@ -87,6 +89,7 @@ export const Home: Story = {
       onOpenFeed={fn()}
       onToggleFeedLike={fn()}
       share={sampleShare(true)}
+      onOpenCreator={fn()}
       onRemixFeed={fn()}
       onSeeAllFeed={fn()}
     />
@@ -362,11 +365,47 @@ export const CommunityViewer: Story = {
         onBack={fn()}
         onToggleLike={fn()}
         share={sampleShare(true)}
+        onOpenCreator={fn()}
         onReport={fn()}
         onRemix={fn()}
       />
     );
   },
+};
+
+const creatorArgs = { onBack: fn(), onOpenVideo: fn(), onRemix: fn() };
+
+export const CreatorProfile: Story = {
+  name: '만든 사람 프로필',
+  render: () => {
+    const { profile, videos } = sampleCreator('도마왕');
+    return <CreatorProfileScreen {...creatorArgs} creator={profile} videos={videos} />;
+  },
+};
+
+export const CreatorProfileOneVideo: Story = {
+  name: '만든 사람 프로필 · 영상 한 편',
+  render: () => {
+    const { profile, videos } = sampleCreator('텀블러수집가');
+    return <CreatorProfileScreen {...creatorArgs} creator={profile} videos={videos} />;
+  },
+};
+
+export const CreatorProfileEmpty: Story = {
+  name: '만든 사람 프로필 · 올린 영상 없음',
+  render: () => (
+    <CreatorProfileScreen {...creatorArgs} creator={{ name: '설거지장인', videoCount: 0, likeCount: 0 }} videos={[]} />
+  ),
+};
+
+export const CreatorProfileLoading: Story = {
+  name: '만든 사람 프로필 · 불러오는 중',
+  render: () => <CreatorProfileScreen {...creatorArgs} videos={[]} status="loading" />,
+};
+
+export const CreatorProfileGone: Story = {
+  name: '만든 사람 프로필 · 사라짐',
+  render: () => <CreatorProfileScreen {...creatorArgs} videos={[]} status="gone" />,
 };
 
 export const CommunityViewerReport: Story = {

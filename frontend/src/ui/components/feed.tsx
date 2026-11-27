@@ -20,6 +20,8 @@ export interface FeedPostProps {
   /** 영상을 눌렀을 때: 크게 보기 */
   onOpen?: () => void;
   onToggleLike?: (isLiked: boolean) => void;
+  /** 프로필 원·닉네임을 눌렀을 때 → 만든 사람 프로필. 없으면 눌리지 않는다 */
+  onOpenCreator?: () => void;
   /** 공유 시트 열기. 없으면 공유 버튼을 숨긴다 */
   onShare?: () => void;
   /** 댓글 시트 열기 */
@@ -48,6 +50,7 @@ export function FeedPost({
   onOpen,
   onToggleLike,
   onShare,
+  onOpenCreator,
   onOpenComments,
   onRemix,
 }: FeedPostProps) {
@@ -73,11 +76,23 @@ export function FeedPost({
   return (
     <article className="n-post" aria-label={`${creatorName}의 ${productName} 영상`}>
       <header className="n-post__head">
-        <Avatar name={creatorName} />
-        <div className="n-post__who">
-          <span className="n-post__creator">{creatorName}</span>
-          <span className="n-post__product">{productName}</span>
-        </div>
+        {onOpenCreator ? (
+          <button type="button" className="n-creator-link" onClick={onOpenCreator} aria-label={`${creatorName} 프로필 보기, ${productName}`}>
+            <Avatar name={creatorName} />
+            <span className="n-post__who" aria-hidden="true">
+              <span className="n-post__creator">{creatorName}</span>
+              <span className="n-post__product">{productName}</span>
+            </span>
+          </button>
+        ) : (
+          <>
+            <Avatar name={creatorName} />
+            <div className="n-post__who">
+              <span className="n-post__creator">{creatorName}</span>
+              <span className="n-post__product">{productName}</span>
+            </div>
+          </>
+        )}
         <Badge tone="brand">{hookType} 유형</Badge>
       </header>
 
