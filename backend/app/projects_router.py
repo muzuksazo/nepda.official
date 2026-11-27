@@ -334,6 +334,19 @@ def _load_track_a_manifest_entries(settings: Settings) -> List[Dict[str, Any]]:
     return entries
 
 
+def _unescape_newlines(text: Any) -> str:
+    """Normalize double-escaped JSON newlines (`\\n`) into real newlines."""
+    return str(text or "").replace("\\n", "\n")
+
+
+def _clean_caption_display(text: Any) -> str:
+    """Flatten caption newlines and strip emphasis markers for UI cards."""
+    cleaned = _unescape_newlines(text).replace("\r", "")
+    cleaned = re.sub(r"\*\*(.+?)\*\*", r"\1", cleaned)
+    cleaned = re.sub(r"\n+", " ", cleaned)
+    return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
+
+
 def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
     def _generate(project: Dict[str, Any], hook_types: List[str], provider: str) -> List[Dict[str, Any]]:
         product = project["product"]
@@ -404,6 +417,9 @@ def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
                     spec["track_a_template_id"] = str(tpl_entry.get("id") or "")
                     spec["a_genre_archetype"] = str(tpl_entry.get("a_genre_archetype") or "mock_documentary")
                 caps = spec.get("captions") or []
+                for c in caps:
+                    if isinstance(c, dict) and "text" in c:
+                        c["text"] = _unescape_newlines(c.get("text"))
                 tl = spec.get("timeline") or []
                 beats = [
                     {
@@ -438,9 +454,118 @@ def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
 def _default_storyboard_generator(
     settings: Settings, storage: StorageBackend
 ) -> StoryboardGenerator:
+    def _extract_track_a_storyboard(
+        project: Dict[str, Any], scenario: Dict[str, Any]
+    ) -> Optional[List[Dict[str, Any]]]:
+        manifest_entries = _load_track_a_manifest_entries(settings)
+        tpl_id = str((scenario.get("ad_spec") or {}).get("track_a_template_id") or "").strip()
+        tpl_entry = next(
+            (e for e in manifest_entries if tpl_id and e.get("id") == tpl_id),
+            manifest_entries[0] if manifest_entries else None,
+        )
+        if not tpl_entry:
+            return None
+        tpl_path = Path(str(tpl_entry.get("path") or ""))
+        if not tpl_path.is_file():
+            return None
+
+        tpl_dur = float(tpl_entry.get("duration_sec") or 9.8)
+        try:
+            probe = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=nw=1:nk=1",
+                    str(tpl_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            probed_dur = float((probe.stdout or "").strip() or "0")
+            if probed_dur > 0.5:
+                tpl_dur = probed_dur
+        except Exception:
+            pass
+
+        out_dir = (
+            Path(settings.work_root).resolve()
+            / project["project_id"]
+            / "storyboards"
+            / scenario["scenario_id"]
+        )
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        non_silence = [
+            b for b in (scenario.get("beats") or []) if b.get("role") != "silence_gap"
+        ]
+        raw_caps = [
+            _clean_caption_display(b.get("caption") or b.get("narration") or b.get("visual") or "")
+            for b in non_silence
+        ]
+        default_hook_caps = [
+            _clean_caption_display(x) for x in (tpl_entry.get("default_hook_captions") or []) if str(x).strip()
+        ]
+        cut_captions: List[str] = []
+        for idx in range(4):
+            if idx < len(raw_caps) and raw_caps[idx]:
+                cut_captions.append(raw_caps[idx])
+            elif idx < len(default_hook_caps) and default_hook_caps[idx]:
+                cut_captions.append(default_hook_caps[idx])
+            elif idx == 3:
+                cut_captions.append("반전 후 실제 제품 핵심 효과가 이어집니다")
+            else:
+                cut_captions.append(f"3D 물리 훅 장면 {idx + 1}")
+
+        frames: List[Dict[str, Any]] = []
+        ratios = (0.12, 0.38, 0.66, 0.90)
+        for idx, ratio in enumerate(ratios, start=1):
+            ts = round(max(0.1, min(tpl_dur - 0.15, tpl_dur * ratio)), 2)
+            img_path = out_dir / f"frame_{idx:02d}.png"
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-ss",
+                    f"{ts:.2f}",
+                    "-i",
+                    str(tpl_path),
+                    "-frames:v",
+                    "1",
+                    "-vf",
+                    "scale=540:675:force_original_aspect_ratio=increase,crop=540:675",
+                    str(img_path),
+                ],
+                capture_output=True,
+                check=True,
+            )
+            obj_key = (
+                f"projects/{project['project_id']}/storyboards/"
+                f"{scenario['scenario_id']}/frame_{idx:02d}.png"
+            )
+            storage.upload_file(img_path, obj_key)
+            url = resolve_media_url(obj_key, storage=storage, settings=settings) or obj_key
+            frames.append(
+                {
+                    "beat_order": idx,
+                    "image_url": url,
+                    "caption": cut_captions[idx - 1],
+                }
+            )
+        return frames
+
     def _generate(
         project: Dict[str, Any], scenario: Dict[str, Any], visual_style: str
     ) -> List[Dict[str, Any]]:
+        if str(scenario.get("type") or "").upper() == "A":
+            track_a_frames = _extract_track_a_storyboard(project, scenario)
+            if track_a_frames:
+                return track_a_frames
+
         provider = GenAIMediaProvider(settings)
         out_dir = (
             Path(settings.work_root).resolve()
@@ -458,12 +583,18 @@ def _default_storyboard_generator(
                 f"Style: {visual_style}. Zero readable text, no subtitles, no watermarks."
             )
             provider.generate_reference_image(prompt, img_path, skip_existing=True)
-            url = storage.upload_file(
-                img_path,
-                f"projects/{project['project_id']}/storyboards/{scenario['scenario_id']}/frame_{order:02d}.png",
+            obj_key = (
+                f"projects/{project['project_id']}/storyboards/"
+                f"{scenario['scenario_id']}/frame_{order:02d}.png"
             )
+            storage.upload_file(img_path, obj_key)
+            url = resolve_media_url(obj_key, storage=storage, settings=settings) or obj_key
             frames.append(
-                {"beat_order": order, "image_url": url, "caption": beat.get("caption", "")}
+                {
+                    "beat_order": order,
+                    "image_url": url,
+                    "caption": _clean_caption_display(beat.get("caption", "")),
+                }
             )
         return frames
 
@@ -814,6 +945,10 @@ def build_projects_router(
                         cap_item["pop_badge"] = badge_txt
                     clean_pre_caps.append(cap_item)
                 spec["captions"] = clean_pre_caps + post_caps
+
+        for cap_c in spec.get("captions") or []:
+            if isinstance(cap_c, dict) and "text" in cap_c:
+                cap_c["text"] = _unescape_newlines(cap_c.get("text"))
 
         plain_lines = [
             re.sub(r"\*\*(.+?)\*\*", r"\1", str(c.get("text") or "")).replace("\n", " ").strip()

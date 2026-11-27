@@ -64,28 +64,39 @@ def reset_vercel_oidc_token(reset_token: Token[Optional[str]]) -> None:
 
 
 def get_active_vercel_oidc_token(token_env_var: str = "VERCEL_OIDC_TOKEN") -> Optional[str]:
-    """Return active Vercel OIDC JWT from request context or process environment."""
+    """Return active OIDC JWT from request context, Vercel env, or Modal env/file."""
     from_ctx = _REQUEST_VERCEL_OIDC_TOKEN.get()
     if from_ctx:
         cleaned = from_ctx.strip()
         if cleaned:
             return cleaned
     from_env = os.environ.get(token_env_var, "").strip()
-    return from_env or None
+    if from_env:
+        return from_env
+    modal_file = os.environ.get("MODAL_IDENTITY_TOKEN_FILE", "").strip()
+    if modal_file:
+        try:
+            file_tok = Path(modal_file).read_text(encoding="utf-8").strip()
+            if file_tok:
+                return file_tok
+        except OSError:
+            pass
+    modal_tok = os.environ.get("MODAL_IDENTITY_TOKEN", "").strip()
+    return modal_tok or None
 
 
 class VercelOidcSubjectTokenSupplier(identity_pool.SubjectTokenSupplier):
-    """Supply a Vercel OIDC JWT from request header context or environment for GCP WIF."""
+    """Supply an OIDC JWT from request header context, Vercel env, or Modal env/file."""
 
     def __init__(self, token_env_var: str = "VERCEL_OIDC_TOKEN") -> None:
         self._token_env_var = token_env_var
 
     def get_subject_token(self, context: Any, request: Any) -> str:
-        """Return the active Vercel OIDC subject token or raise RefreshError."""
+        """Return the active OIDC subject token or raise RefreshError."""
         token = get_active_vercel_oidc_token(self._token_env_var)
         if not token:
             raise google_auth_exceptions.RefreshError(
-                f"{self._token_env_var} / x-vercel-oidc-token is not set for GCP WIF exchange."
+                f"{self._token_env_var} / MODAL_IDENTITY_TOKEN(_FILE) / x-vercel-oidc-token is not set for GCP WIF exchange."
             )
         return token
 

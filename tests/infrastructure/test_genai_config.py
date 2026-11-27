@@ -128,3 +128,41 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
                     project="my-gcp-project",
                     location="us-central1",
                 )
+
+    def test_build_client_modal_oidc_wif_credentials(self) -> None:
+        from pathlib import Path
+
+        provider = (
+            "projects/94766443061/locations/global/workloadIdentityPools/"
+            "vercel-napda-pool/providers/modal-dltldn333"
+        )
+        sa_email = "napda-vercel-wif@gentle-voltage-464223-h6.iam.gserviceaccount.com"
+        s_wif = Settings(
+            _env_file=None,
+            google_genai_use_vertexai=True,
+            google_cloud_project="gentle-voltage-464223-h6",
+            google_cloud_location="us-central1",
+            gcp_workload_identity_provider=provider,
+            gcp_service_account_email=sa_email,
+        )
+
+        with patch.dict("os.environ", {"MODAL_IDENTITY_TOKEN": "eyJ.modal.env"}, clear=True):
+            with patch("app.genai_provider.genai.Client") as m_client:
+                build_genai_client(s_wif)
+                creds = m_client.call_args.kwargs["credentials"]
+                self.assertEqual(
+                    creds._subject_token_supplier.get_subject_token(None, None),
+                    "eyJ.modal.env",
+                )
+
+        with temporary_directory() as tmp:
+            tok_file = Path(tmp) / "oidc_token"
+            tok_file.write_text("eyJ.modal.file\n", encoding="utf-8")
+            with patch.dict("os.environ", {"MODAL_IDENTITY_TOKEN_FILE": str(tok_file)}, clear=True):
+                with patch("app.genai_provider.genai.Client") as m_client:
+                    build_genai_client(s_wif)
+                    creds = m_client.call_args.kwargs["credentials"]
+                    self.assertEqual(
+                        creds._subject_token_supplier.get_subject_token(None, None),
+                        "eyJ.modal.file",
+                    )

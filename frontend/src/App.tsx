@@ -167,7 +167,10 @@ function parseFactsFromIntro(name: string, intro: string): string[] {
 
 function formatScenarioText(scn: ScenarioItem): string {
   const lines = scn.beats.map((b) => {
-    const body = (b.caption || b.narration || b.visual || '').replace(/\*\*/g, '').trim();
+    const body = (b.caption || b.narration || b.visual || '')
+      .replace(/\\n|\n/g, ' ')
+      .replace(/\*\*/g, '')
+      .trim();
     return `${b.order}. ${body} (${b.duration_sec}초)`;
   });
   return [`[${scn.hook_title}]`, ...lines].join('\n');
