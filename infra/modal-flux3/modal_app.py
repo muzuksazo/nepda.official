@@ -82,6 +82,18 @@ image = (
             "WEIGHTS_DIR": "/weights",
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
             "TOKENIZERS_PARALLELISM": "false",
+            # 배포할 때 고른 설정을 컨테이너 안에도 넘긴다. 없으면 컨테이너가 이 파일을 다시 읽을 때
+            # 기본값(fp8, PUP 켬)으로 돌아가 다른 가중치를 찾거나 PUP 를 띄운다.
+            "MODAL_FLUX3_QUANT": QUANT,
+            "MODAL_FLUX3_ENABLE_PUP": "true" if ENABLE_PUP else "false",
+            "MODAL_FLUX3_PUP_MEMORY": str(PUP_MEMORY),
+            "MODAL_FLUX3_OFFLOAD": "true" if OFFLOAD else "false",
+            "MODAL_FLUX3_GPU": GPU,
+            "MODAL_FLUX3_SCALEDOWN_SEC": str(SCALEDOWN_SEC),
+            "MODAL_FLUX3_MIN_CONTAINERS": str(MIN_CONTAINERS),
+            "MODAL_FLUX3_VOLUME": VOLUME_NAME,
+            "MODAL_FLUX3_SECRET": SECRET_NAME,
+            "MODAL_APP_NAME": APP_NAME,
         }
     )
     .add_local_file(str(APP_DIR / "schemas.py"), remote_path="/root/schemas.py")
