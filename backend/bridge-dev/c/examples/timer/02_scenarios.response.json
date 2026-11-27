@@ -1,0 +1,74 @@
+{
+  "project_id": "proj_timer01",
+  "status": "SCENARIOS_READY",
+  "round": 1,
+  "scenarios": [
+    {
+      "scenario_id": "sc_timer01_C1_01",
+      "round": 1,
+      "type": "C",
+      "hook_title": "폰으로 타이머 맞추려다 또 릴스 → 폰 대신 돌리는 빨간 원판 타이머",
+      "hook_duration_sec": 15.0,
+      "body_duration_sec": 0.0,
+      "replacement_test_note": "문제(폰으로 타이머를 맞추려다 딴짓)의 해결 근거가 화면 없이 다이얼을 돌려 맞추는 방식(F02)과 빨간 원판으로 남은 시간을 보여 주는 표시(F03)라 폰 앱·디지털 타이머 광고에는 옮겨 붙일 수 없다.",
+      "beats": [
+        {
+          "order": 1,
+          "role": "문제",
+          "duration_sec": 3.5,
+          "visual": "밝은 책상 POV. 펜을 내려놓은 손이 폰을 집어 계속 넘겨 본다. 노트는 그대로 (생성 영상)",
+          "narration": "폰으로 타이머 맞추려다, 또 릴스 보고 있죠.",
+          "caption": "폰으로 타이머 맞추려다\n또 릴스 보고 있죠"
+        },
+        {
+          "order": 2,
+          "role": "가장 강한 증명",
+          "duration_sec": 4.0,
+          "visual": "실물 타이머. 손이 가운데 다이얼을 돌리자 빨간 원판이 채워진다 [F02]",
+          "narration": "그래서 폰 대신 이걸 돌려요. 돌린 만큼, 빨간 원판이 채워져요.",
+          "caption": "폰 대신 다이얼\n돌린 만큼 빨간 원판"
+        },
+        {
+          "order": 3,
+          "role": "장점",
+          "duration_sec": 3.0,
+          "visual": "다이얼이 돌아가며 빨간 원판이 줄어든다 [F03]",
+          "narration": "남은 시간이, 숫자 안 읽어도 보여요.",
+          "caption": "남은 시간이\n숫자 안 읽어도 보여요"
+        },
+        {
+          "order": 4,
+          "role": "장점",
+          "duration_sec": 2.0,
+          "visual": "0에 닿자 우측 상단 표시등에 빨간 불 [F04]",
+          "narration": "영에 오면, 빨간 불이 켜져요.",
+          "caption": "0에 오면\n빨간 불"
+        },
+        {
+          "order": 5,
+          "role": "CTA",
+          "duration_sec": 2.5,
+          "visual": "빨간 원판이 가득 찬 실물 타이머, 제품명 카드 [F01]",
+          "narration": "여러분은 타이머, 뭘로 맞춰요?",
+          "caption": "여러분은 타이머\n뭘로 맞춰요?"
+        }
+      ],
+      "ad_spec": {
+        "track_archetype": "C_direct_proof",
+        "claim_ids": [
+          "F02",
+          "F03",
+          "F04"
+        ],
+        "proof_first": true,
+        "cta": {
+          "type": "comment_engagement",
+          "text": "여러분은 타이머 뭘로 맞춰요?"
+        },
+        "disclosure": "ai_assisted",
+        "pov_label": "타이머 켜려다 폰 본 나",
+        "selling_point": "폰을 집지 않고 다이얼만 돌려 시간을 맞춘다"
+      }
+    }
+  ]
+}

@@ -36,7 +36,8 @@ TEMPLATES = {
     "carry_drip": {"script": os.path.join(HERE, "blender_scene.py"), "frames": 84, "impact_sec": 1.25, "cache": "spill_diffuser"},
     "reed_flip": {"script": os.path.join(HERE, "blender_scene.py"), "frames": 84, "impact_sec": 1.25, "cache": "spill_diffuser"},
     "evaporate_diffuser": {"script": os.path.join(HERE, "blender_scene_evaporate.py"), "frames": 96, "impact_sec": None},
-    # script 가 None 인 템플릿을 두면 Blender 장면 없이 생성 모델(Gemini Omni)이 글만으로 만든다.
+    # script 가 None 인 템플릿은 Blender 장면 없이 생성 모델(Veo · Gemini Omni)이 글만으로 만든다.
+    "phone_distract": {"script": None, "frames": 0, "impact_sec": None},
     "closet_musty": {"script": os.path.join(HERE, "blender_scene_closet.py"), "frames": 96, "impact_sec": None, "still": 36},
     "drain_smell": {"script": os.path.join(HERE, "blender_scene_drain.py"), "frames": 240, "impact_sec": None, "sfx": [("spray", 4.5)], "still": 10},
 }
@@ -162,8 +163,6 @@ def problem_source(src: dict, seconds: float, log: Callable[[str], None] = print
         cache = os.path.join(assets_dir(), "cache", name)
         try:
             image = first_frame(template, log) if TEMPLATES[template]["script"] else None
-            if image is None and name != "omni":      # 글만으로 만드는 방식은 omni.py 에만 있다
-                raise veo.VeoError(f"템플릿 {template} 은 Blender 장면이 없어 Gemini Omni 로만 만들 수 있습니다.")
             clip = gen.generate(template, image, cache, seconds, log=log) if generate else gen.cached(cache, template, image, seconds)
             if clip:
                 return {"kind": "clip", "path": clip, "engine": f"{name}:{gen.model()}"}
@@ -234,7 +233,7 @@ def plan_sources(scenario: dict, assets: dict) -> list[dict]:
                 focus = c.get("focus") or [0.5, 0.5]
                 sub.append({"t": max(0.0, min(float(c.get("t", 0)), total - 0.3)), "zoom": max(1.0, float(c.get("zoom", 1.0))),
                             "focus": (float(focus[0]), float(focus[1]))})
-            plan[i].update({"cuts": sub, "start": sub[0]["t"], "speed": 1.0, "zoom": 1.0})
+            plan[i].update({"cuts": sub, "start": sub[0]["t"], "speed": 1.0, "zoom": 1.0, "fit": str(assets.get("footage_fit") or "cover")})
     return plan
 
 
@@ -278,6 +277,15 @@ def _segment(index: int, beat: dict, src: dict, inputs: list[str], filters: list
             x = max(0, min(sw - cw, int(c["focus"][0] * sw - cw / 2)))
             y = max(0, min(sh - ch, int(c["focus"][1] * sh - ch / 2)))
             z = f"1+0.06*on/{nf}" if j % 2 == 0 else f"1.06-0.06*on/{nf}"          # 컷마다 다가가기·물러나기를 번갈아
+            if src.get("fit") == "blur":
+                # 세로가 아닌 실물 영상: 자르지 않고 가로를 꽉 채워 놓고, 위아래는 같은 화면을 흐리게 깔아 채운다.
+                filters.append(f"[{kk}:v]fps={FPS},crop={cw}:{ch}:{x}:{y},split[b{index}_{j}][f{index}_{j}];"
+                               f"[b{index}_{j}]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},gblur=sigma=42,eq=brightness=-0.10:saturation=0.9[bb{index}_{j}];"
+                               f"[f{index}_{j}]scale={W * 2}:-2:flags=lanczos,zoompan=z='{z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={W}x{W * ch // cw // 2 * 2}:fps={FPS}[ff{index}_{j}];"
+                               f"[bb{index}_{j}][ff{index}_{j}]overlay=0:(H-h)/2,{grade},"
+                               f"tpad=stop_mode=clone:stop_duration=2,trim=end_frame={nf},setpts=PTS-STARTPTS,setsar=1,format=yuv420p[c{index}_{j}]")
+                labels.append(f"[c{index}_{j}]")
+                continue
             filters.append(f"[{kk}:v]fps={FPS},crop={cw}:{ch}:{x}:{y},scale={W * 2}:{H * 2}:force_original_aspect_ratio=increase:flags=lanczos,"
                            f"crop={W * 2}:{H * 2},zoompan=z='{z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={FPS},{grade},"
                            f"tpad=stop_mode=clone:stop_duration=2,trim=end_frame={nf},setpts=PTS-STARTPTS,setsar=1,format=yuv420p[c{index}_{j}]")

@@ -74,6 +74,7 @@ def parse_worker_input(data: dict) -> dict:
             "problem_engine": assets.get("problem_engine"),        # auto(기본) · veo(Blender 첫 프레임 → Google Veo) · blender
             # 실물 영상의 컷 목록 [{t: 시작 초, zoom: 확대, focus: [가로, 세로] 0~1}]. 있으면 실물 장면을 짧은 컷으로 나눠 편집한다.
             "footage_cuts": assets.get("footage_cuts") if isinstance(assets.get("footage_cuts"), list) else None,
+            "footage_fit": "blur" if str(assets.get("footage_fit") or "").strip().lower() == "blur" else None,   # blur: 자르지 않고 흐린 배경 위에 놓는다
         },
     }
 

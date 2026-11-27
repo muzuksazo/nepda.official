@@ -12,10 +12,11 @@ PROBLEM_TEMPLATES = {
     "reed_flip": "밝은 거실. 두 손이 리드 스틱을 뽑아 뒤집다가 오일이 손가락과 테이블에 뚝뚝 떨어지는 장면 (생성 영상, 약 3.5초)",
     "evaporate_diffuser": "밝은 실내 테이블 위 액체형 리드 디퓨저의 며칠짜리 타임랩스. 처음 채운 높이에 붙인 테이프는 그대로인데 "
                           "액체만 바닥까지 줄어들고 막대가 말라 간다 (3D 생성, 약 4초)",
+    "phone_distract": "밝은 책상. 펜을 내려놓은 손이 옆에 있던 스마트폰을 집어 엄지로 계속 넘겨 보고, 펼친 노트는 그대로인 장면 (생성 영상, 약 3.5초)",
     "drain_smell": "욕실 불을 켜고 들어선 POV. 바닥 배수구에서 냄새가 물결 모양 연기로 올라오고 카메라가 움찔 물러난다 (3D 생성, 약 3.5초)",
     "closet_musty": "장마철 방에서 옷장 문을 여는 POV. 빽빽이 걸린 옷 사이에서 꿉꿉한 냄새가 옅은 연기처럼 새어 나오고 카메라가 살짝 물러난다 (생성 영상, 약 3.5초)",
 }
-PROBLEM_SECONDS = {"spill_diffuser": 3, "evaporate_diffuser": 4, "drain_smell": 3.5, "closet_musty": 3.5, "cat_spill_diffuser": 3.5, "spray_panic": 3.5, "carry_drip": 3.5, "reed_flip": 3.5}
+PROBLEM_SECONDS = {"phone_distract": 3.5, "spill_diffuser": 3, "evaporate_diffuser": 4, "drain_smell": 3.5, "closet_musty": 3.5, "cat_spill_diffuser": 3.5, "spray_panic": 3.5, "carry_drip": 3.5, "reed_flip": 3.5}
 
 SYSTEM = """당신은 한국어 숏폼 광고의 C 유형 훅(C_direct_proof: 제품과 직접 연결된 훅) 시나리오 작가입니다.
 

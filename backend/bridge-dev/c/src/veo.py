@@ -72,6 +72,10 @@ PROMPTS = {
         "A faint grey-green musty haze drifts out from between the clothes toward the camera, and the camera recoils slightly. "
         "Realistic, natural window light, vertical video."
     ),
+    "phone_distract": "Handheld smartphone POV looking down at a bright tidy study desk in daylight, casual and unpolished phone footage. "
+                      "An open notebook and a pen lie on the desk. A hand puts the pen down, picks up a smartphone lying next to the notebook "
+                      "and starts scrolling with the thumb. The phone screen shows only soft blurred colorful shapes. The notebook stays untouched. "
+                      "Realistic, natural window light, vertical video.",
     "drain_smell": (
         "Handheld smartphone POV stepping into a small tiled bathroom just as the light flickers on, casual and unpolished. "
         "Wavy, cartoonish yellow-green stink fumes rise from the round metal floor drain and drift upward. "
@@ -154,34 +158,37 @@ def _post(url: str, body: dict, token: str) -> dict:
         raise VeoError(f"Vertex AI 에 연결하지 못했습니다: {e.reason}") from e
 
 
-def request_body(prompt: str, image_path: str, duration: int) -> dict:
-    mime = "image/png" if image_path.lower().endswith(".png") else "image/jpeg"
-    with open(image_path, "rb") as f:
-        image = base64.b64encode(f.read()).decode("ascii")
+def request_body(prompt: str, image_path: str | None, duration: int) -> dict:
+    """image_path 가 None 이면 첫 프레임 없이 글만으로 만든다."""
+    instance: dict = {"prompt": prompt}
+    if image_path:
+        with open(image_path, "rb") as f:
+            instance["image"] = {"bytesBase64Encoded": base64.b64encode(f.read()).decode("ascii"),
+                                 "mimeType": "image/png" if image_path.lower().endswith(".png") else "image/jpeg"}
     params = {"aspectRatio": "9:16", "durationSeconds": duration, "sampleCount": 1, "negativePrompt": NEGATIVE,
               "generateAudio": os.environ.get("C_VEO_AUDIO", "").strip() in ("1", "true", "yes")}
     if os.environ.get("C_VEO_RESOLUTION", "").strip():
         params["resolution"] = os.environ["C_VEO_RESOLUTION"].strip()        # 720p(기본) · 1080p
-    return {"instances": [{"prompt": prompt, "image": {"bytesBase64Encoded": image, "mimeType": mime}}], "parameters": params}
+    return {"instances": [instance], "parameters": params}
 
 
-def cache_key(prompt: str, image_path: str, duration: int) -> str:
+def cache_key(prompt: str, image_path: str | None, duration: int) -> str:
     h = hashlib.sha256()
-    h.update(open(image_path, "rb").read())
+    h.update(open(image_path, "rb").read() if image_path else b"text-only")
     h.update(json.dumps([prompt, NEGATIVE, model(), duration, os.environ.get("C_VEO_RESOLUTION", ""),
                          os.environ.get("C_VEO_AUDIO", "")]).encode("utf-8"))
     return h.hexdigest()[:16]
 
 
-def cached(cache_dir: str, template: str, image_path: str, seconds: float) -> str | None:
+def cached(cache_dir: str, template: str, image_path: str | None, seconds: float) -> str | None:
     """이미 만들어 둔 영상이 있으면 그 경로. API 를 부르지 않는다."""
-    if template not in PROMPTS or not os.path.exists(image_path):
+    if template not in PROMPTS or (image_path and not os.path.exists(image_path)):
         return None
     path = os.path.join(cache_dir, f"{template}_{cache_key(PROMPTS[template], image_path, pick_duration(seconds))}.mp4")
     return path if os.path.exists(path) and os.path.getsize(path) > 10000 else None
 
 
-def generate(template: str, image_path: str, cache_dir: str, seconds: float, *, log: Callable[[str], None] = print,
+def generate(template: str, image_path: str | None, cache_dir: str, seconds: float, *, log: Callable[[str], None] = print,
              poll_sec: float = 10.0, timeout_sec: float = 900.0) -> str:
     """첫 프레임 image_path 에서 시작하는 문제 장면 영상(mp4)을 만들어 경로를 돌려준다. 과금되는 호출이다."""
     if template not in PROMPTS:

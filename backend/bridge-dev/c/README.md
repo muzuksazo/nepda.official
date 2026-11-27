@@ -155,9 +155,10 @@ python -m src.cli hook proj_piev01 <scenario_id>                                
 | 필드 | 설명 |
 | --- | --- |
 | `assets.product_footage` | 실물 제품 영상 경로. 둘째 장면부터 장면 길이 비율로 나눠 이어 씁니다. 길이가 모자라면 0.85배속까지 늘리고 나머지는 정지 화면 |
-| `assets.problem_template` | 첫 장면(문제)에 쓸 생성 영상 템플릿. `spill_diffuser`(손이 액체 디퓨저를 쳐서 쏟는 장면, 3초), `evaporate_diffuser`(액체 디퓨저가 며칠 사이 바닥까지 줄어드는 타임랩스, 4초. 예시: `examples/piev/03_…`, `04_…`), `drain_smell`(욕실 배수구 냄새, 방향제를 뿌려도 다시 올라옴, 최대 10초. 예시: `05_…`~`07_…`). role 이 "문제"인 장면이 처음부터 이어지면 그 장면들에 걸쳐 한 영상으로 씁니다 |
+| `assets.problem_template` | 첫 장면(문제)에 쓸 생성 영상 템플릿. `spill_diffuser`(손이 액체 디퓨저를 쳐서 쏟는 장면, 3초), `evaporate_diffuser`(액체 디퓨저가 며칠 사이 바닥까지 줄어드는 타임랩스, 4초. 예시: `examples/piev/03_…`, `04_…`), `phone_distract`(책상에서 폰을 집어 계속 넘겨 보는 장면, Blender 장면 없이 글만으로 생성. 예시: `examples/timer/`), `drain_smell`(욕실 배수구 냄새, 방향제를 뿌려도 다시 올라옴, 최대 10초. 예시: `05_…`~`07_…`). role 이 "문제"인 장면이 처음부터 이어지면 그 장면들에 걸쳐 한 영상으로 씁니다 |
 | `assets.problem_engine` | 문제 장면을 만드는 방법. `auto`(기본) · `veo` · `blender` |
 | `assets.footage_cuts` | 실물 영상의 컷 목록 `[{ "t": 시작 초, "zoom": 확대, "focus": [가로, 세로] }]`. 있으면 실물 장면을 1.6초 안팎의 컷으로 나누고 이 구도를 차례로 써서, 한 컷짜리 영상도 풀샷·클로즈업이 번갈아 나오게 편집합니다. 예시: `examples/piev/08_…` |
+| `assets.footage_fit` | `blur` 로 두면 세로가 아닌 실물 영상(정사각·가로)을 자르지 않고 가로를 꽉 채워 놓고, 위아래는 같은 화면을 흐리게 깔아 채웁니다. `footage_cuts` 와 함께 씁니다. 예시: `examples/timer/01_…` |
 
 둘 다 없으면 자막만 있는 단색 카드로 만들어집니다. 화면에 띄우는 상황 라벨은 `ad_spec.pov_label` 에 들어갑니다.
 
@@ -220,6 +221,39 @@ python -m unittest test.test_storage             # 실제 R2·생성 API 호출 
 ```
 
 업로드는 Python 서버가 수행하므로 R2의 브라우저 PUT 허용은 필요하지 않습니다. 다른 주소에서 bridge-dev 화면을 열면 그 origin도 추가합니다. 참고: [R2 키 발급](https://developers.cloudflare.com/r2/api/tokens/) · [R2 CORS](https://developers.cloudflare.com/r2/buckets/cors/).
+
+## 예시 대본: 뽀모도로 타이머 (C 훅, 15초)
+
+피에브 말고 다른 제품으로 만든 예시입니다. 실물 영상은 정사각 한 컷(다이얼을 돌려 빨간 원판을 채웠다가 0으로 되돌리는 20초)이고, 문제 장면 `phone_distract` 는 Blender 장면 없이 Google Veo 가 글만으로 만듭니다.
+
+입력: [`examples/timer/01_worker-input.json`](examples/timer/01_worker-input.json) · 시나리오: [`examples/timer/02_scenarios.response.json`](examples/timer/02_scenarios.response.json)
+
+검증된 사실 (실물 영상에서 눈으로 확인한 것만):
+
+| ID | 사실 |
+| --- | --- |
+| F01 | 정사각 흰색 전면에 0부터 55까지 5분 단위 숫자와 1분 단위 눈금이 있는 60분 아날로그 타이머 (좌하단 60 Min 표기) |
+| F02 | 가운데 흰색 다이얼을 돌리면 돌린 만큼 빨간 원판이 채워짐 |
+| F03 | 빨간 원판의 넓이로 남은 시간이 표시되어 숫자를 읽지 않아도 남은 시간이 보임 |
+| F04 | 다이얼이 0으로 돌아오면 빨간 원판이 사라지고 우측 상단 표시등에 빨간 불이 켜짐 |
+
+대본 (상황 라벨: "타이머 켜려다 폰 본 나"):
+
+| 순서 | 역할 | 길이 | 화면 | 나레이션 | 자막 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 문제 | 3.5초 | 밝은 책상 POV. 펜을 내려놓은 손이 폰을 집어 계속 넘겨 본다 (생성 영상) | 폰으로 타이머 맞추려다, 또 릴스 보고 있죠. | 폰으로 타이머 맞추려다 / 또 릴스 보고 있죠 |
+| 2 | 가장 강한 증명 | 4초 | 손이 다이얼을 돌리자 빨간 원판이 채워진다 [F02] | 그래서 폰 대신 이걸 돌려요. 돌린 만큼, 빨간 원판이 채워져요. | 폰 대신 다이얼 / 돌린 만큼 빨간 원판 |
+| 3 | 장점 | 3초 | 빨간 원판이 줄어든다 [F03] | 남은 시간이, 숫자 안 읽어도 보여요. | 남은 시간이 / 숫자 안 읽어도 보여요 |
+| 4 | 장점 | 2초 | 0에 닿자 표시등에 빨간 불 [F04] | 영에 오면, 빨간 불이 켜져요. | 0에 오면 / 빨간 불 |
+| 5 | CTA | 2.5초 | 빨간 원판이 가득 찬 타이머, 제품명 카드 [F01] | 여러분은 타이머, 뭘로 맞춰요? | 여러분은 타이머 / 뭘로 맞춰요? |
+
+- 교체 테스트: 해결 근거가 화면 없이 다이얼을 돌려 맞추는 방식(F02)과 빨간 원판 표시(F03)라 폰 앱·디지털 타이머 광고에는 옮겨 붙일 수 없습니다.
+- 쓰지 않은 말: 무소음, 알람 소리, 건전지, 크기, 가격. 실물 영상으로 확인하지 못했습니다. F04 는 손으로 0까지 돌렸을 때 본 것이라 "시간이 다 되면 울린다"고 말하지 않습니다.
+
+```bash
+python -m src.cli import examples/timer/02_scenarios.response.json --input examples/timer/01_worker-input.json
+python -m src.cli hook proj_timer01 sc_timer01_C1_01      # Veo 4초 1번 + Inworld TTS (과금)
+```
 
 ## 더미 화면에서 C 작업자 코드 돌리기 (로컬 서버)
 

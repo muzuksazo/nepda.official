@@ -1,0 +1,89 @@
+{
+  "_comment": "뽀모도로 타이머 C 훅. 실물 영상은 정사각(532x532) 한 컷이라 footage_fit=blur 로 자르지 않고 흐린 배경 위에 놓는다. 문제 장면 phone_distract 는 Blender 장면 없이 Google Veo 가 글만으로 만든다. 소리·건전지·가격은 확인하지 못해 쓰지 않는다. product_footage 는 본인 PC 경로로 바꾸세요.",
+  "hook_type": "C",
+  "project_id": "proj_timer01",
+  "round": 1,
+  "count": 1,
+  "product_info": {
+    "name": "60분 비주얼 타이머 (뽀모도로 타이머)",
+    "category": "stationery",
+    "selling_points": [
+      {
+        "point": "폰을 집지 않고 다이얼만 돌려 시간을 맞춘다",
+        "source": "제품 사실에서 고른 방향",
+        "evidence": []
+      }
+    ],
+    "verified_facts": [
+      "정사각 흰색 전면에 0부터 55까지 5분 단위 숫자와 1분 단위 눈금이 있는 60분 아날로그 타이머 (좌하단 60 Min 표기)",
+      "가운데 흰색 다이얼을 돌리면 돌린 만큼 빨간 원판이 채워짐",
+      "빨간 원판의 넓이로 남은 시간이 표시되어 숫자를 읽지 않아도 남은 시간이 보임",
+      "다이얼이 0으로 돌아오면 빨간 원판이 사라지고 우측 상단 표시등에 빨간 불이 켜짐"
+    ]
+  },
+  "assets": {
+    "problem_template": "phone_distract",
+    "problem_engine": "veo",
+    "product_footage": "../../../../FOODIE_1795425464.mov",
+    "footage_fit": "blur",
+    "footage_cuts": [
+      {
+        "t": 1.5,
+        "zoom": 1.0,
+        "focus": [
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "t": 3.2,
+        "zoom": 1.0,
+        "focus": [
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "t": 8.5,
+        "zoom": 1.0,
+        "focus": [
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "t": 11.5,
+        "zoom": 1.0,
+        "focus": [
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "t": 16.3,
+        "zoom": 1.0,
+        "focus": [
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "t": 5.0,
+        "zoom": 1.0,
+        "focus": [
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "t": 6.2,
+        "zoom": 1.0,
+        "focus": [
+          0.5,
+          0.5
+        ]
+      }
+    ]
+  },
+  "previous_scenarios": []
+}
