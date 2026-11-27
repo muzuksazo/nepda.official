@@ -1,0 +1,94 @@
+{
+  "beats": [
+    {
+      "id": "VO_A1_v6_chain",
+      "file": "VO_A1_v6.mp4",
+      "start_sec": 0.00,
+      "end_sec": 3.82,
+      "trim_edges": false,
+      "speed": 1.15,
+      "gap_after": 0.14,
+      "text": "1cm 도미노를 2배씩 키워 스무 개만 세우면,"
+    },
+    {
+      "id": "VO_A1_v6_50fl",
+      "file": "VO_A1_v6.mp4",
+      "start_sec": 4.34,
+      "end_sec": 7.36,
+      "trim_edges": false,
+      "speed": 1.15,
+      "gap_after": 0.16,
+      "text": "마지막 조각은 아파트 50층 높이가 됩니다."
+    },
+    {
+      "id": "VO_A1_v6_land",
+      "file": "VO_A1_v6.mp4",
+      "start_sec": 8.56,
+      "end_sec": 9.86,
+      "trim_edges": false,
+      "speed": 1.15,
+      "gap_after": 0.10,
+      "text": "지면에 닿는 순간,"
+    },
+    {
+      "id": "VO_A1_v6_quake",
+      "file": "VO_A1_v6.mp4",
+      "start_sec": 10.44,
+      "end_sec": 13.18,
+      "trim_edges": false,
+      "speed": 1.15,
+      "gap_after": 0.26,
+      "text": "반경 1km 지반이 흔들립니다."
+    },
+    {
+      "id": "VO_A2_v6_real",
+      "file": "VO_A2_v6.mp4",
+      "start_sec": 0.12,
+      "end_sec": 3.06,
+      "trim_edges": false,
+      "speed": 1.08,
+      "gap_after": 0.12,
+      "text": "물론 실제 크기는 이 1,000원짜리 대형 블록만 합니다."
+    },
+    {
+      "id": "VO_A2_v6_cut",
+      "file": "VO_A2_v6.mp4",
+      "start_sec": 3.26,
+      "end_sec": 5.63,
+      "trim_edges": false,
+      "speed": 1.08,
+      "gap_after": 0.12,
+      "text": "너무 커서 작게 여러 조각 잘랐거든요."
+    },
+    {
+      "id": "VO_A2_v6_wipe",
+      "file": "VO_A2_v6.mp4",
+      "start_sec": 5.85,
+      "end_sec": 7.95,
+      "trim_edges": false,
+      "speed": 1.08,
+      "gap_after": 0.22,
+      "text": "세면대 물기 쓱 밀고 꽉 짜면 끝."
+    },
+    {
+      "id": "VO_A2_v6_sorry",
+      "file": "VO_A2_v6.mp4",
+      "start_sec": 9.82,
+      "end_sec": 11.84,
+      "trim_edges": false,
+      "speed": 1.05,
+      "gap_after": 0.14,
+      "text": "죄송해요, 이거 보여주려고"
+    },
+    {
+      "id": "VO_A2_v6_50fl_cb",
+      "file": "VO_A2_v6.mp4",
+      "start_sec": 12.03,
+      "end_sec": 13.70,
+      "trim_edges": false,
+      "speed": 1.05,
+      "gap_after": 0.0,
+      "text": "도미노 50층 쌓았습니다."
+    }
+  ]
+}

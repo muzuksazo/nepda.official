@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     google_genai_use_vertexai: bool = False
     google_cloud_project: Optional[str] = None
     google_cloud_location: str = "us-central1"
+    gcp_workload_identity_provider: Optional[str] = None
+    gcp_service_account_email: Optional[str] = None
+    gcp_billing_app_label: str = "napda"
     api_bearer_token: Optional[str] = None
 
     # End-user Google One Tap auth, daily beta quota & upload/retention guardrails

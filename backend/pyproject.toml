@@ -9,6 +9,8 @@ description = "Production google-genai worker and API for shortform A/B/C ad rem
 requires-python = ">=3.11"
 dependencies = [
   "google-genai>=3.0.0",
+  "google-auth>=2.35.0",
+  "requests>=2.32.0",
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.32.0",
   "pydantic>=2.9.0",
