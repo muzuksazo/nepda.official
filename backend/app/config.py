@@ -100,6 +100,8 @@ class Settings(BaseSettings):
     hook_burn_captions: bool = True
     require_uploaded_object_exists: bool = False
     media_url_ttl_sec: int = 3600
+    track_a_template_dir: Optional[str] = None
+    track_a_template_urls: Optional[str] = None
 
     @property
     def auth_mode(self) -> str:

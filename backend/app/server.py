@@ -23,7 +23,7 @@ from .genai_provider import (
     bind_vercel_oidc_token,
     reset_vercel_oidc_token,
 )
-from .media_delivery import sanitize_object_key
+from .media_delivery import issue_media_token, sanitize_object_key
 from .paddle_billing import PaddleApiClient
 from .pipeline import CampaignRequest, ProductionPipeline
 from .pipeline_extras_router import build_pipeline_extras_router
@@ -35,7 +35,7 @@ from .projects_router import (
     build_projects_router,
 )
 from .retention import recover_orphaned_jobs
-from .storage import StorageBackend, build_storage
+from .storage import LocalStorageBackend, StorageBackend, build_storage
 from .store import JobStore
 from .tts_service import TTSProvider
 
@@ -218,11 +218,19 @@ def create_app(
             if len(parts) >= 3 and parts[1].startswith("user-") and parts[1] != user_id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot presign another user's upload key")
 
-        url = storage_backend.presign_upload(
-            clean_key,
-            content_type=body.content_type,
-            expires_sec=body.expires_sec,
-        )
+        if isinstance(storage_backend, LocalStorageBackend):
+            upload_token = issue_media_token(
+                clean_key,
+                cfg.session_secret,
+                ttl_sec=body.expires_sec,
+            )
+            url = f"/v1/media/{upload_token}"
+        else:
+            url = storage_backend.presign_upload(
+                clean_key,
+                content_type=body.content_type,
+                expires_sec=body.expires_sec,
+            )
         return {"object_key": clean_key, "upload_url": url}
 
     @app.post("/v1/jobs", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(require_bearer)])

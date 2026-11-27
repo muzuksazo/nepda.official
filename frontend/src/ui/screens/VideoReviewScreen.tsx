@@ -7,29 +7,56 @@ const HOOK_SEGMENTS = 6;
 
 export interface VideoReviewScreenProps {
   videoUrl?: string;
+  isRendering?: boolean;
+  renderStatusText?: string;
+  errorMessage?: string;
   onBack?: () => void;
   onPlay?: () => void;
   onMakeThumbnail?: () => void;
 }
 
 /** 안1-8 영상 확인 (7/8) */
-export function VideoReviewScreen({ videoUrl, onBack, onPlay, onMakeThumbnail }: VideoReviewScreenProps) {
+export function VideoReviewScreen({
+  videoUrl,
+  isRendering = false,
+  renderStatusText,
+  errorMessage,
+  onBack,
+  onPlay,
+  onMakeThumbnail,
+}: VideoReviewScreenProps) {
   return (
     <MobileScreen
       header={<FlowHeader title="영상 확인" step={7} onBack={onBack} />}
-      footer={<Button label="썸네일 만들기" isBlock onClick={onMakeThumbnail} />}
+      footer={
+        <Button
+          label={isRendering ? '영상 만드는 중…' : '썸네일 만들기'}
+          isBlock
+          isDisabled={isRendering || !videoUrl}
+          onClick={onMakeThumbnail}
+        />
+      }
     >
       <div className="n-row" style={{ gap: 12, justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <ScreenTitle title="짜잔, 영상 나왔어요" description="훅에서 본편까지 매끄러운지 봐 주세요." />
-        <Mascot src={brand.mascot.surprised} width={76} />
+        <ScreenTitle
+          title={isRendering ? '잠시만요, 영상 굽는 중…' : errorMessage ? '영상 만들기에 실패했어요' : '짜잔, 영상 나왔어요'}
+          description={
+            isRendering
+              ? renderStatusText ?? '템플릿 훅이랑 본편 영상을 이어 붙이고 있어요.'
+              : errorMessage ?? '훅에서 본편까지 매끄러운지 봐 주세요.'
+          }
+        />
+        <Mascot src={isRendering || errorMessage ? brand.mascot.lying : brand.mascot.surprised} width={76} />
       </div>
 
       <div className="n-row" style={{ justifyContent: 'center' }}>
         {videoUrl ? (
-          <video src={videoUrl} controls className="n-video" style={{ width: 228 }} />
+          <video src={videoUrl} controls playsInline className="n-video" style={{ width: 228 }} />
         ) : (
-          <VideoFrame width={228} caption="훅 + 본편 미리보기">
-            <IconButton label="재생" variant="solid" icon={<Play size={26} fill="currentColor" />} onClick={onPlay} />
+          <VideoFrame width={228} caption={isRendering ? '조금만 기다려 주세요…' : '훅 + 본편 미리보기'}>
+            {isRendering ? null : (
+              <IconButton label="재생" variant="solid" icon={<Play size={26} fill="currentColor" />} onClick={onPlay} />
+            )}
           </VideoFrame>
         )}
       </div>

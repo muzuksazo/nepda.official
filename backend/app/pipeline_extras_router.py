@@ -18,7 +18,7 @@ from .media_delivery import (
 )
 from .project_store import ProjectStore
 from .retention import is_project_expired
-from .storage import StorageBackend
+from .storage import LocalStorageBackend, StorageBackend
 from .store import JobStore
 from .thumbnail_service import generate_project_thumbnail
 from .tts_service import TTSError, TTSProvider
@@ -195,6 +195,35 @@ def build_pipeline_extras_router(
         if local_path is None:
             raise _api_error(status.HTTP_404_NOT_FOUND, "MEDIA_NOT_FOUND", "요청한 미디어 파일을 찾을 수 없습니다.")
         return build_range_file_response(local_path, range_header, download=download, filename=filename)
+
+    @router.put("/v1/media/{token}", include_in_schema=False)
+    async def upload_signed_local_media(token: str, request: Request) -> Response:
+        try:
+            object_key, _ = verify_media_token(token, settings.session_secret)
+        except MediaTokenError as exc:
+            raise _api_error(status.HTTP_403_FORBIDDEN, "INVALID_MEDIA_TOKEN", str(exc)) from exc
+
+        if not isinstance(storage, LocalStorageBackend):
+            raise _api_error(
+                status.HTTP_400_BAD_REQUEST,
+                "UNSUPPORTED_LOCAL_PUT",
+                "원격 오브젝트 스토리지(S3/R2) 모드에서는 사전 서명 URL로 직접 업로드하세요.",
+            )
+
+        body = await request.body()
+        if not body:
+            raise _api_error(status.HTTP_400_BAD_REQUEST, "EMPTY_UPLOAD", "업로드된 파일 본문이 비어 있습니다.")
+        if len(body) > settings.max_upload_file_bytes:
+            raise _api_error(
+                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                "UPLOAD_TOO_LARGE",
+                "파일 용량이 100MB 상한을 초과했습니다.",
+            )
+
+        dest = storage.local_path_for(object_key)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(body)
+        return Response(status_code=status.HTTP_200_OK)
 
     @router.post("/v1/projects/{project_id}/body", response_model=BodyBuildResponse, tags=["Uploads"])
     def create_body_build(
