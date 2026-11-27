@@ -336,6 +336,66 @@ class GenAIMediaProvider:
                 skipped=True,
             )
 
+        t0 = time.monotonic()
+        if self.settings.google_genai_use_vertexai:
+            # Vertex AI 에서는 gemini-nano-banana-2.1 등이 Interactions API 미지원(400) -> models.generate_content 사용
+            parts: List[Any] = [types.Part.from_text(text=prompt)]
+            for ap in anchor_paths or []:
+                ap_str = str(ap)
+                if os.path.exists(ap_str):
+                    ap_mime, _ = mimetypes.guess_type(ap_str)
+                    if not ap_mime or not ap_mime.startswith("image/"):
+                        ap_mime = "image/png"
+                    parts.append(
+                        types.Part.from_bytes(
+                            data=Path(ap_str).read_bytes(),
+                            mime_type=ap_mime,
+                        )
+                    )
+            response = self.client.models.generate_content(
+                model=self.settings.image_model,
+                contents=[types.Content(role="user", parts=parts)],
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"],
+                    image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
+                    labels=_vertex_request_labels(self.settings, "image"),
+                ),
+            )
+            raw: Optional[bytes] = None
+            returned_mime: Optional[str] = None
+            for cand in getattr(response, "candidates", None) or []:
+                content_obj = getattr(cand, "content", None)
+                for part in getattr(content_obj, "parts", None) or []:
+                    inline = getattr(part, "inline_data", None)
+                    data = getattr(inline, "data", None) if inline is not None else None
+                    part_mime = getattr(inline, "mime_type", None) if inline is not None else None
+                    if part_mime and not str(part_mime).lower().startswith("image/"):
+                        continue
+                    if data is not None:
+                        raw = _decode_payload_bytes(data)
+                        returned_mime = part_mime
+                        break
+                if raw is not None:
+                    break
+            if raw is None:
+                raise RuntimeError(
+                    f"Vertex generate_content ({self.settings.image_model}) returned no image output"
+                )
+            if mime_type.lower() == "image/jpeg" and not raw.startswith(b"\xff\xd8\xff") and (returned_mime or "").lower() != "image/jpeg":
+                from PIL import Image
+
+                with Image.open(io.BytesIO(raw)) as im:
+                    buf = io.BytesIO()
+                    im.convert("RGB").save(buf, format="JPEG", quality=92)
+                    raw = buf.getvalue()
+            written = _atomic_write(target, raw)
+            return MediaResult(
+                path=str(target),
+                model=self.settings.image_model,
+                elapsed_sec=round(time.monotonic() - t0, 3),
+                bytes_written=written,
+            )
+
         interactions = _require_interactions(self.client)
         inputs: List[Dict[str, Any]] = [{"type": "text", "text": prompt}]
         for ap in anchor_paths or []:
@@ -343,7 +403,6 @@ class GenAIMediaProvider:
             if os.path.exists(ap_str):
                 inputs.append(_image_part_dict(ap_str))
 
-        t0 = time.monotonic()
         interaction = interactions.create(
             model=self.settings.image_model,
             input=inputs if len(inputs) > 1 else prompt,

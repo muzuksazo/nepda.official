@@ -12,8 +12,8 @@ Claude 경로는 정상이다.
 |---|---|---|
 | 인증 | `GEMINI_API_KEY` | Modal 컨테이너 신원 토큰 → GCP Workload Identity (키 없음) |
 | 결제 | AI Studio 선불 크레딧 (GCP 가입 크레딧 사용 불가) | GCP 결제 계정, 가입 크레딧 사용 가능 |
-| 모델 이름 | `gemini-4-hydrogen`, `gemini-nano-banana-2.1`, `gemini-omni-flash-preview` | 프로젝트·지역(us-central1)에 열린 이름이어야 함. 위 이름들은 **없음** |
-| 우리 시스템에서 성공한 적 | 있음 (오전 PC 고래 훅 전체, 오후 Modal 시나리오 2회) | **없음** |
+| 모델 이름 | `gemini-4-hydrogen`, `gemini-nano-banana-2.1`, `gemini-omni-flash-preview` | **`location=global`(`aiplatform.googleapis.com`)에 위 3개 모두 개방되어 있음** (`us-central1`에는 없음) |
+| 우리 시스템에서 성공한 적 | 있음 (오전 PC 고래 훅 전체, 오후 Modal 시나리오 2회) | **20:58 실검증 성공 (`global`)**: 텍스트 `gemini-4-hydrogen` (1.45s), 이미지 `gemini-nano-banana-2.1` via `generate_content` (14.23s) |
 
 전환 스위치: Modal Secret `napda-backend` 의 `GOOGLE_GENAI_USE_VERTEXAI` (지금 `true`).
 코드: `backend/app/genai_provider.py` 의 `build_genai_client`, B 작업자 `bridge-dev/b/src/wif.ts`, C 작업자 `bridge-dev/c/src/generate.py`.
@@ -26,26 +26,20 @@ Claude 경로는 정상이다.
 | 2 | `RESOURCE_EXHAUSTED`, 이어서 `402 prepayment credits are depleted` | AI Studio 선불 크레딧 소진 | 충전됨. 단 영상은 충전 뒤에도 `RESOURCE_EXHAUSTED` 로 실패 (미해결, 할당량 의심) |
 | 3 | `google.subject exceeds the 127 bytes limit` | WIF 매핑이 `assertion.sub`(약 150바이트) | 여원님이 GCP 매핑을 `assertion.workspace_id + ':' + assertion.container_id` 로 변경 (해결, 18:50 무렵 확인) |
 | 4 | `'image/png' is not supported ... Supported values: 'image/jpeg'` | Vertex 이미지 응답은 JPEG 만 | 시험 코드 JPEG 로 수정 (훅 파이프라인은 원래 JPEG) |
-| 5 | `Publisher model .../gemini-4-hydrogen was not found` (404) | AI Studio 모델 이름을 Vertex 에 그대로 씀 | **미해결 — 지금 막힌 곳** |
-| 6 | `Model 'gemini-nano-banana-2.1' is not supported by the Interactions API` | 위와 같음 (이미지 모델) | **미해결** |
+| 5 | `Publisher model .../gemini-4-hydrogen was not found` (404) | Modal Secret의 `GOOGLE_CLOUD_LOCATION`이 `us-central1`로 남아 있었음 (`global` 엔드포인트에서는 `gemini-4-hydrogen` / `gemini-nano-banana-2.1` / `gemini-omni-flash-preview` 모두 200 OK 확인) | **원인 확인 (`GOOGLE_CLOUD_LOCATION=global` 변경 필요)** |
+| 6 | `Model 'gemini-nano-banana-2.1' is not supported by the Interactions API` | Vertex AI에서는 `gemini-nano-banana-2.1`이 Interactions API 미지원 (`models.generate_content`로 14.23s 정상 생성 확인) | **`genai_provider.py` 수정 완료** (Vertex 모드일 때 `models.generate_content` 자동 라우팅 + PNG→JPEG 변환) |
+| 7 | `gemini-omni-flash-preview` (`interactions.create`) 30s 클라이언트 타임아웃 | Vertex `global`에 모델(`200`)은 존재하나 Interactions API 비디오 요청 응답 지연; `veo-3.1-generate-001` / `veo-3.1-fast-generate-001`은 `us-central1`에 존재 | **추후 확인 필요** (`video_timeout` / `generate_videos`) |
+| 8 | AI Studio 키로 이미지(`gemini-nano-banana-2.1`)를 다시 부르자 첫 장에서 1시간 응답 없음 (실행 제한 3600초로 끊김, 19:08~20:09) | 불명 (1번과 같은 양상) | Vertex `generate_content` 경로에서는 14.23s 응답 확인 |
 
-| 7 | AI Studio 키로 이미지(`gemini-nano-banana-2.1`)를 다시 부르자 첫 장에서 1시간 응답 없음 (실행 제한 3600초로 끊김, 19:08~20:09) | 불명 (1번과 같은 양상) | **미해결** — 지금은 Gemini 이미지가 두 창구 모두 안 된다 |
-
-5·6 때문에 실패하는 곳: B·C 시나리오 작업자(Gemini 선택 시), 본편 대본(`BODY_LLM` 이 gemini 일 때), 참고 이미지(`IMAGE_MODEL`),
-영상 클립(`VIDEO_MODEL`), A 템플릿 고르기.
+5·6 때문에 실패하던 곳: Modal Secret `napda-backend`의 `GOOGLE_CLOUD_LOCATION=global` 전환 및 이번 `genai_provider.py` 패치 배포 후 텍스트·이미지는 Vertex 경로로 동작합니다.
 
 ## 다음 사람이 할 일
 
-1. **Vertex 에서 쓸 수 있는 모델 이름 확정** (글 / 이미지 / 영상)
-   - 여원님 문서·설정에는 글 모델로 `gemini-3.5-flash` 가 적혀 있다. 실제로 Vertex 에서 돌려 본 이름을 여원님께 확인.
-   - 이미지는 Gemini 이미지 모델 또는 Imagen, 영상은 Veo 가 Vertex 쪽 후보. 프로젝트에서 사용 허가(약관·할당량)가 필요할 수 있다.
-   - 확인 방법(무료, 조회만): 서버 이미지 안에서 `build_genai_client(Settings()).models.get(model=이름)` 을 후보마다 호출.
-     `models.list()` 전체 조회는 Vertex 에서 끝나지 않았다(15분 이상).
-2. **Modal Secret `napda-backend` 에 Vertex 이름 넣기**: `HOOK_WORKER_GEMINI_MODEL`, `BODY_LLM`, `IMAGE_MODEL`, `VIDEO_MODEL`
-   (설정 이름은 `backend/app/config.py`).
-3. **Interactions API 지원 확인**: 이미지·영상은 `interactions.create` 로 부른다. Vertex 에서 해당 모델이 Interactions API 를 지원하지 않으면
-   `generate_content`(이미지) / `generate_videos`(Veo) 경로를 `genai_provider.py` 에 추가해야 한다.
-4. **급하면 임시로 AI Studio 로 되돌리기**: Secret 에서 `GOOGLE_GENAI_USE_VERTEXAI=false` → 기존 이름 그대로 동작 (크레딧·할당량 확인 필요).
+1. **Modal Secret `napda-backend`에서 `GOOGLE_CLOUD_LOCATION=global`로 변경 (필수)**:
+   - GCP WIF 토큰 발급(`iamcredentials.googleapis.com GenerateAccessToken`)은 이미 Audit Log상 정상 동작 중이며, 모델(`gemini-4-hydrogen`, `gemini-nano-banana-2.1`, `gemini-omni-flash-preview`)은 모두 `global` 엔드포인트에 열려 있습니다.
+2. **영상 생성 경로 점검 (`gemini-omni-flash-preview` vs `veo-3.1-*`)**:
+   - `gemini-omni-flash-preview`가 Vertex `global` Interactions API에서 타임아웃될 경우 `us-central1`의 `veo-3.1-fast-generate-001` / `veo-3.1-generate-001`(`generate_videos`) 사용을 검토합니다.
+3. **급하면 임시로 AI Studio 로 되돌리기**: Secret 에서 `GOOGLE_GENAI_USE_VERTEXAI=false` → AI Studio 크레딧/할당량 사용.
 
 ## 확인 도구
 
