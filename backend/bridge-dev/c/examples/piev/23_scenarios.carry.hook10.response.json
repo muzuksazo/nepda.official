@@ -1,0 +1,82 @@
+{
+  "project_id": "proj_piev01",
+  "status": "SCENARIOS_READY",
+  "round": 14,
+  "scenarios": [
+    {
+      "scenario_id": "sc_piev01_C14_01",
+      "round": 14,
+      "type": "C",
+      "hook_title": "[훅 10초 + 본편 12초] 디퓨저 옮기다 또 줄줄 → 기울여도 안 흐르는 초록 고체 젤",
+      "hook_duration_sec": 22.0,
+      "body_duration_sec": 0.0,
+      "replacement_test_note": "문제(옮기다 기울어 흐르는 액체)는 액체형 디퓨저에서만 생기고, 해결 근거가 기울여도 흐르지 않는 고체 젤(F02·F03)이라 액체·스프레이형 방향제 광고에는 옮겨 붙일 수 없다.",
+      "beats": [
+        {
+          "order": 1,
+          "role": "문제",
+          "duration_sec": 3.3,
+          "visual": "밝은 거실. 손이 리드 디퓨저를 들어 옮기다 병이 기운다 (생성 영상)",
+          "narration": "디퓨저 옮기다가, 또 줄줄.",
+          "caption": "디퓨저 옮기다가\n또 줄줄"
+        },
+        {
+          "order": 2,
+          "role": "문제",
+          "duration_sec": 3.3,
+          "visual": "액체가 흘러 테이블에 자국과 웅덩이가 남는다 (생성 영상)",
+          "narration": "테이블에 뚝뚝, 손에도 끈적.",
+          "caption": "테이블에 뚝뚝\n손에도 끈적"
+        },
+        {
+          "order": 3,
+          "role": "문제",
+          "duration_sec": 3.4,
+          "visual": "흘린 자국이 남은 테이블 (생성 영상)",
+          "narration": "닦는 게 더 일이죠. 그래서, 액체를 치웠어요.",
+          "caption": "닦는 게 더 일이죠\n그래서 액체를 치웠어요"
+        },
+        {
+          "order": 4,
+          "role": "가장 강한 증명",
+          "duration_sec": 4.0,
+          "visual": "실물 컵 풀샷에서 뚜껑 연 컵 안의 초록 고체 젤 클로즈업으로 [F02][F03]",
+          "narration": "이건 기울여도 안 흘러요. 액체가 아니라, 고체 젤이라서.",
+          "caption": "기울여도 안 흘러요\n액체가 아니라 고체 젤"
+        },
+        {
+          "order": 5,
+          "role": "장점",
+          "duration_sec": 4.0,
+          "visual": "전면 라벨 클로즈업, 거실 바닥에 컵처럼 놓인 실물 [F01][F04]",
+          "narration": "컵처럼 들어서, 어디든 올려 두면 끝.",
+          "caption": "컵처럼 들어서\n어디든 올려 두면 끝"
+        },
+        {
+          "order": 6,
+          "role": "CTA",
+          "duration_sec": 4.0,
+          "visual": "실물 풀샷, 제품명 카드 [F01]",
+          "narration": "디퓨저 옮기다 흘려 본 사람, 손?",
+          "caption": "디퓨저 옮기다\n흘려 본 사람, 손?"
+        }
+      ],
+      "ad_spec": {
+        "track_archetype": "C_direct_proof",
+        "claim_ids": [
+          "F02",
+          "F03",
+          "F04"
+        ],
+        "proof_first": true,
+        "cta": {
+          "type": "comment_engagement",
+          "text": "디퓨저 옮기다 흘려 본 사람, 손?"
+        },
+        "disclosure": "ai_assisted",
+        "pov_label": "대청소 중인 나",
+        "selling_point": "기울여도 흐르지 않는다"
+      }
+    }
+  ]
+}

@@ -146,6 +146,17 @@ class JobStore:
             ).fetchall()
         return [self._row_to_dict(r) for r in rows]
 
+    def list_jobs_by_status(self, statuses: List[str] | tuple[str, ...]) -> List[Dict[str, Any]]:
+        if not statuses:
+            return []
+        placeholders = ", ".join("?" for _ in statuses)
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM jobs WHERE status IN ({placeholders}) ORDER BY created_at ASC",
+                tuple(statuses),
+            ).fetchall()
+        return [self._row_to_dict(r) for r in rows]
+
     def count_jobs(self) -> int:
         with self._lock, self._connect() as conn:
             row = conn.execute("SELECT COUNT(*) AS cnt FROM jobs").fetchone()

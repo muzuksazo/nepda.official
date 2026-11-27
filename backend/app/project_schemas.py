@@ -406,3 +406,70 @@ class ProjectDetailResponse(BaseModel):
     expires_at: str
     created_at: str
     updated_at: str
+
+
+CreditPackageId = Literal["c30", "c100", "c300"]
+BillingOrderStatus = Literal["pending", "completed", "failed", "canceled"]
+PaddleEnvironment = Literal["sandbox", "production"]
+
+
+class CreditPackageResponse(BaseModel):
+    id: CreditPackageId
+    credits: int
+    price: int
+    currency: str = "KRW"
+    is_popular: bool = False
+    paddle_price_id: Optional[str] = None
+
+
+class BillingConfigResponse(BaseModel):
+    provider: Literal["paddle"] = "paddle"
+    environment: PaddleEnvironment = "sandbox"
+    enabled: bool = False
+    client_token: Optional[str] = None
+    credits_per_video: int = 12
+    packages: List[CreditPackageResponse]
+
+
+class WalletResponse(BaseModel):
+    credits: int
+    has_free_video: bool
+    free_videos_remaining: int
+
+
+class CreateCheckoutRequest(BaseModel):
+    package_id: CreditPackageId
+
+
+class CreateCheckoutResponse(BaseModel):
+    order_id: str
+    package_id: CreditPackageId
+    credits: int
+    amount_krw: int
+    currency: str = "KRW"
+    paddle_environment: PaddleEnvironment
+    paddle_client_token: str
+    paddle_price_id: str
+    paddle_transaction_id: str
+    checkout_url: Optional[str] = None
+    customer_email: Optional[str] = None
+    status: BillingOrderStatus
+
+
+class BillingOrderStatusResponse(BaseModel):
+    order_id: str
+    package_id: CreditPackageId
+    credits: int
+    amount_krw: int
+    status: BillingOrderStatus
+    paddle_transaction_id: Optional[str] = None
+    wallet: WalletResponse
+    completed_at: Optional[str] = None
+
+
+class PaddleWebhookAckResponse(BaseModel):
+    received: bool = True
+    event_id: Optional[str] = None
+    event_type: Optional[str] = None
+    credited: bool = False
+    order_id: Optional[str] = None

@@ -1,0 +1,86 @@
+{
+  "project_id": "proj_piev01",
+  "status": "SCENARIOS_READY",
+  "round": 7,
+  "scenarios": [
+    {
+      "scenario_id": "sc_piev01_C7_01",
+      "round": 7,
+      "type": "C",
+      "hook_title": "[훅 10초 + 본편 12초] 옷장 열 때마다 꿉꿉한 냄새 → 뚜껑만 여는 초록 고체 젤 (옷장 후기 인용)",
+      "hook_duration_sec": 22.0,
+      "body_duration_sec": 0.0,
+      "replacement_test_note": "문제(옷장의 꿉꿉한 냄새)가 이 제품의 실제 구매 후기(F07)에 나온 사용 상황이고, 해결 근거가 뚜껑만 여는 고체 젤 제형(F02)과 기울여도 흐르지 않는 특징(F03)이라 액체·스프레이형 제품 광고에는 옮겨 붙일 수 없다.",
+      "beats": [
+        {
+          "order": 1,
+          "role": "문제",
+          "duration_sec": 3.3,
+          "visual": "장마철 방, 옷장 문이 열리는 POV. 빽빽이 걸린 옷 사이에서 꿉꿉한 냄새가 새어 나온다 (생성 영상)",
+          "narration": "옷장 열 때마다, 이 꿉꿉한 냄새.",
+          "caption": "옷장 열 때마다\n이 꿉꿉한 냄새"
+        },
+        {
+          "order": 2,
+          "role": "문제",
+          "duration_sec": 3.3,
+          "visual": "냄새가 옷 사이를 타고 계속 흘러나온다 (생성 영상)",
+          "narration": "옷에 배어서, 입고 나가도 따라와요.",
+          "caption": "옷에 배어서\n입고 나가도 따라와요"
+        },
+        {
+          "order": 3,
+          "role": "문제",
+          "duration_sec": 3.4,
+          "visual": "옷장 안에 냄새가 그대로 고여 있다 (생성 영상)",
+          "narration": "문 열어 둬도 그때뿐. 그래서, 이걸 넣어 뒀어요.",
+          "caption": "문 열어 둬도 그때뿐\n그래서 이걸 넣어 뒀어요"
+        },
+        {
+          "order": 4,
+          "role": "가장 강한 증명",
+          "duration_sec": 3.2,
+          "visual": "실물 컵 풀샷에서 뚜껑 연 컵 안의 초록 고체 젤 클로즈업으로 [F02]",
+          "narration": "뚜껑만 열면 돼요. 안에는, 초록 고체 젤.",
+          "caption": "뚜껑만 열면 끝\n안에는 초록 고체 젤"
+        },
+        {
+          "order": 5,
+          "role": "장점",
+          "duration_sec": 2.8,
+          "visual": "전면 라벨 클로즈업, 위에서 본 컵 [F03]",
+          "narration": "액체가 아니라, 기울여도 안 흘러요.",
+          "caption": "액체가 아니라\n기울여도 안 흘러요"
+        },
+        {
+          "order": 6,
+          "role": "장점",
+          "duration_sec": 3.4,
+          "visual": "실물 컵 위에 구매 후기 카드 [F07]",
+          "narration": "후기에도 있어요. 옷장 냄새가 안 나는 것 같대요.",
+          "caption": "실제 구매 후기\n“옷장 특유의 냄새가 안 나는것 같아요”"
+        },
+        {
+          "order": 7,
+          "role": "CTA",
+          "duration_sec": 2.6,
+          "visual": "실물 풀샷, 제품명 카드 [F01]",
+          "narration": "여러분 집은, 어디가 제일 꿉꿉해요?",
+          "caption": "여러분 집은\n어디가 제일 꿉꿉해요?"
+        }
+      ],
+      "ad_spec": {
+        "track_archetype": "C_direct_proof",
+        "claim_ids": ["F02", "F03", "F07"],
+        "proof_first": true,
+        "cta": {
+          "type": "comment_engagement",
+          "text": "여러분 집은 어디가 제일 꿉꿉해요?"
+        },
+        "disclosure": "ai_assisted",
+        "pov_label": "장마철 옷장 연 나",
+        "selling_point": "꿉꿉한 냄새 (옷장)"
+      }
+    }
+  ]
+}

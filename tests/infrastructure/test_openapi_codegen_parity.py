@@ -43,7 +43,7 @@ class TestOpenApiCodegenParity(unittest.TestCase):
             live_openapi = app.openapi()
             live_paths = live_openapi.get("paths") or {}
 
-            self.assertEqual(len(generated_contract.EXPECTED_OPERATIONS), 25)
+            self.assertEqual(len(generated_contract.EXPECTED_OPERATIONS), 30)
             for op in generated_contract.EXPECTED_OPERATIONS:
                 self.assertIn(op.path, live_paths, f"Missing live route path: {op.path}")
                 self.assertIn(
@@ -59,10 +59,12 @@ class TestOpenApiCodegenParity(unittest.TestCase):
         self.assertTrue((ROOT / "frontend" / "src" / "api" / "index.ts").is_file())
         self.assertTrue((gen_root / "model" / "productInfoRequest.ts").is_file())
         self.assertTrue((gen_root / "model" / "createHookResponse.ts").is_file())
+        self.assertTrue((gen_root / "model" / "createCheckoutResponse.ts").is_file())
 
         projects_ts = (gen_root / "projects" / "projects.ts").read_text(encoding="utf-8")
         planning_ts = (gen_root / "planning" / "planning.ts").read_text(encoding="utf-8")
         hooks_ts = (gen_root / "hooks" / "hooks.ts").read_text(encoding="utf-8")
+        billing_ts = (gen_root / "billing" / "billing.ts").read_text(encoding="utf-8")
         default_ts = (gen_root / "default" / "default.ts").read_text(encoding="utf-8")
         self.assertIn("createProductInfoV1ProductInfoPost", projects_ts)
         self.assertIn("useListProjectsV1ProjectsGet", projects_ts)
@@ -72,6 +74,10 @@ class TestOpenApiCodegenParity(unittest.TestCase):
         self.assertIn("useCreateHookV1ProjectsProjectIdHooksPost", hooks_ts)
         self.assertIn("getHookV1ProjectsProjectIdHooksHookIdGet", hooks_ts)
         self.assertIn("listOutputsV1ProjectsProjectIdOutputsGet", hooks_ts)
+        self.assertIn("useGetBillingConfigV1BillingConfigGet", billing_ts)
+        self.assertIn("useGetWalletV1BillingWalletGet", billing_ts)
+        self.assertIn("useCreateBillingCheckoutV1BillingCheckoutPost", billing_ts)
+        self.assertIn("getBillingOrderV1BillingOrdersOrderIdGet", billing_ts)
         self.assertIn("useListJobsV1JobsGetInfinite", default_ts)
 
     def test_v02_worker_flow_e2e(self) -> None:

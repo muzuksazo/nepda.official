@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Play, Plus } from '../icons';
 import { BrandHeader, Button, MobileScreen, Stack, StepNumber, VideoFrame } from '../components';
 
@@ -9,12 +10,16 @@ const STEPS = [
 
 export interface OnboardingScreenProps {
   onStart?: () => void;
+  footer?: ReactNode;
 }
 
 /** 안1-1 온보딩 — 로고는 상단 헤더 하나뿐. 본문 그림은 "훅 + 본편" 개념을 보여 준다. */
-export function OnboardingScreen({ onStart }: OnboardingScreenProps) {
+export function OnboardingScreen({ onStart, footer }: OnboardingScreenProps) {
   return (
-    <MobileScreen header={<BrandHeader />} footer={<Button label="냅다 시작하기" isBlock onClick={onStart} />}>
+    <MobileScreen
+      header={<BrandHeader />}
+      footer={footer ?? <Button label="냅다 시작하기" isBlock onClick={onStart} />}
+    >
       <figure
         className="n-row"
         style={{ gap: 12, justifyContent: 'center', padding: '20px 0', background: 'var(--bg-weak)', borderRadius: 20 }}

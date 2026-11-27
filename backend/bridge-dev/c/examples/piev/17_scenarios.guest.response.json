@@ -1,0 +1,66 @@
+{
+  "project_id": "proj_piev01",
+  "status": "SCENARIOS_READY",
+  "round": 10,
+  "scenarios": [
+    {
+      "scenario_id": "sc_piev01_C10_01",
+      "round": 10,
+      "type": "C",
+      "hook_title": "손님 오기 5분 전 방향제 난사 → 뚜껑만 열어 두는 초록 고체 젤",
+      "hook_duration_sec": 15.0,
+      "body_duration_sec": 0.0,
+      "replacement_test_note": "문제(급하게 뿌려 대는 스프레이)의 해결 근거가 뿌리지 않고 뚜껑만 열어 두는 사용 방식(F05)과 고체 젤 제형(F02)이라 스프레이·액체형 방향제 광고에는 옮겨 붙일 수 없다.",
+      "beats": [
+        {
+          "order": 1,
+          "role": "문제",
+          "duration_sec": 3.5,
+          "visual": "밝은 거실. 손이 방향제 스프레이를 사방으로 급하게 뿌려 하얀 분무가 방을 채운다 (생성 영상)",
+          "narration": "손님 오기 오 분 전, 방향제 난사.",
+          "caption": "손님 오기 5분 전\n방향제 난사"
+        },
+        {
+          "order": 2,
+          "role": "가장 강한 증명",
+          "duration_sec": 4.0,
+          "visual": "실물 컵 풀샷에서 뚜껑 연 컵 안의 초록 고체 젤 클로즈업으로 [F02][F05]",
+          "narration": "이제 안 뿌려요. 뚜껑만 열어 두는, 초록 고체 젤.",
+          "caption": "이제 안 뿌려요\n뚜껑만 열어 두는 고체 젤"
+        },
+        {
+          "order": 3,
+          "role": "장점",
+          "duration_sec": 3.5,
+          "visual": "전면 라벨 클로즈업, 거실 바닥에 컵처럼 놓인 실물 [F01][F04]",
+          "narration": "컵처럼, 어디든 올려 두면 끝.",
+          "caption": "컵처럼 어디든\n올려 두면 끝"
+        },
+        {
+          "order": 4,
+          "role": "CTA",
+          "duration_sec": 4.0,
+          "visual": "실물 풀샷, 제품명 카드 [F01]",
+          "narration": "손님 오기 전에, 제일 먼저 뭐부터 해요?",
+          "caption": "손님 오기 전에\n제일 먼저 뭐부터 해요?"
+        }
+      ],
+      "ad_spec": {
+        "track_archetype": "C_direct_proof",
+        "claim_ids": [
+          "F02",
+          "F04",
+          "F05"
+        ],
+        "proof_first": true,
+        "cta": {
+          "type": "comment_engagement",
+          "text": "손님 오기 전에 제일 먼저 뭐부터 해요?"
+        },
+        "disclosure": "ai_assisted",
+        "pov_label": "초인종 울린 나",
+        "selling_point": "뿌리지 않고 두기만 하면 된다"
+      }
+    }
+  ]
+}

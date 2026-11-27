@@ -25,6 +25,7 @@ import threading
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from functools import cached_property
 
 from . import tts as tts_mod
 from .check import check_scenario
@@ -32,6 +33,7 @@ from .cli import load_env
 from .generate import generate_scenarios
 from .render import render_hook, storyboard
 from .schema import InputError, parse_worker_input
+from .storage import DeliveryStorage, StorageError
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))          # c/
 INDEX_HTML = os.path.join(os.path.dirname(HERE), "index.html")               # bridge-dev/index.html
@@ -65,10 +67,16 @@ INJECT = """
   }
   var seen = {};
   new MutationObserver(function () {
-    var m = (document.getElementById("results").textContent || "").match(/hook_video: (http\\S+?\\.mp4)/g) || [];
-    m.forEach(function (t) {
-      var url = t.replace("hook_video: ", "");
-      if (seen[url]) return; seen[url] = true;
+    var urls = [];
+    document.getElementById("results").querySelectorAll(".files").forEach(function (files) {
+      files.childNodes.forEach(function (node) {
+        var m = node.nodeType === 3 && node.textContent.match(/^hook_video: (https?:\\/\\/\\S+)$/);
+        if (m) urls.push(m[1]);
+      });
+    });
+    urls.forEach(function (url) {
+      var key = url.split("?")[0];
+      if (seen[key]) return; seen[key] = true;
       var box = document.getElementById("cPlayer") || (function () {
         var s = document.createElement("section"); s.id = "cPlayer"; s.innerHTML = "<h2>완성된 훅 영상 <small>C 작업자 로컬 서버</small></h2>";
         document.getElementById("resSec").after(s); return s; })();
@@ -148,16 +156,20 @@ def run_hook(hid: str) -> None:
     p = DB["projects"][h["project"]]
     h["status"] = "running"
     try:
+        storage = DeliveryStorage()
         with RENDER_LOCK:
             tts = dict(h["tts"])
             if tts.get("enabled", True) and not tts_mod.available():
                 tts["enabled"] = False
                 h["note"] = "INWORLD_API_KEY 가 없어 음성 없이 만들었습니다."
-            files = render_hook(scenario_of(p, h["scenario"]), p["assets"], h["dir"], tts=tts, log=lambda m: print(m, file=sys.stderr))
+            files = render_hook(scenario_of(p, h["scenario"]), p["assets"], h["dir"], tts=tts, log=lambda m: print(m, file=sys.stderr),
+                                product_name=p["product"].get("name"))
         h["engine"] = files.pop("problem_engine", None)
+        h["files"] = files
+        files = storage.publish_files(files)
         h["files"], h["status"] = files, "done"
     except Exception as e:          # 작업 스레드에서 난 오류는 폴링 응답으로 알려야 한다
-        h["status"], h["error"] = "failed", {"code": "HOOK_RENDER_FAILED", "message": str(e)[:600]}
+        h["status"], h["error"] = "failed", {"code": e.code if isinstance(e, StorageError) else "HOOK_RENDER_FAILED", "message": str(e)[:600]}
         print(f"hook {hid} failed: {e}", file=sys.stderr)
 
 
@@ -187,8 +199,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def url_for(self, path: str) -> str:
         """결과 파일 경로 → 이 서버의 주소."""
+        if path.startswith("s3://"):
+            return self.storage.download_url(path)
         rel = os.path.relpath(os.path.abspath(path), output_root()).replace("\\", "/")
         return f"http://{self.headers.get('Host', '127.0.0.1:8080')}/files/{rel}"
+
+    @cached_property
+    def storage(self) -> DeliveryStorage:
+        return DeliveryStorage()
 
     def body(self) -> dict:
         n = int(self.headers.get("Content-Length") or 0)
@@ -281,6 +299,8 @@ class Handler(BaseHTTPRequestHandler):
             self.fail(e)
         except InputError as e:
             self.fail(ApiError(422, "VALIDATION_ERROR", str(e)))
+        except StorageError as e:
+            self.fail(ApiError(502, e.code, str(e)))
         except RuntimeError as e:
             self.fail(ApiError(502, "UPSTREAM_ERROR", str(e)[:600]))
 
@@ -329,8 +349,10 @@ class Handler(BaseHTTPRequestHandler):
         if m and method == "POST":
             p = project(m.group(1))
             s = scenario_of(p, m.group(2))
+            storage = self.storage
             with RENDER_LOCK:
                 frames = storyboard(s, p["assets"], os.path.join(output_root(), m.group(1), m.group(2)), lambda t: print(t, file=sys.stderr))
+            frames = storage.publish_storyboard(frames)
             for f in frames:
                 f["image_url"] = self.url_for(f["image_url"])
             return 200, {"project_id": m.group(1), "scenario_id": m.group(2), "status": "STORYBOARD_READY", "frames": frames}
@@ -350,6 +372,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(422, "VALIDATION_ERROR", "scenario_id 가 필요합니다")
             if p["selected"] != body["scenario_id"]:
                 raise ApiError(409, "INVALID_STATE", "먼저 해당 시나리오를 select 해야 합니다")
+            self.storage                 # 설정 누락은 유료 렌더를 시작하기 전에 알린다.
             hid = "hook_" + uuid.uuid4().hex[:8]
             DB["hooks"][hid] = {"project": m.group(1), "scenario": body["scenario_id"], "tts": body.get("tts") or {"enabled": True}, "status": "queued",
                                 "files": {}, "dir": os.path.join(output_root(), m.group(1), hid), "error": None}
@@ -378,9 +401,15 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> int:
     load_env()
+    try:
+        storage = DeliveryStorage()
+    except StorageError as e:
+        print(str(e), file=sys.stderr)
+        return 1
     port = int(os.environ.get("C_SERVER_PORT", "8080"))
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     print(f"C 훅 작업자 서버: http://127.0.0.1:{port}/?preset=piev   (끝내려면 Ctrl+C)", file=sys.stderr)
+    print(f"결과 저장소: {storage.backend}", file=sys.stderr)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

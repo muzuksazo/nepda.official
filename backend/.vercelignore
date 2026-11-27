@@ -1,0 +1,11 @@
+.env
+.env.*
+data/
+bridge-dev/
+__pycache__/
+*.pyc
+*.db
+*.db-*
+.venv/
+.vercel/
+docs/

@@ -176,7 +176,7 @@ Copy-Item libraries/planner-api/.env.example libraries/planner-api/.env
 node --env-file=libraries/planner-api/.env --import tsx libraries/planner-api/src/server.ts
 ```
 
-자세한 사용법은 [백엔드 문서](backend/README.md)와 [플래너 문서](libraries/planner-api/README.md)를 참고하세요.
+자세한 사용법은 [백엔드 문서](backend/README.md) · [GCP Vertex AI / WIF 연동 가이드](backend/GCP_WIF_SETUP.md)와 [플래너 문서](libraries/planner-api/README.md)를 참고하세요.
 
 ### 검증
 

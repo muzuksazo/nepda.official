@@ -82,3 +82,66 @@ class TestGenAIMediaProvider(GenAIMediaProviderCase):
                 self.assertEqual(wf.getframerate(), 24000)
                 self.assertEqual(wf.getnchannels(), 1)
                 self.assertGreater(wf.getnframes(), 1000)
+
+    def test_vertex_billing_labels_only_attached_in_vertex_mode(self) -> None:
+        class _RecordingModels:
+            def __init__(self) -> None:
+                self.configs = []
+
+            def generate_content(self, *, model, contents, config=None):
+                self.configs.append((model, config))
+                if getattr(config, "response_mime_type", None) == "application/json":
+                    return SimpleNamespace(text='{"project_id": "p1"}')
+                pcm = b"\x00\x00\x01\x00" * 600
+                return SimpleNamespace(
+                    candidates=[
+                        SimpleNamespace(
+                            content=SimpleNamespace(
+                                parts=[
+                                    SimpleNamespace(
+                                        inline_data=SimpleNamespace(
+                                            data=pcm,
+                                            mime_type="audio/L16;rate=24000",
+                                        )
+                                    )
+                                ]
+                            )
+                        )
+                    ]
+                )
+
+        with temporary_directory() as td:
+            sheet = Path(td) / "sheet.png"
+            sheet.write_bytes(self.png_bytes)
+
+            vtx_models = _RecordingModels()
+            vtx_client = SimpleNamespace(
+                interactions=_FakeInteractions(png_bytes=self.png_bytes, mp4_bytes=self.mp4_bytes),
+                models=vtx_models,
+            )
+            vtx_settings = Settings(
+                google_genai_use_vertexai=True,
+                google_cloud_project="my-gcp-project",
+                google_cloud_location="us-central1",
+            )
+            vtx_provider = GenAIMediaProvider(vtx_settings, client=vtx_client)
+            vtx_provider.generate_tts_beat("테스트 내레이션", Path(td) / "vtx.wav")
+            vtx_provider.plan_ad_spec("facts", {"duration": 15.0}, sheet)
+
+            self.assertEqual(len(vtx_models.configs), 2)
+            self.assertEqual(vtx_models.configs[0][1].labels, {"app": "napda", "component": "tts"})
+            self.assertEqual(vtx_models.configs[1][1].labels, {"app": "napda", "component": "planner"})
+
+            key_models = _RecordingModels()
+            key_client = SimpleNamespace(
+                interactions=_FakeInteractions(png_bytes=self.png_bytes, mp4_bytes=self.mp4_bytes),
+                models=key_models,
+            )
+            key_settings = Settings(gemini_api_key="dummy", google_genai_use_vertexai=False)
+            key_provider = GenAIMediaProvider(key_settings, client=key_client)
+            key_provider.generate_tts_beat("테스트 내레이션", Path(td) / "key.wav")
+            key_provider.plan_ad_spec("facts", {"duration": 15.0}, sheet)
+
+            self.assertEqual(len(key_models.configs), 2)
+            self.assertIsNone(key_models.configs[0][1].labels)
+            self.assertIsNone(key_models.configs[1][1].labels)

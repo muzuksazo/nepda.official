@@ -3,4 +3,6 @@ anthropic
 # 문제 장면 생성 영상(Google Veo, Vertex AI) 인증
 google-auth
 requests
+# 결과 파일 저장 (Cloudflare R2, STORAGE_BACKEND=s3일 때만 사용)
+boto3>=1.36,<2
 # 나머지는 표준 라이브러리 + ffmpeg + Blender.

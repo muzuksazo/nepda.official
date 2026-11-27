@@ -2,9 +2,10 @@
 
 장면별 화면 소재:
   - 문제 장면(첫 장면): assets.problem_template 이 있으면 생성 영상, 없으면 다음 소재로.
-      engine "veo"     Blender 가 렌더한 첫 프레임 → Google Veo(Vertex AI)가 영상으로 생성 (veo.py)
+      engine "omni"    Blender 가 렌더한 첫 프레임 → Google Gemini Omni 가 영상으로 생성, 3~15초 (omni.py)
+      engine "veo"     같은 방식으로 Google Veo 가 생성, 4·6·8초 (veo.py)
       engine "blender" Blender 물리 시뮬레이션을 전 프레임 렌더
-      engine "auto"    GOOGLE_CLOUD_PROJECT 가 있으면 veo, 없거나 실패하면 blender (기본)
+      engine "auto"    GOOGLE_CLOUD_PROJECT 가 있으면 veo (C_GENERATOR=omni 면 omni), 없거나 실패하면 blender (기본)
   - 그 밖의 장면: assets.product_footage(실물 제품 영상)를 장면 길이 비율로 나눠 이어 쓴다. 증명은 실물만 보여 준다.
   - 소재가 없으면 자막만 있는 단색 카드.
 필요한 프로그램: ffmpeg(자막 번인용 libass 포함), 문제 장면 템플릿을 쓸 때는 Blender 4.2 이상.
@@ -19,6 +20,7 @@ import subprocess
 import sys
 from typing import Callable
 
+from . import omni
 from . import tts as tts_mod
 from . import veo
 from .assets import assets_dir
@@ -28,8 +30,20 @@ W, H = 1080, 1920
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES = {
     "spill_diffuser": {"script": os.path.join(HERE, "blender_scene.py"), "frames": 84, "impact_sec": 1.25},
+    # 같은 테이블·디퓨저 장면에서 시작하되 생성 모델에는 "고양이가 쳐서 쓰러뜨린다"로 시킨다. Blender 로 대신하면 손이 친다.
+    "cat_spill_diffuser": {"script": os.path.join(HERE, "blender_scene.py"), "frames": 84, "impact_sec": 1.25, "cache": "spill_diffuser"},
+    "spray_panic": {"script": os.path.join(HERE, "blender_scene.py"), "frames": 84, "impact_sec": 1.25, "cache": "spill_diffuser"},
+    "carry_drip": {"script": os.path.join(HERE, "blender_scene.py"), "frames": 84, "impact_sec": 1.25, "cache": "spill_diffuser"},
+    "reed_flip": {"script": os.path.join(HERE, "blender_scene.py"), "frames": 84, "impact_sec": 1.25, "cache": "spill_diffuser"},
     "evaporate_diffuser": {"script": os.path.join(HERE, "blender_scene_evaporate.py"), "frames": 96, "impact_sec": None},
-    "drain_smell": {"script": os.path.join(HERE, "blender_scene_drain.py"), "frames": 240, "impact_sec": None},
+    # script 가 None 인 템플릿을 두면 Blender 장면 없이 생성 모델(Gemini Omni)이 글만으로 만든다.
+    "closet_musty": {"script": os.path.join(HERE, "blender_scene_closet.py"), "frames": 96, "impact_sec": None, "still": 36},
+    "drain_smell": {"script": os.path.join(HERE, "blender_scene_drain.py"), "frames": 240, "impact_sec": None, "sfx": [("spray", 4.5)], "still": 10},
+}
+# 템플릿 장면에 붙는 효과음 (ffmpeg 로 합성). Blender 렌더일 때만 넣는다: 그때만 동작 시점을 안다.
+SFX = {
+    "spray": "anoisesrc=d=1.8:c=white:a=0.55:r=48000,highpass=f=3200,lowpass=f=9500,"
+             "volume='0.55+0.45*sin(2*PI*5.3*t)':eval=frame,afade=t=in:d=0.04,afade=t=out:st=1.6:d=0.2,volume=0.5",
 }
 GOLD, WHITE = "&H0047E0FF&", "&H00FFFFFF&"
 
@@ -79,7 +93,7 @@ def problem_frames(template: str, log: Callable[[str], None] = print) -> str:
     if template not in TEMPLATES:
         raise RenderError(f"모르는 문제 장면 템플릿: {template} (사용 가능: {', '.join(TEMPLATES)})")
     spec = TEMPLATES[template]
-    out = os.path.join(assets_dir(), "cache", template)
+    out = os.path.join(assets_dir(), "cache", spec.get("cache", template))
     done = len([f for f in glob.glob(os.path.join(out, "p_*.jpg")) if os.path.getsize(f) > 10000])
     if done >= spec["frames"]:
         return out
@@ -97,46 +111,77 @@ def first_frame(template: str, log: Callable[[str], None] = print) -> str:
     """문제 장면의 첫 프레임(Veo 의 시작 이미지). 전체 렌더가 이미 있으면 그 1번 프레임을 쓰고, 없으면 한 장만 렌더한다."""
     if template not in TEMPLATES:
         raise RenderError(f"모르는 문제 장면 템플릿: {template} (사용 가능: {', '.join(TEMPLATES)})")
-    full = os.path.join(assets_dir(), "cache", template, "p_0001.jpg")
+    still = int(TEMPLATES[template].get("still", 1))          # 생성 모델에 넘길 프레임 (불이 켜진 뒤처럼 장면이 잘 보이는 때)
+    cache_name = TEMPLATES[template].get("cache", template)          # 같은 Blender 장면을 쓰는 템플릿은 렌더 결과를 함께 쓴다
+    full = os.path.join(assets_dir(), "cache", cache_name, f"p_{still:04d}.jpg")
     if os.path.exists(full) and os.path.getsize(full) > 10000:
-        return full
-    out = os.path.join(assets_dir(), "cache", template + "_first")
-    path = os.path.join(out, "p_0001.jpg")
+        return _still_png(full)
+    out = os.path.join(assets_dir(), "cache", cache_name + "_first")
+    path = os.path.join(out, f"p_{still:04d}.jpg")
     if not (os.path.exists(path) and os.path.getsize(path) > 10000):
         log(f"Blender 로 문제 장면 '{template}' 의 첫 프레임 렌더 중…")
         shutil.rmtree(out, ignore_errors=True)
         os.makedirs(out, exist_ok=True)
-        _run([_blender(), "-b", "-P", TEMPLATES[template]["script"], "--", out, assets_dir(), os.environ.get("C_RENDER_PERCENT", "100"), "1", "1"])
+        _run([_blender(), "-b", "-P", TEMPLATES[template]["script"], "--", out, assets_dir(), os.environ.get("C_RENDER_PERCENT", "100"),
+              str(still), str(still)])
         if not os.path.exists(path):
             raise RenderError("문제 장면 첫 프레임 렌더에 실패했습니다.")
-    return path
+    return _still_png(path)
+
+
+def _still_png(jpg: str) -> str:
+    """생성 모델에 보낼 720x1280 PNG. Blender 가 낸 JPEG 을 그대로 보내면 Gemini Omni 가 "파일을 해석할 수 없다"며 실패했다."""
+    png = jpg[:-4] + "_720.png"
+    if not (os.path.exists(png) and os.path.getmtime(png) >= os.path.getmtime(jpg)):
+        _run([_tool("ffmpeg", "FFMPEG_BIN"), "-v", "error", "-y", "-i", jpg, "-vf", "scale=720:1280", png])
+    return png
 
 
 def problem_engine(assets: dict) -> str:
     engine = str(assets.get("problem_engine") or os.environ.get("C_PROBLEM_ENGINE") or "auto").strip().lower()
-    if engine not in ("auto", "veo", "blender"):
-        raise RenderError(f"problem_engine 은 auto · veo · blender 중 하나여야 합니다: {engine}")
+    if engine not in ("auto", "omni", "veo", "blender"):
+        raise RenderError(f"problem_engine 은 auto · omni · veo · blender 중 하나여야 합니다: {engine}")
     return engine
 
 
-def problem_source(src: dict, seconds: float, log: Callable[[str], None] = print, *, generate: bool = True) -> dict:
-    """문제 장면에 실제로 쓸 소재를 정한다 → {"kind": "clip", "path"} (Veo) 또는 {"kind": "frames", "dir"} (Blender).
+GENERATORS = {"omni": omni, "veo": veo}          # Google Cloud 영상 생성 모델
+# auto 가 쓰는 모델. Veo 는 Google Cloud 무료 체험 계정에서도 생성됐고, Gemini Omni 는 "유료 결제 계정이 필요하다"로 거절됐다.
+# 유료 계정이면 C_GENERATOR=omni 로 바꾼다 (Omni 는 3~15초를 한 번에 만든다).
+DEFAULT_GENERATOR = os.environ.get("C_GENERATOR", "veo").strip().lower() if os.environ.get("C_GENERATOR", "veo").strip().lower() in GENERATORS else "veo"
 
-    generate=False 면 과금되는 Veo 호출을 하지 않고, 이미 만든 영상이 있을 때만 그것을 쓴다 (콘티용).
+
+def problem_source(src: dict, seconds: float, log: Callable[[str], None] = print, *, generate: bool = True) -> dict:
+    """문제 장면에 실제로 쓸 소재를 정한다 → {"kind": "clip", "path"} (Omni·Veo) 또는 {"kind": "frames", "dir"} (Blender).
+
+    generate=False 면 과금되는 생성 호출을 하지 않고, 이미 만든 영상이 있을 때만 그것을 쓴다 (콘티용).
     """
     template, engine = src["template"], src["engine"]
-    if engine == "veo" or (engine == "auto" and veo.configured()):
-        cache = os.path.join(assets_dir(), "cache", "veo")
+    if engine in GENERATORS or (engine == "auto" and veo.configured()):
+        name = engine if engine in GENERATORS else DEFAULT_GENERATOR
+        gen = GENERATORS[name]
+        cache = os.path.join(assets_dir(), "cache", name)
         try:
-            image = first_frame(template, log)
-            clip = veo.generate(template, image, cache, seconds, log=log) if generate else veo.cached(cache, template, image, seconds)
+            image = first_frame(template, log) if TEMPLATES[template]["script"] else None
+            if image is None and name != "omni":      # 글만으로 만드는 방식은 omni.py 에만 있다
+                raise veo.VeoError(f"템플릿 {template} 은 Blender 장면이 없어 Gemini Omni 로만 만들 수 있습니다.")
+            clip = gen.generate(template, image, cache, seconds, log=log) if generate else gen.cached(cache, template, image, seconds)
             if clip:
-                return {"kind": "clip", "path": clip, "engine": f"veo:{veo.model()}"}
-        except veo.VeoError as e:
-            if engine == "veo":
+                return {"kind": "clip", "path": clip, "engine": f"{name}:{gen.model()}"}
+        except veo.VeoError as e:                 # OmniError 도 여기에 들어온다
+            if engine in GENERATORS:
                 raise RenderError(str(e)) from e
-            log(f"  Veo 를 쓰지 못해 Blender 렌더로 대신합니다: {e}")
+            if not TEMPLATES[template]["script"]:
+                raise RenderError(str(e)) from e
+            log(f"  {name} 를 쓰지 못해 Blender 렌더로 대신합니다: {e}")
+    if not TEMPLATES[template]["script"]:
+        raise RenderError(f"템플릿 {template} 은 Blender 장면이 없습니다. GOOGLE_CLOUD_PROJECT 를 설정해 Gemini Omni 로 먼저 생성하세요.")
     return {"kind": "frames", "dir": problem_frames(template, log), "engine": "blender"}
+
+
+def _clip_speed(clip_len: float, span: float) -> float:
+    """생성 영상의 재생 속도 (0.75~1.6배속). C_CLIP_MAX_SPEED 로 상한을 낮추면 긴 영상의 앞부분만 제 속도로 쓴다."""
+    top = float(os.environ.get("C_CLIP_MAX_SPEED", "1.6") or 1.6)
+    return max(0.75, min(top, clip_len / span))
 
 
 def plan_sources(scenario: dict, assets: dict) -> list[dict]:
@@ -156,9 +201,10 @@ def plan_sources(scenario: dict, assets: dict) -> list[dict]:
         lead += 1
     span = sum(b["duration_sec"] for b in beats[:lead])
     offset = 0.0
+    shared: dict = {}
     for i, b in enumerate(beats):
         if i < lead:
-            plan.append({"kind": "template", "template": template, "engine": engine, "offset": offset, "span": span})
+            plan.append({"kind": "template", "template": template, "engine": engine, "offset": offset, "span": span, "shared": shared})
             offset += b["duration_sec"]
         elif footage:
             plan.append({"kind": "footage", "path": footage})
@@ -174,7 +220,32 @@ def plan_sources(scenario: dict, assets: dict) -> list[dict]:
             length = beats[i]["duration_sec"] * speed
             plan[i].update({"start": round(min(pos, max(0.0, total - 0.2)), 3), "speed": speed, "zoom": 1.22 if n % 2 == 1 else 1.0})
             pos += length
+    # 컷 편집: assets.footage_cuts 가 있으면 실물 장면을 1.6초 안팎의 컷으로 나누고, 목록의 구도(시점·확대·중심)를 차례로 쓴다.
+    cuts = [c for c in (assets.get("footage_cuts") or []) if isinstance(c, dict)]
+    if footage_beats and cuts:
+        ci = 0
+        for i in footage_beats:
+            d = beats[i]["duration_sec"]
+            count = max(1, int(round(d / 1.6)))
+            sub = []
+            for _ in range(count):
+                c = cuts[ci % len(cuts)]
+                ci += 1
+                focus = c.get("focus") or [0.5, 0.5]
+                sub.append({"t": max(0.0, min(float(c.get("t", 0)), total - 0.3)), "zoom": max(1.0, float(c.get("zoom", 1.0))),
+                            "focus": (float(focus[0]), float(focus[1]))})
+            plan[i].update({"cuts": sub, "start": sub[0]["t"], "speed": 1.0, "zoom": 1.0})
     return plan
+
+
+def _size(path: str) -> tuple[int, int]:
+    out = subprocess.run([_tool("ffprobe", "FFPROBE_BIN"), "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                          "-of", "csv=p=0", path], capture_output=True, text=True)
+    try:
+        w, h = out.stdout.strip().split(",")[:2]
+        return int(w), int(h)
+    except ValueError as e:
+        raise RenderError(f"영상 크기를 읽지 못했습니다: {path}") from e
 
 
 def _segment(index: int, beat: dict, src: dict, inputs: list[str], filters: list[str], log) -> None:
@@ -182,11 +253,12 @@ def _segment(index: int, beat: dict, src: dict, inputs: list[str], filters: list
     pad = f"tpad=stop_mode=clone:stop_duration={beat['duration_sec'] + 1:.2f},trim=end_frame={n},setpts=PTS-STARTPTS,setsar=1,format=yuv420p"
     k = len(inputs_index(inputs))
     if src["kind"] == "template":
-        got = problem_source(src, src["span"], log)
-        src["resolved"] = got
+        # 문제 장면이 여러 장면에 걸쳐도 소재는 한 번만 정한다 (생성 호출이 장면마다 다시 나가거나 소재가 섞이지 않게).
+        got = src["shared"].get("got") or problem_source(src, src["span"], log)
+        src["shared"]["got"] = src["resolved"] = got
         if got["kind"] == "clip":
             # Veo 는 4·6·8초로만 나온다. 문제 장면 전체 길이에 맞춰 속도를 조절한다 (0.75~1.6배속, 넘치면 뒤를 자르고 모자라면 마지막 화면 정지).
-            speed = max(0.75, min(1.6, _duration(got["path"]) / src["span"]))
+            speed = _clip_speed(_duration(got["path"]), src["span"])
             inputs += ["-ss", f"{src['offset'] * speed:.3f}", "-i", got["path"]]
             filters.append(f"[{k}:v]setpts=(PTS-STARTPTS)/{speed:.3f},fps={FPS},"
                            f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H},{pad}[s{index}]")
@@ -194,11 +266,31 @@ def _segment(index: int, beat: dict, src: dict, inputs: list[str], filters: list
             start = min(TEMPLATES[src["template"]]["frames"], 1 + int(round(src["offset"] * FPS)))
             inputs += ["-framerate", str(FPS), "-start_number", str(start), "-i", os.path.join(got["dir"], "p_%04d.jpg")]
             filters.append(f"[{k}:v]scale={W}:{H}:flags=lanczos,eq=saturation=1.1:brightness=0.02,noise=alls=3:allf=t,{pad}[s{index}]")
+    elif src["kind"] == "footage" and src.get("cuts"):
+        sw, sh = _size(src["path"])
+        grade = "eq=contrast=1.05:saturation=1.12,unsharp=5:5:0.6:5:5:0.0"
+        labels = []
+        for j, c in enumerate(src["cuts"]):
+            nf = n // len(src["cuts"]) + (1 if j < n % len(src["cuts"]) else 0)
+            kk = len(inputs_index(inputs))
+            inputs += ["-ss", f"{c['t']:.3f}", "-t", f"{nf / FPS + 1:.2f}", "-i", src["path"]]
+            cw, ch = int(sw / c["zoom"]) // 2 * 2, int(sh / c["zoom"]) // 2 * 2
+            x = max(0, min(sw - cw, int(c["focus"][0] * sw - cw / 2)))
+            y = max(0, min(sh - ch, int(c["focus"][1] * sh - ch / 2)))
+            z = f"1+0.06*on/{nf}" if j % 2 == 0 else f"1.06-0.06*on/{nf}"          # 컷마다 다가가기·물러나기를 번갈아
+            filters.append(f"[{kk}:v]fps={FPS},crop={cw}:{ch}:{x}:{y},scale={W * 2}:{H * 2}:force_original_aspect_ratio=increase:flags=lanczos,"
+                           f"crop={W * 2}:{H * 2},zoompan=z='{z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={FPS},{grade},"
+                           f"tpad=stop_mode=clone:stop_duration=2,trim=end_frame={nf},setpts=PTS-STARTPTS,setsar=1,format=yuv420p[c{index}_{j}]")
+            labels.append(f"[c{index}_{j}]")
+        filters.append("".join(labels) + f"concat=n={len(labels)}:v=1:a=0,setsar=1,format=yuv420p[s{index}]")
     elif src["kind"] == "footage":
         inputs += ["-ss", str(src["start"]), "-t", f"{beat['duration_sec'] + 1:.2f}", "-i", src["path"]]
         zoom = f"crop=iw/{src['zoom']}:ih/{src['zoom']}," if src["zoom"] != 1.0 else ""
+        # 실물 컷: 천천히 다가가는 움직임(2배로 키운 뒤 확대해 떨림을 줄인다), 약한 색 보정과 선명도.
+        push = (f"scale={W * 2}:{H * 2}:flags=bicubic,zoompan=z='1+0.07*on/{n}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                f":d=1:s={W}x{H}:fps={FPS},eq=contrast=1.05:saturation=1.12,unsharp=5:5:0.5:5:5:0.0")
         filters.append(f"[{k}:v]setpts=(PTS-STARTPTS)/{src['speed']:.3f},fps={FPS},{zoom}"
-                       f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H},{pad}[s{index}]")
+                       f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H},{push},{pad}[s{index}]")
     else:
         inputs += ["-f", "lavfi", "-t", f"{beat['duration_sec']:.2f}", "-i", f"color=c=0x1f3d30:s={W}x{H}:r={FPS}"]
         filters.append(f"[{k}:v]{pad}[s{index}]")
@@ -228,6 +320,8 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Big,{font},100,&H00FFFFFF,&H00FFFFFF,&H00101010,&H80000000,-1,0,0,0,100,100,0,0,1,7,3,5,40,40,40,1
 Style: Pov,{font},50,&H00FFFFFF,&H00FFFFFF,&H00101010,&H80000000,-1,0,0,0,100,100,0,0,1,4,1,5,40,40,40,1
+Style: Card,{font},56,&H00201C18,&H00201C18,&H00FFFFFF,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+Style: CardLabel,{font},36,&H004E8A1A,&H004E8A1A,&H00FFFFFF,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
 Style: Badge,{font},30,&H00FFFFFF,&H00FFFFFF,&H90000000,&H90000000,0,0,0,0,100,100,1,0,3,10,0,7,40,40,40,1
 
 [Events]
@@ -267,7 +361,7 @@ def storyboard(scenario: dict, assets: dict, out_dir: str, log: Callable[[str], 
             at = src["offset"] + beat["duration_sec"] * 0.75
             if got["kind"] == "clip":
                 clip_len = _duration(got["path"])
-                inp = ["-ss", f"{min(clip_len - 0.1, at * max(0.75, min(1.6, clip_len / src['span']))):.2f}", "-i", got["path"]]
+                inp = ["-ss", f"{min(clip_len - 0.1, at * _clip_speed(clip_len, src['span'])):.2f}", "-i", got["path"]]
                 pre = f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H}"
             else:
                 spec = TEMPLATES[src["template"]]
@@ -285,6 +379,43 @@ def storyboard(scenario: dict, assets: dict, out_dir: str, log: Callable[[str], 
                        "caption": beat["caption"].replace("\n", " ")})
     os.remove(os.path.join(out_dir, "_sb.ass"))
     return frames
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    """width 자 안팎으로 줄을 나누되, 마지막 줄에 한 단어만 남지 않게 줄 길이를 고르게 맞춘다."""
+    width = max(4, -(-len(text) // max(1, -(-len(text) // width))) + 1)
+    lines, cur = [], ""
+    for word in text.split():
+        if cur and len(cur) + 1 + len(word) > width:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = (cur + " " + word).strip()
+    return lines + ([cur] if cur else [])
+
+
+def _quote_card(caption: str, start: float, end: float) -> str:
+    """자막에 “따옴표 인용”이 있으면 화면 위쪽에 후기 카드를 띄운다. 따옴표 앞 문구가 카드 머리글이 된다."""
+    flat = caption.replace("\n", " ")
+    if "“" not in flat or "”" not in flat:
+        return ""
+    label = flat.split("“")[0].strip() or "실제 구매 후기"
+    lines = _wrap(flat.split("“")[1].split("”")[0].strip(), 15)
+    lines[0] = "“" + lines[0]
+    return _card(label, lines, start, end, closing="”")
+
+
+def _card(label: str, lines: list[str], start: float, end: float, closing: str = "") -> str:
+    """화면 위쪽의 흰 카드: 작은 머리글 + 본문 몇 줄."""
+    x, y, w, h, r = 90, 400, W - 180, 150 + 76 * len(lines), 36
+    box = (f"m {r} 0 l {w - r} 0 b {w} 0 {w} 0 {w} {r} l {w} {h - r} b {w} {h} {w} {h} {w - r} {h} "
+           f"l {r} {h} b 0 {h} 0 {h} 0 {h - r} l 0 {r} b 0 0 0 0 {r} 0")
+    t = f"{_ts(start)},{_ts(end)}"
+    fad = "\\fad(160,140)"
+    out = f"Dialogue: 0,{t},Card,,0,0,0,,{{\\an7\\pos({x},{y}){fad}\\p1\\1c&HFFFFFF&\\1a&H12&\\shad10\\4c&H000000&\\4a&HB0&}}{box}{{\\p0}}\n"
+    out += f"Dialogue: 1,{t},CardLabel,,0,0,0,,{{\\an7\\pos({x + 48},{y + 40}){fad}}}{label}\n"
+    out += f"Dialogue: 1,{t},Card,,0,0,0,,{{\\an7\\pos({x + 48},{y + 100}){fad}}}" + "\\N".join(lines) + closing + "\n"
+    return out
 
 
 def _caption_chunks(words: list[tuple], start: float, end: float, t0: float, tempo: float, lead: float) -> list[tuple[float, float, str]]:
@@ -307,8 +438,27 @@ def _caption_chunks(words: list[tuple], start: float, end: float, t0: float, tem
     return out
 
 
+def _music(t1: float) -> str:
+    """배경음(합성). 문제 장면에서는 낮게 깔리는 긴장음과 초침 소리, 해결부터는 104BPM 의 밝은 리듬.
+
+    저작권이 걸린 음원을 쓰지 않으려고 ffmpeg 수식으로 만든다. u 는 해결 구간이 시작된 뒤의 시간이다.
+    """
+    b = 60 / 104
+    u = f"(t-{t1:.3f})"
+    tension = ("0.15*sin(2*PI*55*t)*(0.7+0.3*sin(2*PI*0.5*t))+0.06*sin(2*PI*58.27*t)"
+               "+0.09*sin(2*PI*1400*t)*exp(-50*mod(t,0.5))")
+    notes = (523.25, 659.25, 783.99, 880.0)                                   # 도 미 솔 라
+    pluck = "+".join(f"eq(mod(floor({u}/{b:.4f}),4),{k})*(sin(2*PI*{f}*{u})+0.3*sin(2*PI*{f * 2}*{u}))" for k, f in enumerate(notes))
+    groove = (f"0.50*sin(2*PI*(48+70*exp(-30*mod({u},{b:.4f})))*mod({u},{b:.4f}))*exp(-8*mod({u},{b:.4f}))"
+              f"+0.06*(random(0)*2-1)*exp(-55*mod({u}+{b / 2:.4f},{b:.4f}))"
+              f"+0.11*({pluck})*exp(-7*mod({u},{b / 2:.4f}))"
+              f"+0.16*sin(2*PI*65.41*{u})*exp(-2.5*mod({u},{b * 2:.4f}))")
+    return (f"aevalsrc='lt(t,{t1:.3f})*({tension})*min(1,({t1:.3f}-t)/0.25)+gte(t,{t1:.3f})*({groove})':s=48000:d=60,"
+            "lowpass=f=7000,aecho=0.8:0.5:70:0.2,volume=0.42")
+
+
 def render_hook(scenario: dict, assets: dict, out_dir: str, *, tts: dict | None = None,
-                log: Callable[[str], None] = print) -> dict:
+                log: Callable[[str], None] = print, product_name: str | None = None) -> dict:
     """선택된 시나리오로 hook.mp4 · tts.mp3 · hook.srt · scenario.json · storyboard_NN.png 를 out_dir 에 만든다."""
     tts = tts or {"enabled": True}
     ffmpeg = _tool("ffmpeg", "FFMPEG_BIN")
@@ -355,9 +505,13 @@ def render_hook(scenario: dict, assets: dict, out_dir: str, *, tts: dict | None 
                 vo_filters.append(f"[{k}:a]atrim={t0:.3f}:{t1:.3f},asetpts=PTS-STARTPTS,atempo={min(tempo, 2.0):.3f},"
                                   f"aresample=48000,adelay={int((s + lead) * 1000)}:all=1[v{k}]")
                 chunks = _caption_chunks(words, s, e, t0, tempo, lead)
-        for a, b_, text in chunks:
+        ass += _quote_card(beat["caption"], s + 0.25, e - 0.05)
+        if product_name and "CTA" in beat["role"].upper():                 # 마무리 카드: 제품명과 댓글 유도
+            ass += _card("댓글로 알려 주세요", _wrap(product_name, 15), s + 0.2, e)
+        for n_chunk, (a, b_, text) in enumerate(chunks):
             a = 0.0 if first else a            # 0프레임부터 문제 상황 자막이 보이게
-            ass += f"Dialogue: 0,{_ts(a)},{_ts(b_)},Big,,0,0,0,,{{\\pos({W // 2},1340){'' if first else pop}}}{text}\n"
+            gold = "\\1c&H47E0FF&" if len(chunks) > 1 and n_chunk == len(chunks) - 1 else ""      # 장면의 마지막 말을 강조
+            ass += f"Dialogue: 0,{_ts(a)},{_ts(b_)},Big,,0,0,0,,{{\\pos({W // 2},1340){gold}{'' if first else pop}}}{text}\n"
             first = False
     open(os.path.join(work, "c.ass"), "w", encoding="utf-8").write(ass)
 
@@ -377,27 +531,32 @@ def render_hook(scenario: dict, assets: dict, out_dir: str, *, tts: dict | None 
     resolved = plan[0].get("resolved") or {}
     # 쿵 소리는 쓰러지는 시점을 아는 Blender 렌더에만 넣는다. Veo 영상은 그 시점이 매번 다르다.
     thud = TEMPLATES[plan[0]["template"]]["impact_sec"] if resolved.get("kind") == "frames" else None      # 충격이 없는 템플릿은 None
-    pad = ("aevalsrc='0.10*sin(2*PI*146.83*t)+0.07*sin(2*PI*220*t)+0.05*sin(2*PI*277.18*t)"
-           "+0.045*sin(2*PI*329.63*t)*(0.6+0.4*sin(2*PI*0.11*t))+0.03*sin(2*PI*440*t)*(0.5+0.5*sin(2*PI*0.07*t+1))':s=48000:d=40,"
-           f"aecho=0.8:0.7:90|180:0.35|0.25,lowpass=f=2200,afade=t=in:st={max(0.0, t1 - 0.2):.2f}:d=1.2,volume=0.26")
-    sfx = [pad,
+    sfx = [_music(t1),
            "aevalsrc='0.9*sin(2*PI*(110-70*t)*t)*exp(-9*t)+0.25*(random(0)-0.5)*exp(-30*t)':s=48000:d=0.6",
            "anoisesrc=d=0.8:c=pink:a=0.6:r=48000,bandpass=f=1600:w=1400,afade=t=in:d=0.5,afade=t=out:st=0.55:d=0.25",
            "aevalsrc='0.20*sin(2*PI*1174.66*t)*exp(-3*t)+0.12*sin(2*PI*1760*t)*exp(-3.5*t)+0.07*sin(2*PI*2349.3*t)*exp(-4*t)':s=48000:d=2.5"]
+    extra = [(SFX[kind], at) for kind, at in (TEMPLATES[plan[0]["template"]].get("sfx") or [])
+             if resolved.get("kind") == "frames" and at < t1] if plan[0]["kind"] == "template" else []
+    sfx += [x for x, _ in extra]
+    extra_graph = "".join(f"[{4 + i}:a]adelay={int(at * 1000)}:all=1[x{i}];" for i, (_, at) in enumerate(extra))
+    extra_pads = "".join(f"[x{i}]" for i in range(len(extra)))
     bed = os.path.join(work, "bed.wav")
     _run([ffmpeg, "-v", "error", "-y", *sum((["-f", "lavfi", "-i", x] for x in sfx), []), "-filter_complex",
           f"[1:a]adelay={int((thud or 0) * 1000)}:all=1,volume={0.8 if thud is not None else 0}[th];"
-          f"[2:a]adelay={int(max(0.0, t1 - 0.5) * 1000)}:all=1,volume=0.45[w];[3:a]adelay={int(cta_at * 1000)}:all=1[c];"
-          f"[0:a][th][w][c]amix=inputs=4:normalize=0,atrim=0:{total}[a]", "-map", "[a]", "-ar", "48000", bed])
+          f"[2:a]adelay={int(max(0.0, t1 - 0.5) * 1000)}:all=1,volume=0.45[w];[3:a]adelay={int(cta_at * 1000)}:all=1[c];{extra_graph}"
+          f"[0:a][th][w][c]{extra_pads}amix=inputs={4 + len(extra)}:normalize=0,atrim=0:{total}[a]", "-map", "[a]", "-ar", "48000", bed])
 
     # 4) 합치기
     flash = f"eq=brightness='0.45*max(0,1-abs(t-{t1})/0.18)':eval=frame," if plan[0]["kind"] == "template" else ""
+    n_in = len(inputs_index(inputs))            # 화면 입력 수. 컷 편집을 하면 장면 수보다 많다. 음성·배경음 입력은 그 뒤에 온다.
     graph = ";".join(filters) + ";" + "".join(f"[s{i}]" for i in range(n_video)) + \
-        f"concat=n={n_video}:v=1:a=0,{flash}ass=c.ass,fade=t=out:st={total - 0.4}:d=0.4[v];" \
-        f"[{n_video}:a][{n_video + 1}:a]amix=inputs=2:normalize=0,atrim=0:{total},afade=t=out:st={total - 0.6}:d=0.6[a]"
+        f"concat=n={n_video}:v=1:a=0,{flash}vignette=PI/6,ass=c.ass,fade=t=out:st={total - 0.4}:d=0.4[v];" \
+        f"[{n_in}:a]asplit=2[vo1][vo2];" \
+        f"[{n_in + 1}:a][vo1]sidechaincompress=threshold=0.02:ratio=5:attack=12:release=260[bd];" \
+        f"[vo2][bd]amix=inputs=2:normalize=0,atrim=0:{total},afade=t=out:st={total - 0.6}:d=0.6[a]"      # 말할 때 배경음을 낮춘다
     hook = os.path.join(out_dir, "hook.mp4")
     _run([ffmpeg, "-v", "error", "-y", *inputs, "-i", vo_wav, "-i", bed, "-filter_complex", graph, "-map", "[v]", "-map", "[a]",
-          "-r", str(FPS), "-c:v", "libx264", "-crf", "21", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
+          "-r", str(FPS), "-c:v", "libx264", "-crf", "18", "-preset", "slow", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
           "-ac", "2", "-t", f"{total}", "-movflags", "+faststart", hook], cwd=work)
 
     # 5) 자막 파일, 시나리오, 콘티

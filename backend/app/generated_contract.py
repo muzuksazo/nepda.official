@@ -8,8 +8,12 @@ from typing import Any, Dict, Protocol, Tuple
 
 from .generated_schemas import (
     AuthMeResponse,
+    BillingConfigResponse,
+    BillingOrderStatusResponse,
     CompleteUploadsRequest,
     CompleteUploadsResponse,
+    CreateCheckoutRequest,
+    CreateCheckoutResponse,
     CreateFilmingGuideRequest,
     CreateHookRequest,
     CreateHookResponse,
@@ -29,6 +33,7 @@ from .generated_schemas import (
     HookStatusResponse,
     HookTypesResponse,
     OutputsResponse,
+    PaddleWebhookAckResponse,
     PresignRequest,
     ProductInfoRequest,
     ProductInfoResponse,
@@ -37,6 +42,7 @@ from .generated_schemas import (
     ProjectSummary,
     SelectScenarioResponse,
     StoryboardResponse,
+    WalletResponse,
 )
 
 OPENAPI_SPEC_VERSION: str = '0.2.0'
@@ -79,6 +85,11 @@ EXPECTED_OPERATIONS: Tuple[RouteContract, ...] = (
     RouteContract(method='POST', path='/v1/projects/{project_id}/hooks', operation_id='create_hook_v1_projects__project_id__hooks_post', tags=('Hooks',), success_status=202, request_schema='CreateHookRequest', response_schema='CreateHookResponse'),
     RouteContract(method='GET', path='/v1/projects/{project_id}/hooks/{hook_id}', operation_id='get_hook_v1_projects__project_id__hooks__hook_id__get', tags=('Hooks',), success_status=200, request_schema=None, response_schema='HookStatusResponse'),
     RouteContract(method='GET', path='/v1/projects/{project_id}/outputs', operation_id='list_outputs_v1_projects__project_id__outputs_get', tags=('Hooks',), success_status=200, request_schema=None, response_schema='OutputsResponse'),
+    RouteContract(method='GET', path='/v1/billing/config', operation_id='get_billing_config_v1_billing_config_get', tags=('Billing',), success_status=200, request_schema=None, response_schema='BillingConfigResponse'),
+    RouteContract(method='GET', path='/v1/billing/wallet', operation_id='get_wallet_v1_billing_wallet_get', tags=('Billing',), success_status=200, request_schema=None, response_schema='WalletResponse'),
+    RouteContract(method='POST', path='/v1/billing/checkout', operation_id='create_billing_checkout_v1_billing_checkout_post', tags=('Billing',), success_status=200, request_schema='CreateCheckoutRequest', response_schema='CreateCheckoutResponse'),
+    RouteContract(method='GET', path='/v1/billing/orders/{order_id}', operation_id='get_billing_order_v1_billing_orders__order_id__get', tags=('Billing',), success_status=200, request_schema=None, response_schema='BillingOrderStatusResponse'),
+    RouteContract(method='POST', path='/v1/billing/webhooks/paddle', operation_id='handle_paddle_webhook_v1_billing_webhooks_paddle_post', tags=('Billing',), success_status=200, request_schema=None, response_schema='PaddleWebhookAckResponse'),
 )
 
 
@@ -110,3 +121,8 @@ class NapdaBackendProtocol(Protocol):
     def create_hook_v1_projects__project_id__hooks_post(self, project_id: str, body: CreateHookRequest) -> CreateHookResponse: ...
     def get_hook_v1_projects__project_id__hooks__hook_id__get(self, project_id: str, hook_id: str) -> HookStatusResponse: ...
     def list_outputs_v1_projects__project_id__outputs_get(self, project_id: str) -> OutputsResponse: ...
+    def get_billing_config_v1_billing_config_get(self) -> BillingConfigResponse: ...
+    def get_wallet_v1_billing_wallet_get(self) -> WalletResponse: ...
+    def create_billing_checkout_v1_billing_checkout_post(self, body: CreateCheckoutRequest) -> CreateCheckoutResponse: ...
+    def get_billing_order_v1_billing_orders__order_id__get(self, order_id: str, sync: bool | None = None) -> BillingOrderStatusResponse: ...
+    def handle_paddle_webhook_v1_billing_webhooks_paddle_post(self) -> PaddleWebhookAckResponse: ...

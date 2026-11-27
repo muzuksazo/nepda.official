@@ -7,12 +7,13 @@ import os
 import sys
 import time
 
-from . import veo
+from . import omni, veo
 from .assets import assets_dir, fetch_all
 from .check import check_scenario
 from .generate import generate_scenarios
 from .render import RenderError, first_frame, render_hook, storyboard
 from .schema import InputError, parse_worker_input
+from .storage import DeliveryStorage, StorageError, result_files
 from .tts import TtsError
 
 USAGE = """사용법 (backend/bridge-dev/c 에서):
@@ -25,12 +26,18 @@ USAGE = """사용법 (backend/bridge-dev/c 에서):
       이미 있는 시나리오 응답(직접 쓴 것, 백엔드에 저장된 것)을 회차 기록으로 가져온다. API 호출 없음.
   python -m src.cli storyboard <project_id> <scenario_id>
       장면별 콘티 이미지 생성 (FR-004).
-  python -m src.cli hook <project_id> <scenario_id> [--voice ID] [--no-tts] [--hook-id ID] [--engine auto|veo|blender]
+  python -m src.cli storage
+      저장소 설정·R2 읽기 권한 확인. 파일 업로드나 영상 생성 없음.
+  python -m src.cli publish <project_id> <hook_id>
+      이미 만든 결과 파일을 R2에 업로드하고 다운로드 링크 반환. 영상·TTS 재생성 없음.
+  python -m src.cli hook <project_id> <scenario_id> [--voice ID] [--no-tts] [--hook-id ID] [--engine auto|omni|veo|blender]
       훅 영상 + TTS 생성 (FR-005). Inworld TTS 호출(과금).
-      문제 장면: Blender 가 첫 프레임을 렌더하고 Google Veo(Vertex AI, 과금)가 영상으로 만든다.
-      GOOGLE_CLOUD_PROJECT 가 없으면 Blender 물리 렌더만으로 만든다.
+      문제 장면: Blender 가 첫 프레임을 렌더하고 Google Gemini Omni(과금)가 영상으로 만든다.
+      GOOGLE_CLOUD_PROJECT 가 없으면 Blender 렌더만으로 만든다. --engine veo 로 Veo 를 쓸 수도 있다.
+  python -m src.cli omni [템플릿] [--generate] [--seconds N]
+      Google Cloud 설정·인증 확인. --generate 를 붙이면 Gemini Omni 로 문제 장면 한 편을 실제로 생성한다 (과금).
   python -m src.cli veo [템플릿] [--generate] [--seconds N]
-      Google Cloud 설정·인증 확인. --generate 를 붙이면 문제 장면 한 편을 실제로 생성한다 (과금).
+      같은 확인을 Veo 로 한다.
   python -m src.cli assets
       문제 장면에 쓰는 무료(CC0) 3D 에셋 내려받기 (약 100MB, 한 번만).
 
@@ -111,6 +118,21 @@ def main() -> int:
         fetch_all(log)
         return 0
 
+    if cmd == "storage":
+        storage = DeliveryStorage()
+        storage.check_connection()
+        print(json.dumps({"storage_backend": storage.backend, "status": "ok",
+                          **({"bucket": storage.bucket, "prefix": storage.prefix} if storage.backend == "s3" else {})}, ensure_ascii=False, indent=2))
+        return 0
+
+    if cmd == "publish" and len(args) >= 3:
+        storage = DeliveryStorage()
+        out_dir = output_dir(args[1], args[2])
+        files = storage.publish_files(result_files(out_dir))
+        print(json.dumps({"hook_id": args[2], "status": "done", "storage_backend": storage.backend,
+                          "files": storage.download_files(files), "output_dir": out_dir.replace("\\", "/")}, ensure_ascii=False, indent=2))
+        return 0
+
     if cmd == "check" and len(args) >= 2:
         res = read_json(args[1])
         inp = parse_worker_input(read_json(arg("--input") or "examples/01_worker-input.scenarios.json"))
@@ -160,13 +182,16 @@ def main() -> int:
         return 0 if ok else 2
 
     if cmd == "storyboard" and len(args) >= 3:
+        storage = DeliveryStorage()
         scenario, assets, _ = find_scenario(args[1], args[2])
         frames = storyboard(scenario, assets, output_dir(args[1], args[2]), log)
+        frames = [{**frame, "image_url": storage.download_url(frame["image_url"])} for frame in storage.publish_storyboard(frames)]
         print(json.dumps({"project_id": args[1], "scenario_id": args[2], "status": "STORYBOARD_READY", "frames": frames}, ensure_ascii=False, indent=2))
         return 0
 
     if cmd == "hook" and len(args) >= 3:
-        scenario, assets, _ = find_scenario(args[1], args[2])
+        storage = DeliveryStorage()
+        scenario, assets, run = find_scenario(args[1], args[2])
         hook_id = arg("--hook-id") or f"hook_{args[2].removeprefix('sc_')}_{time.strftime('%m%d%H%M%S')}"
         out_dir = output_dir(args[1], hook_id)
         started = time.time()
@@ -174,16 +199,36 @@ def main() -> int:
         if arg("--engine"):
             assets = {**assets, "problem_engine": arg("--engine")}
         try:
-            files = render_hook(scenario, assets, out_dir, tts=tts, log=log)
+            files = render_hook(scenario, assets, out_dir, tts=tts, log=log, product_name=run.get("product_name"))
             engine = files.pop("problem_engine", None)
+            files = storage.download_files(storage.publish_files(files))
             status = {"hook_id": hook_id, "status": "done", "files": files, "output_dir": out_dir.replace("\\", "/"),
-                      "problem_engine": engine, "error": None}
-        except (RenderError, TtsError) as e:
+                      "problem_engine": engine, "storage_backend": storage.backend, "error": None}
+        except (RenderError, TtsError, StorageError) as e:
             status = {"hook_id": hook_id, "status": "failed", "files": {"storyboard_images": []}, "output_dir": out_dir.replace("\\", "/"),
-                      "error": {"code": "HOOK_RENDER_FAILED", "message": str(e)}}
+                      "error": {"code": e.code if isinstance(e, StorageError) else "HOOK_RENDER_FAILED", "message": str(e)}}
         print(json.dumps(status, ensure_ascii=False, indent=2))
         log(f"⏱ {time.time() - started:.0f}초")
         return 0 if status["status"] == "done" else 1
+
+    if cmd == "omni":
+        template = args[1] if len(args) > 1 else "drain_smell"
+        print(f"프로젝트: {veo.project() or '(GOOGLE_CLOUD_PROJECT 없음)'}  지역: global  모델: {omni.model()}  해상도: {omni.resolution()}")
+        try:
+            if not omni.configured():
+                raise omni.OmniError("GOOGLE_CLOUD_PROJECT 가 없습니다. c/.env 에 Google Cloud 프로젝트 ID 를 넣으세요.")
+            veo.access_token()
+            print("인증: 통과 (액세스 토큰 발급됨)")
+            if not has("--generate"):
+                print("여기까지는 과금이 없습니다. 실제로 한 편 만들어 보려면 --generate 를 붙이세요 (과금).")
+                return 0
+            seconds = float(arg("--seconds") or 10)
+            clip = omni.generate(template, first_frame(template, log), os.path.join(assets_dir(), "cache", "omni"), seconds, log=log)
+            print(f"생성됨: {clip}")
+            return 0
+        except veo.VeoError as e:
+            log(str(e))
+            return 1
 
     if cmd == "veo":
         template = args[1] if len(args) > 1 else "spill_diffuser"

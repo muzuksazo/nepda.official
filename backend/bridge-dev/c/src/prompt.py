@@ -6,11 +6,16 @@ from .schema import fact_ids
 # 생성 문제 장면 템플릿 설명. 문제 훅 문구가 화면과 맞도록 모델에 알려 준다.
 PROBLEM_TEMPLATES = {
     "spill_diffuser": "밝은 실내 테이블에서 지나가던 손이 액체형 리드 디퓨저를 쳐서 쓰러뜨리고, 병 입구에서 액체가 쏟아져 번지는 장면 (3D 생성, 약 3초)",
+    "cat_spill_diffuser": "밝은 거실 테이블에서 고양이가 액체형 리드 디퓨저를 앞발로 툭 쳐서 쓰러뜨리고, 병 입구에서 액체가 쏟아져 번지는 장면 (생성 영상, 약 3.5초)",
+    "spray_panic": "밝은 거실. 손이 방향제 스프레이를 사방으로 급하게 뿌려 하얀 분무가 방을 채우는 장면 (생성 영상, 약 3.5초)",
+    "carry_drip": "밝은 거실. 손이 리드 디퓨저를 들어 옮기다 병이 기울어 액체가 줄줄 흘러 테이블에 자국이 남는 장면 (생성 영상, 약 3.5초)",
+    "reed_flip": "밝은 거실. 두 손이 리드 스틱을 뽑아 뒤집다가 오일이 손가락과 테이블에 뚝뚝 떨어지는 장면 (생성 영상, 약 3.5초)",
     "evaporate_diffuser": "밝은 실내 테이블 위 액체형 리드 디퓨저의 며칠짜리 타임랩스. 처음 채운 높이에 붙인 테이프는 그대로인데 "
                           "액체만 바닥까지 줄어들고 막대가 말라 간다 (3D 생성, 약 4초)",
     "drain_smell": "욕실 불을 켜고 들어선 POV. 바닥 배수구에서 냄새가 물결 모양 연기로 올라오고 카메라가 움찔 물러난다 (3D 생성, 약 3.5초)",
+    "closet_musty": "장마철 방에서 옷장 문을 여는 POV. 빽빽이 걸린 옷 사이에서 꿉꿉한 냄새가 옅은 연기처럼 새어 나오고 카메라가 살짝 물러난다 (생성 영상, 약 3.5초)",
 }
-PROBLEM_SECONDS = {"spill_diffuser": 3, "evaporate_diffuser": 4, "drain_smell": 3.5}
+PROBLEM_SECONDS = {"spill_diffuser": 3, "evaporate_diffuser": 4, "drain_smell": 3.5, "closet_musty": 3.5, "cat_spill_diffuser": 3.5, "spray_panic": 3.5, "carry_drip": 3.5, "reed_flip": 3.5}
 
 SYSTEM = """당신은 한국어 숏폼 광고의 C 유형 훅(C_direct_proof: 제품과 직접 연결된 훅) 시나리오 작가입니다.
 
