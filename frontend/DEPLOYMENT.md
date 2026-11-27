@@ -8,7 +8,7 @@
 2. Node.js 26에서 `npm ci`, `npm run lint`, `npm run build`를 실행합니다. 빌드에는 TypeScript 검사가 포함됩니다.
 3. Vercel Git 연동이 브랜치의 미리보기와 `main`의 운영 빌드를 만듭니다. 빌드 자체에서도 린트와 타입 검사를 실행합니다.
 4. 운영 도메인은 GitHub의 `Frontend Lint & Build` 검사 성공 후에만 새 배포로 전환됩니다.
-5. Vercel이 성공한 배포를 GitHub에 알리면 `.github/workflows/cd-frontend.yml`이 HTML, JavaScript, `/health`, 비로그인 `/v1/auth/me` 응답을 확인합니다. 수동 실행 시에는 운영 주소를 확인합니다. 이 검사는 배포 후 상태를 보고하며 자동 롤백하지 않습니다.
+5. Vercel의 `vercel.deployment.success` repository dispatch 이벤트로 `.github/workflows/cd-frontend.yml`이 실행되어 HTML, JavaScript, `/health`, 비로그인 `/v1/auth/me` 응답을 확인합니다. 수동 실행 시에는 운영 주소를 확인합니다. 이 검사는 배포 후 상태를 보고하며 자동 롤백하지 않습니다.
 
 백엔드 배포 워크플로와 `VERCEL_BACKEND_*` 시크릿은 별도로 관리합니다. 프론트 배포는 Vercel Git 연동을 사용하므로 GitHub Actions용 Vercel 토큰이 필요하지 않습니다.
 
@@ -25,6 +25,7 @@
 - Build Command: `npm run lint && npm run build`
 - Output Directory: `dist`
 - Deployment Check: `Frontend CI` — GitHub check `Frontend Lint & Build`, 운영 도메인 할당 차단, 제한 시간 900초
+- Git 이벤트: `gitProviderOptions.disableRepositoryDispatchEvents=false`로 배포 후 검사 트리거 활성화
 
 `frontend/vercel.json`의 `/v1/*`, `/health` rewrite가 `https://napda-api.vercel.app`으로 요청을 전달합니다. 프론트와 같은 출처로 요청하도록 운영 `VITE_API_BASE_URL`은 비워 둡니다.
 
