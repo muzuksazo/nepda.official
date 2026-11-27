@@ -136,17 +136,29 @@ export interface CreditBalanceCardProps {
   /** 크레딧 잔액. 아직 못 불러왔으면 undefined → "—" */
   credits?: number;
   onChargeClick?: () => void;
+  /** 있으면 오른쪽 위에 "내역" 링크를 보여 준다 → 크레딧 내역 */
+  onHistoryClick?: () => void;
+  /** 잔액 줄 아래 한 줄 (예: 곧 사라지는 크레딧) */
+  note?: ReactNode;
 }
 
 /** 크레딧 잔액 카드: 잔액(큰 숫자) + 충전하기. 영상은 횟수 제한 없이, 충전한 크레딧으로 만든다. */
-export function CreditBalanceCard({ credits, onChargeClick }: CreditBalanceCardProps) {
+export function CreditBalanceCard({ credits, onChargeClick, onHistoryClick, note }: CreditBalanceCardProps) {
   const titleId = useId();
   const shownCredits = credits === undefined ? '—' : credits.toLocaleString('ko-KR');
   return (
     <section className="n-card n-wallet" aria-labelledby={titleId}>
-      <h2 id={titleId} className="n-wallet__label">
-        내 크레딧
-      </h2>
+      <div className="n-wallet__head">
+        <h2 id={titleId} className="n-wallet__label">
+          내 크레딧
+        </h2>
+        {onHistoryClick ? (
+          <button type="button" className="n-wallet__link" onClick={onHistoryClick} aria-label="크레딧 내역 보기">
+            내역
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
       <div className="n-wallet__row">
         <p className="n-wallet__balance">
           <span className="n-credit__icon n-wallet__icon" aria-hidden="true">
@@ -156,6 +168,7 @@ export function CreditBalanceCard({ credits, onChargeClick }: CreditBalanceCardP
         </p>
         <Button label="충전하기" size="md" onClick={onChargeClick} />
       </div>
+      {note ? <div className="n-wallet__note">{note}</div> : null}
     </section>
   );
 }

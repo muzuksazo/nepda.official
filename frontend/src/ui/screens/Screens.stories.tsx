@@ -4,10 +4,12 @@ import { fn } from 'storybook/test';
 import type { ThemeSetting } from '../NapdaProvider';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
 import { setStorybookTheme } from '../storybook/themeGlobal';
+import { sampleShare } from '../storybook/sampleShare';
 import { useSampleComments } from '../storybook/useSampleComments';
 import { ChargeResultScreen } from './ChargeResultScreen';
 import { CommunityScreen, type CommunityVideo } from './CommunityScreen';
 import { CreditChargeScreen } from './CreditChargeScreen';
+import { CreditHistoryScreen } from './CreditHistoryScreen';
 import type { HookType as HookKind } from './flowData';
 import { CommunityViewerScreen } from './CommunityViewerScreen';
 import { GeneratingScreen } from './GeneratingScreen';
@@ -26,6 +28,8 @@ import {
   SAMPLE_COMMENTS,
   SAMPLE_COMMUNITY,
   SAMPLE_COMPLETED,
+  SAMPLE_CREDIT_EXPIRING,
+  SAMPLE_CREDIT_HISTORY,
   SAMPLE_CREDIT_PACKAGES,
   SAMPLE_CREDITS_PER_VIDEO,
   SAMPLE_GUIDE_SCENES,
@@ -82,9 +86,41 @@ export const Home: Story = {
       onLoadMoreFeed={fn()}
       onOpenFeed={fn()}
       onToggleFeedLike={fn()}
-      onShareFeed={fn()}
+      share={sampleShare(true)}
       onRemixFeed={fn()}
       onSeeAllFeed={fn()}
+    />
+  ),
+};
+
+/** 공유 시트: 기기 공유 창이 있는 폰 — "카톡·인스타로 보내기" + 링크 복사 */
+export const HomeShare: Story = {
+  name: '안3-1 홈 · 공유 시트',
+  render: () => (
+    <HomeScreen
+      inProgress={SAMPLE_IN_PROGRESS}
+      completed={SAMPLE_COMPLETED}
+      credits={120}
+      profile={{ name: '냅다사장' }}
+      feed={SAMPLE_COMMUNITY.slice(0, 4)}
+      share={{ ...sampleShare(true), onShareNative: fn(), onCopyLink: fn() }}
+      initialShareFor="v01"
+    />
+  ),
+};
+
+/** 공유 시트: 기기 공유 창이 없는 곳(PC·일부 앱 안 브라우저) — 링크 복사만 */
+export const HomeShareCopyOnly: Story = {
+  name: '안3-1 홈 · 공유 시트 (링크 복사만)',
+  render: () => (
+    <HomeScreen
+      inProgress={SAMPLE_IN_PROGRESS}
+      completed={SAMPLE_COMPLETED}
+      credits={120}
+      profile={{ name: '냅다사장' }}
+      feed={SAMPLE_COMMUNITY.slice(0, 4)}
+      share={{ ...sampleShare(false), onCopyLink: fn() }}
+      initialShareFor="v02"
     />
   ),
 };
@@ -219,6 +255,7 @@ const profileProps = (themeMode: ThemeSetting): ProfileScreenProps => ({
   onThemeModeChange: setStorybookTheme,
   onNavigate: fn(),
   onChargeClick: fn(),
+  onCreditHistoryClick: fn(),
   onOpenMyVideos: fn(),
   onOpenDoc: fn(),
   onLogout: fn(),
@@ -324,7 +361,7 @@ export const CommunityViewer: Story = {
         items={viewerItems}
         onBack={fn()}
         onToggleLike={fn()}
-        onShare={fn()}
+        share={sampleShare(true)}
         onReport={fn()}
         onRemix={fn()}
       />
@@ -480,6 +517,60 @@ const chargeArgs = {
   onBack: fn(),
   onPay: fn(),
   onOpenPolicy: fn(),
+};
+
+const creditHistoryArgs = { now: SAMPLE_NOW, onBack: fn(), onCharge: fn(), onRetry: fn(), onOpenPolicy: fn() };
+
+export const CreditHistory: Story = {
+  name: '크레딧 내역',
+  render: () => (
+    <CreditHistoryScreen {...creditHistoryArgs} credits={104} entries={SAMPLE_CREDIT_HISTORY} expiring={SAMPLE_CREDIT_EXPIRING} />
+  ),
+};
+
+export const CreditHistoryUse: Story = {
+  name: '크레딧 내역 · 사용 탭',
+  render: () => <CreditHistoryScreen {...creditHistoryArgs} credits={104} entries={SAMPLE_CREDIT_HISTORY} initialFilter="use" />,
+};
+
+export const CreditHistoryLoadMore: Story = {
+  name: '크레딧 내역 · 이어 불러오기',
+  render: function Render() {
+    // 처음 5줄만 받고, 맨 아래로 내리면 0.8초 뒤 나머지를 붙인다
+    const [count, setCount] = useState(5);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    return (
+      <CreditHistoryScreen
+        {...creditHistoryArgs}
+        credits={104}
+        entries={SAMPLE_CREDIT_HISTORY.slice(0, count)}
+        hasMore={count < SAMPLE_CREDIT_HISTORY.length}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={() => {
+          setIsLoadingMore(true);
+          window.setTimeout(() => {
+            setCount(SAMPLE_CREDIT_HISTORY.length);
+            setIsLoadingMore(false);
+          }, 800);
+        }}
+      />
+    );
+  },
+};
+
+export const CreditHistoryEmpty: Story = {
+  name: '크레딧 내역 · 없음',
+  render: () => <CreditHistoryScreen {...creditHistoryArgs} credits={0} entries={[]} />,
+};
+
+export const CreditHistoryLoading: Story = {
+  name: '크레딧 내역 · 불러오는 중',
+  render: () => <CreditHistoryScreen {...creditHistoryArgs} entries={[]} status="loading" />,
+};
+
+export const CreditHistoryError: Story = {
+  name: '크레딧 내역 · 못 불러옴',
+  render: () => <CreditHistoryScreen {...creditHistoryArgs} credits={104} entries={[]} status="error" />,
 };
 
 export const CreditCharge: Story = {

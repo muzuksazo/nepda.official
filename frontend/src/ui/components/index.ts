@@ -8,6 +8,7 @@ export * from './EventBanner';
 export * from './bannerSpec';
 export * from './list';
 export * from './Sheet';
+export * from './share';
 export * from './comments';
 export * from './credit';
 export * from './feed';

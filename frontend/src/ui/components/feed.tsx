@@ -20,6 +20,7 @@ export interface FeedPostProps {
   /** 영상을 눌렀을 때: 크게 보기 */
   onOpen?: () => void;
   onToggleLike?: (isLiked: boolean) => void;
+  /** 공유 시트 열기. 없으면 공유 버튼을 숨긴다 */
   onShare?: () => void;
   /** 댓글 시트 열기 */
   onOpenComments?: () => void;
@@ -115,9 +116,11 @@ export function FeedPost({
         <button type="button" className="n-post__action" aria-label={`댓글 ${commentCount}개`} onClick={onOpenComments}>
           <Comment size={24} />
         </button>
-        <button type="button" className="n-post__action" aria-label="공유" onClick={onShare}>
-          <Share size={24} />
-        </button>
+        {onShare ? (
+          <button type="button" className="n-post__action" aria-label="공유" onClick={onShare}>
+            <Share size={24} />
+          </button>
+        ) : null}
         <span style={{ marginLeft: 'auto' }}>
           <Button label="이 훅으로 만들기" variant="secondary" size="sm" onClick={onRemix} />
         </span>

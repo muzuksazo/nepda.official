@@ -6,6 +6,8 @@ export { CommunityViewerScreen } from './CommunityViewerScreen';
 export type { CommunityViewerScreenProps } from './CommunityViewerScreen';
 export { CreditChargeScreen } from './CreditChargeScreen';
 export type { CreditChargeScreenProps } from './CreditChargeScreen';
+export { CreditHistoryScreen } from './CreditHistoryScreen';
+export type { CreditEntry, CreditEntryKind, CreditHistoryFilter, CreditHistoryScreenProps } from './CreditHistoryScreen';
 export { GeneratingScreen } from './GeneratingScreen';
 export type { GeneratingScreenProps } from './GeneratingScreen';
 export { HomeScreen } from './HomeScreen';

@@ -20,6 +20,7 @@ import event2 from '../../assets/events/event2.webp';
 import event3 from '../../assets/events/event3.webp';
 import type { BannerItem, CreditPackage, ThumbnailTemplate, VideoComment } from '../components';
 import type { CommunityVideo } from './CommunityScreen';
+import type { CreditEntry } from './CreditHistoryScreen';
 import type { HookType } from './flowData';
 import type { CompletedProject, InProgressProject } from './HomeScreen';
 import type { AppNotification } from './NotificationsScreen';
@@ -96,6 +97,27 @@ export const SAMPLE_CREDIT_PACKAGES: CreditPackage[] = [
   { id: 'c100', credits: 100, price: 12900, isPopular: true },
   { id: 'c300', credits: 300, price: 33000 },
 ];
+
+/**
+ * 예시: 크레딧 내역 (최신순). 내역 조회 API가 아직 없다.
+ * 9/30 추석 선물 5 → 10/20 충전 30 → 추석 선물 기간 끝 → 영상 3편(그중 1편은 실패해서 돌려받고 다시 만듦) → 11/26 충전 100 = 104.
+ * 충전 크레딧의 유효기간은 정해지지 않아 비워 두고, 이벤트 선물만 30일로 적었다(예시).
+ */
+export const SAMPLE_CREDIT_HISTORY: CreditEntry[] = [
+  { id: 'l10', kind: 'charge', amount: 100, balance: 104, createdAt: '2026-11-26T09:30:00+09:00', price: 12900 },
+  { id: 'l09', kind: 'use', amount: -12, balance: 4, createdAt: '2026-11-24T15:10:00+09:00', productName: '스테인리스 텀블러' },
+  { id: 'l08', kind: 'refund', amount: 12, balance: 16, createdAt: '2026-11-23T11:20:00+09:00', productName: '스테인리스 텀블러' },
+  { id: 'l07', kind: 'use', amount: -12, balance: 4, createdAt: '2026-11-23T11:05:00+09:00', productName: '스테인리스 텀블러' },
+  { id: 'l06', kind: 'use', amount: -12, balance: 16, createdAt: '2026-11-19T14:40:00+09:00', productName: '무선 미니 가습기' },
+  { id: 'l05', kind: 'bonus', amount: 10, balance: 28, createdAt: '2026-11-12T10:05:00+09:00', eventName: '블랙프라이데이 선물', expiresAt: '2026-12-12T23:59:00+09:00' },
+  { id: 'l04', kind: 'use', amount: -12, balance: 18, createdAt: '2026-11-02T16:20:00+09:00', productName: '실리콘 접이식 도마' },
+  { id: 'l03', kind: 'expire', amount: -5, balance: 30, createdAt: '2026-10-30T00:00:00+09:00', eventName: '추석 선물' },
+  { id: 'l02', kind: 'charge', amount: 30, balance: 35, createdAt: '2026-10-20T21:14:00+09:00', price: 4900 },
+  { id: 'l01', kind: 'bonus', amount: 5, balance: 5, createdAt: '2026-09-30T10:00:00+09:00', eventName: '추석 선물', expiresAt: '2026-10-29T23:59:00+09:00' },
+];
+
+/** 예시: 30일 안에 사라질 크레딧 (블랙프라이데이 선물) */
+export const SAMPLE_CREDIT_EXPIRING = { credits: 10, date: '2026-12-12T23:59:00+09:00' };
 
 /** 예시 알림의 기준 시각 (스토리에서 "3시간 전" 같은 표시를 고정한다) */
 export const SAMPLE_NOW = new Date('2026-11-26T15:00:00+09:00');

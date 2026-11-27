@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Avatar, Badge, Button, CommentSheet, ConfirmSheet, type VideoComment } from '../components';
+import { Avatar, Badge, Button, CommentSheet, ConfirmSheet, ShareSheet, type ShareHandlers, type VideoComment } from '../components';
 import { formatCount } from '../format';
 import { Alert, ChevronLeft, Comment, Heart, Play, Share, SoundOff, SoundOn, Stars } from '../icons';
 import type { CommunityVideo } from './CommunityScreen';
@@ -11,7 +11,8 @@ export interface CommunityViewerScreenProps {
   initialId?: string;
   onBack?: () => void;
   onToggleLike?: (id: string, isLiked: boolean) => void;
-  onShare?: (id: string) => void;
+  /** 공유 시트에 쓸 링크·복사·기기 공유 창. 없으면 공유 버튼을 숨긴다 */
+  share?: ShareHandlers;
   onReport?: (id: string) => void;
   /** "이 훅으로 만들기": 같은 훅 유형으로 새 영상 만들기를 시작한다 (영상·시나리오를 복사하지 않는다) */
   onRemix?: (video: CommunityVideo) => void;
@@ -39,7 +40,7 @@ export function CommunityViewerScreen({
   initialId,
   onBack,
   onToggleLike,
-  onShare,
+  share,
   onReport,
   onRemix,
   onActiveChange,
@@ -55,8 +56,9 @@ export function CommunityViewerScreen({
   const [pausedId, setPausedId] = useState<string | null>(null);
   const [isReporting, setIsReporting] = useState(initialIsReporting);
   const [isCommenting, setIsCommenting] = useState(false);
-  // 시트(신고·댓글)가 떠 있으면 뒤 화면을 잠그고 영상을 멈춘다
-  const isSheetOpen = isReporting || isCommenting;
+  const [isSharing, setIsSharing] = useState(false);
+  // 시트(신고·댓글·공유)가 떠 있으면 뒤 화면을 잠그고 영상을 멈춘다
+  const isSheetOpen = isReporting || isCommenting || isSharing;
   const [toast, setToast] = useState<string | null>(null);
 
   const feedRef = useRef<HTMLDivElement>(null);
@@ -246,9 +248,11 @@ export function CommunityViewerScreen({
                         {formatCount(comments[video.id]?.length ?? video.commentCount ?? 0)}
                       </span>
                     </button>
-                    <button type="button" className="n-viewer__action" aria-label="공유" onClick={() => onShare?.(video.id)}>
-                      <Share size={22} />
-                    </button>
+                    {share ? (
+                      <button type="button" className="n-viewer__action" aria-label="공유" onClick={() => setIsSharing(true)}>
+                        <Share size={22} />
+                      </button>
+                    ) : null}
                     {video.videoUrl ? (
                       <button
                         type="button"
@@ -303,6 +307,19 @@ export function CommunityViewerScreen({
         onSubmit={(text) => activeId && onAddComment?.(activeId, text)}
         onDelete={(id) => activeId && onDeleteComment?.(activeId, id)}
         onClose={() => setIsCommenting(false)}
+      />
+
+      <ShareSheet
+        video={isSharing && share ? (items.find((item) => item.id === activeId) ?? null) : null}
+        url={activeId && share ? share.shareUrlOf(activeId) : ''}
+        canShareNative={share?.canShareNative}
+        onShareNative={() => {
+          if (!activeId) return;
+          share?.onShareNative?.(activeId);
+          setIsSharing(false);
+        }}
+        onCopyLink={() => activeId && share?.onCopyLink?.(activeId)}
+        onClose={() => setIsSharing(false)}
       />
     </div>
   );

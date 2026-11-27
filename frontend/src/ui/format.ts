@@ -30,3 +30,38 @@ export function formatRelativeTime(iso: string, now: Date = new Date()): string 
 function startOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
+
+/** 날짜 묶음 제목: 오늘 · 어제 · 11월 24일 (화) · (해가 다르면) 2025년 12월 3일 (수) */
+export function formatDay(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso);
+  const days = Math.round((startOfDay(now) - startOfDay(then)) / 86400000);
+  if (days === 0) return '오늘';
+  if (days === 1) return '어제';
+  return then.toLocaleDateString('ko-KR', {
+    year: then.getFullYear() === now.getFullYear() ? undefined : 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
+}
+
+/** 날짜: 12월 12일 · (해가 다르면) 2027년 11월 26일 */
+export function formatDate(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso);
+  return then.toLocaleDateString('ko-KR', {
+    year: then.getFullYear() === now.getFullYear() ? undefined : 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/** 시각: 오후 3:10 */
+export function formatClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+}
+
+/** 같은 날인지 비교할 열쇠 (2026-11-26) */
+export function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}

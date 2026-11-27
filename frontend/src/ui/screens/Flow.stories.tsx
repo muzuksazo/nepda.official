@@ -3,12 +3,14 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ThemeSetting } from '../NapdaProvider';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
 import { setStorybookTheme } from '../storybook/themeGlobal';
+import { sampleShare } from '../storybook/sampleShare';
 import { useSampleComments } from '../storybook/useSampleComments';
 import type { NavTab } from '../components';
 import { ChargeResultScreen } from './ChargeResultScreen';
 import { CommunityScreen } from './CommunityScreen';
 import { CommunityViewerScreen } from './CommunityViewerScreen';
 import { CreditChargeScreen } from './CreditChargeScreen';
+import { CreditHistoryScreen, type CreditEntry } from './CreditHistoryScreen';
 import { GeneratingScreen } from './GeneratingScreen';
 import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
@@ -26,6 +28,8 @@ import {
   SAMPLE_COMMENTS,
   SAMPLE_COMMUNITY,
   SAMPLE_COMPLETED,
+  SAMPLE_CREDIT_EXPIRING,
+  SAMPLE_CREDIT_HISTORY,
   SAMPLE_CREDIT_PACKAGES,
   SAMPLE_CREDITS_PER_VIDEO,
   SAMPLE_GUIDE_SCENES,
@@ -65,10 +69,14 @@ type Step =
   | 'thumbnail'
   | 'charge'
   | 'chargeResult'
-  | 'notifications';
+  | 'notifications'
+  | 'creditHistory';
 
 /** 충전 화면으로 들어온 곳 (충전이 끝나면 여기로 돌아간다) */
-type ChargeFrom = 'home' | 'profile' | 'upload';
+type ChargeFrom = 'home' | 'profile' | 'upload' | 'creditHistory';
+
+/** 흐름은 예시 내역에서 마지막 충전(100)을 빼고 시작한다 → 잔액이 적어 첫 영상에서 "모자람 → 충전"을 따라가 볼 수 있다 */
+const FLOW_START_LEDGER = SAMPLE_CREDIT_HISTORY.slice(1);
 
 /** 버튼을 눌러 온보딩 → 홈 → 8단계 흐름을 끝까지 따라가 보는 클릭 프로토타입 */
 function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
@@ -85,7 +93,15 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
   const communityItems = filterCommunityByType(SAMPLE_COMMUNITY, communityType);
   // 크레딧: 영상 한 편에 SAMPLE_CREDITS_PER_VIDEO씩 쓴다.
   // 잔액을 일부러 적게 잡아 첫 영상에서 "모자람 → 충전 → 다시 만들기"를 따라가 볼 수 있다
-  const [credits, setCredits] = useState(5);
+  const [credits, setCredits] = useState(FLOW_START_LEDGER[0].balance);
+  // 크레딧 내역: 충전 · 영상 만들기 · 실패해서 돌려받기가 일어날 때마다 맨 위에 한 줄씩 쌓인다
+  const [ledger, setLedger] = useState<CreditEntry[]>(FLOW_START_LEDGER);
+  const addLedger = (entry: Omit<CreditEntry, 'id' | 'balance' | 'createdAt'>) =>
+    setLedger((prev) => [
+      { ...entry, id: `flow-${prev.length}`, balance: (prev[0]?.balance ?? 0) + entry.amount, createdAt: new Date().toISOString() },
+      ...prev,
+    ]);
+  const [historyFrom, setHistoryFrom] = useState<'profile' | 'notifications'>('profile');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   // 처음 로그인하면 가입(약관 → 닉네임)을 거치고, 로그아웃 뒤 다시 들어오면 바로 홈으로 간다
@@ -96,7 +112,12 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
   const [notifications, setNotifications] = useState<AppNotification[]>(SAMPLE_NOTIFICATIONS);
   // 영상 만들기 잡 흉내: 잠깐 차례를 기다린 뒤 0→100%. 다른 화면에 가 있어도 계속 돌고, 끝나면 알림이 온다
   // 두 번째로 만드는 영상은 "본편에 이어 붙이기"에서 일부러 실패시켜 실패 화면 → 크레딧 환불까지 따라가 볼 수 있다
-  const [job, setJob] = useState<{ status: 'queued' | 'running' | 'done' | 'failed'; progress: number; willFail?: boolean } | null>(null);
+  const [job, setJob] = useState<{
+    status: 'queued' | 'running' | 'done' | 'failed';
+    progress: number;
+    willFail?: boolean;
+    productName?: string;
+  } | null>(null);
   const jobCount = useRef(0);
   const jobStatus = job?.status;
   const jobRef = useRef(job);
@@ -118,14 +139,18 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       jobRef.current = next;
       setJob(next);
       // 실패하면 쓴 크레딧을 바로 돌려준다
-      if (next.status === 'failed') setCredits((value) => value + SAMPLE_CREDITS_PER_VIDEO);
+      if (next.status === 'failed') {
+        setCredits((value) => value + SAMPLE_CREDITS_PER_VIDEO);
+        addLedger({ kind: 'refund', amount: SAMPLE_CREDITS_PER_VIDEO, productName: next.productName });
+      }
     }, 300);
     return () => window.clearInterval(timer);
   }, [jobStatus]);
   const startJob = () => {
     jobCount.current += 1;
     setCredits((value) => value - SAMPLE_CREDITS_PER_VIDEO);
-    setJob({ status: 'queued', progress: 0, willFail: jobCount.current === 2 });
+    addLedger({ kind: 'use', amount: -SAMPLE_CREDITS_PER_VIDEO, productName });
+    setJob({ status: 'queued', progress: 0, willFail: jobCount.current === 2, productName });
     setStep('generating');
   };
   // 잡이 끝난 순간 사용자가 어느 화면에 있는지 (만드는 중 화면을 보고 있으면 알림을 보내지 않는다)
@@ -161,7 +186,10 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       setMyTab('completed');
       setStep('myVideos');
     }
-    if (target.kind === 'creditCharged') setStep('profile');
+    if (target.kind === 'creditCharged') {
+      setHistoryFrom('notifications');
+      setStep('creditHistory');
+    }
     if (target.kind === 'communityLike') {
       setViewerId(target.targetId);
       setStep('communityViewer');
@@ -240,6 +268,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           unreadCount={notifications.filter((n) => !n.isRead).length}
           onNotificationsClick={() => setStep('notifications')}
           feed={SAMPLE_COMMUNITY.slice(0, feedCount)}
+          share={sampleShare()}
           feedHasMore={feedCount < SAMPLE_COMMUNITY.length}
           onLoadMoreFeed={() => setFeedCount((value) => Math.min(SAMPLE_COMMUNITY.length, value + 4))}
           onOpenFeed={(id) => {
@@ -261,7 +290,12 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           inProgress={SAMPLE_IN_PROGRESS}
           completed={completed}
           onCreate={() => setStep('product')}
-          onContinue={() => setStep('upload')}
+          onContinue={(id) => {
+            // 이어 만들 제품 이름을 들고 간다 (크레딧 내역에 "어떤 영상에 썼는지"로 남는다)
+            const project = SAMPLE_IN_PROGRESS.find((p) => p.id === id);
+            if (project) setProductName(project.productName);
+            setStep('upload');
+          }}
           onDownloadAgain={() => setStep('thumbnail')}
           onSeeAllMyVideos={() => {
             setMyTab('inProgress');
@@ -303,6 +337,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           myName={SAMPLE_USER.name}
           items={communityItems}
           initialId={viewerId}
+          share={sampleShare()}
           onBack={() => setStep(viewerFrom)}
           // "이 훅으로 만들기": 같은 훅 유형을 고른 채로 만들기 흐름을 시작한다
           onRemix={(video) => {
@@ -317,6 +352,10 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           user={SAMPLE_USER}
           credits={credits}
           onChargeClick={() => openCharge('profile')}
+          onCreditHistoryClick={() => {
+            setHistoryFrom('profile');
+            setStep('creditHistory');
+          }}
           videoCounts={{ inProgress: SAMPLE_IN_PROGRESS.length, completed: completed.length }}
           retentionDays={7}
           themeMode={themeMode}
@@ -399,6 +438,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
             setStep('chargeResult');
             window.setTimeout(() => {
               setCredits((value) => value + pkg.credits);
+              addLedger({ kind: 'charge', amount: pkg.credits, price: pkg.price });
               setCharge((prev) => ({ ...prev, isDone: true }));
             }, 1500);
           }}
@@ -412,6 +452,16 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           onBack={() => setStep('home')}
           onOpen={openNotification}
           onMarkAllRead={() => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
+        />
+      );
+    case 'creditHistory':
+      return (
+        <CreditHistoryScreen
+          credits={credits}
+          entries={ledger}
+          expiring={SAMPLE_CREDIT_EXPIRING}
+          onBack={() => setStep(historyFrom)}
+          onCharge={() => openCharge('creditHistory')}
         />
       );
     case 'chargeResult':

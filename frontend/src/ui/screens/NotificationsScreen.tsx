@@ -12,7 +12,7 @@ export type NotificationKind =
   | 'videoFailed'
   /** 보관 기간이 곧 끝남 → 내 영상 완료 탭 */
   | 'expiring'
-  /** 크레딧 충전 완료 → 내 정보 */
+  /** 크레딧 충전 완료 → 크레딧 내역 */
   | 'creditCharged'
   /** 커뮤니티에 올린 영상에 좋아요 → 영상 보기 */
   | 'communityLike'

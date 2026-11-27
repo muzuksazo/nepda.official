@@ -2059,6 +2059,190 @@ button.n-list-row:active {
   color: var(--text-3);
 }
 
+.n-wallet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* "내역 >" — 글자 링크지만 손가락으로 누르기 쉽게 자리를 넓게 잡는다(44px) */
+.n-wallet__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin: -12px -8px -12px 0;
+  padding: 0 4px 0 12px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.n-wallet__link:active {
+  color: var(--text);
+}
+
+.n-wallet__note {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-weak);
+}
+
+/* ---------- 크레딧 내역 ---------- */
+.n-ledger-expiring {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-2);
+}
+
+.n-ledger-expiring svg {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.n-ledger-expiring b {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.n-ledger-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 8px;
+}
+
+.n-ledger-group__title {
+  margin-bottom: 2px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  color: var(--text-3);
+}
+
+.n-ledger {
+  display: flex;
+  flex-direction: column;
+}
+
+.n-ledger__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.n-ledger__row + .n-ledger__row {
+  border-top: 1px solid var(--border-weak);
+}
+
+.n-ledger__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--surface-weak);
+  color: var(--text-2);
+}
+
+.n-ledger__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-ledger__title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.n-ledger__sub {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n-ledger__expiry {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-weak);
+}
+
+.n-ledger__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+/* 들어온 것은 진하고 굵게, 나간 것은 한 단계 옅게 — 색이 아니라 +/− 기호로 먼저 구분한다 */
+.n-ledger__amount {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 22px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.n-ledger__amount.is-in {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.n-ledger__balance {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-weak);
+  white-space: nowrap;
+}
+
+/* 기간 지나 사라진 크레딧: 줄 전체를 한 단계 낮춘다 */
+.n-ledger__row--expire .n-ledger__title {
+  color: var(--text-3);
+}
+
+.n-ledger__bar {
+  display: block;
+  height: 14px;
+  margin-block: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.n-ledger-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 40px 0 32px;
+  text-align: center;
+}
+
+.n-ledger-empty__title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
 /* ---------- 크레딧 충전 ---------- */
 .n-credit-icon--lg {
   flex-shrink: 0;
@@ -2930,6 +3114,103 @@ button.n-noti:focus-visible {
   flex-direction: column;
   gap: 8px;
   margin-top: 24px;
+}
+
+/* ---------- 공유 시트 ---------- */
+.n-sheet.n-share {
+  padding-top: 24px;
+}
+
+.n-share__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.n-share__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin: -8px -12px -8px 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-share__close:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* 링크 미리보기 카드: 썸네일 + 제목 · 만든 사람 · 주소 */
+.n-share__card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-weak);
+  border-radius: 16px;
+  background: var(--bg-weak);
+}
+
+.n-share__thumb {
+  flex-shrink: 0;
+  width: 54px;
+  height: 72px;
+  border-radius: 10px;
+  background: var(--tint);
+  object-fit: cover;
+}
+
+.n-share__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-share__title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 21px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.n-share__sub,
+.n-share__url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n-share__sub {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
+.n-share__url {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-weak);
+}
+
+.n-share__hint {
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-3);
+  text-align: center;
 }
 
 /* ---------- 약관 동의 시트 ---------- */

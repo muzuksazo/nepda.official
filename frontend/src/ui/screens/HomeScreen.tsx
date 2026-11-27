@@ -13,9 +13,11 @@ import {
   MobileScreen,
   ProjectCard,
   SectionTitle,
+  ShareSheet,
   Stack,
   type NavTab,
   type BannerItem,
+  type ShareHandlers,
   type VideoComment,
 } from '../components';
 import { brand } from '../brand';
@@ -66,7 +68,8 @@ export interface HomeScreenProps {
   /** 피드 영상 크게 보기 */
   onOpenFeed?: (id: string) => void;
   onToggleFeedLike?: (id: string, isLiked: boolean) => void;
-  onShareFeed?: (id: string) => void;
+  /** 공유 시트에 쓸 링크·복사·기기 공유 창. 없으면 피드에 공유 버튼을 숨긴다 */
+  share?: ShareHandlers;
   /** "이 훅으로 만들기" */
   onRemixFeed?: (video: CommunityVideo) => void;
   /** 피드 제목 옆 화살표 → 커뮤니티 탭 */
@@ -77,6 +80,8 @@ export interface HomeScreenProps {
   onDeleteComment?: (videoId: string, commentId: string) => void;
   /** 처음부터 이 영상의 댓글 시트를 열어 둔다 (스토리·테스트용) */
   initialCommentsFor?: string;
+  /** 처음부터 이 영상의 공유 시트를 열어 둔다 (스토리·테스트용) */
+  initialShareFor?: string;
 }
 
 /** 안3-1 홈 */
@@ -102,16 +107,19 @@ export function HomeScreen({
   onLoadMoreFeed,
   onOpenFeed,
   onToggleFeedLike,
-  onShareFeed,
+  share,
   onRemixFeed,
   onSeeAllFeed,
   comments = {},
   onAddComment,
   onDeleteComment,
   initialCommentsFor,
+  initialShareFor,
 }: HomeScreenProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [commentsFor, setCommentsFor] = useState<string | null>(initialCommentsFor ?? null);
+  const [shareFor, setShareFor] = useState<string | null>(initialShareFor ?? null);
+  const shareVideo = shareFor ? (feed.find((video) => video.id === shareFor) ?? null) : null;
   const commentCountOf = (video: CommunityVideo) => comments[video.id]?.length ?? video.commentCount ?? 0;
 
   // 피드 맨 아래 감지선이 화면에 가까워지면 다음 게시물을 불러온다
@@ -161,7 +169,7 @@ export function HomeScreen({
 
   return (
     <>
-      <MobileScreen header={header} bottomNav={bottomNav} isInert={commentsFor !== null}>
+      <MobileScreen header={header} bottomNav={bottomNav} isInert={commentsFor !== null || shareVideo !== null}>
         {banners.length > 0 ? (
           <div style={{ marginBottom: -8 }}>
             <EventBanner items={banners} onSelect={onBannerSelect} />
@@ -216,7 +224,7 @@ export function HomeScreen({
                   isLiked={video.isLiked}
                   onOpen={() => onOpenFeed?.(video.id)}
                   onToggleLike={(isLiked) => onToggleFeedLike?.(video.id, isLiked)}
-                  onShare={() => onShareFeed?.(video.id)}
+                  onShare={share ? () => setShareFor(video.id) : undefined}
                   commentCount={commentCountOf(video)}
                   onOpenComments={() => setCommentsFor(video.id)}
                   onRemix={() => onRemixFeed?.(video)}
@@ -250,6 +258,19 @@ export function HomeScreen({
         onSubmit={(text) => commentsFor && onAddComment?.(commentsFor, text)}
         onDelete={(id) => commentsFor && onDeleteComment?.(commentsFor, id)}
         onClose={() => setCommentsFor(null)}
+      />
+
+      <ShareSheet
+        video={share ? shareVideo : null}
+        url={shareVideo && share ? share.shareUrlOf(shareVideo.id) : ''}
+        canShareNative={share?.canShareNative}
+        onShareNative={() => {
+          if (!shareVideo) return;
+          share?.onShareNative?.(shareVideo.id);
+          setShareFor(null);
+        }}
+        onCopyLink={() => shareVideo && share?.onCopyLink?.(shareVideo.id)}
+        onClose={() => setShareFor(null)}
       />
     </>
   );

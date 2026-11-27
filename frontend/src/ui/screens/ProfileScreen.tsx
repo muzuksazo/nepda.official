@@ -48,6 +48,8 @@ export interface ProfileScreenProps {
   onNavigate?: (tab: NavTab) => void;
   /** 크레딧 카드의 "충전하기" */
   onChargeClick?: () => void;
+  /** 크레딧 카드의 "내역" → 크레딧 내역 */
+  onCreditHistoryClick?: () => void;
   /** 숫자 타일 → 내 영상의 해당 탭 */
   onOpenMyVideos?: (tab: MyVideosTab) => void;
   onOpenDoc?: (doc: ProfileDoc) => void;
@@ -74,6 +76,7 @@ export function ProfileScreen({
   onThemeModeChange,
   onNavigate,
   onChargeClick,
+  onCreditHistoryClick,
   onOpenMyVideos,
   onOpenDoc,
   onLogout,
@@ -171,7 +174,7 @@ export function ProfileScreen({
             <SkeletonText widths={[28, 44]} />
           </div>
         ) : (
-          <CreditBalanceCard credits={credits} onChargeClick={onChargeClick} />
+          <CreditBalanceCard credits={credits} onChargeClick={onChargeClick} onHistoryClick={onCreditHistoryClick} />
         )}
 
         {isLoading ? (
