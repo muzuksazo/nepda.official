@@ -170,6 +170,49 @@ def gemini_script_writer(settings: Any) -> ScriptWriter:
     return _write
 
 
+def claude_script_writer(settings: Any) -> ScriptWriter:
+    """글 모델(Claude)로 대본과 컷을 고른다. 프레임 이미지를 함께 보내고, 출력은 같은 JSON 스키마로 받는다."""
+
+    def _write(prompt: str, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
+        import base64
+
+        import anthropic
+
+        content: List[Dict[str, Any]] = [{"type": "text", "text": prompt}]
+        for frame in frames:
+            content.append({"type": "text", "text": f"클립 {frame['clip']}번 {frame['t']:.1f}초"})
+            content.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/jpeg",
+                    "data": base64.standard_b64encode(Path(frame["path"]).read_bytes()).decode("ascii"),
+                },
+            })
+        client = anthropic.Anthropic()  # ANTHROPIC_API_KEY
+        response = client.messages.create(
+            model=str(getattr(settings, "body_llm", "") or "claude-opus-5-5"),
+            max_tokens=8000,
+            messages=[{"role": "user", "content": content}],
+            output_config={"format": {"type": "json_schema", "schema": BODY_SCRIPT_SCHEMA}},
+        )
+        if response.stop_reason == "refusal":
+            raise BodyEditError("Claude 가 본편 대본 요청을 거절했습니다.")
+        text = "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
+        try:
+            return json.loads(text)
+        except ValueError as exc:
+            raise BodyEditError(f"본편 대본 응답을 읽지 못했습니다: {text[:200]!r}") from exc
+
+    return _write
+
+
+def default_script_writer(settings: Any) -> ScriptWriter:
+    """BODY_LLM 이 claude-… 면 Claude, 아니면 Gemini."""
+    model = str(getattr(settings, "body_llm", "") or "").strip().lower()
+    return claude_script_writer(settings) if model.startswith("claude") else gemini_script_writer(settings)
+
+
 def _clean_script(raw: Dict[str, Any], clips: List[Clip]) -> List[Dict[str, Any]]:
     lines = []
     for line in (raw or {}).get("lines") or []:
@@ -315,7 +358,7 @@ def make_body(
             frames.append({"clip": clip.index, "t": t, "path": str(target_jpg)})
 
     # 2) 대본·컷
-    script_raw = (writer or gemini_script_writer(settings))(_body_prompt(product, clips, target), frames)
+    script_raw = (writer or default_script_writer(settings))(_body_prompt(product, clips, target), frames)
     lines = _clean_script(script_raw, clips)
 
     # 3) 문장별 나레이션 → 길이 맞추기

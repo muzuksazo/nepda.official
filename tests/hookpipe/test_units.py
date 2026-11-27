@@ -251,6 +251,23 @@ class WorkerConnection(unittest.TestCase):
         with self.assertRaises(ValueError):
             _call_with_deadline(lambda: (_ for _ in ()).throw(ValueError("x")), 1.0, "오류")
 
+    def test_body_writer_follows_body_llm(self) -> None:
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock, patch
+
+        from hookpipe import body_edit
+
+        self.assertIn("gemini", body_edit.default_script_writer(SimpleNamespace(body_llm="gemini-4-hydrogen")).__qualname__)
+        fake = MagicMock()
+        fake.messages.create.return_value = SimpleNamespace(
+            stop_reason="end_turn", content=[SimpleNamespace(type="text", text='{"lines": []}')])
+        with patch("anthropic.Anthropic", return_value=fake):
+            out = body_edit.default_script_writer(SimpleNamespace(body_llm="claude-opus-5-5"))("대본", [])
+        self.assertEqual(out, {"lines": []})
+        sent = fake.messages.create.call_args.kwargs
+        self.assertEqual(sent["model"], "claude-opus-5-5")
+        self.assertEqual(sent["output_config"]["format"]["schema"], body_edit.BODY_SCRIPT_SCHEMA)
+
     def test_types_run_at_the_same_time(self) -> None:
         import threading
 
