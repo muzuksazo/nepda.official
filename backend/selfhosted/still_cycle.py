@@ -1,0 +1,132 @@
+"""한 바퀴: 시나리오 생성(B·C 작업자, Claude) → 장면별 프롬프트 → 장면 묘사 변환(Claude·Gemini) → 스틸컷(FLUX). 영상은 만들지 않는다.
+
+    python backend/selfhosted/still_cycle.py <product.json> <out_dir> [--types B,C] [--ref 제품사진.png ...]
+        [--captioner claude,gemini]
+
+- 서버와 같은 이미지(backend/Dockerfile)·Secret(napda-backend)으로 Modal 에서 돈다. 키는 서버에만 있다.
+- 글 모델: HOOK_WORKER_LLM 만 이 실행에서 Claude 로 바꾼다 (Gemini AI Studio 선불 크레딧 소진).
+  Gemini 장면 묘사는 Vertex(WIF, Secret 의 GOOGLE_GENAI_USE_VERTEXAI) 로 부른다.
+- 스틸컷: 배포된 napda-flux3-klein. Gemini 훅과 같은 흐름 — 이야기 대표 컷 1장을 먼저 만들고,
+  제품 장면은 제품 사진, 나머지 장면은 대표 컷을 참고 이미지로 넣는다.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import sys
+import time
+from pathlib import Path, PurePosixPath
+
+import modal
+
+# 내 PC: backend/selfhosted/still_cycle.py → 저장소 루트. Modal 컨테이너 안에서는 /root/still_cycle.py 라 상위 폴더가 모자란다
+_HERE = Path(__file__).resolve()
+ROOT = _HERE.parents[2] if len(_HERE.parents) > 2 else _HERE.parent
+W, H = 768, 1376
+
+image = modal.Image.from_dockerfile(ROOT / "backend" / "Dockerfile", context_dir=ROOT).env({
+    "PYTHONPATH": "/app",
+    "STORAGE_BACKEND": "local",  # 이 시험은 R2 에 쓰지 않는다
+    "WORK_ROOT": "/tmp/napda/jobs",
+    "OUTPUT_DIR": "/tmp/napda/outputs",
+    "DB_PATH": "/tmp/napda/jobs.db",
+})
+app = modal.App("napda-still-cycle")
+# 뒤에 둔 Secret 이 같은 이름을 덮는다: 이 실행에서만 글 모델을 Claude 로
+override = modal.Secret.from_dict({"HOOK_WORKER_LLM": "claude-opus-5-5"})
+
+
+@app.function(image=image, secrets=[modal.Secret.from_name("napda-backend"), override], cpu=2.0, memory=4096, timeout=3600)
+def cycle(product: dict, hook_types: list, refs: dict, captioners: list) -> dict:
+    import sys as _sys
+
+    if "/app" not in _sys.path:
+        _sys.path.insert(0, "/app")
+    import uuid
+
+    from app.config import Settings
+    from hookpipe.flux_caption import to_flux_caption
+    from hookpipe.prompts import beat_prompt, ordered_beats, product_beat_orders, reference_image_prompt
+    from hookpipe.workers import generate_with_worker
+
+    settings = Settings()
+    flux = modal.Cls.from_name("napda-flux3-klein", "Flux3KleinService")()
+    product_refs = [base64.b64encode(b).decode("ascii") for b in refs.values()]
+    project = {"project_id": f"still_{uuid.uuid4().hex[:8]}", "product": product, "selected_types": hook_types}
+    log: list = []
+
+    def note(msg: str) -> None:
+        print(msg, flush=True)
+        log.append(msg)
+
+    def still(spec: str, ref_b64: list, captioner: str) -> dict:
+        t = time.time()
+        cap = to_flux_caption(spec, provider=captioner, settings=settings)
+        t_cap = time.time() - t
+        res = flux.run_generate.remote({"prompt": cap, "reference_images": ref_b64, "width": W, "height": H,
+                                        "seed": 1, "use_pup": False, "safety": True, "output_format": "png"})
+        return {"caption": cap, "caption_sec": round(t_cap, 1), "flux_ms": res["latency_ms"], "png": res["image_base64"]}
+
+    out: dict = {"scenarios": [], "stills": [], "log": log}
+    for hook_type in hook_types:
+        t0 = time.time()
+        try:
+            items = generate_with_worker(hook_type, project, settings, round_no=1, previous_scenarios=[])
+        except Exception as exc:  # 한 유형이 실패해도 다른 유형은 계속
+            note(f"[{hook_type}] 시나리오 실패: {exc}")
+            continue
+        scenario = items[0]
+        out["scenarios"].append(scenario)
+        note(f"[{hook_type}] 시나리오 {time.time() - t0:.0f}초: {scenario.get('hook_title')}")
+        beats = ordered_beats(scenario)
+        product_orders = set(product_beat_orders(scenario))
+        for captioner in captioners:
+            try:
+                ref = still(reference_image_prompt(scenario), [], captioner)
+            except Exception as exc:
+                note(f"[{hook_type}/{captioner}] 대표 컷 실패: {exc}")
+                continue
+            out["stills"].append({"type": hook_type, "captioner": captioner, "name": "ref", **ref})
+            for i, beat in enumerate(beats, start=1):
+                shows = int(beat.get("order") or 0) in product_orders
+                use_product = shows and bool(product_refs)
+                spec = beat_prompt(scenario, beat, i, len(beats), product=product, shows_product=shows,
+                                   has_product_reference=use_product, has_style_reference=not use_product)
+                try:
+                    st = still(spec, product_refs if use_product else [ref["png"]], captioner)
+                except Exception as exc:
+                    note(f"[{hook_type}/{captioner}] 장면 {i} 실패: {exc}")
+                    continue
+                out["stills"].append({"type": hook_type, "captioner": captioner, "name": f"beat{i}",
+                                      "product": use_product, "spec": spec, **st})
+            note(f"[{hook_type}/{captioner}] 스틸컷 {1 + len(beats)}장 완료")
+    return out
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("product")
+    ap.add_argument("out_dir")
+    ap.add_argument("--types", default="B,C")
+    ap.add_argument("--ref", action="append", default=[])
+    ap.add_argument("--captioner", default="claude,gemini")
+    args = ap.parse_args()
+
+    product = json.loads(Path(args.product).read_text(encoding="utf-8"))
+    refs = {Path(p).name: Path(p).read_bytes() for p in args.ref}
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()
+    with modal.enable_output(), app.run():
+        result = cycle.remote(product, [t.strip().upper() for t in args.types.split(",") if t.strip()], refs,
+                              [c.strip() for c in args.captioner.split(",") if c.strip()])
+    for s in result["stills"]:
+        (out / f"{s['type']}_{s['captioner']}_{s['name']}.png").write_bytes(base64.b64decode(s.pop("png")))
+    (out / "cycle.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[끝] 시나리오 {len(result['scenarios'])}개, 스틸컷 {len(result['stills'])}장, 전체 {time.time() - t0:.0f}초 → {out}")
+
+
+if __name__ == "__main__":
+    main()
