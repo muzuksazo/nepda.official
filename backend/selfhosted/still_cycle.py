@@ -39,7 +39,8 @@ override = modal.Secret.from_dict({"HOOK_WORKER_LLM": "claude-opus-5-5"})
 
 
 @app.function(image=image, secrets=[modal.Secret.from_name("napda-backend"), override], cpu=2.0, memory=4096, timeout=3600)
-def cycle(product: dict, hook_types: list, refs: dict, captioners: list) -> dict:
+def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenarios_in: list | None = None,
+          engine: str = "flux") -> dict:
     import sys as _sys
 
     if "/app" not in _sys.path:
@@ -62,6 +63,8 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list) -> dict
         log.append(msg)
 
     def still(spec: str, ref_b64: list, captioner: str) -> dict:
+        if engine == "gemini":
+            return gemini_still(spec, ref_b64)
         t = time.time()
         cap = to_flux_caption(spec, provider=captioner, settings=settings)
         t_cap = time.time() - t
@@ -69,14 +72,36 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list) -> dict
                                         "seed": 1, "use_pup": False, "safety": True, "output_format": "png"})
         return {"caption": cap, "caption_sec": round(t_cap, 1), "flux_ms": res["latency_ms"], "png": res["image_base64"]}
 
+    def gemini_still(spec: str, ref_b64: list) -> dict:
+        """Gemini 이미지 모델 (Secret 설정 그대로: Vertex WIF 또는 API 키). 규칙 목록 프롬프트를 그대로 이해하므로 변환하지 않는다."""
+        import tempfile
+
+        from app.genai_provider import GenAIMediaProvider
+
+        work = Path(tempfile.mkdtemp())
+        anchors = []
+        for i, b in enumerate(ref_b64):
+            anchors.append(work / f"ref{i}.png")
+            anchors[-1].write_bytes(base64.b64decode(b))
+        target = work / "out.png"
+        t = time.time()
+        GenAIMediaProvider(settings).generate_reference_image(spec, target, aspect_ratio="9:16", anchor_paths=anchors,
+                                                              skip_existing=False)
+        return {"caption": spec, "caption_sec": 0.0, "flux_ms": int((time.time() - t) * 1000),
+                "png": base64.b64encode(target.read_bytes()).decode("ascii")}
+
     out: dict = {"scenarios": [], "stills": [], "log": log}
     for hook_type in hook_types:
         t0 = time.time()
-        try:
-            items = generate_with_worker(hook_type, project, settings, round_no=1, previous_scenarios=[])
-        except Exception as exc:  # 한 유형이 실패해도 다른 유형은 계속
-            note(f"[{hook_type}] 시나리오 실패: {exc}")
-            continue
+        given = [sc for sc in (scenarios_in or []) if str(sc.get("type")).upper() == hook_type]
+        if given:
+            items = given
+        else:
+            try:
+                items = generate_with_worker(hook_type, project, settings, round_no=1, previous_scenarios=[])
+            except Exception as exc:  # 한 유형이 실패해도 다른 유형은 계속
+                note(f"[{hook_type}] 시나리오 실패: {exc}")
+                continue
         scenario = items[0]
         out["scenarios"].append(scenario)
         note(f"[{hook_type}] 시나리오 {time.time() - t0:.0f}초: {scenario.get('hook_title')}")
@@ -111,7 +136,9 @@ def main() -> None:
     ap.add_argument("out_dir")
     ap.add_argument("--types", default="B,C")
     ap.add_argument("--ref", action="append", default=[])
-    ap.add_argument("--captioner", default="claude,gemini")
+    ap.add_argument("--captioner", default="claude,gemini", help="FLUX 엔진일 때 장면 묘사 변환기")
+    ap.add_argument("--scenario", help="저장된 cycle.json 의 시나리오를 다시 쓴다 (생성 생략)")
+    ap.add_argument("--engine", default="flux", choices=["flux", "gemini"], help="스틸컷 이미지 모델")
     args = ap.parse_args()
 
     product = json.loads(Path(args.product).read_text(encoding="utf-8"))
@@ -120,8 +147,10 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
     with modal.enable_output(), app.run():
+        given = json.loads(Path(args.scenario).read_text(encoding="utf-8"))["scenarios"] if args.scenario else None
+        captioners = ["gemini-image"] if args.engine == "gemini" else [c.strip() for c in args.captioner.split(",") if c.strip()]
         result = cycle.remote(product, [t.strip().upper() for t in args.types.split(",") if t.strip()], refs,
-                              [c.strip() for c in args.captioner.split(",") if c.strip()])
+                              captioners, given, args.engine)
     for s in result["stills"]:
         (out / f"{s['type']}_{s['captioner']}_{s['name']}.png").write_bytes(base64.b64decode(s.pop("png")))
     (out / "cycle.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
