@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { readScenarioAbOverride } from './api/abConfig';
 import { customFetch } from './api/mutator';
 import {
   getBillingOrderV1BillingOrdersOrderIdGet,
@@ -646,11 +647,13 @@ export function App() {
       setCreationStep('scenario');
       if (!projectId) return;
       try {
+        const ab = readScenarioAbOverride();
         const res = await generateScenariosV1ProjectsProjectIdScenariosPost(projectId, {
           types: selected as GenerateScenariosRequest['types'],
-          provider: 'google',
+          ...(ab.provider ? { provider: ab.provider } : {}),
+          ...(ab.model ? { model: ab.model } : {}),
           count: 1,
-        });
+        } as GenerateScenariosRequest);
         if (res.status === 200 && res.data.scenarios.length > 0) {
           const matched =
             [...res.data.scenarios].reverse().find((s) => s.type === primary) ??

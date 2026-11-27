@@ -488,6 +488,135 @@ class WorkerConnection(unittest.TestCase):
         self.assertIn("modal-dltldn333", captured_env["GCP_WORKLOAD_IDENTITY_PROVIDER"])
         self.assertEqual(captured_env["GCP_SERVICE_ACCOUNT_EMAIL"], "napda-vercel-wif@gentle-voltage-464223-h6.iam.gserviceaccount.com")
 
+    def test_per_request_provider_and_model_override_for_workers_a_b_c(self) -> None:
+        import json
+        import os
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        from hookpipe.workers import run_worker_a, run_worker_b, run_worker_c
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workers_root = Path(tmp)
+            a_dir = workers_root / "a"
+            b_dir = workers_root / "b"
+            (a_dir / "node_modules").mkdir(parents=True)
+            (b_dir / "node_modules").mkdir(parents=True)
+
+            # Copy C worker reference or point C to real dir by patching _import_c_generate
+            rec_b = b_dir / "out" / PROJECT["project_id"] / "round-1.json"
+            rec_b.parent.mkdir(parents=True)
+            rec_b.write_text(json.dumps({"response": {"scenarios": [worker_scenario("B", "sc_b_ab")]}}), encoding="utf-8")
+
+            captured_node: Dict[str, Dict[str, str]] = {}
+            captured_c: List[Any] = []
+            template_writer_called: List[bool] = []
+
+            def fake_run_node(cmd: List[str], worker_dir: Path, timeout: float, label: str, extra_env: Any = None) -> Any:
+                captured_node[label] = dict(extra_env or {})
+                if label == "A":
+                    out_idx = cmd.index("--out") + 1
+                    Path(cmd[out_idx]).write_text(
+                        json.dumps({"scenarios": [worker_scenario("A", "sc_a_ab")]}),
+                        encoding="utf-8",
+                    )
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+            c_generate = SimpleNamespace(
+                generate_scenarios=lambda data, **kw: (
+                    captured_c.append(kw.get("model")),
+                    {
+                        "response": {"project_id": data["project_id"], "status": "SCENARIOS_READY", "round": 1, "scenarios": [worker_scenario("C", "sc_c_ab")]},
+                        "checks": [{"errors": []}],
+                    },
+                )[1]
+            )
+
+            settings = _settings(
+                hook_workers_dir=str(workers_root),
+                hook_worker_llm="gemini-4-hydrogen",
+                hook_a_mode="template",
+                hook_worker_gemini_model="gemini-4-hydrogen",
+                google_genai_use_vertexai=False,
+            )
+
+            class _DummyStorage:
+                pass
+
+            def _tpl_writer(*_args: Any, **_kwargs: Any) -> Dict[str, Any]:
+                template_writer_called.append(True)
+                raise AssertionError("template writer should be skipped when explicit anthropic is requested")
+
+            gen = make_scenario_generator(
+                settings,
+                _Store(),
+                storage=_DummyStorage(),
+                workers={"A": run_worker_a, "B": run_worker_b, "C": run_worker_c},
+                template_writer=_tpl_writer,
+            )
+
+            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}, clear=True):
+                with patch("shutil.which", return_value="/usr/local/bin/node"):
+                    with patch("hookpipe.workers._run_node", side_effect=fake_run_node):
+                        with patch("hookpipe.workers._import_c_generate", return_value=c_generate):
+                            items = gen(
+                                {**PROJECT, "_ab_override": {"provider": "anthropic", "model": "claude-sonnet-5-5", "explicit": True}},
+                                ["A", "B", "C"],
+                                "anthropic",
+                            )
+                            self.assertEqual([i["type"] for i in items], ["A", "B", "C"])
+                            self.assertFalse(template_writer_called)
+                            self.assertEqual(captured_node["A"]["A_MODEL"], "claude-sonnet-5-5")
+                            self.assertEqual(captured_node["B"]["B_LLM"], "claude-sonnet-5-5")
+                            self.assertEqual(captured_c[-1], "claude-sonnet-5-5")
+                            self.assertTrue(all(i["ad_spec"]["llm_provider"] == "anthropic" for i in items))
+                            self.assertTrue(all(i["ad_spec"]["llm_model"] == "claude-sonnet-5-5" for i in items))
+
+                            captured_node.clear()
+                            items_g = gen(
+                                {**PROJECT, "_ab_override": {"provider": "google", "model": "gemini-3.5-flash", "explicit": True}},
+                                ["B", "C"],
+                                "google",
+                            )
+                            self.assertEqual(captured_node["B"]["B_LLM"], "gemini-3.5-flash")
+                            self.assertEqual(captured_c[-1], "gemini-3.5-flash")
+                            self.assertTrue(all(i["ad_spec"]["llm_provider"] == "google" for i in items_g))
+                            self.assertTrue(all(i["ad_spec"]["llm_model"] == "gemini-3.5-flash" for i in items_g))
+
+    def test_ab_claude_ratio_deterministic_bucketing(self) -> None:
+        from app.config import Settings
+        from app.project_schemas import GenerateScenariosRequest
+        from app.projects_router import _resolve_ab_request
+
+        req_default = GenerateScenariosRequest(count=1)
+        req_explicit = GenerateScenariosRequest(provider="google", model="gemini-3.5-flash", count=1)
+
+        s_all_claude = Settings(_env_file=None, ab_claude_ratio=1.0)
+        eff, ov = _resolve_ab_request(s_all_claude, req_default, user_id="u1", project_id="p1")
+        self.assertEqual(eff, "anthropic")
+        self.assertTrue(ov["explicit"])
+        self.assertEqual(ov["source"], "ab_ratio")
+
+        s_all_gemini = Settings(_env_file=None, ab_claude_ratio=0.0)
+        eff2, ov2 = _resolve_ab_request(s_all_gemini, req_default, user_id="u1", project_id="p1")
+        self.assertEqual(eff2, "google")
+        self.assertEqual(ov2["source"], "ab_ratio")
+
+        # Explicit request overrides ratio=1.0
+        eff3, ov3 = _resolve_ab_request(s_all_claude, req_explicit, user_id="u1", project_id="p1")
+        self.assertEqual(eff3, "google")
+        self.assertEqual(ov3["model"], "gemini-3.5-flash")
+        self.assertEqual(ov3["source"], "request")
+
+        # Deterministic 50/50 split across user/project pairs
+        s_half = Settings(_env_file=None, ab_claude_ratio=0.5, ab_salt="test-salt")
+        a1, _ = _resolve_ab_request(s_half, req_default, user_id="u42", project_id="p99")
+        a2, _ = _resolve_ab_request(s_half, req_default, user_id="u42", project_id="p99")
+        self.assertEqual(a1, a2)
+        seen = {_resolve_ab_request(s_half, req_default, user_id=f"u{i}", project_id="p1")[0] for i in range(40)}
+        self.assertEqual(seen, {"anthropic", "google"})
+
 
 if __name__ == "__main__":
     unittest.main()

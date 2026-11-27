@@ -145,15 +145,21 @@ def _catalog_prompt(product: Dict[str, Any], templates: List[Dict[str, Any]], fe
     return "\n".join(lines)
 
 
-def gemini_pick_writer(settings: Any) -> PickWriter:
+def gemini_pick_writer(settings: Any, *, model_override: Optional[str] = None) -> PickWriter:
     def _write(system: str, prompt: str) -> Dict[str, Any]:
         from google.genai import types
 
         from app.genai_provider import build_genai_client
 
         client = build_genai_client(settings)  # 변수에 담아 둔다 (요청 도중 닫히지 않게)
+        model_id = (
+            str(model_override or "").strip()
+            or str(getattr(settings, "hook_worker_llm", "") or "").strip()
+            or str(getattr(settings, "body_llm", "") or "").strip()
+            or "gemini-4-hydrogen"
+        )
         response = client.models.generate_content(
-            model=str(getattr(settings, "hook_worker_llm", "") or getattr(settings, "body_llm", "") or "gemini-4-hydrogen"),
+            model=model_id,
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system, response_mime_type="application/json", response_json_schema=PICK_SCHEMA
@@ -198,6 +204,7 @@ def make_template_scenario(
     work_dir: Path,
     *,
     writer: Optional[PickWriter] = None,
+    model_override: Optional[str] = None,
     max_attempts: int = 2,
 ) -> Dict[str, Any]:
     """제품 → (템플릿 고르기 + 착지 장면) → 작업자 응답 모양 {scenarios: [ScenarioItem]}."""
@@ -206,7 +213,7 @@ def make_template_scenario(
     product = worker_input["product_info"]
     if not product.get("verified_facts"):
         raise TemplateError("착지 장면을 쓰려면 검증된 제품 사실(verified_facts)이 필요합니다.")
-    write = writer or gemini_pick_writer(settings)
+    write = writer or gemini_pick_writer(settings, model_override=model_override)
     used = {s.get("ad_spec", {}).get("template_id") for s in worker_input.get("previous_scenarios") or []}
     choices = [t for t in catalog["templates"] if t["template_id"] not in used] or catalog["templates"]
     feedback: Optional[str] = None

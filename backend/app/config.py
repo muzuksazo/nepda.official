@@ -100,6 +100,11 @@ class Settings(BaseSettings):
     # 시나리오 작업자의 글 모델을 Gemini 로 바꾼다 (예: gemini-4-hydrogen). 비우면 각 트랙 기본(Claude).
     # B 는 B_LLM 스위치로, C 는 hookpipe 가 같은 프롬프트·스키마로 Gemini 를 부른다. A 는 Claude 전용이라 그대로.
     hook_worker_llm: Optional[str] = None
+    # 요청별 A/B 전환용 기본 모델 & 비율 분배 (AB_CLAUDE_RATIO=0.5 설정 시 요청에 명시값이 없으면 자동 분배)
+    ab_claude_ratio: Optional[float] = None
+    ab_salt: str = "napda-ab-v1"
+    hook_worker_gemini_model: str = "gemini-4-hydrogen"
+    hook_worker_claude_model: Optional[str] = None
     hook_render_mode: Literal["video_model", "dry_run"] = "video_model"  # dry_run: 과금 호출 없이 scenario.json·hook.srt 만
     hook_max_sec: float = 20.0
     hook_clip_resolution: str = "720p"

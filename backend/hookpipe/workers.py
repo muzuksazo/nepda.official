@@ -102,6 +102,58 @@ def _gemini_llm(settings: Any) -> Optional[str]:
     return model if model.lower().startswith("gemini") else None
 
 
+class _SettingsOverlay:
+    """요청별 A/B 모델 오버라이드를 공유 Settings 객체 변이 없이 전달하기 위한 얇은 프록시."""
+
+    def __init__(self, base: Any, **overrides: Any) -> None:
+        self._base = base
+        self._overrides = overrides
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self._overrides:
+            return self._overrides[name]
+        return getattr(self._base, name)
+
+
+def _settings_with_llm(
+    settings: Any, *, provider: str, model: Optional[str], explicit: bool
+) -> Any:
+    return _SettingsOverlay(
+        settings,
+        _resolved_llm_provider=provider,
+        _resolved_llm_model=model,
+        _resolved_llm_explicit=explicit,
+    )
+
+
+def resolve_worker_llm(
+    settings: Any,
+    *,
+    provider: Optional[str] = None,
+    model_override: Optional[str] = None,
+    explicit: bool = False,
+) -> Tuple[str, Optional[str]]:
+    """요청별 provider / 세부 model 을 작업자 실행용 (provider, model_id) 로 해석한다."""
+    clean_model = str(model_override or "").strip() or None
+    if clean_model:
+        inferred = "google" if clean_model.lower().startswith("gemini") else "anthropic"
+        return inferred, clean_model
+    if explicit and provider == "google":
+        fallback_gemini = (
+            _gemini_llm(settings)
+            or str(getattr(settings, "hook_worker_gemini_model", "") or "gemini-4-hydrogen").strip()
+            or "gemini-4-hydrogen"
+        )
+        return "google", fallback_gemini
+    if explicit and provider == "anthropic":
+        claude_default = str(getattr(settings, "hook_worker_claude_model", "") or "").strip() or None
+        return "anthropic", claude_default
+    gemini = _gemini_llm(settings)
+    if gemini:
+        return "google", gemini
+    return "anthropic", None
+
+
 def _run_node(
     cmd: List[str],
     worker_dir: Path,
@@ -153,6 +205,13 @@ def _read_json(path: Path, label: str) -> Any:
 def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
     worker_dir = Path(settings.hook_workers_dir) / "a"
     cmd = _node_command(worker_dir)
+    resolved_provider = getattr(settings, "_resolved_llm_provider", None)
+    resolved_model = getattr(settings, "_resolved_llm_model", None)
+    extra_env = (
+        {"A_MODEL": str(resolved_model)}
+        if resolved_provider == "anthropic" and resolved_model
+        else None
+    )
     with tempfile.TemporaryDirectory(prefix="hookpipe_a_") as tmp:
         in_path = Path(tmp) / "worker_input.json"
         out_path = Path(tmp) / "scenarios_response.json"
@@ -162,6 +221,7 @@ def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
             worker_dir,
             float(settings.hook_worker_timeout_sec),
             "A",
+            extra_env=extra_env,
         )
         return _mark_violation(_read_json(out_path, "A"), proc)
 
@@ -197,7 +257,10 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
         in_path.write_text(json.dumps(worker_input, ensure_ascii=False), encoding="utf-8")
         gemini = _gemini_llm(settings)
         extra_env = _worker_vertex_env(settings)
-        if gemini:
+        if getattr(settings, "_resolved_llm_explicit", False):
+            resolved_model = getattr(settings, "_resolved_llm_model", None)
+            extra_env["B_LLM"] = str(resolved_model or "")  # 명시적 anthropic 요청 시 기존 B_LLM 해제 포함
+        elif gemini:
             extra_env["B_LLM"] = gemini  # B 의 모든 글 단계를 Gemini 로
         proc = _run_node(
             [*cmd, "generate", str(in_path), "--force"],
@@ -267,18 +330,23 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
     _load_c_env(worker_dir)
     if not worker_input["product_info"].get("verified_facts"):
         raise WorkerError("C 작업자는 검증된 제품 사실(verified_facts)이 1개 이상 필요합니다.")
-    gemini = _gemini_llm(settings)
-    if not gemini and not os.environ.get("ANTHROPIC_API_KEY"):
+    if getattr(settings, "_resolved_llm_explicit", False):
+        use_gemini = getattr(settings, "_resolved_llm_provider", None) == "google"
+        target_model = getattr(settings, "_resolved_llm_model", None)
+    else:
+        target_model = _gemini_llm(settings)
+        use_gemini = bool(target_model)
+    if not use_gemini and not os.environ.get("ANTHROPIC_API_KEY"):
         raise WorkerError("ANTHROPIC_API_KEY 가 없습니다 (C 작업자는 Claude 로 시나리오를 만듭니다).")
     gemini_client = None
-    if gemini and getattr(settings, "google_genai_use_vertexai", False):
+    if use_gemini and getattr(settings, "google_genai_use_vertexai", False):
         from app.genai_provider import build_genai_client
 
         gemini_client = build_genai_client(settings)
     try:
-        # 글 모델: HOOK_WORKER_LLM 이 gemini-… 면 C 가 Gemini 로 (같은 프롬프트·스키마), 아니면 C 기본(Claude)
+        # 글 모델: 요청 오버라이드 또는 HOOK_WORKER_LLM 에 따라 Gemini / Claude 선택
         kwargs: Dict[str, Any] = {
-            "model": gemini,
+            "model": target_model,
             "gemini_api_key": getattr(settings, "gemini_api_key", None) or None,
             "log": lambda m: logger.info("[C] %s", m),
         }
@@ -388,10 +456,19 @@ def template_or_realtime_a(storage: Any, realtime: WorkerFn, *, writer: Any = No
     from .a_templates import TemplateError, make_template_scenario
 
     def _run(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
+        if getattr(settings, "_resolved_llm_explicit", False) and getattr(settings, "_resolved_llm_provider", None) == "anthropic":
+            return realtime(worker_input, settings)
         if getattr(settings, "hook_a_mode", "template") == "template":
             work = Path(getattr(settings, "work_root", tempfile.gettempdir())) / "a_templates" / str(worker_input["project_id"])
             try:
-                return make_template_scenario(worker_input, settings, storage, work, writer=writer)
+                return make_template_scenario(
+                    worker_input,
+                    settings,
+                    storage,
+                    work,
+                    writer=writer,
+                    model_override=getattr(settings, "_resolved_llm_model", None),
+                )
             except TemplateError as exc:
                 logger.warning("A 템플릿을 쓰지 못해 실시간 생성으로 넘어갑니다: %s", exc)
             except Exception:
@@ -424,23 +501,40 @@ def make_scenario_generator(
         project_id = str(project["project_id"])
         previous = [*project_store.list_scenarios(project_id), *(project.get("pending_scenarios") or [])]
         round_no = int(project.get("scenario_round") or 0) + 1
+        ab_override = project.get("_ab_override") or {}
+        explicit = bool(ab_override.get("explicit"))
+        resolved_provider, resolved_model = resolve_worker_llm(
+            settings,
+            provider=ab_override.get("provider") or provider,
+            model_override=ab_override.get("model"),
+            explicit=explicit,
+        )
+        effective_settings = _settings_with_llm(
+            settings,
+            provider=resolved_provider,
+            model=resolved_model,
+            explicit=explicit,
+        )
+
         def _one(hook_type: str) -> Tuple[List[Dict[str, Any]], Optional[HTTPException]]:
             if getattr(settings, "hook_worker_mode", "auto") == "off":
                 if fallback is None:
                     raise _unavailable(hook_type, "작업자 호출이 꺼져 있고(HOOK_WORKER_MODE=off) 대체 생성기도 없습니다.")
-                return list(fallback(project, [hook_type], provider)), None
+                return list(fallback(project, [hook_type], resolved_provider)), None
             try:
-                return (
-                    generate_with_worker(
-                        hook_type,
-                        project,
-                        settings,
-                        round_no=round_no,
-                        previous_scenarios=previous,
-                        workers=workers,
-                    ),
-                    None,
+                made = generate_with_worker(
+                    hook_type,
+                    project,
+                    effective_settings,
+                    round_no=round_no,
+                    previous_scenarios=previous,
+                    workers=workers,
                 )
+                for item in made:
+                    spec = item.setdefault("ad_spec", {})
+                    spec.setdefault("llm_provider", resolved_provider)
+                    spec.setdefault("llm_model", resolved_model or "default")
+                return made, None
             except WorkerError as exc:
                 worker_error = str(exc)
                 logger.warning("%s 작업자 실패 → 대체 생성기로 넘어갑니다: %s", hook_type, worker_error)
@@ -450,7 +544,7 @@ def make_scenario_generator(
             if fallback is None:
                 return [], _unavailable(hook_type, worker_error)
             try:
-                return list(fallback(project, [hook_type], provider)), None
+                return list(fallback(project, [hook_type], resolved_provider)), None
             except HTTPException as exc:
                 detail = exc.detail if isinstance(exc.detail, dict) else {}
                 planner_msg = (detail.get("error") or {}).get("message") or str(exc.detail)
