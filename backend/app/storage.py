@@ -64,7 +64,7 @@ class S3StorageBackend:
 
     def __init__(self, settings: Settings) -> None:
         if not settings.s3_bucket:
-            raise ValueError("S3_BUCKET is required when STORAGE_BACKEND=s3")
+            raise ValueError("S3_BUCKET is required when STORAGE_BACKEND=s3 or r2")
         import boto3  # lazy import so local dev runs without boto3
 
         self.bucket = settings.s3_bucket
@@ -110,6 +110,6 @@ class S3StorageBackend:
 
 
 def build_storage(settings: Settings) -> StorageBackend:
-    if settings.storage_backend == "s3":
+    if settings.storage_backend in ("s3", "r2"):  # R2 도 S3 호환 API 로 접속한다
         return S3StorageBackend(settings)
     return LocalStorageBackend(Path(settings.work_root) / "_objects")

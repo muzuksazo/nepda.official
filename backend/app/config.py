@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, Optional
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROD_ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +20,7 @@ class Settings(BaseSettings):
         env_file=str(_PROD_ROOT / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     # Auth: AI Studio (`GEMINI_API_KEY`) or Vertex AI (`GOOGLE_GENAI_USE_VERTEXAI=true`)
@@ -65,13 +67,17 @@ class Settings(BaseSettings):
     db_path: str = str(_PROD_ROOT / "data" / "jobs.db")
     scripts_dir: str = str(_DEFAULT_SCRIPTS)
 
-    storage_backend: Literal["local", "s3"] = "local"
-    s3_bucket: Optional[str] = None
-    s3_endpoint_url: Optional[str] = None
-    s3_region: str = "auto"
-    s3_access_key_id: Optional[str] = None
-    s3_secret_access_key: Optional[str] = None
-    s3_prefix: str = "shortform-ad-studio"
+    # local | s3 | r2 (r2 는 s3 와 같다: Cloudflare R2 도 S3 방식으로 접속한다. S3_* 값에 R2 엔드포인트와 키를 넣는다)
+    storage_backend: Literal["local", "s3", "r2"] = "local"
+    # 환경변수 이름은 S3_… 와 R2_… 둘 다 받는다 (예: R2_BUCKET 또는 S3_BUCKET)
+    s3_bucket: Optional[str] = Field(default=None, validation_alias=AliasChoices("s3_bucket", "r2_bucket"))
+    s3_endpoint_url: Optional[str] = Field(default=None, validation_alias=AliasChoices("s3_endpoint_url", "r2_endpoint_url"))
+    s3_region: str = Field(default="auto", validation_alias=AliasChoices("s3_region", "r2_region"))
+    s3_access_key_id: Optional[str] = Field(default=None, validation_alias=AliasChoices("s3_access_key_id", "r2_access_key_id"))
+    s3_secret_access_key: Optional[str] = Field(
+        default=None, validation_alias=AliasChoices("s3_secret_access_key", "r2_secret_access_key")
+    )
+    s3_prefix: str = Field(default="shortform-ad-studio", validation_alias=AliasChoices("s3_prefix", "r2_prefix"))
 
     # Hook video pipeline (backend/hookpipe): A/B/C 시나리오 작업자 → 영상 모델 훅 → 본편 붙이기
     hook_worker_mode: Literal["auto", "off"] = "auto"  # auto: 작업자 호출, 실패하면 planner-api

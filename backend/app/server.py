@@ -29,6 +29,7 @@ from .storage import StorageBackend, build_storage
 from .store import JobStore
 
 from hookpipe import HookPipeline, make_scenario_generator  # backend/hookpipe: A·B·C 훅 영상 파이프라인
+from hookpipe import readiness as hookpipe_readiness
 
 
 class PresignRequest(BaseModel):
@@ -124,7 +125,12 @@ def create_app(
                 job_store.update_job(jid, status="FAILED", error=str(exc))
 
     @app.get("/health")
-    def health() -> Dict[str, Any]:
+    def health(
+        deep: bool = Query(default=False, description="무료 외부 확인(모델 목록, A 템플릿 목록)까지"),
+        authorization: Optional[str] = Header(default=None),
+    ) -> Dict[str, Any]:
+        if deep:
+            require_bearer(authorization)  # 깊은 확인은 외부 호출을 하므로 내부 토큰이 있으면 요구한다
         scripts_dir = cfg.resolved_scripts_dir
         bold_candidates = [
             os.environ.get("SHORTFORM_FONT_BOLD", "").strip(),
@@ -149,6 +155,8 @@ def create_app(
             "ffprobe": shutil.which("ffprobe"),
             "font_resolved": resolved_font,
             "scripts_dir_exists": scripts_dir.exists(),
+            # 영상 한 편을 끝까지 만들 준비 (과금 없음, 키 값은 내보내지 않음)
+            "hookpipe": hookpipe_readiness.check(cfg, storage_backend, deep=deep),
         }
 
     @app.post("/v1/uploads/presign", dependencies=[Depends(require_bearer)])

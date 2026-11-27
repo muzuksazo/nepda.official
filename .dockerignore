@@ -1,0 +1,30 @@
+# 백엔드 이미지(backend/Dockerfile, 빌드 위치는 저장소 루트)에 넣지 않을 것.
+# 키·로컬 데이터·대용량 미디어가 이미지에 들어가지 않게 한다.
+**/.env
+**/.env.*
+!**/.env.example
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+.git
+.vercel
+dist
+output
+backend/data
+backend/test-data
+backend/bridge-dev/*/out
+backend/bridge-dev/*/output
+backend/bridge-dev/b/product
+backend/bridge-dev/b/assets
+**/*.mp4
+**/*.mov
+**/*.MOV
+**/*.wav
+**/*.mp3
+**/*.glb
+**/*.blend
+frontend
+prototypes
+asset
+drama3_tts

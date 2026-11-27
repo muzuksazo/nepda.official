@@ -100,6 +100,13 @@ A·B·C 세 트랙의 작업물을 하나의 길로 잇는 백엔드 코드입�
 
 준비가 안 된 유형은 오류 대신 planner-api로 넘어가고, 서버 로그에 이유가 남습니다.
 
+## 배포
+
+- 이미지: 저장소 루트에서 `docker build -f backend/Dockerfile -t napda-backend .`. Node 22, A·B·C 작업자, ffmpeg(libass), 한글 글꼴이 들어갑니다. `.env` 와 큰 미디어는 `.dockerignore` 로 빠집니다. 키는 실행할 때 환경변수로 줍니다(`docker run --env-file …`).
+- 저장소: `STORAGE_BACKEND=r2` (또는 `s3`, 같은 뜻) + `R2_BUCKET`, `R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (`S3_…` 이름도 받습니다).
+- 준비 상태: `GET /health` 의 `hookpipe` 항목(`ready`, `problems`, `warnings`). `GET /health?deep=true` 는 모델 목록과 A 템플릿 목록까지 확인합니다(무료, `API_BEARER_TOKEN` 이 있으면 필요).
+- 서버에서 싼 것부터 확인: `python /app/scripts/hookpipe_smoke.py ready | storage | tts --yes | image --yes | clip --yes | scenario C --yes | hook <영상> C --yes`.
+
 ## 테스트
 
 ```bash
