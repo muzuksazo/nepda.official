@@ -5,8 +5,6 @@ import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from urllib.parse import urlparse
-from urllib.request import url2pathname
 from typing import Any, Dict, List
 
 from tests.support.hookpipe import FakeMediaProvider, fake_body_writer, make_video, tools_or_none, worker_scenario
@@ -482,8 +480,11 @@ class ApiFlow(unittest.TestCase):
             outputs = client.get(f"/v1/projects/{pid}/outputs").json()["outputs"]
             self.assertEqual(len(outputs), 1)
             self.assertEqual(outputs[0]["files"]["hook_video"], "hook.mp4")
-            final_local = Path(url2pathname(urlparse(video["stream_url"]).path))
-            self.assertTrue(final_local.is_file(), final_local)
+            # 결과 주소는 서명된 /v1/media/... 링크다: 그 링크로 실제로 내려받아 확인한다
+            media = client.get(video["stream_url"])
+            self.assertEqual(media.status_code, 200, video["stream_url"])
+            final_local = root / "downloaded_master.mp4"
+            final_local.write_bytes(media.content)
             self.assertEqual((probe(TOOLS, final_local).width, probe(TOOLS, final_local).height), (1080, 1920))
             # 올린 촬영본에서 뽑은 컷이 제품 장면의 참고 이미지로 들어갔다
             self.assertTrue(providers[0].video_calls[2]["reference_paths"][0].endswith("product_ref_01.jpg"))
