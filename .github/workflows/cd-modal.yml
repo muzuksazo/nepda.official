@@ -1,0 +1,201 @@
+name: CD Modal
+
+# main 에 합쳐지면 Modal 에 자동 배포한다.
+# - napda-backend (영상 파이프라인 API, CPU): backend/** 가 바뀌면 테스트를 통과한 뒤 배포
+# - napda-flux3-klein (FLUX 이미지, GPU): infra/modal-flux3/** 가 바뀌면 배포 (가중치는 이미 Volume 에 있다고 본다)
+# 필요한 GitHub Secrets: MODAL_TOKEN_ID, MODAL_TOKEN_SECRET (Modal → Settings → API Tokens)
+# 선택 Variables: MODAL_BACKEND_URL (배포 후 /health 확인), MODAL_FLUX3_* (FLUX 배포 설정, 없으면 아래 기본값)
+# 키·모델 설정은 Modal Secret(napda-backend, flux3-klein-secrets)에 있고 이 워크플로에는 없다.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "libraries/media-tools/**"
+      - "scripts/hookpipe_smoke.py"
+      - "infra/modal-flux3/**"
+      - ".github/workflows/cd-modal.yml"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "배포할 앱"
+        type: choice
+        options: [all, backend, flux3]
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-modal-production
+  cancel-in-progress: false
+
+env:
+  MODAL_VERSION: "1.6.4"
+
+jobs:
+  changes:
+    name: Detect changed apps
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.pick.outputs.backend }}
+      flux3: ${{ steps.pick.outputs.flux3 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pick apps to deploy
+        id: pick
+        env:
+          BEFORE: ${{ github.event.before }}
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            backend=false; flux3=false
+            case "$TARGET" in
+              all) backend=true; flux3=true ;;
+              backend) backend=true ;;
+              flux3) flux3=true ;;
+            esac
+          else
+            if [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              BEFORE="$(git rev-parse HEAD~1)"
+            fi
+            changed="$(git diff --name-only "$BEFORE" HEAD)"
+            echo "$changed"
+            backend=false; flux3=false
+            echo "$changed" | grep -qE '^(backend/|libraries/media-tools/|scripts/hookpipe_smoke\.py$|\.github/workflows/cd-modal\.yml$)' && backend=true
+            echo "$changed" | grep -qE '^(infra/modal-flux3/|\.github/workflows/cd-modal\.yml$)' && flux3=true
+          fi
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "flux3=$flux3" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend flux3=$flux3" >> "$GITHUB_STEP_SUMMARY"
+
+  credentials:
+    name: Check Modal credentials
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.creds.outputs.ready }}
+    steps:
+      - name: Check Modal deployment credentials
+        id: creds
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          if [ -n "${MODAL_TOKEN_ID:-}" ] && [ -n "${MODAL_TOKEN_SECRET:-}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo "### Modal Deploy Skipped (Missing Secrets)"
+            echo "Create a token at Modal → Settings → API Tokens, then:"
+            echo '`gh secret set MODAL_TOKEN_ID` and `gh secret set MODAL_TOKEN_SECRET`'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "::error::Missing GitHub Actions secrets MODAL_TOKEN_ID / MODAL_TOKEN_SECRET."
+            exit 1
+          fi
+          echo "::warning::Skipping Modal deploy because MODAL_TOKEN_ID / MODAL_TOKEN_SECRET are not configured."
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+
+  verify-backend:
+    name: Verify Backend
+    needs: [changes, credentials]
+    if: needs.changes.outputs.backend == 'true' && needs.credentials.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/requirements.txt
+
+      - name: Install ffmpeg and CJK fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
+
+      - name: Setup Python 3.12 environment
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r backend/requirements.txt
+
+      - name: Run Python regression suite
+        run: .venv/bin/python scripts/test-python.py
+
+  deploy-backend:
+    name: Deploy napda-backend to Modal
+    needs: [changes, credentials, verify-backend]
+    if: needs.changes.outputs.backend == 'true' && needs.credentials.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Modal CLI
+        run: pip install "modal==${MODAL_VERSION}"
+
+      - name: Deploy
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          modal deploy backend/modal_app.py
+          echo "Deployed napda-backend (commit ${GITHUB_SHA::7})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post-deploy health check
+        env:
+          MODAL_BACKEND_URL: ${{ vars.MODAL_BACKEND_URL }}
+        run: |
+          if [ -z "${MODAL_BACKEND_URL:-}" ]; then
+            echo "::notice::MODAL_BACKEND_URL variable not set; skipping health check."
+            exit 0
+          fi
+          # 컨테이너가 0개에서 켜지는 데 시간이 걸린다
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS --max-time 60 "${MODAL_BACKEND_URL%/}/health" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('status') == 'ok', d"; then
+              echo "Health check passed on attempt $attempt" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Health check attempt $attempt failed; retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::Health check failed against ${MODAL_BACKEND_URL}"
+          exit 1
+
+  deploy-flux3:
+    name: Deploy napda-flux3-klein to Modal
+    needs: [changes, credentials]
+    if: needs.changes.outputs.flux3 == 'true' && needs.credentials.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    env:
+      # 지금 운영 설정: 보강 모델(PUP) 끔, bf16, H100, 가중치는 Volume flux-models
+      MODAL_FLUX3_GPU: ${{ vars.MODAL_FLUX3_GPU || 'H100' }}
+      MODAL_FLUX3_QUANT: ${{ vars.MODAL_FLUX3_QUANT }}
+      MODAL_FLUX3_ENABLE_PUP: ${{ vars.MODAL_FLUX3_ENABLE_PUP || 'false' }}
+      MODAL_FLUX3_VOLUME: ${{ vars.MODAL_FLUX3_VOLUME || 'flux-models' }}
+      MODAL_FLUX3_SCALEDOWN_SEC: ${{ vars.MODAL_FLUX3_SCALEDOWN_SEC || '300' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Modal CLI
+        run: pip install "modal==${MODAL_VERSION}" "pydantic>=2.9.0"
+
+      - name: Deploy
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          echo "gpu=${MODAL_FLUX3_GPU} quant=${MODAL_FLUX3_QUANT:-bf16} pup=${MODAL_FLUX3_ENABLE_PUP} volume=${MODAL_FLUX3_VOLUME}"
+          modal deploy infra/modal-flux3/modal_app.py
+          echo "Deployed napda-flux3-klein (commit ${GITHUB_SHA::7}, gpu=${MODAL_FLUX3_GPU}, pup=${MODAL_FLUX3_ENABLE_PUP})" >> "$GITHUB_STEP_SUMMARY"
