@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from pydantic import BaseModel, Field
 
+from .admin_router import build_admin_router
 from .auth import SESSION_COOKIE_NAME, AuthenticationError, verify_session_token
 from .config import Settings
 from .genai_provider import (
@@ -322,6 +323,7 @@ def create_app(
             tts_provider=tts_provider,
         )
     )
+    app.include_router(build_admin_router(cfg, proj_store))
 
     return app
 

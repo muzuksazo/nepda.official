@@ -144,23 +144,41 @@ def gemini_script_writer(settings: Any) -> ScriptWriter:
     """글 모델(Gemini)로 대본과 컷을 고른다. 프레임 이미지를 함께 보낸다."""
 
     def _write(prompt: str, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
+        import time
         from google.genai import types
 
         from app.genai_provider import build_genai_client
 
         client = build_genai_client(settings)  # 변수에 담아 둔다 (요청 도중 닫히지 않게)
+        model_id = str(getattr(settings, "body_llm", "") or "gemini-4-hydrogen")
         parts: List[Any] = [types.Part.from_text(text=prompt)]
         for frame in frames:
             parts.append(types.Part.from_text(text=f"클립 {frame['clip']}번 {frame['t']:.1f}초"))
             parts.append(types.Part.from_bytes(data=Path(frame["path"]).read_bytes(), mime_type="image/jpeg"))
+        t0 = time.monotonic()
         response = client.models.generate_content(
-            model=str(getattr(settings, "body_llm", "") or "gemini-4-hydrogen"),
+            model=model_id,
             contents=[types.Content(role="user", parts=parts)],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_json_schema=BODY_SCRIPT_SCHEMA,
             ),
         )
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        on_usage = getattr(settings, "_on_usage", None)
+        if callable(on_usage):
+            usage = getattr(response, "usage_metadata", None)
+            on_usage(
+                stage="body_script",
+                step_name="body_cuts_script",
+                provider="google",
+                model=model_id,
+                input_tokens=int(getattr(usage, "prompt_token_count", 0) or 0),
+                output_tokens=int(getattr(usage, "candidates_token_count", 0) or 0),
+                cached_tokens=int(getattr(usage, "cached_content_token_count", 0) or 0),
+                thinking_tokens=int(getattr(usage, "thoughts_token_count", 0) or 0),
+                latency_ms=elapsed_ms,
+            )
         text = getattr(response, "text", None) or ""
         try:
             return json.loads(text)
@@ -175,6 +193,7 @@ def claude_script_writer(settings: Any) -> ScriptWriter:
 
     def _write(prompt: str, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
         import base64
+        import time
 
         import anthropic
 
@@ -190,12 +209,28 @@ def claude_script_writer(settings: Any) -> ScriptWriter:
                 },
             })
         client = anthropic.Anthropic()  # ANTHROPIC_API_KEY
+        model_id = str(getattr(settings, "body_llm", "") or "claude-opus-5-5")
+        t0 = time.monotonic()
         response = client.messages.create(
-            model=str(getattr(settings, "body_llm", "") or "claude-opus-5-5"),
+            model=model_id,
             max_tokens=8000,
             messages=[{"role": "user", "content": content}],
             output_config={"format": {"type": "json_schema", "schema": BODY_SCRIPT_SCHEMA}},
         )
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        on_usage = getattr(settings, "_on_usage", None)
+        if callable(on_usage):
+            usage = getattr(response, "usage", None)
+            on_usage(
+                stage="body_script",
+                step_name="body_cuts_script",
+                provider="anthropic",
+                model=str(getattr(response, "model", None) or model_id),
+                input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+                output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+                cached_tokens=int(getattr(usage, "cache_read_input_tokens", 0) or 0),
+                latency_ms=elapsed_ms,
+            )
         if response.stop_reason == "refusal":
             raise BodyEditError("Claude 가 본편 대본 요청을 거절했습니다.")
         text = "".join(block.text for block in response.content if getattr(block, "type", "") == "text")

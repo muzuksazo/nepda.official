@@ -496,7 +496,7 @@ def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
 
 
 def _default_storyboard_generator(
-    settings: Settings, storage: StorageBackend
+    settings: Settings, storage: StorageBackend, *, project_store: Optional[ProjectStore] = None
 ) -> StoryboardGenerator:
     def _extract_track_a_storyboard(
         project: Dict[str, Any], scenario: Dict[str, Any]
@@ -626,7 +626,25 @@ def _default_storyboard_generator(
                 f"{beat.get('visual', 'Clean storyboard scene')}. "
                 f"Style: {visual_style}. Zero readable text, no subtitles, no watermarks."
             )
-            provider.generate_reference_image(prompt, img_path, skip_existing=True)
+            res = provider.generate_reference_image(prompt, img_path, skip_existing=True)
+            if project_store is not None:
+                from .usage_telemetry import record_usage_safe
+
+                record_usage_safe(
+                    project_store,
+                    settings,
+                    project_id=project.get("project_id"),
+                    user_id=project.get("user_id"),
+                    hook_type=scenario.get("type"),
+                    stage="storyboard",
+                    step_name=f"frame_{order:02d}",
+                    provider="google",
+                    model=settings.image_model,
+                    media_unit="image",
+                    media_qty=1.0,
+                    cache_hit=bool(getattr(res, "skipped", False)),
+                    latency_ms=int(float(getattr(res, "elapsed_sec", 0.0) or 0.0) * 1000),
+                )
             obj_key = (
                 f"projects/{project['project_id']}/storyboards/"
                 f"{scenario['scenario_id']}/frame_{order:02d}.png"
@@ -664,7 +682,9 @@ def build_projects_router(
     hooks = hook_pipeline or HookPipeline(settings, project_store, job_store, storage)
     verify_google = google_token_verifier or verify_google_id_token
     gen_scenarios = scenario_generator or _default_scenario_generator(settings)
-    gen_storyboard = storyboard_generator or _default_storyboard_generator(settings, storage)
+    gen_storyboard = storyboard_generator or _default_storyboard_generator(
+        settings, storage, project_store=project_store
+    )
     paddle = paddle_client or HttpxPaddleApiClient(settings)
 
     def _quota(user_id: str) -> QuotaStatus:

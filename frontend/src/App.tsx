@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { AdminUsagePage } from './admin/AdminUsagePage';
 import { readScenarioAbOverride } from './api/abConfig';
 import { customFetch } from './api/mutator';
 import {
@@ -1100,6 +1101,20 @@ export function App() {
     authEntryStep === 'login' &&
     !onboardedUsers[auth.user!.user_id] &&
     !getStorageFlag(`napda:onboarded:${auth.user!.user_id}`);
+
+  const isAdminRoute =
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+  if (isAdminRoute) {
+    return (
+      <NapdaProvider mode={themeMode}>
+        <AdminUsagePage
+          themeMode={themeMode}
+          onThemeModeChange={setThemeMode}
+          userEmail={auth.user?.email}
+        />
+      </NapdaProvider>
+    );
+  }
 
   let screen;
   if (auth.status === 'loading') {

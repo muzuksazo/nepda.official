@@ -147,6 +147,7 @@ def _catalog_prompt(product: Dict[str, Any], templates: List[Dict[str, Any]], fe
 
 def gemini_pick_writer(settings: Any, *, model_override: Optional[str] = None) -> PickWriter:
     def _write(system: str, prompt: str) -> Dict[str, Any]:
+        import time
         from google.genai import types
 
         from app.genai_provider import build_genai_client
@@ -158,6 +159,7 @@ def gemini_pick_writer(settings: Any, *, model_override: Optional[str] = None) -
             or str(getattr(settings, "body_llm", "") or "").strip()
             or "gemini-4-hydrogen"
         )
+        t0 = time.monotonic()
         response = client.models.generate_content(
             model=model_id,
             contents=prompt,
@@ -165,6 +167,21 @@ def gemini_pick_writer(settings: Any, *, model_override: Optional[str] = None) -
                 system_instruction=system, response_mime_type="application/json", response_json_schema=PICK_SCHEMA
             ),
         )
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        on_usage = getattr(settings, "_on_usage", None)
+        if callable(on_usage):
+            usage = getattr(response, "usage_metadata", None)
+            on_usage(
+                stage="a_template",
+                step_name="pick_template",
+                provider="google",
+                model=model_id,
+                input_tokens=int(getattr(usage, "prompt_token_count", 0) or 0),
+                output_tokens=int(getattr(usage, "candidates_token_count", 0) or 0),
+                cached_tokens=int(getattr(usage, "cached_content_token_count", 0) or 0),
+                thinking_tokens=int(getattr(usage, "thoughts_token_count", 0) or 0),
+                latency_ms=elapsed_ms,
+            )
         text = getattr(response, "text", None) or ""
         try:
             return json.loads(text)

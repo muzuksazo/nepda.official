@@ -168,6 +168,33 @@ class HookPipeline:
                 paths.append(dest)
         return paths
 
+    def _usage_cb(
+        self,
+        project: Dict[str, Any],
+        *,
+        hook_type: Optional[str] = None,
+        job_id: Optional[str] = None,
+    ) -> Optional[Callable[..., None]]:
+        if not hasattr(self.project_store, "record_api_usage"):
+            return None
+        pid = str(project.get("project_id") or "")
+        uid = project.get("user_id")
+
+        def _cb(**kw: Any) -> None:
+            from app.usage_telemetry import record_usage_safe
+
+            record_usage_safe(
+                self.project_store,
+                self.settings,
+                project_id=pid,
+                user_id=uid,
+                job_id=job_id,
+                hook_type=hook_type,
+                **kw,
+            )
+
+        return _cb
+
     def _render(
         self,
         project: Dict[str, Any],
@@ -176,6 +203,7 @@ class HookPipeline:
         tts: Dict[str, Any],
         clips: List[Path],
         progress: Optional[Callable[[str], None]] = None,
+        job_id: Optional[str] = None,
     ) -> HookRenderResult:
         media = self._media()
         refs = extract_reference_frames(clips, out_dir / "_work" / "refs", media) if clips else []
@@ -193,6 +221,11 @@ class HookPipeline:
             cache_dir=self.cache_dir(str(project["project_id"]), str(scenario.get("scenario_id") or "scenario")),
             resolve_asset=lambda ref: self.resolve_asset(ref, out_dir / "_work" / "assets"),
             progress=progress,
+            on_usage=self._usage_cb(
+                project,
+                hook_type=str(scenario.get("type") or "") or None,
+                job_id=job_id,
+            ),
         )
 
     def _publish_hook_files(self, project_id: str, hook_id: str, out_dir: Path, files: Dict[str, Any]) -> Dict[str, str]:
@@ -235,13 +268,19 @@ class HookPipeline:
         project_id = str(project["project_id"])
         key = body_cache_key(clips, project.get("product") or {}, self.settings)
         body_dir = Path(self.settings.output_dir).resolve() / project_id / "_body" / key
+        body_settings = self.settings
+        usage_cb = self._usage_cb(project, job_id=job_id)
+        if usage_cb is not None:
+            from .workers import _SettingsOverlay
+
+            body_settings = _SettingsOverlay(self.settings, _on_usage=usage_cb)
         with self._lock(project_id, "_body"):
             made = make_body(
                 clips,
                 project.get("product") or {},
                 body_dir,
                 provider=self._provider(),
-                settings=self.settings,
+                settings=body_settings,
                 tools=self._media(),
                 writer=self._body_writer,
                 voice=voice,
@@ -394,6 +433,7 @@ class HookPipeline:
                             tts,
                             clips,
                             progress=lambda stage: store.update_job(job_id, stage=f"HOOK:{stage}"),
+                            job_id=job_id,
                         )
                     except Exception as exc:
                         self.project_store.update_hook(hook_id, status="failed", error=str(exc) or type(exc).__name__)
