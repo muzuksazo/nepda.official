@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import random
 import shutil
 import threading
 import uuid
@@ -145,6 +146,14 @@ class HookPipeline:
             logger.warning("미리 만든 소재를 찾지 못했습니다 (%s): %s", ref, exc)
             return None
         return dest if dest.is_file() else None
+
+    def pick_voice(self, requested: Optional[str]) -> Optional[str]:
+        """요청에 목소리가 있으면 그것, 없으면(기본값 포함) INWORLD_VOICE_IDS 중 하나를 같은 확률로. 목록이 없으면 그대로."""
+        default = getattr(self.settings, "tts_default_voice", None)
+        if requested and requested != default:
+            return requested
+        pool = [v.strip() for v in str(getattr(self.settings, "inworld_voice_ids", "") or "").split(",") if v.strip()]
+        return random.choice(pool) if pool else requested
 
     def _upload_clip_paths(self, project: Dict[str, Any], work_dir: Path) -> List[Path]:
         """올린 본편 클립을 촬영 순서(shot_no)대로 로컬 경로로 돌려준다. 저장소에만 있으면 매번 새로 내려받는다."""
@@ -340,7 +349,7 @@ class HookPipeline:
         if given and Path(given).is_file():
             return Path(given), self._body_srt(project, Path(given).parent), []
         project_id = str(project["project_id"])
-        key = body_cache_key(clips, project.get("product") or {}, self.settings)
+        key = body_cache_key(clips, project.get("product") or {}, self.settings, voice)
         body_dir = Path(self.settings.output_dir).resolve() / project_id / "_body" / key
         body_settings = self.settings
         usage_cb = self._usage_cb(project, job_id=job_id)
@@ -472,6 +481,7 @@ class HookPipeline:
             if not project:
                 raise RuntimeError("프로젝트를 찾을 수 없습니다.")
             scenario_id = str(scenario["scenario_id"])
+            voice = self.pick_voice(voice)
             tts = {"enabled": True, "voice": voice}
             store.update_job(job_id, status="RUNNING", stage="UPLOADS")
 
@@ -536,6 +546,7 @@ class HookPipeline:
             prefix = f"projects/{project_id}/renders/{job_id}"
             entry: Dict[str, Any] = {
                 "id": hook_id,
+                "voice": voice,  # 이번 영상에 쓴 목소리 (무작위로 골랐으면 그 값)
                 "duration": joined.duration_sec,
                 "hook_duration": joined.hook_sec,
                 "body_duration": joined.body_sec,

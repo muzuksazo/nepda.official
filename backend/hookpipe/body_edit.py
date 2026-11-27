@@ -104,9 +104,9 @@ class BodyEditResult:
     warnings: List[str] = field(default_factory=list)
 
 
-def body_cache_key(clips: Sequence[Path], product: Dict[str, Any], settings: Any) -> str:
-    """같은 촬영본·제품 정보·설정이면 같은 본편을 쓴다."""
-    parts: List[str] = []
+def body_cache_key(clips: Sequence[Path], product: Dict[str, Any], settings: Any, voice: Optional[str] = None) -> str:
+    """같은 촬영본·제품 정보·설정·목소리면 같은 본편을 쓴다."""
+    parts: List[str] = [f"voice:{voice}"] if voice else []
     for path in clips:
         stat = Path(path).stat()
         parts.append(f"{Path(path).name}:{stat.st_size}:{int(stat.st_mtime)}")

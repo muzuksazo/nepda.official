@@ -27,6 +27,8 @@ image = modal.Image.from_dockerfile(ROOT / "backend" / "Dockerfile", context_dir
         "HOOK_MEDIA_ENGINE": "selfhosted",
         # 크레딧 정책이 정해지기 전까지 렌더 무료 (결제 연결 뒤 이 줄을 뺀다)
         "CREDITS_PER_VIDEO": "0",
+        # 렌더마다 이 중 하나를 같은 확률로 (목소리 선택 화면이 생기면 요청 값이 우선)
+        "INWORLD_VOICE_IDS": "scarlet-mango-0605__gangsangyun,crafty-mocha-3599__yunyeowon,crafty-mocha-3599__isiu,crafty-mocha-3599__heohyejeong",
     }
 )
 data = modal.Volume.from_name("napda-data", create_if_missing=True)

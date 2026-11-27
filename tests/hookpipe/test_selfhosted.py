@@ -154,5 +154,29 @@ class StoryboardApiTest(unittest.TestCase):
         self.assertEqual(gen({"project_id": "p1"}, {**worker_scenario("A"), "scenario_id": "s2"}, ""), [{"beat_order": 1}])
 
 
+
+class VoicePickTest(unittest.TestCase):
+    def _pipe(self, ids: str) -> HookPipeline:
+        return HookPipeline(SimpleNamespace(inworld_voice_ids=ids, tts_default_voice="Kore"), None, None, None)
+
+    def test_random_from_pool_unless_requested(self) -> None:
+        pipe = self._pipe("a, b,c,d")
+        picked = {pipe.pick_voice(None) for _ in range(200)} | {pipe.pick_voice("Kore") for _ in range(200)}
+        self.assertEqual(picked, {"a", "b", "c", "d"})
+        self.assertEqual(pipe.pick_voice("chosen"), "chosen")
+        self.assertIsNone(self._pipe("").pick_voice(None))
+
+    def test_body_cache_differs_by_voice(self) -> None:
+        from hookpipe.body_edit import body_cache_key
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        clip = tmp / "c.mp4"
+        clip.write_bytes(b"x")
+        s = SimpleNamespace()
+        self.assertNotEqual(body_cache_key([clip], {}, s, "a"), body_cache_key([clip], {}, s, "b"))
+        self.assertEqual(body_cache_key([clip], {}, s), body_cache_key([clip], {}, s, None))
+
+
 if __name__ == "__main__":
     unittest.main()
