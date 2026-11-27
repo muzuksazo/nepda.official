@@ -34,6 +34,13 @@ image = modal.Image.from_dockerfile(ROOT / "backend" / "Dockerfile", context_dir
     "DB_PATH": "/tmp/napda/jobs.db",
 })
 app = modal.App("napda-still-cycle")
+SHOT_PLAN = [
+    "wide establishing shot that shows the whole place, subject small in the frame, seen from a high angle",
+    "medium shot from a low side angle, subject from the waist up, a different part of the place in the background",
+    "extreme close-up on the single key detail of the idea, shallow depth of field, background fully blurred",
+    "over-the-shoulder or top-down view of the action, a fresh angle not used before",
+]
+SHOT_PRODUCT = "hero close-up of the product filling the middle of the frame, eye level, clean background"
 # 뒤에 둔 Secret 이 같은 이름을 덮는다: 이 실행에서만 글 모델을 Claude 로
 _override = {"HOOK_WORKER_LLM": "claude-opus-5-5"}
 # STILL_GEMINI_VIA=apikey: Gemini 를 Vertex(WIF) 대신 AI Studio 키로 부른다 (모델 이름이 Vertex 에 없을 때 비교용)
@@ -134,6 +141,8 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
                 use_product = shows and bool(product_refs)
                 spec = beat_prompt(scenario, beat, i, len(beats), product=product, shows_product=shows,
                                    has_product_reference=use_product, has_style_reference=not use_product)
+                # 컷마다 달라 보이게: 장면 순서마다 촬영 크기를 다르게 배정한다 (4장면이 같은 그림처럼 보였다, 2026-11-27)
+                spec += "\nSHOT SIZE: " + (SHOT_PRODUCT if use_product else SHOT_PLAN[(i - 1) % len(SHOT_PLAN)])
                 try:
                     st = still(spec, product_refs if use_product else [ref["png"]], captioner, f"beat{i}",
                                style_ref=not use_product)

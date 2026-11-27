@@ -18,6 +18,8 @@ The image model draws every word it reads, so the caption must describe only wha
 - Keep every requirement of the specification, but express it as something you can see. Examples: "keep the bottom third calm" -> "the lower third of the frame is open, empty deep-blue water"; "one vivid red accent for the key detail" -> name the one detail and say it is vivid red; "vertical 9:16, subject in the upper two thirds" -> say where the subject sits in the tall frame.
 - Never mention rules, forbidden things, text, letters, subtitles, captions, logos, watermarks or brands, not even to exclude them. Never quote words from the specification. Do not write headings or lists.
 - Never describe things that carry writing: labelled diagrams, arrows with words, charts, signs, screens, books, packaging print. Show an idea through real objects and their visible state instead (e.g. an arrow cycle "squeeze -> release -> refill" becomes the object visibly squeezed with droplets pushed out).
+- Never show blood, wounds, organs, bones inside the body, anatomical diagrams or cutaways of a body. If the specification asks for one, show the outside of the body in motion or an everyday analogy object (sponge, balloon, spring) instead.
+- Follow the SHOT SIZE line if the specification has one; it must look clearly different from the other shots of the story.
 - Translate any Korean scene description into English.
 - If a product must match reference photos, describe it as "the exact product shown in the reference image" plus its plain visible traits (shape, color), and keep it large and clear.
 - If the specification says to keep the same character as a reference image, write "the same character as in the reference image".
@@ -33,6 +35,7 @@ The goal is lots of clear, continuous MOTION, not a still picture:
 - Always include one camera move (slow push-in, orbit, tracking, tilt or crane). Never a locked-off static camera.
 - Turn every explanation or change of state into an action you can watch (e.g. "cartilage absorbs fluid" -> "the knee bends and straightens again and again while glossy fluid pulses into the soft cushion").
 - Never describe anything that carries writing: diagrams, labels, arrows, charts, signs, screens, books, packaging print. Never quote words. Never use the words text, letter, caption, subtitle, title, label, word or number.
+- Never show blood, wounds, organs, bones inside the body or a body opened up. Show the outside of the body moving, or an everyday analogy object, instead.
 - Sound: only the natural sound effects of the actions. No voices, no speech, no music.
 - English only. Do not copy any non-English words from the specification.
 

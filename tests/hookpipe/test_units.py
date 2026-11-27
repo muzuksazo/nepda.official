@@ -274,8 +274,8 @@ class WorkerConnection(unittest.TestCase):
         scenario = {"type": "B", "ad_spec": {"visual_style": "blender_3d_physics"}}
         beat = {"order": 1, "visual": "[포커스: 전체] 고래가 물을 삼킨다", "narration": "이 문장은 넣지 않는다"}
         frame = first_frame_prompt(scenario, beat)
-        self.assertIn("3D animation", frame)
-        self.assertIn("not clay", frame)
+        self.assertIn("Blender", frame)
+        self.assertIn("Not clay", frame)
         self.assertIn("bottom third", frame)
         self.assertIn("No text", frame)
         self.assertNotIn("[포커스", frame)
