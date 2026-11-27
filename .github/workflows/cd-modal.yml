@@ -180,7 +180,7 @@ jobs:
       MODAL_FLUX3_QUANT: ${{ vars.MODAL_FLUX3_QUANT }}
       MODAL_FLUX3_ENABLE_PUP: ${{ vars.MODAL_FLUX3_ENABLE_PUP || 'false' }}
       MODAL_FLUX3_VOLUME: ${{ vars.MODAL_FLUX3_VOLUME || 'flux-models' }}
-      MODAL_FLUX3_SCALEDOWN_SEC: ${{ vars.MODAL_FLUX3_SCALEDOWN_SEC || '300' }}
+      MODAL_FLUX3_SCALEDOWN_SEC: ${{ vars.MODAL_FLUX3_SCALEDOWN_SEC || '120' }}
     steps:
       - uses: actions/checkout@v4
 

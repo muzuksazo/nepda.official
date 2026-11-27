@@ -81,7 +81,7 @@ def main() -> None:
     calls = [(frames[f"beat{p['order']}"], p["motion"], CLIP_W, CLIP_H, frames_for(p["seconds"]), 20, args.seed)
              for p in plans]
     with minimax_modal.app.run():
-        clips = list(minimax_modal.render.starmap(calls))  # 장면별 컨테이너가 동시에 돈다
+        clips = list(minimax_modal.MiniMax().render.starmap(calls))  # 장면별 컨테이너가 동시에 돈다
     for plan, data in zip(plans, clips):
         (out / f"beat{plan['order']}.mp4").write_bytes(data)
     print(f"[클립] {len(clips)}개 {time.time() - t1:.0f}초 (전체 {time.time() - t0:.0f}초) → {out}", flush=True)

@@ -22,10 +22,12 @@ import hashlib
 import json
 import logging
 import math
+import re
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .captions import build_srt
 from .media import (
@@ -54,6 +56,39 @@ NARRATION_TAIL_SEC = 0.15  # 나레이션이 끝난 뒤 다음 장면으로 넘�
 HOLD_MAX_SEC = 1.0  # 이보다 짧고 나레이션이 없는 장면은 클립을 사지 않고 앞 장면의 마지막 화면을 멈춰 둔다
 NORMAL_TEMPO_MAX = 1.3
 HARD_TEMPO_MAX = 1.6
+REVEAL_PAUSE_SEC = 0.8  # "그래서 ~가 뭐냐고요?" 앞의 뜸 (두 문장이 쉬지 않고 붙어 반전감이 없었다, 2026-11-27)
+REVEAL_PAUSE_AFTER_SEC = 0.6  # 그 질문 뒤 본편으로 넘어가기 전 여운
+TTS_PARALLEL = 4  # 장면별 나레이션을 동시에 만든다
+
+# 장면 나레이션 끝의 "그래서 …?" 질문 한 문장 (B 반전 장면의 마무리 질문)
+_REVEAL_Q = re.compile(r"(그래서[^.!?。]*\?)\s*$")
+
+
+def split_reveal(narration: str) -> Optional[Tuple[str, str]]:
+    """마지막 문장이 '그래서 …?' 질문이고 그 앞에 다른 문장이 있으면 (앞부분, 질문)으로 나눈다."""
+    text = (narration or "").strip()
+    m = _REVEAL_Q.search(text)
+    if not m:
+        return None
+    head = text[: m.start()].strip()
+    if not head:
+        return None
+    return head, m.group(1).strip()
+
+
+def _join_with_pause(first: Path, second: Path, out: Path, pause: float, after: float, tools: MediaTools) -> None:
+    """앞부분 + 무음(pause) + 질문 + 무음(after) 으로 이어 붙인다 (wav)."""
+    fmt = f"aresample={AUDIO_RATE},aformat=sample_fmts=s16:channel_layouts=stereo"
+    silence = f"anullsrc=r={AUDIO_RATE}:cl=stereo"
+    run_ffmpeg(tools, [
+        "-i", str(first),
+        "-f", "lavfi", "-t", f"{max(pause, 0.01):.3f}", "-i", silence,
+        "-i", str(second),
+        "-f", "lavfi", "-t", f"{max(after, 0.01):.3f}", "-i", silence,
+        "-filter_complex",
+        f"[0:a]{fmt}[a];[1:a]{fmt}[p];[2:a]{fmt}[b];[3:a]{fmt}[q];[a][p][b][q]concat=n=4:v=0:a=1[out]",
+        "-map", "[out]", "-c:a", "pcm_s16le", str(out),
+    ])
 
 
 class HookRenderError(RuntimeError):
@@ -301,10 +336,13 @@ def _fit_timing(plans: List[BeatPlan], max_hook_sec: float, warnings: List[str])
 
 
 def _subtitle_style() -> str:
-    # SRT 는 384x288 기준 좌표로 변환된다. 8.8 ≈ 1920 높이에서 59px: 한글 22자 한 줄(약 970px)이 1080 폭에 들어가는 크기.
+    # SRT 는 384x288 기준 좌표로 변환된다 (1920 높이 기준 ×6.67).
+    # 2026-11-28 사용자 선택(자막 후보 P3): Pretendard ExtraBold 약 133px, 흰 글자 + 뒤로 비켜 놓은 검은 글자(2레이어),
+    # 아주 얇은 검은 테두리(약 2px), 아래에서 약 300px. 글꼴은 서버 이미지에 넣는다(backend/assets/fonts).
     return (
-        "FontName=Noto Sans CJK KR,FontSize=8.8,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
-        "BorderStyle=1,Outline=0.9,Shadow=0,Alignment=2,MarginL=4,MarginR=4,MarginV=42"
+        "FontName=Pretendard ExtraBold,FontSize=20,Bold=0,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
+        "BackColour=&H00000000,BorderStyle=1,Outline=0.3,Shadow=1.5,Spacing=-0.6,Alignment=2,"
+        "MarginL=6,MarginR=6,MarginV=45"
     )
 
 
@@ -542,46 +580,62 @@ def render_hook(
             if str(tts_label).startswith("inworld:") and ":" in str(tts_label)
             else str(tts_label or getattr(settings, "tts_model", "") or "gemini-tts")
         )
-        for plan in plans:
-            wav = prebuilt_audio.get(plan.order)
-            if wav is not None:
+        pause_before = float(getattr(settings, "hook_reveal_pause_sec", REVEAL_PAUSE_SEC))
+        pause_after = float(getattr(settings, "hook_reveal_pause_after_sec", REVEAL_PAUSE_AFTER_SEC))
+        usage_lock = threading.Lock()
+
+        def _speak(text: str, plan: BeatPlan) -> Path:
+            """문장 하나를 읽는다 (내용·목소리·공급자로 캐시)."""
+            order = plan.order
+            out_path = cache / f"tts_{_digest(text, voice_name, tts_label)}{tts_ext}"
+            if _ready(out_path):
+                plan.reused.append("tts")
+                with usage_lock:
+                    record_usage(stage="tts", step_name=f"beat_{order}", provider=tts_provider_name,
+                                 model=tts_model_name, media_unit="char", media_qty=float(len(text)),
+                                 cache_hit=True, latency_ms=0)
+                return out_path
+            t_tts = time.monotonic()
+            tts_status = "ok"
+            try:
+                provider.generate_tts_beat(text, out_path, voice_name=voice_name)
+            except Exception:
+                tts_status = "error"
+                raise
+            finally:
+                with usage_lock:
+                    record_usage(stage="tts", step_name=f"beat_{order}", provider=tts_provider_name,
+                                 model=tts_model_name, media_unit="char", media_qty=float(len(text)),
+                                 cache_hit=False, latency_ms=int((time.monotonic() - t_tts) * 1000),
+                                 status=tts_status)
+            return out_path
+
+        def _narrate(plan: BeatPlan) -> Optional[Path]:
+            prebuilt = prebuilt_audio.get(plan.order)
+            if prebuilt is not None:
                 plan.reused.append("prebuilt_narration")
-            elif not plan.narration:
-                continue
+                return prebuilt
+            if not plan.narration:
+                return None
+            reveal = split_reveal(plan.narration) if (pause_before > 0 or pause_after > 0) else None
+            if reveal is None:
+                return _speak(plan.narration, plan)
+            # 반전 질문 앞뒤로 뜸: 앞부분 / 무음 / "그래서 …?" / 무음
+            head, question = reveal
+            joined = cache / f"tts_{_digest(plan.narration, voice_name, tts_label, pause_before, pause_after)}_pause.wav"
+            if _ready(joined):
+                plan.reused.append("tts")
             else:
-                wav = cache / f"tts_{_digest(plan.narration, voice_name, tts_label)}{tts_ext}"
-                if _ready(wav):
-                    plan.reused.append("tts")
-                    record_usage(
-                        stage="tts",
-                        step_name=f"beat_{plan.order}",
-                        provider=tts_provider_name,
-                        model=tts_model_name,
-                        media_unit="char",
-                        media_qty=float(len(plan.narration)),
-                        cache_hit=True,
-                        latency_ms=0,
-                    )
-                else:
-                    t_tts = time.monotonic()
-                    tts_status = "ok"
-                    try:
-                        provider.generate_tts_beat(plan.narration, wav, voice_name=voice_name)
-                    except Exception:
-                        tts_status = "error"
-                        raise
-                    finally:
-                        record_usage(
-                            stage="tts",
-                            step_name=f"beat_{plan.order}",
-                            provider=tts_provider_name,
-                            model=tts_model_name,
-                            media_unit="char",
-                            media_qty=float(len(plan.narration)),
-                            cache_hit=False,
-                            latency_ms=int((time.monotonic() - t_tts) * 1000),
-                            status=tts_status,
-                        )
+                _join_with_pause(_speak(head, plan), _speak(question, plan), joined, pause_before, pause_after, media)
+            plan.reused.append("reveal_pause")
+            return joined
+
+        # 장면별 나레이션은 서로 기다릴 필요가 없어 동시에 만든다
+        with ThreadPoolExecutor(max_workers=TTS_PARALLEL, thread_name_prefix="tts") as pool:
+            wavs = list(pool.map(_narrate, plans))
+        for plan, wav in zip(plans, wavs):
+            if wav is None:
+                continue
             info = probe(media, wav)
             if info.duration <= 0:
                 raise HookRenderError(f"장면 {plan.order} 나레이션 음성이 비어 있습니다.")

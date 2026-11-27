@@ -16,13 +16,17 @@ COMMON_RULES = """RULES (apply to every shot):
 - Framing: vertical 9:16. Main subject in the UPPER two thirds of the frame. Keep the bottom third calm (subtitles go there).
 - Camera: one continuous shot with gentle movement. No cuts inside the clip.
 - FORBIDDEN: any readable text, letters, words, numbers or digits anywhere in the frame (no subtitles, captions, speech bubbles, signs, labels, title cards); watermarks; logos; real brand marks. Subtitles are added later by the editor.
-- Keep the same look, palette and main character across all shots of this story."""
+- Keep the same look, palette and main character across all shots of this story.
+- Never show blood, wounds, organs, bones inside the body or anatomical cutaways; show the outside of the body or an everyday analogy instead."""
 
 STYLE_BY_TYPE: Dict[str, str] = {
     "A": "LOOK: cinematic genre short film, strong mood lighting, shallow depth of field. Commit fully to the genre of the story.",
+    # 2026-11-27: 'soft clay' 를 쓰면 모델이 점토 인형처럼만 그렸다 → 블렌더로 모델링·렌더링한 3D 톤으로
     "B": (
-        "LOOK: stylized 3D animation like a small diorama stage, soft clay / low-poly feel, matte materials, "
-        "warm soft window light. NOT photorealistic. One vivid red accent for the key detail."
+        "LOOK: stylized 3D render as if modeled and rendered in Blender (Cycles) on a small diorama stage: clean "
+        "bevelled geometry, physically based materials (glossy plastic, glass, brushed metal, polished wood), soft "
+        "global illumination with gentle ambient occlusion, warm window light. NOT clay, NOT photorealistic. "
+        "One vivid red accent for the key detail."
     ),
     "C": (
         "LOOK: realistic everyday footage shot on a smartphone in a bright home, natural light, "
@@ -149,10 +153,11 @@ FRAME_LOOK_BY_TYPE: Dict[str, str] = {
     "A": "A cinematic film still with strong moody lighting and shallow depth of field.",
     # 2026-11-27: '손으로 빚은 점토'를 쓰면 FLUX 가 지나치게 점토 인형처럼 그렸다 → 매끈한 3D 애니메이션 톤으로
     "B": (
-        "A polished stylized 3D animation still, like a frame from a high-end animated feature film: clean smooth "
-        "surfaces with soft subsurface shading (not clay, no fingerprints or sculpting marks), a small diorama-like "
-        "set, soft warm light, calm natural palette. The one part that explains the idea is highlighted in vivid red; "
-        "do not add any other red objects. Not photorealistic."
+        "A stylized 3D render as if modeled and rendered in Blender with Cycles: clean bevelled geometry, physically "
+        "based materials (glossy plastic, glass, brushed metal, polished wood), soft global illumination and gentle "
+        "ambient occlusion, a small diorama-like stage, warm window light, calm natural palette. Not clay, no "
+        "fingerprints or sculpting marks. The one part that explains the idea is highlighted in vivid red; do not add "
+        "any other red objects. Not photorealistic."
     ),
     "C": (
         "A realistic vertical smartphone photo taken at home in bright natural daylight: plain, honest, "

@@ -26,8 +26,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # ffmpeg(자막 굽기 libass 포함), 한글 글꼴
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk ca-certificates \
+    && apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk fontconfig ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# 훅 자막 글꼴 Pretendard ExtraBold (SIL OFL 1.1, backend/assets/fonts/Pretendard-OFL.txt)
+COPY backend/assets/fonts /usr/local/share/fonts/pretendard
+RUN fc-cache -f
 
 # Node 22 (A·B 작업자 실행용). 같은 Debian bookworm 이라 실행 파일만 옮겨도 된다
 COPY --from=workers /usr/local/bin/node /usr/local/bin/node
