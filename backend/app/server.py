@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from pydantic import BaseModel, Field
 
@@ -19,6 +20,7 @@ from .auth import SESSION_COOKIE_NAME, AuthenticationError, verify_session_token
 from .config import Settings
 from .genai_provider import GenAIMediaProvider
 from .media_delivery import sanitize_object_key
+from .paddle_billing import PaddleApiClient
 from .pipeline import CampaignRequest, ProductionPipeline
 from .pipeline_extras_router import build_pipeline_extras_router
 from .project_store import ProjectStore
@@ -70,6 +72,7 @@ def create_app(
     google_token_verifier: Optional[GoogleTokenVerifier] = None,
     scenario_generator: Optional[ScenarioGenerator] = None,
     storyboard_generator: Optional[StoryboardGenerator] = None,
+    paddle_client: Optional[PaddleApiClient] = None,
     tts_provider: Optional[TTSProvider] = None,
 ) -> FastAPI:
     cfg = settings or Settings()
@@ -90,6 +93,15 @@ def create_app(
         yield
 
     app = FastAPI(title="NAPDA Backend API", version="0.2.0", lifespan=_lifespan)
+    allowed_origins = [o.strip() for o in cfg.cors_origins.split(",") if o.strip()]
+    if allowed_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=allowed_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
     app.state.settings = cfg
     app.state.store = job_store
     app.state.project_store = proj_store
@@ -253,6 +265,7 @@ def create_app(
             google_token_verifier=google_token_verifier,
             scenario_generator=scenario_generator,
             storyboard_generator=storyboard_generator,
+            paddle_client=paddle_client,
         )
     )
     app.include_router(

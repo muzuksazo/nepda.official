@@ -1444,6 +1444,252 @@
           }
         }
       }
+    },
+    "/v1/billing/config": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Get Billing Config",
+        "operationId": "get_billing_config_v1_billing_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingConfigResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/wallet": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Get Wallet",
+        "operationId": "get_wallet_v1_billing_wallet_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/checkout": {
+      "post": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Create Billing Checkout",
+        "operationId": "create_billing_checkout_v1_billing_checkout_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCheckoutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateCheckoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/orders/{order_id}": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Get Billing Order",
+        "operationId": "get_billing_order_v1_billing_orders__order_id__get",
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Order Id"
+            }
+          },
+          {
+            "name": "sync",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Sync"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOrderStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/webhooks/paddle": {
+      "post": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Handle Paddle Webhook",
+        "operationId": "handle_paddle_webhook_v1_billing_webhooks_paddle_post",
+        "parameters": [
+          {
+            "name": "Paddle-Signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Paddle-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaddleWebhookAckResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3621,6 +3867,362 @@
           "outputs"
         ],
         "title": "OutputsResponse"
+      },
+      "BillingConfigResponse": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "paddle",
+            "title": "Provider",
+            "default": "paddle"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "sandbox",
+              "production"
+            ],
+            "title": "Environment",
+            "default": "sandbox"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": false
+          },
+          "client_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Token"
+          },
+          "credits_per_video": {
+            "type": "integer",
+            "title": "Credits Per Video",
+            "default": 12
+          },
+          "packages": {
+            "items": {
+              "$ref": "#/components/schemas/CreditPackageResponse"
+            },
+            "type": "array",
+            "title": "Packages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "packages"
+        ],
+        "title": "BillingConfigResponse"
+      },
+      "BillingOrderStatusResponse": {
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "title": "Order Id"
+          },
+          "package_id": {
+            "type": "string",
+            "enum": [
+              "c30",
+              "c100",
+              "c300"
+            ],
+            "title": "Package Id"
+          },
+          "credits": {
+            "type": "integer",
+            "title": "Credits"
+          },
+          "amount_krw": {
+            "type": "integer",
+            "title": "Amount Krw"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "completed",
+              "failed",
+              "canceled"
+            ],
+            "title": "Status"
+          },
+          "paddle_transaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paddle Transaction Id"
+          },
+          "wallet": {
+            "$ref": "#/components/schemas/WalletResponse"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_id",
+          "package_id",
+          "credits",
+          "amount_krw",
+          "status",
+          "wallet"
+        ],
+        "title": "BillingOrderStatusResponse"
+      },
+      "CreateCheckoutRequest": {
+        "properties": {
+          "package_id": {
+            "type": "string",
+            "enum": [
+              "c30",
+              "c100",
+              "c300"
+            ],
+            "title": "Package Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "package_id"
+        ],
+        "title": "CreateCheckoutRequest"
+      },
+      "CreateCheckoutResponse": {
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "title": "Order Id"
+          },
+          "package_id": {
+            "type": "string",
+            "enum": [
+              "c30",
+              "c100",
+              "c300"
+            ],
+            "title": "Package Id"
+          },
+          "credits": {
+            "type": "integer",
+            "title": "Credits"
+          },
+          "amount_krw": {
+            "type": "integer",
+            "title": "Amount Krw"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "default": "KRW"
+          },
+          "paddle_environment": {
+            "type": "string",
+            "enum": [
+              "sandbox",
+              "production"
+            ],
+            "title": "Paddle Environment"
+          },
+          "paddle_client_token": {
+            "type": "string",
+            "title": "Paddle Client Token"
+          },
+          "paddle_price_id": {
+            "type": "string",
+            "title": "Paddle Price Id"
+          },
+          "paddle_transaction_id": {
+            "type": "string",
+            "title": "Paddle Transaction Id"
+          },
+          "checkout_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkout Url"
+          },
+          "customer_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Email"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "completed",
+              "failed",
+              "canceled"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_id",
+          "package_id",
+          "credits",
+          "amount_krw",
+          "paddle_environment",
+          "paddle_client_token",
+          "paddle_price_id",
+          "paddle_transaction_id",
+          "status"
+        ],
+        "title": "CreateCheckoutResponse"
+      },
+      "CreditPackageResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "c30",
+              "c100",
+              "c300"
+            ],
+            "title": "Id"
+          },
+          "credits": {
+            "type": "integer",
+            "title": "Credits"
+          },
+          "price": {
+            "type": "integer",
+            "title": "Price"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "default": "KRW"
+          },
+          "is_popular": {
+            "type": "boolean",
+            "title": "Is Popular",
+            "default": false
+          },
+          "paddle_price_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paddle Price Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "credits",
+          "price"
+        ],
+        "title": "CreditPackageResponse"
+      },
+      "PaddleWebhookAckResponse": {
+        "properties": {
+          "received": {
+            "type": "boolean",
+            "title": "Received",
+            "default": true
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "event_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Type"
+          },
+          "credited": {
+            "type": "boolean",
+            "title": "Credited",
+            "default": false
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          }
+        },
+        "type": "object",
+        "title": "PaddleWebhookAckResponse"
+      },
+      "WalletResponse": {
+        "properties": {
+          "credits": {
+            "type": "integer",
+            "title": "Credits"
+          },
+          "has_free_video": {
+            "type": "boolean",
+            "title": "Has Free Video"
+          },
+          "free_videos_remaining": {
+            "type": "integer",
+            "title": "Free Videos Remaining"
+          }
+        },
+        "type": "object",
+        "required": [
+          "credits",
+          "has_free_video",
+          "free_videos_remaining"
+        ],
+        "title": "WalletResponse"
       }
     }
   }

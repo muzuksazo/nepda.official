@@ -99,3 +99,47 @@ class TestGoogleAuthAndResumeFlow(unittest.TestCase):
             )
             self.assertEqual(resumed.status_code, 200)
             self.assertEqual(resumed.json()["latest_job_id"], jid)
+
+    def test_cors_headers_and_logout_cookie_clearing(self) -> None:
+        with temporary_directory() as td:
+            client = build_test_client(Path(td))
+
+            preflight = client.options(
+                "/v1/auth/google",
+                headers={
+                    "Origin": "http://localhost:5173",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "content-type",
+                },
+            )
+            self.assertEqual(preflight.status_code, 200)
+            self.assertEqual(
+                preflight.headers.get("access-control-allow-origin"),
+                "http://localhost:5173",
+            )
+            self.assertEqual(
+                preflight.headers.get("access-control-allow-credentials"),
+                "true",
+            )
+
+            login_resp = client.post(
+                "/v1/auth/google",
+                json={"credential": "google-cors:cors@example.com"},
+                headers={"Origin": "http://localhost:5173"},
+            )
+            self.assertEqual(login_resp.status_code, 200)
+            set_cookie = login_resp.headers.get("set-cookie", "")
+            self.assertIn("napda_session=", set_cookie)
+            self.assertIn("HttpOnly", set_cookie)
+            self.assertIn("Path=/", set_cookie)
+            self.assertEqual(
+                login_resp.headers.get("access-control-allow-origin"),
+                "http://localhost:5173",
+            )
+
+            logout_resp = client.post("/v1/auth/logout")
+            self.assertEqual(logout_resp.status_code, 204)
+            clear_cookie = logout_resp.headers.get("set-cookie", "")
+            self.assertIn("napda_session=", clear_cookie)
+            self.assertIn("Max-Age=0", clear_cookie)
+            self.assertEqual(client.get("/v1/auth/me").status_code, 401)

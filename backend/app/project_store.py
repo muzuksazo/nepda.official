@@ -9,7 +9,7 @@ import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .auth import AuthenticatedUser
 
@@ -119,6 +119,53 @@ class ProjectStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_hooks_project_created
                     ON hooks(project_id, created_at DESC);
+
+                CREATE TABLE IF NOT EXISTS credit_wallets (
+                    user_id TEXT PRIMARY KEY,
+                    balance INTEGER NOT NULL DEFAULT 0,
+                    free_videos_remaining INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS billing_orders (
+                    order_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    package_id TEXT NOT NULL,
+                    credits INTEGER NOT NULL,
+                    amount_krw INTEGER NOT NULL,
+                    currency TEXT NOT NULL DEFAULT 'KRW',
+                    paddle_price_id TEXT NOT NULL,
+                    paddle_transaction_id TEXT UNIQUE,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    completed_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_billing_orders_user_created
+                    ON billing_orders(user_id, created_at DESC);
+
+                CREATE TABLE IF NOT EXISTS credit_ledger (
+                    entry_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    delta INTEGER NOT NULL,
+                    balance_after INTEGER NOT NULL,
+                    reason TEXT NOT NULL,
+                    reference_id TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    UNIQUE(reason, reference_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_credit_ledger_user_created
+                    ON credit_ledger(user_id, created_at DESC);
+
+                CREATE TABLE IF NOT EXISTS paddle_webhook_events (
+                    event_id TEXT PRIMARY KEY,
+                    event_type TEXT NOT NULL,
+                    transaction_id TEXT,
+                    payload_json TEXT NOT NULL,
+                    processed_at TEXT NOT NULL
+                );
                 """
             )
             cols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
@@ -602,3 +649,324 @@ class ProjectStore:
                 (project_id,),
             ).fetchall()
         return [self._row_to_hook(r) for r in rows]
+
+    @staticmethod
+    def _row_to_wallet(row: sqlite3.Row) -> Dict[str, Any]:
+        free_rem = int(row["free_videos_remaining"])
+        return {
+            "user_id": row["user_id"],
+            "credits": int(row["balance"]),
+            "free_videos_remaining": free_rem,
+            "has_free_video": free_rem > 0,
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
+    def get_or_create_wallet(
+        self, user_id: str, *, default_free_videos: int = 1
+    ) -> Dict[str, Any]:
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO credit_wallets (
+                    user_id, balance, free_videos_remaining, created_at, updated_at
+                )
+                VALUES (?, 0, ?, ?, ?)
+                """,
+                (user_id, max(0, int(default_free_videos)), now_iso, now_iso),
+            )
+            row = conn.execute(
+                "SELECT * FROM credit_wallets WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+        return self._row_to_wallet(row)  # type: ignore[arg-type]
+
+    @staticmethod
+    def _row_to_billing_order(row: sqlite3.Row) -> Dict[str, Any]:
+        return {
+            "order_id": row["order_id"],
+            "user_id": row["user_id"],
+            "package_id": row["package_id"],
+            "credits": int(row["credits"]),
+            "amount_krw": int(row["amount_krw"]),
+            "currency": row["currency"],
+            "paddle_price_id": row["paddle_price_id"],
+            "paddle_transaction_id": row["paddle_transaction_id"],
+            "status": row["status"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "completed_at": row["completed_at"],
+        }
+
+    def create_billing_order(
+        self,
+        *,
+        order_id: str,
+        user_id: str,
+        package_id: str,
+        credits: int,
+        amount_krw: int,
+        currency: str,
+        paddle_price_id: str,
+        paddle_transaction_id: str,
+    ) -> Dict[str, Any]:
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO billing_orders (
+                    order_id, user_id, package_id, credits, amount_krw, currency,
+                    paddle_price_id, paddle_transaction_id, status, created_at, updated_at, completed_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, NULL)
+                """,
+                (
+                    order_id,
+                    user_id,
+                    package_id,
+                    int(credits),
+                    int(amount_krw),
+                    currency,
+                    paddle_price_id,
+                    paddle_transaction_id,
+                    now_iso,
+                    now_iso,
+                ),
+            )
+            row = conn.execute(
+                "SELECT * FROM billing_orders WHERE order_id = ?",
+                (order_id,),
+            ).fetchone()
+        return self._row_to_billing_order(row)  # type: ignore[arg-type]
+
+    def get_billing_order(
+        self, order_id: str, *, user_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        with self._lock, self._connect() as conn:
+            if user_id is None:
+                row = conn.execute(
+                    "SELECT * FROM billing_orders WHERE order_id = ?",
+                    (order_id,),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT * FROM billing_orders WHERE order_id = ? AND user_id = ?",
+                    (order_id, user_id),
+                ).fetchone()
+        return self._row_to_billing_order(row) if row else None
+
+    def get_billing_order_by_transaction(
+        self, paddle_transaction_id: str
+    ) -> Optional[Dict[str, Any]]:
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM billing_orders WHERE paddle_transaction_id = ?",
+                (paddle_transaction_id,),
+            ).fetchone()
+        return self._row_to_billing_order(row) if row else None
+
+    def complete_billing_order_atomic(
+        self,
+        *,
+        order_id: Optional[str] = None,
+        paddle_transaction_id: Optional[str] = None,
+        event_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        payload_json: Optional[str] = None,
+        default_free_videos: int = 1,
+    ) -> Tuple[Optional[Dict[str, Any]], bool, Optional[Dict[str, Any]]]:
+        """Atomically mark a pending billing order completed and credit the user's wallet once."""
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            if event_id:
+                seen_evt = conn.execute(
+                    "SELECT event_id FROM paddle_webhook_events WHERE event_id = ?",
+                    (event_id,),
+                ).fetchone()
+                if seen_evt:
+                    order_row = None
+                    if order_id:
+                        order_row = conn.execute(
+                            "SELECT * FROM billing_orders WHERE order_id = ?",
+                            (order_id,),
+                        ).fetchone()
+                    if order_row is None and paddle_transaction_id:
+                        order_row = conn.execute(
+                            "SELECT * FROM billing_orders WHERE paddle_transaction_id = ?",
+                            (paddle_transaction_id,),
+                        ).fetchone()
+                    if order_row is None:
+                        return None, False, None
+                    wallet_row = conn.execute(
+                        "SELECT * FROM credit_wallets WHERE user_id = ?",
+                        (order_row["user_id"],),
+                    ).fetchone()
+                    return (
+                        self._row_to_billing_order(order_row),
+                        False,
+                        self._row_to_wallet(wallet_row) if wallet_row else None,
+                    )
+
+            order_row = None
+            if order_id:
+                order_row = conn.execute(
+                    "SELECT * FROM billing_orders WHERE order_id = ?",
+                    (order_id,),
+                ).fetchone()
+            if order_row is None and paddle_transaction_id:
+                order_row = conn.execute(
+                    "SELECT * FROM billing_orders WHERE paddle_transaction_id = ?",
+                    (paddle_transaction_id,),
+                ).fetchone()
+            if order_row is None:
+                return None, False, None
+
+            resolved_order_id = order_row["order_id"]
+            uid = order_row["user_id"]
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO credit_wallets (
+                    user_id, balance, free_videos_remaining, created_at, updated_at
+                )
+                VALUES (?, 0, ?, ?, ?)
+                """,
+                (uid, max(0, int(default_free_videos)), now_iso, now_iso),
+            )
+
+            existing_ledger = conn.execute(
+                "SELECT entry_id FROM credit_ledger WHERE reason = 'paddle_charge' AND reference_id = ?",
+                (resolved_order_id,),
+            ).fetchone()
+
+            credited = False
+            if order_row["status"] != "completed" and existing_ledger is None:
+                wallet_row = conn.execute(
+                    "SELECT * FROM credit_wallets WHERE user_id = ?",
+                    (uid,),
+                ).fetchone()
+                cur_balance = int(wallet_row["balance"]) if wallet_row else 0
+                new_balance = cur_balance + int(order_row["credits"])
+                conn.execute(
+                    "UPDATE credit_wallets SET balance = ?, updated_at = ? WHERE user_id = ?",
+                    (new_balance, now_iso, uid),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO credit_ledger (
+                        entry_id, user_id, delta, balance_after, reason, reference_id, metadata_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, 'paddle_charge', ?, ?, ?)
+                    """,
+                    (
+                        f"led_{uuid.uuid4().hex[:12]}",
+                        uid,
+                        int(order_row["credits"]),
+                        new_balance,
+                        resolved_order_id,
+                        json.dumps(
+                            {
+                                "package_id": order_row["package_id"],
+                                "paddle_transaction_id": order_row["paddle_transaction_id"],
+                                "event_id": event_id,
+                            },
+                            ensure_ascii=False,
+                        ),
+                        now_iso,
+                    ),
+                )
+                conn.execute(
+                    """
+                    UPDATE billing_orders
+                    SET status = 'completed', updated_at = ?, completed_at = ?
+                    WHERE order_id = ?
+                    """,
+                    (now_iso, now_iso, resolved_order_id),
+                )
+                credited = True
+
+            if event_id:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO paddle_webhook_events (
+                        event_id, event_type, transaction_id, payload_json, processed_at
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        event_id,
+                        event_type or "transaction.completed",
+                        paddle_transaction_id or order_row["paddle_transaction_id"],
+                        payload_json or "{}",
+                        now_iso,
+                    ),
+                )
+
+            updated_order = conn.execute(
+                "SELECT * FROM billing_orders WHERE order_id = ?",
+                (resolved_order_id,),
+            ).fetchone()
+            updated_wallet = conn.execute(
+                "SELECT * FROM credit_wallets WHERE user_id = ?",
+                (uid,),
+            ).fetchone()
+        return (
+            self._row_to_billing_order(updated_order),  # type: ignore[arg-type]
+            credited,
+            self._row_to_wallet(updated_wallet),  # type: ignore[arg-type]
+        )
+
+    def mark_billing_order_status(
+        self,
+        *,
+        order_id: Optional[str] = None,
+        paddle_transaction_id: Optional[str] = None,
+        status: str,
+        event_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        payload_json: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            row = None
+            if order_id:
+                row = conn.execute(
+                    "SELECT * FROM billing_orders WHERE order_id = ?",
+                    (order_id,),
+                ).fetchone()
+            if row is None and paddle_transaction_id:
+                row = conn.execute(
+                    "SELECT * FROM billing_orders WHERE paddle_transaction_id = ?",
+                    (paddle_transaction_id,),
+                ).fetchone()
+            if row is None:
+                return None
+
+            if row["status"] == "pending":
+                conn.execute(
+                    "UPDATE billing_orders SET status = ?, updated_at = ? WHERE order_id = ?",
+                    (status, now_iso, row["order_id"]),
+                )
+
+            if event_id:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO paddle_webhook_events (
+                        event_id, event_type, transaction_id, payload_json, processed_at
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        event_id,
+                        event_type or status,
+                        paddle_transaction_id or row["paddle_transaction_id"],
+                        payload_json or "{}",
+                        now_iso,
+                    ),
+                )
+
+            updated = conn.execute(
+                "SELECT * FROM billing_orders WHERE order_id = ?",
+                (row["order_id"],),
+            ).fetchone()
+        return self._row_to_billing_order(updated) if updated else None

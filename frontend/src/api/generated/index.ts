@@ -1,4 +1,5 @@
 export * from './auth/auth';
+export * from './billing/billing';
 export * from './credits/credits';
 export * from './default/default';
 export * from './delivery/delivery';

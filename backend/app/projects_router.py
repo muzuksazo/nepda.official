@@ -26,20 +26,32 @@ from .config import Settings
 from .filming_guide_service import build_filming_guide
 from .genai_provider import GenAIMediaProvider
 from .media_delivery import resolve_media_url
+from .paddle_billing import (
+    HttpxPaddleApiClient,
+    PaddleApiClient,
+    PaddleApiError,
+    get_credit_packages,
+    verify_paddle_webhook_signature,
+)
 from .pipeline import CampaignRequest, ProductionPipeline
 from .product_enrichment import enrich_product_with_source_url
 from .project_schemas import (
     AIDisclosureInfo,
     AuthMeResponse,
     AuthUserResponse,
+    BillingConfigResponse,
+    BillingOrderStatusResponse,
     CompleteUploadsRequest,
     CompleteUploadsResponse,
+    CreateCheckoutRequest,
+    CreateCheckoutResponse,
     CreateFilmingGuideRequest,
     CreateHookRequest,
     CreateHookResponse,
     CreateProjectRequest,
     CreateRenderRequest,
     CreateRenderResponse,
+    CreditPackageResponse,
     DeliverablesResponse,
     DeliverableThumbnail,
     DeliverableVideo,
@@ -58,6 +70,7 @@ from .project_schemas import (
     HookTypesResponse,
     OutputItem,
     OutputsResponse,
+    PaddleWebhookAckResponse,
     ProductInfoRequest,
     ProductInfoResponse,
     ProductInput,
@@ -73,6 +86,7 @@ from .project_schemas import (
     StoryboardResponse,
     UploadClipMetadata,
     UploadWarning,
+    WalletResponse,
 )
 from .project_store import ProjectStore
 from .retention import is_project_expired, sync_project_status_with_job
@@ -390,12 +404,14 @@ def build_projects_router(
     google_token_verifier: Optional[GoogleTokenVerifier] = None,
     scenario_generator: Optional[ScenarioGenerator] = None,
     storyboard_generator: Optional[StoryboardGenerator] = None,
+    paddle_client: Optional[PaddleApiClient] = None,
 ) -> APIRouter:
-    """Build `/v1/auth/*`, `/v1/hook-types`, and `/v1/projects/*` routes."""
+    """Build `/v1/auth/*`, `/v1/billing/*`, `/v1/hook-types`, and `/v1/projects/*` routes."""
     router = APIRouter()
     verify_google = google_token_verifier or verify_google_id_token
     gen_scenarios = scenario_generator or _default_scenario_generator(settings)
     gen_storyboard = storyboard_generator or _default_storyboard_generator(settings, storage)
+    paddle = paddle_client or HttpxPaddleApiClient(settings)
 
     def _quota(user_id: str) -> QuotaStatus:
         now = datetime.now(timezone.utc)
@@ -468,8 +484,10 @@ def build_projects_router(
             key=SESSION_COOKIE_NAME,
             value=token,
             max_age=settings.session_ttl_days * 86400,
+            path="/",
             httponly=True,
             samesite="lax",
+            secure=settings.session_cookie_secure,
         )
         return GoogleAuthResponse(
             user=AuthUserResponse(**user.__dict__),
@@ -480,7 +498,13 @@ def build_projects_router(
 
     @router.post("/v1/auth/logout", status_code=status.HTTP_204_NO_CONTENT, tags=["Auth"])
     def auth_logout(response: Response) -> Response:
-        response.delete_cookie(SESSION_COOKIE_NAME)
+        response.delete_cookie(
+            SESSION_COOKIE_NAME,
+            path="/",
+            httponly=True,
+            samesite="lax",
+            secure=settings.session_cookie_secure,
+        )
         response.status_code = status.HTTP_204_NO_CONTENT
         return response
 
@@ -923,6 +947,7 @@ def build_projects_router(
                 height=1920,
                 lufs=lufs_obj.get("final_lufs"),
             )
+
         thumbs = arts.get("thumbnails") or []
         thumb = None
         if thumbs:
@@ -1098,5 +1123,241 @@ def build_projects_router(
             for h in hooks
         ]
         return OutputsResponse(project_id=project_id, outputs=items)
+
+    def _wallet_response(user_id: str) -> WalletResponse:
+        wallet = project_store.get_or_create_wallet(
+            user_id, default_free_videos=settings.initial_free_videos
+        )
+        return WalletResponse(
+            credits=wallet["credits"],
+            has_free_video=wallet["has_free_video"],
+            free_videos_remaining=wallet["free_videos_remaining"],
+        )
+
+    @router.get("/v1/billing/config", response_model=BillingConfigResponse, tags=["Billing"])
+    def get_billing_config() -> BillingConfigResponse:
+        packages = get_credit_packages(settings)
+        client_token = (settings.paddle_client_token or "").strip() or None
+        api_key_ready = bool((settings.paddle_api_key or "").strip())
+        has_price = any(p.paddle_price_id for p in packages)
+        enabled = bool(api_key_ready and client_token and has_price)
+        return BillingConfigResponse(
+            provider="paddle",
+            environment=settings.paddle_environment,
+            enabled=enabled,
+            client_token=client_token,
+            credits_per_video=settings.credits_per_video,
+            packages=[
+                CreditPackageResponse(
+                    id=p.id,  # type: ignore[arg-type]
+                    credits=p.credits,
+                    price=p.price,
+                    currency=p.currency,
+                    is_popular=p.is_popular,
+                    paddle_price_id=p.paddle_price_id,
+                )
+                for p in packages
+            ],
+        )
+
+    @router.get("/v1/billing/wallet", response_model=WalletResponse, tags=["Billing"])
+    def get_wallet(user: AuthenticatedUser = Depends(require_user)) -> WalletResponse:
+        return _wallet_response(user.user_id)
+
+    @router.post("/v1/billing/checkout", response_model=CreateCheckoutResponse, tags=["Billing"])
+    def create_billing_checkout(
+        body: CreateCheckoutRequest,
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> CreateCheckoutResponse:
+        packages = {p.id: p for p in get_credit_packages(settings)}
+        pkg = packages.get(body.package_id)
+        if not pkg:
+            raise _api_error(status.HTTP_404_NOT_FOUND, "PACKAGE_NOT_FOUND", "크레딧 묶음을 찾을 수 없습니다.")
+
+        client_token = (settings.paddle_client_token or "").strip()
+        api_key = (settings.paddle_api_key or "").strip()
+        if not client_token or not pkg.paddle_price_id or (not api_key and paddle_client is None):
+            raise _api_error(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "BILLING_NOT_CONFIGURED",
+                "Paddle Sandbox 결제 설정이 아직 완료되지 않았습니다.",
+            )
+
+        order_id = f"ord_{uuid.uuid4().hex[:12]}"
+        try:
+            txn = paddle.create_transaction(
+                price_id=pkg.paddle_price_id,
+                custom_data={
+                    "order_id": order_id,
+                    "user_id": user.user_id,
+                    "package_id": pkg.id,
+                    "credits": pkg.credits,
+                },
+                customer_email=user.email,
+            )
+        except PaddleApiError as exc:
+            raise _api_error(exc.status_code, "PADDLE_API_ERROR", str(exc), exc.detail) from exc
+
+        txn_id = str(txn["id"])
+        checkout_obj = txn.get("checkout")
+        checkout_url = checkout_obj.get("url") if isinstance(checkout_obj, dict) else None
+        order = project_store.create_billing_order(
+            order_id=order_id,
+            user_id=user.user_id,
+            package_id=pkg.id,
+            credits=pkg.credits,
+            amount_krw=pkg.price,
+            currency=pkg.currency,
+            paddle_price_id=pkg.paddle_price_id,
+            paddle_transaction_id=txn_id,
+        )
+        return CreateCheckoutResponse(
+            order_id=order["order_id"],
+            package_id=order["package_id"],
+            credits=order["credits"],
+            amount_krw=order["amount_krw"],
+            currency=order["currency"],
+            paddle_environment=settings.paddle_environment,
+            paddle_client_token=client_token,
+            paddle_price_id=pkg.paddle_price_id,
+            paddle_transaction_id=txn_id,
+            checkout_url=checkout_url,
+            customer_email=user.email,
+            status=order["status"],
+        )
+
+    @router.get("/v1/billing/orders/{order_id}", response_model=BillingOrderStatusResponse, tags=["Billing"])
+    def get_billing_order(
+        order_id: str,
+        sync: bool = Query(default=True),
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> BillingOrderStatusResponse:
+        order = project_store.get_billing_order(order_id, user_id=user.user_id)
+        if not order:
+            raise _api_error(status.HTTP_404_NOT_FOUND, "ORDER_NOT_FOUND", "결제 주문을 찾을 수 없습니다.")
+
+        if (
+            order["status"] == "pending"
+            and sync
+            and order.get("paddle_transaction_id")
+            and ((settings.paddle_api_key or "").strip() or paddle_client is not None)
+        ):
+            try:
+                txn = paddle.get_transaction(order["paddle_transaction_id"])
+            except PaddleApiError:
+                txn = None
+            if isinstance(txn, dict):
+                custom_data = txn.get("custom_data") if isinstance(txn.get("custom_data"), dict) else {}
+                custom_oid = custom_data.get("order_id") if custom_data else None
+                txn_status = str(txn.get("status") or "").lower()
+                if custom_oid in (None, order["order_id"]):
+                    if txn_status in {"completed", "paid"}:
+                        updated, _, _ = project_store.complete_billing_order_atomic(
+                            order_id=order["order_id"],
+                            paddle_transaction_id=order["paddle_transaction_id"],
+                            default_free_videos=settings.initial_free_videos,
+                        )
+                        if updated:
+                            order = updated
+                    elif txn_status == "canceled":
+                        updated = project_store.mark_billing_order_status(
+                            order_id=order["order_id"],
+                            status="canceled",
+                        )
+                        if updated:
+                            order = updated
+
+        return BillingOrderStatusResponse(
+            order_id=order["order_id"],
+            package_id=order["package_id"],
+            credits=order["credits"],
+            amount_krw=order["amount_krw"],
+            status=order["status"],
+            paddle_transaction_id=order.get("paddle_transaction_id"),
+            wallet=_wallet_response(user.user_id),
+            completed_at=order.get("completed_at"),
+        )
+
+    @router.post("/v1/billing/webhooks/paddle", response_model=PaddleWebhookAckResponse, tags=["Billing"])
+    async def handle_paddle_webhook(
+        request: Request,
+        paddle_signature: Optional[str] = Header(default=None, alias="Paddle-Signature"),
+    ) -> PaddleWebhookAckResponse:
+        secret = (settings.paddle_webhook_secret or "").strip()
+        if not secret:
+            raise _api_error(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "WEBHOOK_NOT_CONFIGURED",
+                "Paddle 웹훅 시크릿이 설정되지 않았습니다.",
+            )
+
+        raw_body = await request.body()
+        if not verify_paddle_webhook_signature(
+            raw_body,
+            paddle_signature,
+            secret,
+            tolerance_sec=settings.paddle_webhook_tolerance_sec,
+        ):
+            raise _api_error(
+                status.HTTP_401_UNAUTHORIZED,
+                "INVALID_WEBHOOK_SIGNATURE",
+                "Paddle 웹훅 서명 검증에 실패했습니다.",
+            )
+
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+        except Exception as exc:
+            raise _api_error(status.HTTP_400_BAD_REQUEST, "INVALID_JSON", "잘못된 JSON 본문입니다.") from exc
+
+        event_id = payload.get("event_id")
+        event_type = payload.get("event_type")
+        data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+        txn_id = data.get("id")
+        custom_data = data.get("custom_data") if isinstance(data.get("custom_data"), dict) else {}
+        order_id = custom_data.get("order_id")
+        raw_text = raw_body.decode("utf-8", errors="replace")
+
+        if event_type in {"transaction.completed", "transaction.paid"}:
+            updated, credited, _ = project_store.complete_billing_order_atomic(
+                order_id=order_id,
+                paddle_transaction_id=txn_id,
+                event_id=event_id,
+                event_type=event_type,
+                payload_json=raw_text,
+                default_free_videos=settings.initial_free_videos,
+            )
+            return PaddleWebhookAckResponse(
+                received=True,
+                event_id=event_id,
+                event_type=event_type,
+                credited=credited,
+                order_id=(updated or {}).get("order_id") or order_id,
+            )
+
+        if event_type in {"transaction.payment_failed", "transaction.canceled"}:
+            target_status = "failed" if event_type == "transaction.payment_failed" else "canceled"
+            updated = project_store.mark_billing_order_status(
+                order_id=order_id,
+                paddle_transaction_id=txn_id,
+                status=target_status,
+                event_id=event_id,
+                event_type=event_type,
+                payload_json=raw_text,
+            )
+            return PaddleWebhookAckResponse(
+                received=True,
+                event_id=event_id,
+                event_type=event_type,
+                credited=False,
+                order_id=(updated or {}).get("order_id") or order_id,
+            )
+
+        return PaddleWebhookAckResponse(
+            received=True,
+            event_id=event_id,
+            event_type=event_type,
+            credited=False,
+            order_id=order_id,
+        )
 
     return router
