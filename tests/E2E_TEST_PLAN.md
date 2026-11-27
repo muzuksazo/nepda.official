@@ -1,6 +1,6 @@
 # NAPDA Full-Stack E2E 테스트 계획 및 3인 개발자 분배표
 
-> 최종 업데이트: 2026-11-27 (`origin/main` @ `87bd964`)  
+> 최종 업데이트: 2026-11-27 (`origin/main` @ `417d2ff`, PR #14 병합 후)  
 > 대상 서비스: `frontend/` (React 19 + Vite) ↔ `backend/` (FastAPI) ↔ `libraries/planner-api` (Node) ↔ `libraries/media-tools` (FFmpeg / Pillow)  
 > 3인 편성: **나** (**A안**) · **시우님** (**B안**, `FR-003, FR-004, FR-005, FR-010` 전담) · **상윤님** (**C안**)
 
@@ -31,8 +31,8 @@
 | **E2E-L01** | Auth / Privacy | 온보딩 · 개인정보 | `/privacy.html` 200 응답 + 비로그인 `/` 진입 시 `OnboardingScreen` 및 Google 로그인 슬롯 확인 | `01_local_onboarding_privacy.mp4` |
 | **E2E-L02** | Auth | 인증 세션 · 프로젝트 시드 | HMAC 세션 쿠키 발급 → `GET /v1/auth/me`, `/v1/hook-types`, `/v1/billing/config`, `POST /v1/projects` 실DB 적재 | *(공통 사전 검증 / 로그)* |
 | **E2E-L03** | Core UI | 홈 · 내 영상 (`App.tsx`) | 홈(`0` 크레딧 배지, 배너, 진행 중·완료 실카드) → `내 영상` 탭 → `진행 중` / `완료` 탭 전환 | `02_local_home_my_videos.mp4` |
-| **E2E-L04** | Core UI | 커뮤니티 탐색 | `커뮤니티` 탭 진입 → 추천 그리드 렌더링 → `전체` / `A 유형` / `B 유형` / `C 유형` 필터 전환 | `03_local_community_filters.mp4` |
-| **E2E-L05** | Core UI | 내 정보 · 테마 | `프로필` 탭(`냅다 E2E 테스터`, `e2e@napda.kr`, `무료` 1회, `7일` 보관 안내, `1/1` 카운트) → `다크` / `라이트` / `기기 설정` 전환 | `04_local_profile_theme.mp4` |
+| **E2E-L04** | Core UI | 탐색 (구 커뮤니티) | `탐색` 탭 진입 → 추천 그리드 렌더링 → `전체` / `A 유형` / `B 유형` / `C 유형` 필터 전환 | `03_local_community_filters.mp4` |
+| **E2E-L05** | Core UI | 내 정보 · `#1A1A1A` 테마 | `프로필` 탭(`냅다 E2E 테스터`, `e2e@napda.kr`, 크레딧, `7일` 보관 안내, `1/1` 카운트) → `#1A1A1A` `다크` / `라이트` / `기기 설정` 전환 | `04_local_profile_theme.mp4` |
 | **E2E-L06** | `FR-006` | 크레딧 충전 · Paddle · 웹훅 | `충전하기` → `c100`(12,900원) 선택 → `POST /v1/billing/checkout`(`200`, `txn_...`) → Paddle Sandbox 오버레이 확인 → 서명 `POST /v1/billing/webhooks/paddle`(`200`) → UI **`0 → 100`** 반영 | `05_local_billing_paddle_webhook.mp4` |
 | **E2E-L07** | Auth | 로그아웃 · 세션 만료 | `프로필` → `로그아웃` 시트 승인 → `POST /v1/auth/logout`(`204`) → `로그인이 풀렸어요` → `/` 온보딩 복귀 | `06_local_logout.mp4` |
 | **E2E-L08** | `FR-001~014` UI | 8단계 제작 위저드 UI (`App.tsx` 연동 후) | 홈 `영상 만들기` → 제품 정보 → 훅 유형 → 시나리오 → 콘티 → 촬영 가이드 → 업로드 → 영상 확인 → 썸네일 다운로드 + 크레딧 부족 충전 복귀 ([Flow.stories.tsx](../frontend/src/ui/screens/Flow.stories.tsx) 실앱 이관) | `08_local_wizard_8step.mp4` |
@@ -118,19 +118,19 @@ npm --prefix frontend run lint && npm --prefix frontend run build
 
 ---
 
-## 5. 최신 실행 결과 기록 (2026-11-27 실행 기준)
+## 5. 최신 실행 결과 기록 (2026-11-27 PR #14 병합 `417d2ff` 기준)
 
 | 기능 녹화 파일 | 대상 환경 | 재생 시간 / 크기 | 검증 결과 | 핵심 확인 사항 |
 |---|---|---|---|---|
-| `01_local_onboarding_privacy.mp4` | Local (`:15173` → `:18080`) | `6.48s` / 152 KB | **PASS** | `/privacy.html` 200, 비로그인 온보딩 화면·Google 로그인 슬롯, 에러 0건 |
-| `02_local_home_my_videos.mp4` | Local (`:15173` → `:18080`) | `4.76s` / 96 KB | **PASS** | 실DB 시드 2건(`진행 중`·`완료`) 홈 카드 표시, `내 영상` 탭 양쪽 필터 정상 |
-| `03_local_community_filters.mp4` | Local (`:15173` → `:18080`) | `5.68s` / 204 KB | **PASS** | `커뮤니티` 그리드 렌더링 + `전체`·`A`·`B`·`C 유형` 탭 전환 정상 |
-| `04_local_profile_theme.mp4` | Local (`:15173` → `:18080`) | `4.92s` / 164 KB | **PASS** | 실사용자 계정·`7일` 보관·`다크`/`라이트`/`기기 설정` 테마 전환 정상 |
-| `05_local_billing_paddle_webhook.mp4` | Local (`:15173` → `:18080`) | `6.80s` / 219 KB | **PASS** | `POST /v1/billing/checkout`(`txn_01m8dsx2n9cmp2486q88h6esd2`) + Paddle Sandbox 오버레이 오픈 + 실서명 웹훅 → 잔액 **`0 → 100`** |
-| `06_local_logout.mp4` | Local (`:15173` → `:18080`) | `5.32s` / 197 KB | **PASS** | `POST /v1/auth/logout` `204` → `로그인이 풀렸어요` → 홈 온보딩 복귀 |
-| `07_live_prod_smoke.mp4` | Live (`https://napda.vercel.app`) | `10.28s` / 113 KB | **PASS** | `/health` `200`(`status: ok`), `/v1/billing/config` `200`(`sandbox`, 3종), `/v1/auth/me` `401`, `/privacy.html` `200`, `/` 온보딩 정상 |
+| `01_local_onboarding_privacy.mp4` | Local (`:15175` → `:18082`) | `6.04s` / 99 KB | **PASS** | `/privacy.html` `200`, 비로그인 온보딩 화면·Google 로그인 슬롯, 에러 0건 |
+| `02_local_home_my_videos.mp4` | Local (`:15175` → `:18082`) | `4.36s` / 119 KB | **PASS** | PR #14 통합 `내 영상 2` 캐러셀 실DB 시드 2건 표시 + `내 영상` `진행 중`/`완료` 탭 전환 정상 |
+| `03_local_community_filters.mp4` | Local (`:15175` → `:18082`) | `5.28s` / 193 KB | **PASS** | PR #14 `탐색` 탭 그리드 + `전체`·`A`·`B`·`C 유형` 필터 전환 정상 |
+| `04_local_profile_theme.mp4` | Local (`:15175` → `:18082`) | `4.36s` / 158 KB | **PASS** | 실사용자 계정·`7일` 보관·PR #14 `#1A1A1A` `다크`/`라이트`/`기기 설정` 테마 전환 정상 |
+| `05_local_billing_paddle_webhook.mp4` | Local (`:15175` → `:18082`) | `5.04s` / 161 KB | **PASS** | `POST /v1/billing/checkout`(`ord_9a574294b0b2`) + Paddle Sandbox 오버레이 오픈 + 실서명 웹훅 → 잔액 **`0 → 100`** |
+| `abc_A_hook_e2e.mp4` (**나 담당 A안**) | Local (`:15175` → `:18082` + Track A) | `38.28s` / 395 KB | **PASS** | 실제 앱 8단계 완주: `제품 정보` → `A 유형` → `시나리오` → `촬영 가이드` → 8.5초 MP4 `영상 올리기` → Track A FFmpeg/Inworld TTS 실렌더(`짜잔, 영상 나왔어요` `<video>`) → `8/8 썸네일·내려받기` |
+| `06_local_logout.mp4` | Local (`:15175` → `:18082`) | `5.20s` / 199 KB | **PASS** | `POST /v1/auth/logout` `204` → `로그인이 풀렸어요` → 홈 온보딩 복귀 |
+| `07_live_prod_smoke.mp4` | Live (`https://napda.vercel.app`) | `8.68s` / 115 KB | **PASS** | `/health` `200`(`status: ok`), `/v1/billing/config` `200`(`sandbox`, 3종), `/v1/auth/me` `401`, `/privacy.html` `200`, `/` 온보딩 정상 |
 | `E2E-P06` (API 보안 검증) | Live (`https://napda-api.vercel.app`) | — | **PASS** | 무서명 `401`, 변조 서명 `401`, 정상 HMAC-SHA256 `200` (`received: true`, `credited: false`) |
-| `E2E-ABC-A` (A안 백엔드 API) | Isolated FastAPI + FFmpeg | — | **PASS** | `product-info` → `projects(A)` → `scenarios` → `select` → `storyboard`(2컷) → `filming-guide`(4샷) → `estimate`(32크레딧) → `presign` + `uploads/complete`(`6.5s`, `UPLOADS_READY`) *(UI 녹화 `abc_A_hook_e2e.mp4`는 동시 작업 중인 `frontend/src/App.tsx` TS 오류 해소 후 진행)* |
 
-- **오프라인 테스트 현황**: Python `54/54` 통과, Node `7/7` 통과 (`typecheck`/`build` 포함), Frontend `oxlint` 0 error (`vite build`는 현재 동시 수정 중인 `frontend/src/App.tsx` TS 오류 8건 해결 대기).
+- **오프라인 테스트 현황 (`417d2ff`)**: Python **54/54 통과**, Node **7/7 통과** (`typecheck`/`build` 포함), Frontend `oxlint` 0 error & `vite build` 통과.
 - **남은 실서버 대화형 QA (실계정 Google 로그인 필요)**: `E2E-P03` (실계정 Google 로그인/쿠키 유지), `E2E-P05` (실서버 Paddle Sandbox 테스트 카드 결제).
