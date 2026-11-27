@@ -17,6 +17,7 @@ A·B·C 세 트랙의 작업물을 하나의 길로 잇는 백엔드 코드입�
 | 훅 영상 | `render.py`, `prompts.py`, `captions.py` | 장면마다 영상 모델 클립을 만들고, 나레이션과 자막을 얹어 규격 파일로 저장합니다. |
 | 공용 본편 (FR-009) | `body_edit.py` | 촬영 영상 프레임을 글 모델(`BODY_LLM`)에 보여 대본 2~3문장과 컷을 고르고, 나레이션·자막을 얹어 정확히 10초(`BODY_TARGET_SEC`) 본편을 만듭니다. 프로젝트마다 한 번 만들어 A·B·C 훅이 같이 씁니다. FR-009 결과(`project.body.video_key`/`video_path`)가 있으면 그것을 씁니다. |
 | 본편 붙이기 (FR-010) | `body.py` | 훅 뒤에 본편을 붙이고 `hook.srt` + `body.srt` 를 합친 `final.srt` 를 만듭니다. |
+| A 템플릿 | `a_templates.py` | A 는 앞부분(제품과 무관한 장면)을 미리 만든 템플릿 영상으로 쓰고, 요청마다 글 모델이 템플릿을 고르고 착지 장면 하나만 씁니다. 템플릿은 R2 의 `templates/a/`(`HOOK_A_TEMPLATES`)에 `catalog.json` 과 장면 영상으로 둡니다. 형식은 파일 맨 위 설명에 있습니다. 템플릿이 없거나 실패하면 A 작업자로 전부 실시간 생성합니다. |
 | 서버 연결 | `service.py` | `backend/app`의 `POST /hooks`, `POST /renders`가 부르는 진입점입니다. |
 
 영상·이미지·음성 생성은 서버의 `app/genai_provider.py`(`GenAIMediaProvider`)를 그대로 씁니다. 파일 저장도 서버의 `storage`를 씁니다.

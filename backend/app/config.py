@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     hook_worker_mode: Literal["auto", "off"] = "auto"  # auto: 작업자 호출, 실패하면 planner-api
     hook_workers_dir: str = str(_PROD_ROOT / "bridge-dev")
     hook_assets_dir: str = str(_PROD_ROOT / "data" / "hook_assets")  # 미리 만든 훅 영상(prebuilt_clip)을 두는 곳
+    # A 유형: template(앞부분은 미리 만든 템플릿, 착지 장면만 생성. 템플릿이 없으면 realtime 으로) | realtime
+    hook_a_mode: Literal["template", "realtime"] = "template"
+    # A 템플릿 위치: "storage:<경로>" 면 서버 저장소(R2)의 그 경로, 아니면 로컬 폴더. 형식은 hookpipe/a_templates.py
+    hook_a_templates: str = "storage:templates/a"
     hook_worker_timeout_sec: float = 900.0
     # 시나리오 작업자의 글 모델을 Gemini 로 바꾼다 (예: gemini-4-hydrogen). 비우면 각 트랙 기본(Claude).
     # B 는 B_LLM 스위치로, C 는 hookpipe 가 같은 프롬프트·스키마로 Gemini 를 부른다. A 는 Claude 전용이라 그대로.

@@ -121,11 +121,15 @@ class HookPipeline:
         HOOK_ASSETS_DIR 밖을 가리키는 경로(절대 경로, ../)는 받지 않는다.
         """
         base = Path(getattr(self.settings, "hook_assets_dir", "")).resolve()
+        roots = [base]
+        templates = str(getattr(self.settings, "hook_a_templates", "") or "")
+        if templates and not templates.startswith("storage:"):
+            roots.append(Path(templates).resolve())  # A 템플릿을 로컬 폴더에 둔 경우 (개발·테스트)
         try:
             local = (base / ref).resolve()
         except (OSError, ValueError):
             local = None
-        if local is not None and local.is_relative_to(base):
+        if local is not None and any(local.is_relative_to(root) for root in roots):
             if local.is_file():
                 return local
         elif local is not None:

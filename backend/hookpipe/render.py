@@ -180,6 +180,44 @@ def _clip_seconds(duration: float) -> int:
     return max(MIN_CLIP_SEC, min(MAX_CLIP_SEC, math.ceil(duration - 1e-6)))
 
 
+def generate_clip_with_retries(
+    provider: Any,
+    prompt: str,
+    clip: Path,
+    *,
+    clip_sec: int,
+    resolution: str,
+    reference_paths: Sequence[Path],
+) -> tuple:
+    """영상 모델로 클립 하나. INVALID_ARGUMENT 로 거절되면 (실패한 요청은 과금되지 않음) 조건을 낮춰 다시 보낸다:
+    1) 그대로  2) 참고 이미지 없이  3) 단면·해부 묘사를 바깥에서 본 장면으로 바꿔서.
+    2026-11-27 실측: 참고 이미지 원본 크기, '고래 입안 … 단면 시각화' 장면이 각각 거절됐다.
+    돌려주는 값: (다시 만든 방법 태그 또는 "", 실제로 쓴 프롬프트)
+    """
+    attempts = [("", prompt, list(reference_paths))]
+    if reference_paths:
+        attempts.append(("retried_without_reference", prompt, []))
+    softened = soften_prompt(prompt)
+    if softened != prompt:
+        attempts.append(("retried_outside_view", softened, []))
+    for position, (tag, prompt_text, refs_to_send) in enumerate(attempts):
+        try:
+            provider.generate_video_clip(
+                prompt_text,
+                clip,
+                aspect_ratio="9:16",
+                duration_sec=clip_sec,
+                resolution=resolution,
+                reference_paths=refs_to_send,
+            )
+        except Exception as exc:
+            if "INVALID_ARGUMENT" not in str(exc) or position == len(attempts) - 1:
+                raise
+            continue
+        return tag, prompt_text
+    raise HookRenderError("영상 클립을 만들지 못했습니다.")
+
+
 def _plan_beats(scenario: Dict[str, Any], max_hook_sec: float) -> List[BeatPlan]:
     beats = ordered_beats(scenario)
     if not beats:
@@ -535,35 +573,14 @@ def render_hook(
         if _ready(clip):
             plan.reused.append("clip")
         else:
-            # 영상 모델이 INVALID_ARGUMENT 로 거절하면 (실패한 요청은 과금되지 않음) 조건을 낮춰 다시 보낸다:
-            #   1) 그대로  2) 참고 이미지 없이  3) 단면·해부 묘사를 바깥에서 본 장면으로 바꿔서
-            # 2026-11-27 실측: 참고 이미지 원본 크기, '고래 입안 … 단면 시각화' 장면이 각각 거절됐다.
-            attempts = [("", plan.prompt, reference_paths)]
-            if reference_paths:
-                attempts.append(("retried_without_reference", plan.prompt, []))
-            softened = soften_prompt(plan.prompt)
-            if softened != plan.prompt:
-                attempts.append(("retried_outside_view", softened, []))
-            for position, (tag, prompt_text, refs_to_send) in enumerate(attempts):
-                try:
-                    provider.generate_video_clip(
-                        prompt_text,
-                        clip,
-                        aspect_ratio="9:16",
-                        duration_sec=plan.clip_sec,
-                        resolution=resolution,
-                        reference_paths=refs_to_send,
-                    )
-                except Exception as exc:
-                    if "INVALID_ARGUMENT" not in str(exc) or position == len(attempts) - 1:
-                        raise
-                    continue
-                if tag:
-                    plan.reused.append(tag)
-                    plan.prompt = prompt_text
-                    what = "참고 이미지 없이" if tag == "retried_without_reference" else "단면 묘사를 바깥 장면으로 바꿔"
-                    warnings.append(f"장면 {plan.order}: 영상 모델이 요청을 거절해 {what} 다시 만들었습니다.")
-                break
+            tag, used_prompt = generate_clip_with_retries(
+                provider, plan.prompt, clip, clip_sec=plan.clip_sec, resolution=resolution, reference_paths=reference_paths
+            )
+            if tag:
+                plan.reused.append(tag)
+                plan.prompt = used_prompt
+                what = "참고 이미지 없이" if tag == "retried_without_reference" else "단면 묘사를 바깥 장면으로 바꿔"
+                warnings.append(f"장면 {plan.order}: 영상 모델이 요청을 거절해 {what} 다시 만들었습니다.")
         info = probe(media, clip)
         if not info.has_video or info.duration <= 0:
             raise HookRenderError(f"장면 {plan.order} 클립에 영상이 없습니다.")

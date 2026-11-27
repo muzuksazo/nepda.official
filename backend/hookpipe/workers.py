@@ -351,14 +351,42 @@ def generate_with_worker(
     return items
 
 
+def template_or_realtime_a(storage: Any, realtime: WorkerFn, *, writer: Any = None) -> WorkerFn:
+    """A 유형: 템플릿(앞부분 미리 만든 영상 + 착지 장면만 생성)을 먼저 쓰고, 안 되면 A 작업자로 전부 실시간 생성."""
+    from .a_templates import TemplateError, make_template_scenario
+
+    def _run(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
+        if getattr(settings, "hook_a_mode", "template") == "template":
+            work = Path(getattr(settings, "work_root", tempfile.gettempdir())) / "a_templates" / str(worker_input["project_id"])
+            try:
+                return make_template_scenario(worker_input, settings, storage, work, writer=writer)
+            except TemplateError as exc:
+                logger.warning("A 템플릿을 쓰지 못해 실시간 생성으로 넘어갑니다: %s", exc)
+            except Exception:
+                logger.exception("A 템플릿 처리 중 예상하지 못한 오류 → 실시간 생성으로 넘어갑니다")
+        return realtime(worker_input, settings)
+
+    return _run
+
+
 def make_scenario_generator(
     settings: Any,
     project_store: Any,
     *,
     fallback: Optional[ScenarioGenerator] = None,
     workers: Optional[Dict[str, WorkerFn]] = None,
+    storage: Any = None,
+    template_writer: Any = None,
 ) -> ScenarioGenerator:
-    """코어 라우터에 끼우는 시나리오 생성기. 유형마다 작업자를 부르고, 실패하면 fallback 을 쓴다."""
+    """코어 라우터에 끼우는 시나리오 생성기. 유형마다 작업자를 부르고, 실패하면 fallback 을 쓴다.
+
+    storage 를 주면 A 는 템플릿(HOOK_A_TEMPLATES)을 먼저 쓴다.
+    """
+    if storage is not None:
+        registry = dict(workers if workers is not None else WORKERS)
+        if "A" in registry:
+            registry["A"] = template_or_realtime_a(storage, registry["A"], writer=template_writer)
+        workers = registry
 
     def _generate(project: Dict[str, Any], hook_types: List[str], provider: str) -> List[Dict[str, Any]]:
         project_id = str(project["project_id"])
