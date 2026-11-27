@@ -35,7 +35,13 @@ image = modal.Image.from_dockerfile(ROOT / "backend" / "Dockerfile", context_dir
 })
 app = modal.App("napda-still-cycle")
 # 뒤에 둔 Secret 이 같은 이름을 덮는다: 이 실행에서만 글 모델을 Claude 로
-override = modal.Secret.from_dict({"HOOK_WORKER_LLM": "claude-opus-5-5"})
+_override = {"HOOK_WORKER_LLM": "claude-opus-5-5"}
+# STILL_GEMINI_VIA=apikey: Gemini 를 Vertex(WIF) 대신 AI Studio 키로 부른다 (모델 이름이 Vertex 에 없을 때 비교용)
+import os as _os
+
+if _os.environ.get("STILL_GEMINI_VIA", "").strip().lower() == "apikey":
+    _override["GOOGLE_GENAI_USE_VERTEXAI"] = "false"
+override = modal.Secret.from_dict(_override)
 
 
 @app.function(image=image, secrets=[modal.Secret.from_name("napda-backend"), override], cpu=2.0, memory=4096, timeout=3600)
