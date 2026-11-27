@@ -4,6 +4,7 @@ import { Download, Eye, ImagePlus, RotateCcw, Trash2 } from 'lucide-react';
 import { Button, ChoiceChips, Stack, TextField } from '../components';
 import { exportThumbnailPng } from './exportThumbnailPng';
 import {
+  DAM_DEODORIZING_THUMBNAIL_PRESETS,
   IMAGE_PRESET_OPTIONS,
   PS2_GTA_SHOWCASE_PRESETS,
   VARIANT_PRESETS,
@@ -669,4 +670,63 @@ export const PovBar: Story = {
   name: '04 · 스타일 4 상단 블랙 POV (PS2 2호선)',
   parameters: { layout: 'centered' },
   args: { ...VARIANT_PRESETS['pov-bar'], scale: 0.34 },
+};
+
+export const DamTapeDeodorizingShowcase: Story = {
+  name: '피에브 댐 테이프 · 4종 썸네일',
+  parameters: { controls: { disable: true } },
+  render: () => (
+    <div
+      style={{
+        minHeight: '100vh',
+        padding: 32,
+        backgroundColor: '#111215',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 24,
+      }}
+    >
+      <div style={{ textAlign: 'center' }}>
+        <h2 style={{ margin: 0, color: '#ffffff', fontSize: 22, fontWeight: 800 }}>
+          피에브 에어워셔 댐 테이프 · 4종 릴스커버 썸네일
+        </h2>
+        <p style={{ margin: '8px 0 0', color: '#a6a6a6', fontSize: 14 }}>
+          Track A 무맥락 반전 훅 스틸컷에 Figma 4가지 제목 스타일을 적용해 1080×1920 PNG로 저장합니다
+        </p>
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 28,
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+        }}
+      >
+        {DAM_DEODORIZING_THUMBNAIL_PRESETS.map((item) => (
+          <div
+            key={item.id}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}
+          >
+            <span style={{ color: '#d6ff3f', fontSize: 13, fontWeight: 700 }}>{item.label}</span>
+            <ThumbnailTemplate {...item.props} scale={0.31} />
+            <Button
+              label="PNG 저장"
+              variant="secondary"
+              size="sm"
+              icon={<Download size={16} aria-hidden="true" />}
+              onClick={() => void exportThumbnailPng(item.props)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  ),
+};
+
+export const DamTapeHero: Story = {
+  name: '05 · 피에브 댐 테이프 대표 (반전 2줄 박스)',
+  parameters: { layout: 'centered' },
+  args: { ...DAM_DEODORIZING_THUMBNAIL_PRESETS[0].props, scale: 0.34 },
 };
