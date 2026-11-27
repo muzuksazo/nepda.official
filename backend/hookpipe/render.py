@@ -479,12 +479,16 @@ def render_hook(
     cache_dir: Optional[str | Path] = None,
     resolve_asset: Optional[Callable[[str], Optional[Path]]] = None,
     progress: Optional[Callable[[str], None]] = None,
+    on_usage: Optional[Callable[..., None]] = None,
 ) -> HookRenderResult:
     """훅 하나를 만든다. provider 는 `app.genai_provider.GenAIMediaProvider` (또는 같은 모양의 대역).
 
     cache_dir: 과금으로 받은 파일을 두는 곳. 같은 시나리오를 다시 만들 때 같은 곳을 주면 이미 받은 것은 다시 사지 않는다.
     resolve_asset: 장면의 `prebuilt_clip` / `prebuilt_narration` 값을 실제 파일 경로로 바꿔 주는 함수.
     """
+    import time
+
+    record_usage = on_usage if callable(on_usage) else (lambda **_kw: None)
     target = Path(out_dir)
     work = target / "_work"
     work.mkdir(parents=True, exist_ok=True)
@@ -532,6 +536,12 @@ def render_hook(
         # 공급자가 정하는 파일 형식과 이름표 (Inworld 는 mp3). 공급자가 바뀌면 캐시도 따로 쓴다.
         tts_ext = getattr(provider, "tts_extension", ".wav")
         tts_label = getattr(provider, "tts_label", "") or getattr(settings, "tts_model", "")
+        tts_provider_name = "inworld" if str(tts_label).startswith("inworld:") else "google"
+        tts_model_name = (
+            str(tts_label).split(":", 2)[1]
+            if str(tts_label).startswith("inworld:") and ":" in str(tts_label)
+            else str(tts_label or getattr(settings, "tts_model", "") or "gemini-tts")
+        )
         for plan in plans:
             wav = prebuilt_audio.get(plan.order)
             if wav is not None:
@@ -542,8 +552,36 @@ def render_hook(
                 wav = cache / f"tts_{_digest(plan.narration, voice_name, tts_label)}{tts_ext}"
                 if _ready(wav):
                     plan.reused.append("tts")
+                    record_usage(
+                        stage="tts",
+                        step_name=f"beat_{plan.order}",
+                        provider=tts_provider_name,
+                        model=tts_model_name,
+                        media_unit="char",
+                        media_qty=float(len(plan.narration)),
+                        cache_hit=True,
+                        latency_ms=0,
+                    )
                 else:
-                    provider.generate_tts_beat(plan.narration, wav, voice_name=voice_name)
+                    t_tts = time.monotonic()
+                    tts_status = "ok"
+                    try:
+                        provider.generate_tts_beat(plan.narration, wav, voice_name=voice_name)
+                    except Exception:
+                        tts_status = "error"
+                        raise
+                    finally:
+                        record_usage(
+                            stage="tts",
+                            step_name=f"beat_{plan.order}",
+                            provider=tts_provider_name,
+                            model=tts_model_name,
+                            media_unit="char",
+                            media_qty=float(len(plan.narration)),
+                            cache_hit=False,
+                            latency_ms=int((time.monotonic() - t_tts) * 1000),
+                            status=tts_status,
+                        )
             info = probe(media, wav)
             if info.duration <= 0:
                 raise HookRenderError(f"장면 {plan.order} 나레이션 음성이 비어 있습니다.")
@@ -557,20 +595,50 @@ def render_hook(
     # 2) 참고 이미지: 제품 장면은 촬영본에서 뽑은 컷, 나머지는 톤·주인공 참고 이미지 한 장
     refs = [Path(p) for p in product_refs if Path(p).is_file()]
     style_ref: Optional[Path] = None
+    image_model_name = str(getattr(settings, "image_model", "") or "unknown")
     if any((not p.shows_product or not refs) and not p.hold and not p.prebuilt for p in plans):
         say("REFERENCE")
         ref_prompt = reference_image_prompt(scenario)
         # 실제 호출로 통과한 형식(JPEG)으로 받는다 (B 의 gclips 기록)
         candidate = cache / f"style_{_digest(ref_prompt, getattr(settings, 'image_model', ''))}.jpg"
         try:
-            if not _ready(candidate):
-                _call_with_deadline(
-                    lambda: provider.generate_reference_image(
-                        ref_prompt, candidate, aspect_ratio="9:16", mime_type="image/jpeg"
-                    ),
-                    float(getattr(settings, "reference_image_timeout_sec", 90.0)),
-                    "톤 참고 이미지",
+            if _ready(candidate):
+                record_usage(
+                    stage="ref_image",
+                    step_name="style_ref",
+                    provider="google",
+                    model=image_model_name,
+                    media_unit="image",
+                    media_qty=1.0,
+                    cache_hit=True,
+                    latency_ms=0,
                 )
+            else:
+                t_ref = time.monotonic()
+                ref_status = "ok"
+                try:
+                    _call_with_deadline(
+                        lambda: provider.generate_reference_image(
+                            ref_prompt, candidate, aspect_ratio="9:16", mime_type="image/jpeg"
+                        ),
+                        float(getattr(settings, "reference_image_timeout_sec", 90.0)),
+                        "톤 참고 이미지",
+                    )
+                except Exception:
+                    ref_status = "error"
+                    raise
+                finally:
+                    record_usage(
+                        stage="ref_image",
+                        step_name="style_ref",
+                        provider="google",
+                        model=image_model_name,
+                        media_unit="image",
+                        media_qty=1.0,
+                        cache_hit=False,
+                        latency_ms=int((time.monotonic() - t_ref) * 1000),
+                        status=ref_status,
+                    )
             if _ready(candidate):
                 style_ref = _normalize_reference(candidate, media)
         except Exception as exc:  # 참고 이미지는 품질 보조라, 실패해도 클립 생성은 계속한다
@@ -604,10 +672,38 @@ def render_hook(
         clip = cache / f"clip_{key}.mp4"
         if _ready(clip):
             plan.reused.append("clip")
-        else:
-            tag, used_prompt = generate_clip_with_retries(
-                provider, plan.prompt, clip, clip_sec=plan.clip_sec, resolution=resolution, reference_paths=reference_paths
+            record_usage(
+                stage="video_clip",
+                step_name=f"beat_{plan.order}",
+                provider="google",
+                model=str(video_model or "unknown"),
+                media_unit="sec",
+                media_qty=float(plan.clip_sec),
+                cache_hit=True,
+                latency_ms=0,
             )
+        else:
+            t_clip = time.monotonic()
+            clip_status = "ok"
+            try:
+                tag, used_prompt = generate_clip_with_retries(
+                    provider, plan.prompt, clip, clip_sec=plan.clip_sec, resolution=resolution, reference_paths=reference_paths
+                )
+            except Exception:
+                clip_status = "error"
+                raise
+            finally:
+                record_usage(
+                    stage="video_clip",
+                    step_name=f"beat_{plan.order}",
+                    provider="google",
+                    model=str(video_model or "unknown"),
+                    media_unit="sec",
+                    media_qty=float(plan.clip_sec),
+                    cache_hit=False,
+                    latency_ms=int((time.monotonic() - t_clip) * 1000),
+                    status=clip_status,
+                )
             if tag:
                 plan.reused.append(tag)
                 plan.prompt = used_prompt

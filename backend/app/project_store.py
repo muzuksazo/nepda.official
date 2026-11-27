@@ -166,6 +166,38 @@ class ProjectStore:
                     payload_json TEXT NOT NULL,
                     processed_at TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS api_usage_events (
+                    event_id TEXT PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    user_id TEXT,
+                    project_id TEXT,
+                    job_id TEXT,
+                    hook_type TEXT,
+                    stage TEXT NOT NULL,
+                    step_name TEXT,
+                    provider TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    input_tokens INTEGER NOT NULL DEFAULT 0,
+                    output_tokens INTEGER NOT NULL DEFAULT 0,
+                    cached_tokens INTEGER NOT NULL DEFAULT 0,
+                    thinking_tokens INTEGER NOT NULL DEFAULT 0,
+                    media_unit TEXT,
+                    media_qty REAL,
+                    estimated_cost_usd REAL,
+                    unit_price_label TEXT,
+                    pricing_version TEXT NOT NULL DEFAULT '2026-11',
+                    latency_ms INTEGER NOT NULL DEFAULT 0,
+                    cache_hit INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'ok',
+                    metadata_json TEXT NOT NULL DEFAULT '{}'
+                );
+                CREATE INDEX IF NOT EXISTS idx_api_usage_created
+                    ON api_usage_events(created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_api_usage_project
+                    ON api_usage_events(project_id, created_at ASC);
+                CREATE INDEX IF NOT EXISTS idx_api_usage_provider_model
+                    ON api_usage_events(provider, model, created_at DESC);
                 """
             )
             cols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
@@ -1018,3 +1050,373 @@ class ProjectStore:
                 (row["order_id"],),
             ).fetchone()
         return self._row_to_billing_order(updated) if updated else None
+
+    @staticmethod
+    def _row_to_usage_event(row: sqlite3.Row) -> Dict[str, Any]:
+        return {
+            "event_id": row["event_id"],
+            "created_at": row["created_at"],
+            "user_id": row["user_id"],
+            "project_id": row["project_id"],
+            "job_id": row["job_id"],
+            "hook_type": row["hook_type"],
+            "stage": row["stage"],
+            "step_name": row["step_name"],
+            "provider": row["provider"],
+            "model": row["model"],
+            "input_tokens": int(row["input_tokens"] or 0),
+            "output_tokens": int(row["output_tokens"] or 0),
+            "cached_tokens": int(row["cached_tokens"] or 0),
+            "thinking_tokens": int(row["thinking_tokens"] or 0),
+            "media_unit": row["media_unit"],
+            "media_qty": float(row["media_qty"]) if row["media_qty"] is not None else None,
+            "estimated_cost_usd": float(row["estimated_cost_usd"]) if row["estimated_cost_usd"] is not None else None,
+            "unit_price_label": row["unit_price_label"],
+            "pricing_version": row["pricing_version"],
+            "latency_ms": int(row["latency_ms"] or 0),
+            "cache_hit": bool(row["cache_hit"]),
+            "status": row["status"],
+            "metadata": json.loads(row["metadata_json"] or "{}"),
+        }
+
+    def record_api_usage(
+        self,
+        *,
+        project_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        hook_type: Optional[str] = None,
+        stage: str,
+        step_name: Optional[str] = None,
+        provider: str,
+        model: str,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        cached_tokens: int = 0,
+        thinking_tokens: int = 0,
+        media_unit: Optional[str] = None,
+        media_qty: Optional[float] = None,
+        estimated_cost_usd: Optional[float] = None,
+        unit_price_label: Optional[str] = None,
+        pricing_version: str = "2026-11",
+        latency_ms: int = 0,
+        cache_hit: bool = False,
+        status: str = "ok",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        event_id = f"usg_{uuid.uuid4().hex[:14]}"
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO api_usage_events (
+                    event_id, created_at, user_id, project_id, job_id, hook_type,
+                    stage, step_name, provider, model,
+                    input_tokens, output_tokens, cached_tokens, thinking_tokens,
+                    media_unit, media_qty, estimated_cost_usd, unit_price_label, pricing_version,
+                    latency_ms, cache_hit, status, metadata_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    now_iso,
+                    user_id,
+                    project_id,
+                    job_id,
+                    hook_type,
+                    stage,
+                    step_name,
+                    provider,
+                    model,
+                    int(input_tokens or 0),
+                    int(output_tokens or 0),
+                    int(cached_tokens or 0),
+                    int(thinking_tokens or 0),
+                    media_unit,
+                    float(media_qty) if media_qty is not None else None,
+                    float(estimated_cost_usd) if estimated_cost_usd is not None else None,
+                    unit_price_label,
+                    pricing_version,
+                    max(0, int(latency_ms or 0)),
+                    1 if cache_hit else 0,
+                    status,
+                    json.dumps(metadata or {}, ensure_ascii=False),
+                ),
+            )
+            row = conn.execute("SELECT * FROM api_usage_events WHERE event_id = ?", (event_id,)).fetchone()
+        return self._row_to_usage_event(row)  # type: ignore[arg-type]
+
+    def get_usage_summary(self, *, days: int = 30, limit_projects: int = 50) -> Dict[str, Any]:
+        since_iso = (_now_utc() - timedelta(days=max(1, int(days)))).isoformat()
+        with self._lock, self._connect() as conn:
+            t_row = conn.execute(
+                """
+                SELECT
+                    COUNT(*) AS total_calls,
+                    COALESCE(SUM(CASE WHEN cache_hit = 1 THEN 1 ELSE 0 END), 0) AS cache_hits,
+                    COALESCE(SUM(CASE WHEN status != 'ok' THEN 1 ELSE 0 END), 0) AS error_calls,
+                    COUNT(DISTINCT NULLIF(project_id, '')) AS project_count,
+                    COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                    COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                    COALESCE(SUM(cached_tokens), 0) AS cached_tokens,
+                    COALESCE(SUM(thinking_tokens), 0) AS thinking_tokens,
+                    COALESCE(SUM(estimated_cost_usd), 0.0) AS estimated_cost_usd,
+                    COALESCE(SUM(CASE WHEN estimated_cost_usd IS NULL AND cache_hit = 0 THEN 1 ELSE 0 END), 0) AS unpriced_calls
+                FROM api_usage_events
+                WHERE created_at >= ?
+                """,
+                (since_iso,),
+            ).fetchone()
+
+            pm_rows = conn.execute(
+                """
+                SELECT
+                    provider,
+                    model,
+                    COUNT(*) AS calls,
+                    COALESCE(SUM(CASE WHEN cache_hit = 1 THEN 1 ELSE 0 END), 0) AS cache_hits,
+                    COUNT(DISTINCT NULLIF(project_id, '')) AS project_count,
+                    COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                    COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                    COALESCE(SUM(thinking_tokens), 0) AS thinking_tokens,
+                    COALESCE(SUM(media_qty), 0.0) AS media_qty,
+                    MAX(media_unit) AS media_unit,
+                    MAX(CASE WHEN cache_hit = 0 THEN unit_price_label ELSE NULL END) AS unit_price_label,
+                    COALESCE(SUM(estimated_cost_usd), 0.0) AS estimated_cost_usd,
+                    COALESCE(SUM(CASE WHEN estimated_cost_usd IS NULL AND cache_hit = 0 THEN 1 ELSE 0 END), 0) AS unpriced_calls,
+                    COALESCE(AVG(latency_ms), 0.0) AS avg_latency_ms
+                FROM api_usage_events
+                WHERE created_at >= ?
+                GROUP BY provider, model
+                ORDER BY estimated_cost_usd DESC, calls DESC
+                """,
+                (since_iso,),
+            ).fetchall()
+
+            stage_rows = conn.execute(
+                """
+                SELECT
+                    stage,
+                    COUNT(*) AS calls,
+                    COALESCE(SUM(CASE WHEN cache_hit = 1 THEN 1 ELSE 0 END), 0) AS cache_hits,
+                    COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                    COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                    COALESCE(SUM(thinking_tokens), 0) AS thinking_tokens,
+                    MAX(media_unit) AS media_unit,
+                    COALESCE(SUM(media_qty), 0.0) AS media_qty,
+                    COALESCE(SUM(estimated_cost_usd), 0.0) AS estimated_cost_usd,
+                    COALESCE(SUM(CASE WHEN estimated_cost_usd IS NULL AND cache_hit = 0 THEN 1 ELSE 0 END), 0) AS unpriced_calls,
+                    COALESCE(AVG(latency_ms), 0.0) AS avg_latency_ms
+                FROM api_usage_events
+                WHERE created_at >= ?
+                GROUP BY stage
+                ORDER BY estimated_cost_usd DESC, calls DESC
+                """,
+                (since_iso,),
+            ).fetchall()
+
+            proj_rows = conn.execute(
+                """
+                SELECT
+                    e.project_id,
+                    MAX(e.user_id) AS user_id,
+                    COALESCE(MAX(u.email), '') AS user_email,
+                    MAX(p.product_json) AS product_json,
+                    MAX(p.status) AS project_status,
+                    GROUP_CONCAT(DISTINCT NULLIF(e.hook_type, '')) AS hook_types,
+                    GROUP_CONCAT(DISTINCT e.provider) AS providers,
+                    GROUP_CONCAT(DISTINCT e.model) AS models,
+                    COUNT(*) AS calls,
+                    COALESCE(SUM(CASE WHEN e.cache_hit = 1 THEN 1 ELSE 0 END), 0) AS cache_hits,
+                    COALESCE(SUM(e.input_tokens), 0) AS input_tokens,
+                    COALESCE(SUM(e.output_tokens), 0) AS output_tokens,
+                    COALESCE(SUM(e.thinking_tokens), 0) AS thinking_tokens,
+                    COALESCE(SUM(CASE WHEN e.media_unit = 'sec' THEN e.media_qty ELSE 0.0 END), 0.0) AS video_sec,
+                    COALESCE(SUM(CASE WHEN e.media_unit = 'image' THEN e.media_qty ELSE 0.0 END), 0.0) AS image_count,
+                    COALESCE(SUM(CASE WHEN e.media_unit = 'char' THEN e.media_qty ELSE 0.0 END), 0.0) AS tts_chars,
+                    COALESCE(SUM(e.estimated_cost_usd), 0.0) AS estimated_cost_usd,
+                    COALESCE(SUM(CASE WHEN e.estimated_cost_usd IS NULL AND e.cache_hit = 0 THEN 1 ELSE 0 END), 0) AS unpriced_calls,
+                    COALESCE(SUM(e.latency_ms), 0) AS total_latency_ms,
+                    MAX(e.created_at) AS last_event_at
+                FROM api_usage_events e
+                LEFT JOIN projects p ON p.id = e.project_id
+                LEFT JOIN users u ON u.user_id = COALESCE(p.user_id, e.user_id)
+                WHERE e.created_at >= ? AND e.project_id IS NOT NULL AND e.project_id != ''
+                GROUP BY e.project_id
+                ORDER BY last_event_at DESC
+                LIMIT ?
+                """,
+                (since_iso, max(1, int(limit_projects))),
+            ).fetchall()
+
+        totals = {
+            "total_calls": int(t_row["total_calls"] or 0),
+            "cache_hits": int(t_row["cache_hits"] or 0),
+            "error_calls": int(t_row["error_calls"] or 0),
+            "project_count": int(t_row["project_count"] or 0),
+            "input_tokens": int(t_row["input_tokens"] or 0),
+            "output_tokens": int(t_row["output_tokens"] or 0),
+            "cached_tokens": int(t_row["cached_tokens"] or 0),
+            "thinking_tokens": int(t_row["thinking_tokens"] or 0),
+            "estimated_cost_usd": round(float(t_row["estimated_cost_usd"] or 0.0), 6),
+            "unpriced_calls": int(t_row["unpriced_calls"] or 0),
+        }
+
+        by_provider_model: List[Dict[str, Any]] = []
+        for r in pm_rows:
+            p_cnt = int(r["project_count"] or 0)
+            est = round(float(r["estimated_cost_usd"] or 0.0), 6)
+            by_provider_model.append(
+                {
+                    "provider": r["provider"],
+                    "model": r["model"],
+                    "calls": int(r["calls"] or 0),
+                    "cache_hits": int(r["cache_hits"] or 0),
+                    "project_count": p_cnt,
+                    "input_tokens": int(r["input_tokens"] or 0),
+                    "output_tokens": int(r["output_tokens"] or 0),
+                    "thinking_tokens": int(r["thinking_tokens"] or 0),
+                    "media_unit": r["media_unit"],
+                    "media_qty": round(float(r["media_qty"] or 0.0), 3),
+                    "unit_price_label": r["unit_price_label"] or "단가 미등록",
+                    "estimated_cost_usd": est,
+                    "avg_cost_per_project_usd": round(est / p_cnt, 6) if p_cnt > 0 else est,
+                    "unpriced_calls": int(r["unpriced_calls"] or 0),
+                    "avg_latency_ms": int(round(float(r["avg_latency_ms"] or 0.0))),
+                }
+            )
+
+        by_stage: List[Dict[str, Any]] = []
+        for r in stage_rows:
+            by_stage.append(
+                {
+                    "stage": r["stage"],
+                    "calls": int(r["calls"] or 0),
+                    "cache_hits": int(r["cache_hits"] or 0),
+                    "input_tokens": int(r["input_tokens"] or 0),
+                    "output_tokens": int(r["output_tokens"] or 0),
+                    "thinking_tokens": int(r["thinking_tokens"] or 0),
+                    "media_unit": r["media_unit"],
+                    "media_qty": round(float(r["media_qty"] or 0.0), 3),
+                    "estimated_cost_usd": round(float(r["estimated_cost_usd"] or 0.0), 6),
+                    "unpriced_calls": int(r["unpriced_calls"] or 0),
+                    "avg_latency_ms": int(round(float(r["avg_latency_ms"] or 0.0))),
+                }
+            )
+
+        recent_projects: List[Dict[str, Any]] = []
+        for r in proj_rows:
+            product_name = r["project_id"]
+            if r["product_json"]:
+                try:
+                    pdata = json.loads(r["product_json"])
+                    if isinstance(pdata, dict) and pdata.get("name"):
+                        product_name = str(pdata["name"])
+                except ValueError:
+                    pass
+            recent_projects.append(
+                {
+                    "project_id": r["project_id"],
+                    "product_name": product_name,
+                    "project_status": r["project_status"],
+                    "user_id": r["user_id"],
+                    "user_email": r["user_email"],
+                    "hook_types": [x for x in (r["hook_types"] or "").split(",") if x],
+                    "providers": [x for x in (r["providers"] or "").split(",") if x],
+                    "models": [x for x in (r["models"] or "").split(",") if x],
+                    "calls": int(r["calls"] or 0),
+                    "cache_hits": int(r["cache_hits"] or 0),
+                    "input_tokens": int(r["input_tokens"] or 0),
+                    "output_tokens": int(r["output_tokens"] or 0),
+                    "thinking_tokens": int(r["thinking_tokens"] or 0),
+                    "video_sec": round(float(r["video_sec"] or 0.0), 2),
+                    "image_count": int(round(float(r["image_count"] or 0.0))),
+                    "tts_chars": int(round(float(r["tts_chars"] or 0.0))),
+                    "estimated_cost_usd": round(float(r["estimated_cost_usd"] or 0.0), 6),
+                    "unpriced_calls": int(r["unpriced_calls"] or 0),
+                    "total_latency_ms": int(r["total_latency_ms"] or 0),
+                    "last_event_at": r["last_event_at"],
+                }
+            )
+
+        return {
+            "totals": totals,
+            "by_provider_model": by_provider_model,
+            "by_stage": by_stage,
+            "recent_projects": recent_projects,
+        }
+
+    def get_project_usage_detail(self, project_id: str) -> Dict[str, Any]:
+        project = self.get_project(project_id)
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM api_usage_events
+                WHERE project_id = ?
+                ORDER BY created_at ASC, rowid ASC
+                """,
+                (project_id,),
+            ).fetchall()
+        events = [self._row_to_usage_event(r) for r in rows]
+        totals = {
+            "total_calls": len(events),
+            "cache_hits": sum(1 for e in events if e["cache_hit"]),
+            "input_tokens": sum(e["input_tokens"] for e in events),
+            "output_tokens": sum(e["output_tokens"] for e in events),
+            "cached_tokens": sum(e["cached_tokens"] for e in events),
+            "thinking_tokens": sum(e["thinking_tokens"] for e in events),
+            "estimated_cost_usd": round(
+                sum(float(e["estimated_cost_usd"] or 0.0) for e in events), 6
+            ),
+            "unpriced_calls": sum(
+                1 for e in events if e["estimated_cost_usd"] is None and not e["cache_hit"]
+            ),
+            "total_latency_ms": sum(e["latency_ms"] for e in events),
+        }
+        return {
+            "project_id": project_id,
+            "project": {
+                "project_id": project["project_id"],
+                "user_id": project["user_id"],
+                "status": project["status"],
+                "product_name": (project.get("product") or {}).get("name"),
+            }
+            if project
+            else None,
+            "totals": totals,
+            "events": events,
+        }
+
+    def list_usage_events(
+        self,
+        *,
+        limit: int = 100,
+        project_id: Optional[str] = None,
+        provider: Optional[str] = None,
+        stage: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        clauses: List[str] = []
+        params: List[Any] = []
+        if project_id:
+            clauses.append("project_id = ?")
+            params.append(project_id)
+        if provider:
+            clauses.append("provider = ?")
+            params.append(provider)
+        if stage:
+            clauses.append("stage = ?")
+            params.append(stage)
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.append(max(1, min(500, int(limit))))
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT * FROM api_usage_events
+                {where_sql}
+                ORDER BY created_at DESC, rowid DESC
+                LIMIT ?
+                """,
+                tuple(params),
+            ).fetchall()
+        return [self._row_to_usage_event(r) for r in rows]

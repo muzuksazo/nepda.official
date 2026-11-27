@@ -116,13 +116,19 @@ class _SettingsOverlay:
 
 
 def _settings_with_llm(
-    settings: Any, *, provider: str, model: Optional[str], explicit: bool
+    settings: Any,
+    *,
+    provider: str,
+    model: Optional[str],
+    explicit: bool,
+    on_usage: Optional[Callable[..., None]] = None,
 ) -> Any:
     return _SettingsOverlay(
         settings,
         _resolved_llm_provider=provider,
         _resolved_llm_model=model,
         _resolved_llm_explicit=explicit,
+        _on_usage=on_usage,
     )
 
 
@@ -203,6 +209,8 @@ def _read_json(path: Path, label: str) -> Any:
 
 
 def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
+    import time
+
     worker_dir = Path(settings.hook_workers_dir) / "a"
     cmd = _node_command(worker_dir)
     resolved_provider = getattr(settings, "_resolved_llm_provider", None)
@@ -212,6 +220,7 @@ def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
         if resolved_provider == "anthropic" and resolved_model
         else None
     )
+    t0 = time.monotonic()
     with tempfile.TemporaryDirectory(prefix="hookpipe_a_") as tmp:
         in_path = Path(tmp) / "worker_input.json"
         out_path = Path(tmp) / "scenarios_response.json"
@@ -223,7 +232,36 @@ def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
             "A",
             extra_env=extra_env,
         )
-        return _mark_violation(_read_json(out_path, "A"), proc)
+        data = _read_json(out_path, "A")
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
+    on_usage = getattr(settings, "_on_usage", None)
+    if callable(on_usage):
+        steps = data.get("steps") if isinstance(data, dict) else None
+        if isinstance(steps, list) and steps:
+            for st in steps:
+                if not isinstance(st, dict):
+                    continue
+                m_id = str(st.get("model") or resolved_model or "claude-opus-5-5").strip()
+                if not m_id or m_id == "-":
+                    continue
+                on_usage(
+                    stage="scenario_a",
+                    step_name=str(st.get("step") or "generate"),
+                    provider="google" if m_id.lower().startswith("gemini") else "anthropic",
+                    model=m_id,
+                    input_tokens=int(st.get("inputTokens") or 0),
+                    output_tokens=int(st.get("outputTokens") or 0),
+                    latency_ms=int(st.get("ms") or 0),
+                )
+        else:
+            on_usage(
+                stage="scenario_a",
+                step_name="realtime_pipeline",
+                provider="anthropic",
+                model=str(resolved_model or "claude-opus-5-5"),
+                latency_ms=elapsed_ms,
+            )
+    return _mark_violation(data, proc)
 
 
 def _worker_vertex_env(settings: Any) -> Dict[str, str]:
@@ -270,6 +308,23 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
             extra_env=extra_env or None,
         )
     data = _read_json(record, "B")
+    on_usage = getattr(settings, "_on_usage", None)
+    if callable(on_usage) and isinstance(data, dict):
+        for st in data.get("steps") or []:
+            if not isinstance(st, dict):
+                continue
+            m_id = str(st.get("model") or getattr(settings, "_resolved_llm_model", None) or "claude-opus-5-5").strip()
+            if not m_id or m_id == "-":
+                continue
+            on_usage(
+                stage="scenario_b",
+                step_name=str(st.get("step") or "step"),
+                provider="google" if m_id.lower().startswith("gemini") else "anthropic",
+                model=m_id,
+                input_tokens=int(st.get("inputTokens") or 0),
+                output_tokens=int(st.get("outputTokens") or 0),
+                latency_ms=int(st.get("ms") or 0),
+            )
     response = data.get("response") if isinstance(data, dict) else None
     if not isinstance(response, dict):
         raise WorkerError("B 작업자 회차 기록에 response 가 없습니다.")
@@ -357,6 +412,23 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
         raise WorkerError(f"C 작업자에 필요한 패키지가 없습니다: {exc.name} (bridge-dev/c/requirements.txt)") from exc
     except Exception as exc:
         raise WorkerError(f"C 작업자 실행 오류: {exc}") from exc
+    on_usage = getattr(settings, "_on_usage", None)
+    if callable(on_usage) and isinstance(run, dict):
+        for st in run.get("steps") or []:
+            if not isinstance(st, dict):
+                continue
+            m_id = str(st.get("model") or target_model or "claude-opus-5-5").strip()
+            if not m_id or m_id == "-":
+                continue
+            on_usage(
+                stage="scenario_c",
+                step_name=str(st.get("step") or "scenarios"),
+                provider="google" if m_id.lower().startswith("gemini") else "anthropic",
+                model=m_id,
+                input_tokens=int(st.get("inputTokens") or 0),
+                output_tokens=int(st.get("outputTokens") or 0),
+                latency_ms=int(st.get("ms") or 0),
+            )
     response = run["response"]
     for item, check in zip(response.get("scenarios") or [], run.get("checks") or []):
         errors = [str(e) for e in (check.get("errors") or [])]
@@ -509,23 +581,36 @@ def make_scenario_generator(
             model_override=ab_override.get("model"),
             explicit=explicit,
         )
-        effective_settings = _settings_with_llm(
-            settings,
-            provider=resolved_provider,
-            model=resolved_model,
-            explicit=explicit,
-        )
-
         def _one(hook_type: str) -> Tuple[List[Dict[str, Any]], Optional[HTTPException]]:
             if getattr(settings, "hook_worker_mode", "auto") == "off":
                 if fallback is None:
                     raise _unavailable(hook_type, "작업자 호출이 꺼져 있고(HOOK_WORKER_MODE=off) 대체 생성기도 없습니다.")
                 return list(fallback(project, [hook_type], resolved_provider)), None
+
+            def _record_usage(**kw: Any) -> None:
+                from app.usage_telemetry import record_usage_safe
+
+                record_usage_safe(
+                    project_store,
+                    settings,
+                    project_id=project_id,
+                    user_id=project.get("user_id"),
+                    hook_type=hook_type,
+                    **kw,
+                )
+
+            per_hook_settings = _settings_with_llm(
+                settings,
+                provider=resolved_provider,
+                model=resolved_model,
+                explicit=explicit,
+                on_usage=_record_usage if hasattr(project_store, "record_api_usage") else None,
+            )
             try:
                 made = generate_with_worker(
                     hook_type,
                     project,
-                    effective_settings,
+                    per_hook_settings,
                     round_no=round_no,
                     previous_scenarios=previous,
                     workers=workers,

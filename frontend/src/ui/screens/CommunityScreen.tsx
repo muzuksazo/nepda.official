@@ -116,7 +116,12 @@ export function CommunityScreen({
   const changeTab = (next: TypeTab) => {
     onHookTypeChange?.(next === 'all' ? null : next);
     // 목록이 통째로 바뀌므로 아래로 내려가 있었다면 맨 위부터 다시 보여 준다
-    panelRef.current?.closest('.n-screen')?.scrollIntoView({ block: 'start' });
+    const body = panelRef.current?.closest<HTMLElement>('.n-screen__body');
+    if (body && body.scrollHeight > body.clientHeight) {
+      body.scrollTo({ top: 0 });
+    } else {
+      panelRef.current?.closest('.n-screen')?.scrollIntoView({ block: 'start' });
+    }
   };
 
   // 맨 아래 감지선이 화면에 들어오면 다음 영상들을 불러온다

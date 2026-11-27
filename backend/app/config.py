@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     gcp_service_account_email: Optional[str] = None
     gcp_billing_app_label: str = "napda"
     api_bearer_token: Optional[str] = None
+    admin_emails: str = ""
+    usage_pricing_overrides_json: Optional[str] = None
+    usd_krw_rate: Optional[float] = None
 
     # End-user Google One Tap auth, daily beta quota & upload/retention guardrails
     google_client_id: Optional[str] = None
