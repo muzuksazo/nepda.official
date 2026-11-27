@@ -40,8 +40,6 @@ export interface ProfileScreenProps {
   isLoading?: boolean;
   /** 크레딧 잔액. 영상은 하루 횟수 제한 없이 크레딧으로 만든다 (단가 미정 · OQ-003) */
   credits?: number;
-  /** 온보딩 때 주는 무료 제작 1회가 아직 남아 있는지 */
-  hasFreeVideo?: boolean;
   videoCounts?: { inProgress: number; completed: number };
   /** 영상 보관 기간(일). 없으면 미정 배지를 보여 준다 */
   retentionDays?: number;
@@ -70,7 +68,6 @@ export function ProfileScreen({
   user,
   isLoading,
   credits,
-  hasFreeVideo,
   videoCounts,
   retentionDays,
   themeMode = 'system',
@@ -174,7 +171,7 @@ export function ProfileScreen({
             <SkeletonText widths={[28, 44]} />
           </div>
         ) : (
-          <CreditBalanceCard credits={credits} hasFreeVideo={hasFreeVideo} onChargeClick={onChargeClick} />
+          <CreditBalanceCard credits={credits} onChargeClick={onChargeClick} />
         )}
 
         {isLoading ? (

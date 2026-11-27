@@ -146,7 +146,6 @@ export const Wallet: Story = {
   render: () => (
     <>
       <CreditBalanceCard credits={2400} onChargeClick={fn()} />
-      <CreditBalanceCard credits={0} hasFreeVideo onChargeClick={fn()} />
       <CreditBalanceCard credits={0} onChargeClick={fn()} />
       <div className="n-stat-grid">
         <StatTile label="진행 중" value={3} onClick={fn()} />

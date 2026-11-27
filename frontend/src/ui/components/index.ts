@@ -11,5 +11,7 @@ export * from './Sheet';
 export * from './comments';
 export * from './credit';
 export * from './feed';
+export * from './terms';
+export * from './termsData';
 export * from './thumbnail';
 export * from './thumbnailTemplates';

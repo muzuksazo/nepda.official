@@ -3,7 +3,7 @@ import { formatCount } from '../format';
 import { ArrowRight, ChevronRight, Clock, Download, Heart, Lightning, Package, Play } from '../icons';
 import { FLOW_TOTAL_STEPS } from './layout';
 import { MediaPlaceholder } from './media';
-import { Badge, Button, Card, CheckMark, ProgressBar, SelectCard, Stack } from './primitives';
+import { Button, Card, CheckMark, ProgressBar, SelectCard, Stack } from './primitives';
 
 export interface HookTypeCardProps {
   type: string;
@@ -135,16 +135,11 @@ export function TimeEstimate({ total, stages, children }: TimeEstimateProps) {
 export interface CreditBalanceCardProps {
   /** 크레딧 잔액. 아직 못 불러왔으면 undefined → "—" */
   credits?: number;
-  /** 온보딩 때 주는 무료 제작 1회가 아직 남아 있는지 */
-  hasFreeVideo?: boolean;
   onChargeClick?: () => void;
 }
 
-/**
- * 크레딧 잔액 카드: 잔액(큰 숫자) + 충전하기. 영상은 횟수 제한 없이 크레딧으로 만든다.
- * 무료 제작 1회(온보딩)가 남아 있으면 아래에 한 줄로 알려 준다.
- */
-export function CreditBalanceCard({ credits, hasFreeVideo, onChargeClick }: CreditBalanceCardProps) {
+/** 크레딧 잔액 카드: 잔액(큰 숫자) + 충전하기. 영상은 횟수 제한 없이, 충전한 크레딧으로 만든다. */
+export function CreditBalanceCard({ credits, onChargeClick }: CreditBalanceCardProps) {
   const titleId = useId();
   const shownCredits = credits === undefined ? '—' : credits.toLocaleString('ko-KR');
   return (
@@ -161,13 +156,6 @@ export function CreditBalanceCard({ credits, hasFreeVideo, onChargeClick }: Cred
         </p>
         <Button label="충전하기" size="md" onClick={onChargeClick} />
       </div>
-      {hasFreeVideo ? (
-        <p className="n-wallet__free">
-          <Badge tone="brand">무료</Badge>
-          <span className="n-wallet__free-text">첫 영상 한 편은 무료예요</span>
-          <span className="n-wallet__free-count n-num">1회 남음</span>
-        </p>
-      ) : null}
     </section>
   );
 }

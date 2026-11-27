@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ThemeSetting } from '../NapdaProvider';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
@@ -11,6 +11,8 @@ import { CommunityViewerScreen } from './CommunityViewerScreen';
 import { CreditChargeScreen } from './CreditChargeScreen';
 import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
+import { LoginScreen } from './LoginScreen';
+import { NicknameScreen } from './NicknameScreen';
 import { NotificationsScreen, type AppNotification } from './NotificationsScreen';
 import type { HookType } from './flowData';
 import { OnboardingScreen } from './OnboardingScreen';
@@ -27,6 +29,7 @@ import {
   SAMPLE_CREDITS_PER_VIDEO,
   SAMPLE_GUIDE_SCENES,
   SAMPLE_IN_PROGRESS,
+  SAMPLE_LOGIN_SHOWCASE,
   SAMPLE_NOTIFICATIONS,
   SAMPLE_NOW,
   SAMPLE_STORYBOARD,
@@ -43,6 +46,8 @@ import { VideoReviewScreen } from './VideoReviewScreen';
 
 type Step =
   | 'onboarding'
+  | 'login'
+  | 'nickname'
   | 'home'
   | 'myVideos'
   | 'community'
@@ -76,11 +81,16 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
   const [feedCount, setFeedCount] = useState(4);
   const commentProps = useSampleComments(SAMPLE_COMMENTS, SAMPLE_USER.name);
   const communityItems = filterCommunityByType(SAMPLE_COMMUNITY, communityType);
-  // 크레딧: 첫 영상은 무료, 그다음부터 영상 한 편에 SAMPLE_CREDITS_PER_VIDEO씩 쓴다.
-  // 잔액을 일부러 적게 잡아 두 번째 영상에서 "모자람 → 충전 → 다시 만들기"를 따라가 볼 수 있다
+  // 크레딧: 영상 한 편에 SAMPLE_CREDITS_PER_VIDEO씩 쓴다.
+  // 잔액을 일부러 적게 잡아 첫 영상에서 "모자람 → 충전 → 다시 만들기"를 따라가 볼 수 있다
   const [credits, setCredits] = useState(5);
-  const [hasFreeVideo, setHasFreeVideo] = useState(true);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  // 처음 로그인하면 가입(약관 → 닉네임)을 거치고, 로그아웃 뒤 다시 들어오면 바로 홈으로 간다
+  const [isMember, setIsMember] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
+  const [nicknameState, setNicknameState] = useState<'idle' | 'checking' | 'available' | 'taken'>('available');
+  const nicknameTimer = useRef<number | undefined>(undefined);
   const [notifications, setNotifications] = useState<AppNotification[]>(SAMPLE_NOTIFICATIONS);
   // 알림을 누르면 읽음으로 바꾸고, 종류에 따라 그 화면으로 보낸다
   const openNotification = (target: AppNotification) => {
@@ -121,7 +131,47 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
 
   switch (step) {
     case 'onboarding':
-      return <OnboardingScreen onStart={() => setStep('home')} />;
+      return <OnboardingScreen onStart={() => setStep('login')} />;
+    case 'login':
+      return (
+        <LoginScreen
+          showcase={SAMPLE_LOGIN_SHOWCASE}
+          isSigningIn={isSigningIn}
+          onSignIn={() => {
+            // 구글 창은 흉내만 낸다: 잠깐 "들어가는 중"을 보여 준 뒤, 처음이면 약관 시트 · 아니면 홈
+            setIsSigningIn(true);
+            window.setTimeout(() => {
+              setIsSigningIn(false);
+              if (isMember) setStep('home');
+              else setIsTermsOpen(true);
+            }, 1200);
+          }}
+          isTermsOpen={isTermsOpen}
+          onAgreeTerms={() => {
+            setIsTermsOpen(false);
+            setStep('nickname');
+          }}
+          onCloseTerms={() => setIsTermsOpen(false)}
+        />
+      );
+    case 'nickname':
+      return (
+        <NicknameScreen
+          initialNickname={SAMPLE_USER.name}
+          availability={nicknameState}
+          onNicknameChange={(name) => {
+            // 서버 중복 확인을 흉내: 잠깐 확인 중 → "도마왕"은 이미 있는 이름
+            window.clearTimeout(nicknameTimer.current);
+            setNicknameState('checking');
+            nicknameTimer.current = window.setTimeout(() => setNicknameState(name === '도마왕' ? 'taken' : 'available'), 500);
+          }}
+          onBack={() => setStep('login')}
+          onSubmit={() => {
+            setIsMember(true);
+            setStep('home');
+          }}
+        />
+      );
     case 'home':
       return (
         <HomeScreen
@@ -206,7 +256,6 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
         <ProfileScreen
           user={SAMPLE_USER}
           credits={credits}
-          hasFreeVideo={hasFreeVideo}
           onChargeClick={() => openCharge('profile')}
           videoCounts={{ inProgress: SAMPLE_IN_PROGRESS.length, completed: completed.length }}
           retentionDays={7}
@@ -217,7 +266,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
             setMyTab(tab);
             setStep('myVideos');
           }}
-          onLogout={() => setStep('onboarding')}
+          onLogout={() => setStep('login')}
           onDeleteAccount={() => setStep('onboarding')}
         />
       );
@@ -263,12 +312,10 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           initialFile={uploadFile}
           cost={SAMPLE_CREDITS_PER_VIDEO}
           credits={credits}
-          isFreeVideo={hasFreeVideo}
           onBack={() => setStep('guide')}
           onReviewGuide={() => setStep('guide')}
           onCreate={() => {
-            if (hasFreeVideo) setHasFreeVideo(false);
-            else setCredits((value) => value - SAMPLE_CREDITS_PER_VIDEO);
+            setCredits((value) => value - SAMPLE_CREDITS_PER_VIDEO);
             setUploadFile(null);
             setStep('review');
           }}

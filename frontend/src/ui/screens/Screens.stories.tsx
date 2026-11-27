@@ -12,6 +12,8 @@ import type { HookType as HookKind } from './flowData';
 import { CommunityViewerScreen } from './CommunityViewerScreen';
 import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
+import { LoginScreen } from './LoginScreen';
+import { NicknameScreen } from './NicknameScreen';
 import { NotificationsScreen } from './NotificationsScreen';
 import { OnboardingScreen } from './OnboardingScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
@@ -27,6 +29,7 @@ import {
   SAMPLE_CREDITS_PER_VIDEO,
   SAMPLE_GUIDE_SCENES,
   SAMPLE_IN_PROGRESS,
+  SAMPLE_LOGIN_SHOWCASE,
   SAMPLE_NOTIFICATIONS,
   SAMPLE_NOW,
   SAMPLE_STORYBOARD,
@@ -227,14 +230,6 @@ export const Profile: Story = {
   render: (_args, { globals }) => <ProfileScreen {...profileProps(globals.napdaMode)} />,
 };
 
-/** 막 가입한 사용자: 크레딧은 없지만 온보딩 무료 제작 1회가 남아 있다 */
-export const ProfileFreeVideo: Story = {
-  name: '안3-3 내 정보 · 첫 영상 무료 남음',
-  render: (_args, { globals }) => (
-    <ProfileScreen {...profileProps(globals.napdaMode)} credits={0} hasFreeVideo videoCounts={{ inProgress: 0, completed: 0 }} />
-  ),
-};
-
 export const ProfileNoCredits: Story = {
   name: '안3-3 내 정보 · 크레딧 없음',
   render: (_args, { globals }) => <ProfileScreen {...profileProps(globals.napdaMode)} credits={0} />,
@@ -351,6 +346,74 @@ export const Onboarding: Story = {
   render: () => <OnboardingScreen onStart={fn()} />,
 };
 
+/** 로그인 화면 스토리들이 함께 쓰는 콜백 */
+const loginArgs = {
+  showcase: SAMPLE_LOGIN_SHOWCASE,
+  onSignIn: fn(),
+  onCopyLink: fn(),
+  onAgreeTerms: fn(),
+  onCloseTerms: fn(),
+  onOpenDoc: fn(),
+};
+
+export const Login: Story = {
+  name: '로그인',
+  render: () => <LoginScreen {...loginArgs} />,
+};
+
+export const LoginSigningIn: Story = {
+  name: '로그인 · 들어가는 중',
+  render: () => <LoginScreen {...loginArgs} isSigningIn />,
+};
+
+export const LoginError: Story = {
+  name: '로그인 · 실패',
+  render: () => <LoginScreen {...loginArgs} hasError />,
+};
+
+export const LoginExpired: Story = {
+  name: '로그인 · 로그인이 풀렸을 때',
+  render: () => <LoginScreen {...loginArgs} reason="expired" />,
+};
+
+export const LoginInAppBrowser: Story = {
+  name: '로그인 · 앱 안 브라우저',
+  render: () => <LoginScreen {...loginArgs} isInAppBrowser />,
+};
+
+export const SignupTerms: Story = {
+  name: '회원가입 1 · 약관 동의 시트',
+  render: () => <LoginScreen {...loginArgs} isTermsOpen />,
+};
+
+/** 회원가입 2단계 스토리들이 함께 쓰는 콜백 */
+const nicknameArgs = { onBack: fn(), onNicknameChange: fn(), onSubmit: fn() };
+
+export const SignupNickname: Story = {
+  name: '회원가입 2 · 닉네임 정하기',
+  render: () => <NicknameScreen {...nicknameArgs} initialNickname="냅다사장" availability="available" />,
+};
+
+export const SignupNicknameChecking: Story = {
+  name: '회원가입 2 · 닉네임 확인 중',
+  render: () => <NicknameScreen {...nicknameArgs} initialNickname="도마왕" availability="checking" />,
+};
+
+export const SignupNicknameTaken: Story = {
+  name: '회원가입 2 · 이미 있는 닉네임',
+  render: () => <NicknameScreen {...nicknameArgs} initialNickname="도마왕" availability="taken" />,
+};
+
+export const SignupNicknameInvalid: Story = {
+  name: '회원가입 2 · 규칙에 안 맞는 닉네임',
+  render: () => <NicknameScreen {...nicknameArgs} initialNickname="도마 왕!" />,
+};
+
+export const SignupNicknameEmpty: Story = {
+  name: '회원가입 2 · 닉네임 비었을 때',
+  render: () => <NicknameScreen {...nicknameArgs} />,
+};
+
 export const ProductInfo: Story = {
   name: '안1-2 제품 정보',
   render: () => <ProductInfoScreen initialValue={{ category: '주방' }} onBack={fn()} onNext={fn()} />,
@@ -400,11 +463,6 @@ export const UploadVideo: Story = {
 export const UploadVideoSelected: Story = {
   name: '안1-7 영상 올리기 · 영상 고른 뒤',
   render: () => <UploadVideoScreen {...uploadArgs} initialFile={sampleUpload()} cost={SAMPLE_CREDITS_PER_VIDEO} credits={120} />,
-};
-
-export const UploadVideoFree: Story = {
-  name: '안1-7 영상 올리기 · 첫 영상 무료',
-  render: () => <UploadVideoScreen {...uploadArgs} initialFile={sampleUpload()} cost={SAMPLE_CREDITS_PER_VIDEO} credits={0} isFreeVideo />,
 };
 
 export const UploadVideoShort: Story = {
