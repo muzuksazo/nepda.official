@@ -29,6 +29,8 @@ Claude 경로는 정상이다.
 | 5 | `Publisher model .../gemini-4-hydrogen was not found` (404) | AI Studio 모델 이름을 Vertex 에 그대로 씀 | **미해결 — 지금 막힌 곳** |
 | 6 | `Model 'gemini-nano-banana-2.1' is not supported by the Interactions API` | 위와 같음 (이미지 모델) | **미해결** |
 
+| 7 | AI Studio 키로 이미지(`gemini-nano-banana-2.1`)를 다시 부르자 첫 장에서 1시간 응답 없음 (실행 제한 3600초로 끊김, 19:08~20:09) | 불명 (1번과 같은 양상) | **미해결** — 지금은 Gemini 이미지가 두 창구 모두 안 된다 |
+
 5·6 때문에 실패하는 곳: B·C 시나리오 작업자(Gemini 선택 시), 본편 대본(`BODY_LLM` 이 gemini 일 때), 참고 이미지(`IMAGE_MODEL`),
 영상 클립(`VIDEO_MODEL`), A 템플릿 고르기.
 
