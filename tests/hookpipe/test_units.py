@@ -361,6 +361,133 @@ class WorkerConnection(unittest.TestCase):
         self.assertEqual(items[0]["ad_spec"]["track_archetype"], "C_direct_proof")
         self.assertAlmostEqual(items[0]["hook_duration_sec"], sum(b["duration_sec"] for b in items[0]["beats"]))
 
+    def test_worker_c_passes_vertex_wif_client_without_gemini_api_key(self) -> None:
+        import json
+        import os
+        from unittest.mock import patch
+
+        from hookpipe.workers import run_worker_c
+
+        generate = _import_c_generate(BACKEND / "bridge-dev" / "c")
+        inp = build_worker_input(PROJECT, "C", round_no=1, previous_scenarios=[])
+
+        fake_client = object()
+        captured: Dict[str, Any] = {}
+
+        def fake_generate_scenarios(data: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
+            captured.update(kwargs)
+            return {
+                "response": {"project_id": data["project_id"], "status": "SCENARIOS_READY", "round": 1, "scenarios": [worker_scenario("C", "sc_c")]},
+                "checks": [{"errors": []}],
+            }
+
+        settings = _settings(
+            hook_worker_llm="gemini-4-hydrogen",
+            google_genai_use_vertexai=True,
+            google_cloud_project="gentle-voltage-464223-h6",
+            google_cloud_location="global",
+            gcp_workload_identity_provider="projects/94766443061/locations/global/workloadIdentityPools/vercel-napda-pool/providers/modal-dltldn333",
+            gcp_service_account_email="napda-vercel-wif@gentle-voltage-464223-h6.iam.gserviceaccount.com",
+            gemini_api_key=None,
+        )
+        with patch.dict(os.environ, {}, clear=True):
+            with patch("app.genai_provider.build_genai_client", return_value=fake_client) as m_build:
+                with patch.object(generate, "generate_scenarios", side_effect=fake_generate_scenarios):
+                    resp = run_worker_c(inp, settings)
+        m_build.assert_called_once_with(settings)
+        self.assertIs(captured["gemini_client"], fake_client)
+        self.assertEqual(captured["model"], "gemini-4-hydrogen")
+        self.assertEqual(resp["scenarios"][0]["scenario_id"], "sc_c")
+
+        # _call_gemini works with injected client or GOOGLE_GENAI_USE_VERTEXAI=true + MODAL_IDENTITY_TOKEN
+        draft_json = json.dumps({"scenarios": generate.offline_drafts(generate.parse_worker_input(inp))})
+
+        class _FakeModels:
+            def generate_content(self, **kw: Any) -> Any:
+                return SimpleNamespace(text=draft_json, usage_metadata=None)
+
+        injected_client = SimpleNamespace(models=_FakeModels())
+        parsed_inp = generate.parse_worker_input(inp)
+        with patch.dict(os.environ, {}, clear=True):
+            drafts, step = generate._call_gemini(parsed_inp, "gemini-4-hydrogen", None, None, client=injected_client)
+        self.assertEqual(len(drafts), 1)
+        self.assertEqual(step["model"], "gemini-4-hydrogen")
+
+        created_kwargs: Dict[str, Any] = {}
+        with patch.dict(
+            os.environ,
+            {
+                "GOOGLE_GENAI_USE_VERTEXAI": "true",
+                "GOOGLE_CLOUD_PROJECT": "gentle-voltage-464223-h6",
+                "GOOGLE_CLOUD_LOCATION": "global",
+                "GCP_WORKLOAD_IDENTITY_PROVIDER": "projects/94766443061/locations/global/workloadIdentityPools/vercel-napda-pool/providers/modal-dltldn333",
+                "GCP_SERVICE_ACCOUNT_EMAIL": "napda-vercel-wif@gentle-voltage-464223-h6.iam.gserviceaccount.com",
+                "MODAL_IDENTITY_TOKEN": "eyJ.modal.jwt",
+            },
+            clear=True,
+        ):
+            def _fake_client(**kw: Any) -> Any:
+                created_kwargs.update(kw)
+                return injected_client
+
+            with patch("google.genai.Client", side_effect=_fake_client):
+                drafts2, _ = generate._call_gemini(parsed_inp, "gemini-4-hydrogen", None, None)
+            self.assertEqual(
+                created_kwargs["credentials"]._subject_token_supplier.get_subject_token(None, None),
+                "eyJ.modal.jwt",
+            )
+        self.assertEqual(len(drafts2), 1)
+        self.assertTrue(created_kwargs["vertexai"])
+        self.assertEqual(created_kwargs["project"], "gentle-voltage-464223-h6")
+        self.assertEqual(created_kwargs["location"], "global")
+
+    def test_worker_b_forwards_vertex_wif_env_to_node(self) -> None:
+        import json
+        import os
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        from hookpipe.workers import run_worker_b
+
+        inp = build_worker_input(PROJECT, "B", round_no=1, previous_scenarios=[])
+        captured_env: Dict[str, str] = {}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workers_root = Path(tmp)
+            b_dir = workers_root / "b"
+            (b_dir / "node_modules").mkdir(parents=True)
+            rec = b_dir / "out" / PROJECT["project_id"] / "round-1.json"
+            rec.parent.mkdir(parents=True)
+            rec.write_text(json.dumps({"response": {"scenarios": [worker_scenario("B", "sc_b")]}}), encoding="utf-8")
+
+            settings = _settings(
+                hook_workers_dir=str(workers_root),
+                hook_worker_llm="gemini-4-hydrogen",
+                google_genai_use_vertexai=True,
+                google_cloud_project="gentle-voltage-464223-h6",
+                google_cloud_location="global",
+                gcp_workload_identity_provider="projects/94766443061/locations/global/workloadIdentityPools/vercel-napda-pool/providers/modal-dltldn333",
+                gcp_service_account_email="napda-vercel-wif@gentle-voltage-464223-h6.iam.gserviceaccount.com",
+            )
+
+            def _fake_run_node(cmd: List[str], worker_dir: Path, timeout: float, label: str, extra_env: Any = None) -> Any:
+                captured_env.update(extra_env or {})
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+            with patch.dict(os.environ, {}, clear=True):
+                with patch("shutil.which", return_value="/usr/local/bin/node"):
+                    with patch("hookpipe.workers._run_node", side_effect=_fake_run_node):
+                        resp = run_worker_b(inp, settings)
+
+        self.assertEqual(resp["scenarios"][0]["scenario_id"], "sc_b")
+        self.assertEqual(captured_env["B_LLM"], "gemini-4-hydrogen")
+        self.assertEqual(captured_env["GOOGLE_GENAI_USE_VERTEXAI"], "true")
+        self.assertEqual(captured_env["GOOGLE_CLOUD_PROJECT"], "gentle-voltage-464223-h6")
+        self.assertEqual(captured_env["GOOGLE_CLOUD_LOCATION"], "global")
+        self.assertIn("modal-dltldn333", captured_env["GCP_WORKLOAD_IDENTITY_PROVIDER"])
+        self.assertEqual(captured_env["GCP_SERVICE_ACCOUNT_EMAIL"], "napda-vercel-wif@gentle-voltage-464223-h6.iam.gserviceaccount.com")
+
 
 if __name__ == "__main__":
     unittest.main()
