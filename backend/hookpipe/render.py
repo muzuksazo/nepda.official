@@ -336,10 +336,13 @@ def _fit_timing(plans: List[BeatPlan], max_hook_sec: float, warnings: List[str])
 
 
 def _subtitle_style() -> str:
-    # SRT 는 384x288 기준 좌표로 변환된다. 8.8 ≈ 1920 높이에서 59px: 한글 22자 한 줄(약 970px)이 1080 폭에 들어가는 크기.
+    # SRT 는 384x288 기준 좌표로 변환된다 (1920 높이 기준 ×6.67).
+    # 2026-11-27: 59px·얇은 테두리라 작고 흰 배경에서 안 보였다 → 숏폼 자막처럼 크게(약 77px), 두꺼운 검은 테두리 + 그림자,
+    # 화면 아래 UI(좋아요·설명)에 가리지 않게 아래에서 약 390px 위.
     return (
-        "FontName=Noto Sans CJK KR,FontSize=8.8,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
-        "BorderStyle=1,Outline=0.9,Shadow=0,Alignment=2,MarginL=4,MarginR=4,MarginV=42"
+        "FontName=Noto Sans CJK KR,FontSize=11.5,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
+        "BackColour=&H99000000,BorderStyle=1,Outline=2.2,Shadow=1.2,Spacing=0.3,Alignment=2,"
+        "MarginL=10,MarginR=10,MarginV=58"
     )
 
 
