@@ -109,11 +109,11 @@ export function ThumbnailDownloadScreen({
           hasClear
         />
 
-        {/* 기본은 비공개. 켜면 커뮤니티 탭에서 누구나 볼 수 있다 */}
+        {/* 기본은 비공개. 켜면 탐색 탭에서 누구나 볼 수 있다 */}
         <Card>
           <Switch
-            label="커뮤니티에도 올리기"
-            description={isPublic ? '지금 누구나 볼 수 있어요. 끄면 바로 내려가요.' : '다른 사람들도 이 영상을 볼 수 있어요.'}
+            label="탐색에도 올리기"
+            description={isPublic ? '지금 누구나 볼 수 있어요. 끄면 바로 내려가요.' : '다른 사람들도 탐색에서 이 영상을 볼 수 있어요.'}
             isChecked={isPublic}
             onChange={requestPublic}
           />
@@ -126,7 +126,7 @@ export function ThumbnailDownloadScreen({
 
       <ConfirmSheet
         isOpen={isConfirmingPublish}
-        title="커뮤니티에 올릴까요?"
+        title="탐색에 올릴까요?"
         description="올리면 누구나 이 영상을 볼 수 있어요. 여기서 스위치를 끄면 언제든 내릴 수 있어요."
         confirmLabel="올리기"
         onConfirm={() => {

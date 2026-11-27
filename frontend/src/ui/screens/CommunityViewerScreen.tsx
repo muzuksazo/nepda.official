@@ -162,7 +162,7 @@ export function CommunityViewerScreen({
         </button>
       </div>
 
-      <div ref={feedRef} className="n-viewer__feed" role="group" aria-label="커뮤니티 영상. 위아래로 넘겨요" tabIndex={0} inert={isSheetOpen}>
+      <div ref={feedRef} className="n-viewer__feed" role="group" aria-label="탐색 영상. 위아래로 넘겨요" tabIndex={0} inert={isSheetOpen}>
         {items.map((video, index) => {
           const isActive = video.id === activeId;
           const wasLiked = video.isLiked ?? false;

@@ -85,7 +85,7 @@ export function NicknameScreen({
         />
       }
     >
-      <ScreenTitle title="뭐라고 불러 드릴까요?" description="커뮤니티에 영상을 올리면 이 이름으로 보여요." />
+      <ScreenTitle title="뭐라고 불러 드릴까요?" description="탐색에 영상을 올리면 이 이름으로 보여요." />
 
       <TextField
         label="닉네임"

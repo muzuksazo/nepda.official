@@ -168,7 +168,7 @@ export const Toggles: Story = {
     const [isOn, setIsOn] = useState(true);
     return (
       <>
-        <Switch label="커뮤니티에도 올리기" description="다른 사람들도 이 영상을 볼 수 있어요." isChecked={isOn} onChange={setIsOn} />
+        <Switch label="탐색에도 올리기" description="다른 사람들도 탐색에서 이 영상을 볼 수 있어요." isChecked={isOn} onChange={setIsOn} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
           <VideoTile caption="이 도마, 미쳤다" label="실리콘 접이식 도마, 도마왕" likeCount={1284} onClick={fn()} />
           <VideoTile caption="설거지 3분 컷" label="실리콘 수세미, 설거지장인" likeCount={12300} onClick={fn()} />

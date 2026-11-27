@@ -325,40 +325,40 @@ function CommunityDemo({ items = SAMPLE_COMMUNITY, initialHookType = null }: { i
 }
 
 export const Community: Story = {
-  name: '안3-4 커뮤니티',
+  name: '안3-4 탐색',
   render: () => <CommunityDemo />,
 };
 
 export const CommunityByType: Story = {
-  name: '안3-4 커뮤니티 · B 유형 탭',
+  name: '안3-4 탐색 · B 유형 탭',
   render: () => <CommunityDemo initialHookType="B" />,
 };
 
 export const CommunityLoading: Story = {
-  name: '안3-4 커뮤니티 · 불러오는 중',
+  name: '안3-4 탐색 · 불러오는 중',
   render: () => <CommunityScreen items={[]} hookType={null} status="loading" onNavigate={fn()} />,
 };
 
 export const CommunityLoadingMore: Story = {
-  name: '안3-4 커뮤니티 · 더 불러오는 중',
+  name: '안3-4 탐색 · 더 불러오는 중',
   render: () => (
     <CommunityScreen items={SAMPLE_COMMUNITY.slice(0, 6)} hookType={null} hasMore isLoadingMore onOpenVideo={fn()} onNavigate={fn()} />
   ),
 };
 
 export const CommunityEmpty: Story = {
-  name: '안3-4 커뮤니티 · 빈 상태',
+  name: '안3-4 탐색 · 빈 상태',
   render: () => <CommunityScreen items={[]} hookType={null} onCreate={fn()} onNavigate={fn()} />,
 };
 
 /** 고른 유형에 올라온 영상이 없을 때. "전체 보기"를 누르면 전체 탭으로 돌아간다 */
 export const CommunityNoMatch: Story = {
-  name: '안3-4 커뮤니티 · 이 유형은 아직 없음',
+  name: '안3-4 탐색 · 이 유형은 아직 없음',
   render: () => <CommunityDemo items={SAMPLE_COMMUNITY.filter((video) => video.hookType !== 'C')} initialHookType="C" />,
 };
 
 export const CommunityError: Story = {
-  name: '안3-4 커뮤니티 · 불러오기 실패',
+  name: '안3-4 탐색 · 불러오기 실패',
   render: () => <CommunityScreen items={[]} hookType={null} status="error" onRetry={fn()} onNavigate={fn()} />,
 };
 
@@ -754,11 +754,11 @@ export const ThumbnailDownloadNoPreview: Story = {
 };
 
 export const ThumbnailDownloadPublishConfirm: Story = {
-  name: '안1-9 썸네일·내려받기 · 커뮤니티 올리기 동의',
+  name: '안1-9 썸네일·내려받기 · 탐색 올리기 동의',
   render: () => <ThumbnailDownloadScreen {...thumbnailArgs} initialIsConfirmingPublish />,
 };
 
 export const ThumbnailDownloadPublic: Story = {
-  name: '안1-9 썸네일·내려받기 · 커뮤니티 공개 중',
+  name: '안1-9 썸네일·내려받기 · 탐색 공개 중',
   render: () => <ThumbnailDownloadScreen {...thumbnailArgs} initialIsPublic />,
 };

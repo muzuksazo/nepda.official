@@ -48,8 +48,8 @@ export type NavTab = 'home' | 'myVideos' | 'community' | 'profile';
 const NAV_ITEMS: { value: NavTab; label: string; Icon: ComponentType<IconProps>; activeLook: 'fill' | 'bold' }[] = [
   { value: 'home', label: '홈', Icon: Home, activeLook: 'fill' },
   { value: 'myVideos', label: '내 영상', Icon: Folder, activeLook: 'fill' },
-  // 커뮤니티 = 다른 사람 영상을 둘러보는 탐색 탭이라 돋보기
-  { value: 'community', label: '커뮤니티', Icon: Search, activeLook: 'bold' },
+  // 탐색 = 다른 사람 영상을 둘러보는 탭이라 돋보기 (코드 이름은 community 그대로)
+  { value: 'community', label: '탐색', Icon: Search, activeLook: 'bold' },
   { value: 'profile', label: '프로필', Icon: User, activeLook: 'fill' },
 ];
 
@@ -58,7 +58,7 @@ export interface BottomNavProps {
   onNavigate?: (tab: NavTab) => void;
 }
 
-/** 하단 내비게이션 바: 홈 · 내 영상 · 커뮤니티 · 프로필. 아이콘만 보이고(이름은 스크린 리더용), 현재 탭은 아이콘이 검정(다크는 흰색)으로 꽉 채워진다. */
+/** 하단 내비게이션 바: 홈 · 내 영상 · 탐색 · 프로필. 아이콘만 보이고(이름은 스크린 리더용), 현재 탭은 아이콘이 검정(다크는 흰색)으로 꽉 채워진다. */
 export function BottomNav({ active, onNavigate }: BottomNavProps) {
   return (
     <nav className="n-bottom-nav" aria-label="주요 메뉴">

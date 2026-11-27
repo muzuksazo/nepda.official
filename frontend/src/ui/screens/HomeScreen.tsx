@@ -74,7 +74,7 @@ export interface HomeScreenProps {
   share?: ShareHandlers;
   /** "이 훅으로 만들기" */
   onRemixFeed?: (video: CommunityVideo) => void;
-  /** 피드 제목 옆 화살표 → 커뮤니티 탭 */
+  /** 피드 제목 옆 화살표 → 탐색 탭 */
   onSeeAllFeed?: () => void;
   /** 영상별 댓글 (불러온 것만). 없으면 영상의 commentCount로 수만 보여 준다 */
   comments?: Record<string, VideoComment[]>;
