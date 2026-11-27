@@ -136,7 +136,7 @@ export interface CreditBalanceCardProps {
   /** 크레딧 잔액. 아직 못 불러왔으면 undefined → "—" */
   credits?: number;
   onChargeClick?: () => void;
-  /** 있으면 오른쪽 위에 "내역" 링크를 보여 준다 → 크레딧 내역 */
+  /** 있으면 아래 행동 줄에 "내역 보기" 버튼을 충전하기 옆에 둔다 → 크레딧 내역 */
   onHistoryClick?: () => void;
   /** 잔액 줄 아래 한 줄 (예: 곧 사라지는 크레딧) */
   note?: ReactNode;
@@ -148,27 +148,21 @@ export function CreditBalanceCard({ credits, onChargeClick, onHistoryClick, note
   const shownCredits = credits === undefined ? '—' : credits.toLocaleString('ko-KR');
   return (
     <section className="n-card n-wallet" aria-labelledby={titleId}>
-      <div className="n-wallet__head">
-        <h2 id={titleId} className="n-wallet__label">
-          내 크레딧
-        </h2>
-        {onHistoryClick ? (
-          <button type="button" className="n-wallet__link" onClick={onHistoryClick} aria-label="크레딧 내역 보기">
-            내역
-            <ChevronRight size={16} aria-hidden="true" />
-          </button>
-        ) : null}
-      </div>
-      <div className="n-wallet__row">
-        <p className="n-wallet__balance">
-          <span className="n-credit__icon n-wallet__icon" aria-hidden="true">
-            <Lightning size={14} strokeWidth={2.5} fill="currentColor" />
-          </span>
-          <span className="n-num">{shownCredits}</span>
-        </p>
-        <Button label="충전하기" size="md" onClick={onChargeClick} />
-      </div>
+      <h2 id={titleId} className="n-wallet__label">
+        내 크레딧
+      </h2>
+      <p className="n-wallet__balance">
+        <span className="n-credit__icon n-wallet__icon" aria-hidden="true">
+          <Lightning size={14} strokeWidth={2.5} fill="currentColor" />
+        </span>
+        <span className="n-num">{shownCredits}</span>
+      </p>
       {note ? <div className="n-wallet__note">{note}</div> : null}
+      {/* 잔액과 행동을 선으로 나누고, 내역·충전하기를 같은 크기 버튼으로 나란히 둔다 */}
+      <div className="n-wallet__actions">
+        {onHistoryClick ? <Button label="내역 보기" variant="tonal" size="md" isBlock onClick={onHistoryClick} /> : null}
+        <Button label="충전하기" size="md" isBlock onClick={onChargeClick} />
+      </div>
     </section>
   );
 }

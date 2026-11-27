@@ -135,6 +135,25 @@
   box-shadow: inset 0 0 0 1.5px var(--border-strong);
 }
 
+/* 보조 행동: 테두리 없는 회색 면 */
+.n-btn--tonal {
+  background: var(--surface-weak);
+  color: var(--text);
+}
+
+.n-btn--tonal:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+/* 다크 카드는 이미 --surface-weak 면이라, 카드 안 보조 버튼은 한 단계 밝힌다 */
+[data-theme='dark'] .n-card .n-btn--tonal {
+  background: var(--surface);
+}
+
+[data-theme='dark'] .n-card .n-btn--tonal:hover:not(:disabled) {
+  background: var(--surface-strong);
+}
+
 .n-btn--secondary:hover:not(:disabled),
 .n-btn--ghost:hover:not(:disabled) {
   background: var(--surface-weak);
@@ -2016,7 +2035,7 @@ button.n-list-row:active {
 
 /* 불러오는 중에도 실제 카드와 같은 높이를 잡아 둬서, 내용이 들어올 때 아래가 밀리지 않는다 */
 .n-wallet--loading {
-  min-height: 104px;
+  min-height: 173px;
 }
 
 .n-wallet__label {
@@ -2026,19 +2045,13 @@ button.n-list-row:active {
   color: var(--text-3);
 }
 
-.n-wallet__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 4px;
-}
 
 .n-wallet__balance {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  margin-top: 4px;
   font-size: 28px;
   font-weight: 800;
   line-height: 36px;
@@ -2058,39 +2071,18 @@ button.n-list-row:active {
   color: var(--text-3);
 }
 
-.n-wallet__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
 
-/* "내역 >" — 글자 링크지만 손가락으로 누르기 쉽게 자리를 넓게 잡는다(44px) */
-.n-wallet__link {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  min-height: 44px;
-  margin: -12px -8px -12px 0;
-  padding: 0 4px 0 12px;
-  border: 0;
-  background: none;
-  color: var(--text-3);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 20px;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.n-wallet__link:active {
-  color: var(--text);
-}
 
 .n-wallet__note {
-  margin-top: 14px;
-  padding-top: 12px;
+  margin-top: 8px;
+}
+
+/* 잔액 아래 행동 줄: 얇은 선으로 나누고 내역 보기 · 충전하기를 반반 */
+.n-wallet__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid var(--border-weak);
 }
 

@@ -543,8 +543,9 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 
 크레딧 잔액을 보여 주고 충전으로 보내는 카드(흰 면, 1px `{colors.border-weak}`, radius 20px, `{elevation.shadow-card}`). **영상을 만드는 횟수에는 하루 제한이 없다** — 충전한 크레딧만큼 계속 만든다. 무료로 만들어 주는 영상은 없다(첫 영상 무료 조건은 없앴다).
 
-- 위: "내 크레딧"(14px tertiary), 오른쪽 끝에 글자 링크 "내역 >"(14px tertiary, 누르는 자리 44px) → 크레딧 내역. 그 아래 왼쪽에 24px 라임 번개 원 + 잔액(Pretendard 28px ExtraBold, 천 단위 쉼표), 오른쪽에 1차 버튼 "충전하기"(44px). 잔액을 아직 못 불러왔으면 "—".
-- 잔액 아래에 한 줄을 붙일 수 있다(1px `{colors.border-weak}` 선으로 나눔). 크레딧 내역에서 "12월 12일에 10 크레딧 사라져요"를 여기에 둔다.
+- 위: "내 크레딧"(14px tertiary), 그 아래 24px 라임 번개 원 + 잔액(Pretendard 28px ExtraBold, 천 단위 쉼표). 잔액을 아직 못 불러왔으면 "—".
+- 아래 **행동 줄**: 1px `{colors.border-weak}` 선으로 잔액과 나누고(위아래 16px), 같은 크기 44px 버튼 두 개를 반반 나란히 둔다 — 왼쪽 "내역 보기"(`tonal`: 테두리 없는 `{colors.surface-weak}` 회색 면, 다크 카드 안에서는 `{colors.surface}`) → 크레딧 내역, 오른쪽 1차 버튼 "충전하기". 예전 오른쪽 위 글자 링크 "내역 >"는 충전하기 버튼에 붙어 보이고 눈에 잘 띄지 않아 버튼으로 바꿨다. 레퍼런스: [네이버플러스 스토어](https://uibowl.io/name/%EB%84%A4%EC%9D%B4%EB%B2%84%ED%94%8C%EB%9F%AC%EC%8A%A4%20%EC%8A%A4%ED%86%A0%EC%96%B4?patterns=%EB%A7%88%EC%9D%B4%ED%8E%98%EC%9D%B4%EC%A7%80)의 "숫자 위 · 선 아래 행동 줄" 혜택 카드. 크레딧 내역 화면처럼 내역 버튼이 필요 없으면 "충전하기"만 행동 줄을 꽉 채운다.
+- 잔액 바로 아래(행동 줄 위)에 한 줄을 붙일 수 있다. 크레딧 내역에서 "12월 12일에 10 크레딧 사라져요"를 여기에 둔다.
 - 잔액 아래 안내 문구는 두지 않는다(잔액과 "충전하기"만으로 충분하다).
 - 영상 한 편에 드는 크레딧(단가)은 아직 정해지지 않아(OQ-003) 이 카드에는 "약 N편 만들 수 있어요" 같은 환산을 넣지 않는다. 충전 화면의 묶음 카드는 단가를 받으면 "영상 약 N편"을 함께 보여 준다.
 
@@ -798,7 +799,7 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 
 ### 크레딧 내역
 
-크레딧이 언제, 왜 들고 났는지 보는 화면. 들어오는 곳은 내 정보 크레딧 카드의 **"내역 >"**과 **충전 완료 알림**. 레퍼런스: [포스텔러](https://uibowl.io/name/%ED%8F%AC%EC%8A%A4%ED%85%94%EB%9F%AC?patterns=%EB%82%B4%EC%97%AD&patternName=%ED%8F%AC%EC%9D%B8%ED%8A%B8)의 "잔액 상자 + 충전/사용 탭", [카카오골프예약](https://uibowl.io/name/%EC%B9%B4%EC%B9%B4%EC%98%A4%EA%B3%A8%ED%94%84%EC%98%88%EC%95%BD?patterns=%EB%82%B4%EC%97%AD&patternName=MY%20-%20%EC%BA%90%EC%8B%9C%EC%A0%81%EB%A6%BD%EC%82%AC%EC%9A%A9%EB%82%B4%EC%97%AD)의 "30일 안에 사라질 금액", [페이코](https://uibowl.io/name/%ED%8E%98%EC%9D%B4%EC%BD%94?patterns=%EB%82%B4%EC%97%AD&patternName=%ED%8F%AC%EC%9D%B8%ED%8A%B8%20%EC%A0%81%EB%A6%BD)의 "날짜별 묶음 + 줄마다 남은 금액".
+크레딧이 언제, 왜 들고 났는지 보는 화면. 들어오는 곳은 내 정보 크레딧 카드의 **"내역 보기"**와 **충전 완료 알림**. 레퍼런스: [포스텔러](https://uibowl.io/name/%ED%8F%AC%EC%8A%A4%ED%85%94%EB%9F%AC?patterns=%EB%82%B4%EC%97%AD&patternName=%ED%8F%AC%EC%9D%B8%ED%8A%B8)의 "잔액 상자 + 충전/사용 탭", [카카오골프예약](https://uibowl.io/name/%EC%B9%B4%EC%B9%B4%EC%98%A4%EA%B3%A8%ED%94%84%EC%98%88%EC%95%BD?patterns=%EB%82%B4%EC%97%AD&patternName=MY%20-%20%EC%BA%90%EC%8B%9C%EC%A0%81%EB%A6%BD%EC%82%AC%EC%9A%A9%EB%82%B4%EC%97%AD)의 "30일 안에 사라질 금액", [페이코](https://uibowl.io/name/%ED%8E%98%EC%9D%B4%EC%BD%94?patterns=%EB%82%B4%EC%97%AD&patternName=%ED%8F%AC%EC%9D%B8%ED%8A%B8%20%EC%A0%81%EB%A6%BD)의 "날짜별 묶음 + 줄마다 남은 금액".
 
 - **머리**: `page-header` "크레딧 내역"(뒤로 → 들어온 곳).
 - **잔액 카드**: `credit-balance-card`를 그대로 쓴다(잔액 + "충전하기" → 충전 → 끝나면 이 화면으로 돌아온다). 30일 안에 사라질 크레딧이 있으면 카드 아래 칸에 시계 아이콘 + "12월 12일에 **10** 크레딧 사라져요". 빨강은 쓰지 않는다.
