@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     video_timeout_sec: float = 600.0
     # Gemini 요청 하나의 최대 대기 시간 (초). 응답 없는 호출이 작업 전체를 멈추지 않게 한다
     genai_request_timeout_sec: float = 180.0
+    # 참고 이미지 한 장에 쓰는 최대 시간 (재시도 포함, 초). 넘기면 참고 이미지 없이 진행한다
+    reference_image_timeout_sec: float = 90.0
 
     # Local filesystem paths & object storage
     work_root: str = str(_DEFAULT_DATA_ROOT / "jobs")

@@ -336,6 +336,8 @@ class GenAIMediaProvider:
                 "mime_type": mime_type,
             },
             store=True,
+            # 재시도까지 합친 전체 상한. 2026-11-27 Modal 에서 이미지 호출이 응답 없이 멈추는 일이 반복됐다
+            timeout=float(getattr(self.settings, "reference_image_timeout_sec", 90.0)),
         )
         raw, _ = _extract_interaction_media(
             interaction, "image", api_key=self.settings.gemini_api_key
