@@ -24,6 +24,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from .body import attach_body
 from .media import MediaTools, find_tools
 from .body_edit import ScriptWriter, body_cache_key, make_body
+from .selfhosted import SelfHostedMedia
 from .render import HookRenderResult, _subtitle_style, extract_reference_frames, render_hook, write_scenario_and_srt
 from .tts import InworldTts, MediaWithTts
 
@@ -60,6 +61,7 @@ class HookPipeline:
         provider_factory: Optional[ProviderFactory] = None,
         tools: Optional[MediaTools] = None,
         body_writer: Optional[ScriptWriter] = None,
+        selfhosted_media: Any = None,
     ) -> None:
         self.settings = settings
         self._body_writer = body_writer
@@ -68,6 +70,7 @@ class HookPipeline:
         self.storage = storage
         self._provider_factory = provider_factory
         self._tools = tools
+        self._selfhosted_media = selfhosted_media  # 테스트에서 가짜 FLUX·MiniMax 를 넣는다
         self._locks: Dict[Tuple[str, str], threading.Lock] = {}
         self._locks_guard = threading.Lock()
 
@@ -206,8 +209,13 @@ class HookPipeline:
         job_id: Optional[str] = None,
     ) -> HookRenderResult:
         media = self._media()
-        refs = extract_reference_frames(clips, out_dir / "_work" / "refs", media) if clips else []
         enabled, voice = self._tts_key(tts)
+        if self._selfhosted(scenario):
+            # 자체 모델: 콘티 스틸컷을 첫 프레임으로 MiniMax 가 장면 클립을 만들고, 조립은 미리 만든 클립처럼 한다
+            scenario = self._selfhosted_clips(project, scenario, job_id or out_dir.name, progress)
+            refs = []
+        else:
+            refs = extract_reference_frames(clips, out_dir / "_work" / "refs", media) if clips else []
         return render_hook(
             scenario,
             project.get("product") or {},
@@ -227,6 +235,72 @@ class HookPipeline:
                 job_id=job_id,
             ),
         )
+
+    def _selfhosted(self, scenario: Dict[str, Any]) -> bool:
+        if getattr(self.settings, "hook_media_engine", "gemini") != "selfhosted":
+            return False
+        if str(scenario.get("type") or "").upper() == "A":
+            return False  # A 는 템플릿 클립 + 착지 장면 (기존 길)
+        return True
+
+    def _selfhosted_clips(
+        self,
+        project: Dict[str, Any],
+        scenario: Dict[str, Any],
+        job_key: str,
+        progress: Optional[Callable[[str], None]] = None,
+    ) -> Dict[str, Any]:
+        """콘티 스틸컷(저장소) + 움직임 묘사로 장면 클립을 만들어 각 장면의 prebuilt_clip 으로 넣은 시나리오 사본을 돌려준다.
+
+        콘티가 없거나 일부 장면이 빠졌으면 그 자리에서 스틸컷부터 만든다.
+        """
+        import copy
+
+        engine = self._selfhosted_media or SelfHostedMedia(self.settings)
+        self._selfhosted_media = engine
+        sc = copy.deepcopy(scenario)
+        beats = [b for b in sc.get("beats") or [] if isinstance(b, dict)]
+        safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in job_key) or "job"
+        rel_dir = Path("selfhosted") / str(project.get("project_id") or "p") / safe
+        work = Path(getattr(self.settings, "hook_assets_dir", "")).resolve() / rel_dir
+        work.mkdir(parents=True, exist_ok=True)
+
+        stills: Dict[int, Tuple[bytes, str]] = {}
+        for frame in sc.get("storyboard_frames") or []:
+            if not isinstance(frame, dict) or not frame.get("object_key") or not frame.get("motion_prompt"):
+                continue
+            order = int(frame.get("beat_order") or 0)
+            dest = work / f"still{order}.png"
+            try:
+                self.storage.download_file(str(frame["object_key"]), dest)
+                stills[order] = (dest.read_bytes(), str(frame["motion_prompt"]))
+            except Exception as exc:
+                logger.warning("콘티 스틸컷을 받지 못했습니다 (%s): %s", frame.get("object_key"), exc)
+        if any(int(b.get("order") or 0) not in stills for b in beats):
+            if progress:
+                progress("STORYBOARD")
+            for item in engine.storyboard(sc, project.get("product") or {}):
+                stills.setdefault(int(item["beat_order"]), (item["png"], item.get("motion_prompt") or ""))
+
+        items: List[Tuple[bytes, str, float]] = []
+        orders: List[int] = []
+        for beat in beats:
+            order = int(beat.get("order") or 0)
+            if order in stills:
+                png, motion = stills[order]
+                items.append((png, motion, float(beat.get("duration_sec") or 4.0)))
+                orders.append(order)
+        if progress:
+            progress(f"CLIP 1/{len(items)}")
+        made = engine.clips(items)
+        by_order = dict(zip(orders, made))
+        for beat in beats:
+            data = by_order.get(int(beat.get("order") or 0))
+            if data:
+                name = f"clip{int(beat.get('order') or 0)}.mp4"
+                (work / name).write_bytes(data)
+                beat["prebuilt_clip"] = (rel_dir / name).as_posix()
+        return sc
 
     def _publish_hook_files(self, project_id: str, hook_id: str, out_dir: Path, files: Dict[str, Any]) -> Dict[str, str]:
         """훅 결과를 저장소에 올린다. 키: projects/{project_id}/hooks/{hook_id}/{파일 이름} (팀 합의 2026-11-27).

@@ -806,6 +806,43 @@ def _default_storyboard_generator(
     return _generate
 
 
+def _selfhosted_storyboard_generator(settings: Settings, storage: StorageBackend, fallback: Any, media: Any = None):
+    """HOOK_MEDIA_ENGINE=selfhosted: 장면마다 FLUX 스틸컷(장면 1을 참고 컷으로) + 영상용 움직임 묘사.
+
+    A 유형은 미리 만든 템플릿 콘티(fallback)를 그대로 쓴다. 저장소 키·움직임 묘사를 프레임에 함께 저장해
+    영상 단계(/renders)가 그대로 첫 프레임으로 쓴다. 돌려준 직후 MiniMax 를 미리 켠다 (콘티 확인 화면 동안 모델 적재).
+    """
+
+    def _generate(project: Dict[str, Any], scenario: Dict[str, Any], visual_style: str) -> List[Dict[str, Any]]:
+        if str(scenario.get("type") or "").upper() == "A":
+            return fallback(project, scenario, visual_style)
+        from hookpipe.selfhosted import SelfHostedMedia
+
+        engine = media or SelfHostedMedia(settings)
+        made = engine.storyboard(scenario, project.get("product") or {})
+        beats = {int(b.get("order") or 0): b for b in scenario.get("beats") or []}
+        frames: List[Dict[str, Any]] = []
+        for item in made:
+            order = int(item["beat_order"])
+            obj_key = f"projects/{project['project_id']}/storyboards/{scenario['scenario_id']}/frame_{order:02d}.png"
+            local = (Path(settings.work_root).resolve() / project["project_id"] / "storyboards"
+                     / scenario["scenario_id"] / f"frame_{order:02d}.png")
+            local.parent.mkdir(parents=True, exist_ok=True)
+            local.write_bytes(item["png"])
+            storage.upload_file(local, obj_key)
+            frames.append({
+                "beat_order": order,
+                "image_url": resolve_media_url(obj_key, storage=storage, settings=settings) or obj_key,
+                "caption": _safe_beat_caption(beats.get(order) or {}),
+                "object_key": obj_key,
+                "motion_prompt": item.get("motion_prompt") or "",
+            })
+        engine.warm_clips(len(frames))
+        return frames
+
+    return _generate
+
+
 def build_projects_router(
     settings: Settings,
     project_store: ProjectStore,
@@ -825,9 +862,14 @@ def build_projects_router(
     hooks = hook_pipeline or HookPipeline(settings, project_store, job_store, storage)
     verify_google = google_token_verifier or verify_google_id_token
     gen_scenarios = scenario_generator or _default_scenario_generator(settings)
-    gen_storyboard = storyboard_generator or _default_storyboard_generator(
-        settings, storage, project_store=project_store
-    )
+    if storyboard_generator is not None:
+        gen_storyboard = storyboard_generator
+    elif getattr(settings, "hook_media_engine", "gemini") == "selfhosted":
+        gen_storyboard = _selfhosted_storyboard_generator(settings, storage, _default_storyboard_generator(
+            settings, storage, project_store=project_store
+        ))
+    else:
+        gen_storyboard = _default_storyboard_generator(settings, storage, project_store=project_store)
     paddle = paddle_client or HttpxPaddleApiClient(settings)
 
     def _quota(user_id: str) -> QuotaStatus:
