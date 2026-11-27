@@ -76,7 +76,7 @@ def main() -> int:
         probe_file.write_text(f"napda storage probe {time.time()}", encoding="utf-8")
         key = "healthcheck/storage_probe.txt"
         url = timed(f"올리기 ({settings.storage_backend})", lambda: storage.upload_file(probe_file, key))
-        print(f"     주소: {str(url)[:80]}…")
+        print(f"     주소: {str(url).split('?', 1)[0][:80]} (서명 부분은 표시하지 않음)")
         back = OUT / "storage_probe_back.txt"
         timed("내려받기", lambda: storage.download_file(key, back))
         same = back.read_text(encoding="utf-8") == probe_file.read_text(encoding="utf-8")

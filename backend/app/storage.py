@@ -69,9 +69,13 @@ class S3StorageBackend:
 
         self.bucket = settings.s3_bucket
         self.prefix = settings.s3_prefix.strip("/")
+        endpoint = (settings.s3_endpoint_url or "").strip().rstrip("/")
+        # R2 대시보드의 "S3 API" 주소는 끝에 버킷 이름이 붙어 있다. 그대로 쓰면 모든 경로 앞에 버킷 이름이 한 번 더 붙는다
+        if endpoint.endswith("/" + self.bucket):
+            endpoint = endpoint[: -len(self.bucket) - 1]
         self.client = boto3.client(
             "s3",
-            endpoint_url=settings.s3_endpoint_url or None,
+            endpoint_url=endpoint or None,
             region_name=settings.s3_region,
             aws_access_key_id=settings.s3_access_key_id,
             aws_secret_access_key=settings.s3_secret_access_key,
