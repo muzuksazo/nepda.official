@@ -1,11 +1,11 @@
 {
-  "updatedAt": "2026-11-27",
-  "commit": "f8171e0",
+  "updatedAt": "2026-11-28",
+  "commit": "c2da863",
   "repoUrl": "https://github.com/muzuksazo/nepda.official",
   "planDocPath": "tests/E2E_TEST_PLAN.md",
   "overviewImage": "./recordings/e2e_features_overview.png",
   "offlineSuites": [
-    { "name": "Python Regression & Parity", "command": ".venv/bin/python scripts/test-python.py", "summary": "41 / 41 targeted · 120 / 121 full", "status": "pass" },
+    { "name": "Python Regression & Parity", "command": ".venv/bin/python scripts/test-python.py", "summary": "delivery 7/7 · integration 2/2 · infra 13/13", "status": "pass" },
     { "name": "Node Planner & Prototype", "command": "npm test && npm run typecheck && npm run build", "summary": "7 / 7 PASS", "status": "pass" },
     { "name": "Frontend Lint & Build", "command": "npm --prefix frontend run lint && npm --prefix frontend run build", "summary": "0 error · PASS", "status": "pass" },
     { "name": "GitHub Actions CI / CD", "command": "CI + Frontend CI + CD Backend", "summary": "PASS", "status": "pass" }
@@ -74,8 +74,8 @@
       "env": "local",
       "status": "pass",
       "fr": "A안 · FR-001~014",
-      "durationSec": 79.24,
-      "sizeKb": 879,
+      "durationSec": 63.76,
+      "sizeKb": 780,
       "video": "./recordings/abc_A_hook_e2e.mp4",
       "poster": "./recordings/shots/abc_A_hook_e2e/08_review.webp",
       "screenshots": [
@@ -92,7 +92,7 @@
       "checks": [
         "제품 정보 → A 유형('시안 없이 냅다 만들기' 왕복 검증) → 3D 도미노 1:1 정렬 시나리오·4/8 그림 콘티(4컷 /v1/media/ 실이미지, CTA 미노출) → 촬영 가이드",
         "8.5초 스튜디오 시연 영상(pva_sponge_demo.mp4) 업로드 → GeneratingScreen → Track A 실렌더 7/8 영상 확인(<video>, MP4 200)",
-        "8/8 Storybook Figma 4종 템플릿(반전 박스·화이트 라벨·명조 임팩트·상단 POV) 클린(무자막·무워터마크) 키프레임 라이브 미리보기 + '화이트 라벨'(white-label) PNG(>10KB) + '탐색에도 올리기'(PATCH /publish) 영속성 검증"
+        "8/8 Storybook Figma 4종 SSOT(반전 박스·화이트 라벨·명조 임팩트·상단 POV) 클린 키프레임 + '안전 영역 보기' 토글 + 24자 한글 자동 축소(무오버플로) + '화이트 라벨' PNG(>10KB) + '탐색에도 올리기'(PATCH /publish) 영속성 검증"
       ]
     },
     {
@@ -103,8 +103,8 @@
       "env": "local",
       "status": "pass",
       "fr": "FR-006",
-      "durationSec": 13.32,
-      "sizeKb": 163,
+      "durationSec": 12.72,
+      "sizeKb": 172,
       "video": "./recordings/05_local_billing_paddle_webhook.mp4",
       "poster": "./recordings/shots/05_local_billing_paddle_webhook/02_paddle.webp",
       "screenshots": [
@@ -126,8 +126,8 @@
       "env": "local",
       "status": "pass",
       "fr": "Auth · Privacy",
-      "durationSec": 10.32,
-      "sizeKb": 110,
+      "durationSec": 7.88,
+      "sizeKb": 91,
       "video": "./recordings/01_local_onboarding_privacy.mp4",
       "poster": "./recordings/shots/01_local_onboarding_privacy/02_onboarding.webp",
       "screenshots": [
@@ -147,8 +147,8 @@
       "env": "local",
       "status": "pass",
       "fr": "Auth",
-      "durationSec": 11.08,
-      "sizeKb": 165,
+      "durationSec": 10.72,
+      "sizeKb": 176,
       "video": "./recordings/06_local_logout.mp4",
       "poster": "./recordings/shots/06_local_logout/01_sheet.webp",
       "screenshots": [
@@ -169,8 +169,8 @@
       "env": "live",
       "status": "pass",
       "fr": "Live Ops · Billing Config",
-      "durationSec": 8.8,
-      "sizeKb": 97,
+      "durationSec": 19.92,
+      "sizeKb": 111,
       "video": "./recordings/07_live_prod_smoke.mp4",
       "poster": "./recordings/shots/07_live_prod_smoke/02_live_onboarding.webp",
       "screenshots": [
@@ -191,8 +191,8 @@
       "env": "local",
       "status": "pass",
       "fr": "Core UI",
-      "durationSec": 9.32,
-      "sizeKb": 91,
+      "durationSec": 9.12,
+      "sizeKb": 82,
       "video": "./recordings/02_local_home_my_videos.mp4",
       "poster": "./recordings/shots/02_local_home_my_videos/01_home.webp",
       "screenshots": [
@@ -201,7 +201,7 @@
         { "label": "내 영상 · 완료", "src": "./recordings/shots/02_local_home_my_videos/03_completed.webp" }
       ],
       "checks": [
-        "통합 '내 영상 2' 캐러셀 실DB 시드 2건(진행 중 콘티·완료 커버 /v1/media/ 실 썸네일, 플레이스홀더 큐브 0건) + 목업 배너/가짜 알림 배지 미노출",
+        "통합 '내 영상 2' 캐러셀 실DB 시드 2건(진행 중 콘티 + 완료 Storybook white-label '100겹' 라임 하이라이트 커버, 무스크림·플레이스홀더 큐브 0건)",
         "내 영상 탭 진입 및 진행 중 ↔ 완료 탭 전환 정상(7일 보관 안내 일관성 확인)"
       ]
     },
@@ -213,10 +213,10 @@
       "env": "local",
       "status": "pass",
       "fr": "Core UI",
-      "durationSec": 12.44,
-      "sizeKb": 188,
+      "durationSec": 12.36,
+      "sizeKb": 201,
       "video": "./recordings/03_local_community_filters.mp4",
-      "poster": "./recordings/shots/03_local_community_filters/02_type_a.webp",
+      "poster": "./recordings/shots/03_local_community_filters/01_all.webp",
       "screenshots": [
         { "label": "탐색 · 전체", "src": "./recordings/shots/03_local_community_filters/01_all.webp" },
         { "label": "탐색 · A 유형", "src": "./recordings/shots/03_local_community_filters/02_type_a.webp" },
@@ -224,8 +224,8 @@
         { "label": "탐색 · C 유형", "src": "./recordings/shots/03_local_community_filters/04_type_c.webp" }
       ],
       "checks": [
-        "실DB 공개 프로젝트(GET /v1/community/videos) 6건 실 /v1/media/ 썸네일 렌더링 (더미 SAMPLE_COMMUNITY·도마왕·1.2만 누수 0건)",
-        "전체(6건) / A 유형(2건) / B 유형(2건) / C 유형(2건) 탭 전환 및 필터 정상"
+        "실DB 공개 프로젝트(GET /v1/community/videos) 6건 Storybook Figma 4종 SSOT 커버(invert-box·white-label·serif-outline·pov-bar + #D6FF3F 하이라이트, 무스크림) 렌더링",
+        "전체(6건) / A 유형(2건) / B 유형(2건) / C 유형(2건) 탭 전환 및 필터 정상 (도마왕·1.2만 누수 0건)"
       ]
     },
     {
@@ -236,8 +236,8 @@
       "env": "local",
       "status": "pass",
       "fr": "Core UI",
-      "durationSec": 9.68,
-      "sizeKb": 200,
+      "durationSec": 10.08,
+      "sizeKb": 190,
       "video": "./recordings/04_local_profile_theme.mp4",
       "poster": "./recordings/shots/04_local_profile_theme/02_dark.webp",
       "screenshots": [

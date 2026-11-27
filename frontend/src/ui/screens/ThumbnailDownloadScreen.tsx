@@ -22,11 +22,17 @@ import { ThumbnailTemplate } from '../thumbnails/ThumbnailTemplate';
 function ScaledFigmaThumbnail({
   variant,
   headline,
+  badge,
+  highlightWord,
   imageUrl,
+  showSafeZone,
 }: {
   variant: ThumbnailVariant;
   headline: string;
+  badge?: string;
+  highlightWord?: string;
   imageUrl?: string;
+  showSafeZone?: boolean;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(140 / THUMBNAIL_WIDTH);
@@ -59,8 +65,11 @@ function ScaledFigmaThumbnail({
     >
       <ThumbnailTemplate
         variant={variant}
+        badge={badge}
         headline={headline}
+        highlightWord={highlightWord}
         imageUrl={imageUrl}
+        showSafeZone={showSafeZone}
         scale={scale}
       />
     </div>
@@ -74,6 +83,10 @@ export interface ThumbnailDownloadScreenProps {
   useFigmaTemplates?: boolean;
   /** 클린 영상 키프레임 URL (useFigmaTemplates 모드에서 4종 템플릿 배경으로 사용) */
   backgroundImageUrl?: string;
+  /** 선택적 상단 배지/소제목 */
+  badge?: string;
+  /** 선택적 라임 강조 단어 */
+  highlightWord?: string;
   /** 처음 골라 둘 템플릿 id. 없으면 첫 템플릿 */
   initialTemplateId?: string;
   onTemplateChange?: (templateId: string) => void;
@@ -105,6 +118,8 @@ export function ThumbnailDownloadScreen({
   templates = [],
   useFigmaTemplates = false,
   backgroundImageUrl,
+  badge,
+  highlightWord,
   initialTemplateId,
   onTemplateChange,
   initialCaption = '',
@@ -124,6 +139,7 @@ export function ThumbnailDownloadScreen({
   const [templateId, setTemplateId] = useState<string | null>(
     initialTemplateId ?? effectiveTemplates[0]?.id ?? null,
   );
+  const [showSafeZone, setShowSafeZone] = useState(false);
   const [isPublic, setIsPublic] = useState(initialIsPublic);
   const [syncedInitialPublic, setSyncedInitialPublic] = useState(initialIsPublic);
   if (syncedInitialPublic !== initialIsPublic) {
@@ -183,13 +199,42 @@ export function ThumbnailDownloadScreen({
             templates={effectiveTemplates}
             value={effectiveTemplateId}
             onChange={chooseTemplate}
+            headerEnd={
+              useFigmaTemplates ? (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showSafeZone}
+                  onClick={() => setShowSafeZone((prev) => !prev)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 10px',
+                    borderRadius: 999,
+                    border: showSafeZone ? '1px solid var(--text)' : '1px solid var(--border)',
+                    background: showSafeZone ? 'var(--text)' : 'var(--surface-weak)',
+                    color: showSafeZone ? 'var(--bg)' : 'var(--text-2)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  안전 영역 보기
+                </button>
+              ) : undefined
+            }
             renderPreview={
               useFigmaTemplates
                 ? (tpl) => (
                     <ScaledFigmaThumbnail
                       variant={tpl.id as ThumbnailVariant}
+                      badge={badge}
                       headline={liveHeadline}
+                      highlightWord={highlightWord}
                       imageUrl={backgroundImageUrl}
+                      showSafeZone={showSafeZone}
                     />
                   )
                 : undefined

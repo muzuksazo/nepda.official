@@ -20,7 +20,12 @@ from .project_store import ProjectStore
 from .retention import is_project_expired
 from .storage import LocalStorageBackend, StorageBackend
 from .store import JobStore
-from .thumbnail_service import THUMBNAIL_STYLE_ALIASES, generate_project_thumbnail
+from .thumbnail_service import (
+    DEFAULT_THUMBNAIL_STYLE,
+    THUMBNAIL_STYLE_ALIASES,
+    generate_project_thumbnail,
+    normalize_thumbnail_style,
+)
 from .tts_service import TTSError, TTSProvider
 
 
@@ -57,24 +62,22 @@ class BodyBuildResponse(BaseModel):
 
 
 class CreateThumbnailRequest(BaseModel):
-    headline_lines: Optional[List[str]] = Field(default=None, min_length=1, max_length=2)
-    badge: Optional[str] = Field(default=None, max_length=24)
+    headline_lines: Optional[List[str]] = Field(default=None, min_length=1, max_length=3)
+    badge: Optional[str] = Field(default=None, max_length=32)
+    highlight_word: Optional[str] = Field(default=None, max_length=24)
     style: Literal[
-        "stroke_bold",
-        "line_blocks",
-        "panel_card",
         "invert-box",
         "white-label",
         "serif-outline",
         "pov-bar",
-    ] = "stroke_bold"
+    ] = "invert-box"
     source_image_key: Optional[str] = None
 
     @field_validator("style", mode="before")
     @classmethod
     def _normalize_style(cls, value: object) -> object:
         if value is None:
-            return "stroke_bold"
+            return DEFAULT_THUMBNAIL_STYLE
         if isinstance(value, str):
             mapped = THUMBNAIL_STYLE_ALIASES.get(value.strip().lower())
             if mapped is not None:
@@ -92,6 +95,7 @@ class ThumbnailBuildResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     headline_lines: List[str] = Field(default_factory=list)
     badge: Optional[str] = None
+    highlight_word: Optional[str] = None
     style: str
     candidate_image_urls: List[str] = Field(default_factory=list)
     candidate_keys: List[str] = Field(default_factory=list)
@@ -182,7 +186,7 @@ def build_pipeline_extras_router(
             if u
         ]
         image_url = resolve_media_url(meta.get("object_key"), storage=storage, settings=settings)
-        active_style = str(meta.get("style") or "stroke_bold")
+        active_style = normalize_thumbnail_style(meta.get("style"))
         preview_keys = meta.get("style_preview_keys") or {}
         style_previews: Dict[str, str] = {}
         if isinstance(preview_keys, dict):
@@ -204,6 +208,7 @@ def build_pipeline_extras_router(
             warnings=list(meta.get("warnings") or []),
             headline_lines=list(meta.get("headline_lines") or []),
             badge=meta.get("badge"),
+            highlight_word=meta.get("highlight_word"),
             style=active_style,
             candidate_image_urls=cand_urls,
             candidate_keys=cand_keys,
@@ -323,6 +328,7 @@ def build_pipeline_extras_router(
             job=job,
             headline_lines=body.headline_lines,
             badge=body.badge,
+            highlight_word=body.highlight_word,
             style=body.style,
             source_image_key=body.source_image_key,
         )

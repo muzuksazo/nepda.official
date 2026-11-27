@@ -27,15 +27,10 @@ EMOJI_RE = re.compile(
     flags=re.UNICODE,
 )
 
-THUMBNAIL_STYLES: tuple[str, ...] = ("stroke_bold", "line_blocks", "panel_card")
-FIGMA_THUMBNAIL_STYLES: tuple[str, ...] = ("invert-box", "white-label", "serif-outline", "pov-bar")
+THUMBNAIL_STYLES: tuple[str, ...] = ("invert-box", "white-label", "serif-outline", "pov-bar")
+FIGMA_THUMBNAIL_STYLES: tuple[str, ...] = THUMBNAIL_STYLES
+DEFAULT_THUMBNAIL_STYLE: str = "invert-box"
 THUMBNAIL_STYLE_ALIASES: Dict[str, str] = {
-    "stroke": "stroke_bold",
-    "stroke_bold": "stroke_bold",
-    "blocks": "line_blocks",
-    "line_blocks": "line_blocks",
-    "card": "panel_card",
-    "panel_card": "panel_card",
     "invert-box": "invert-box",
     "invert_box": "invert-box",
     "white-label": "white-label",
@@ -44,23 +39,20 @@ THUMBNAIL_STYLE_ALIASES: Dict[str, str] = {
     "serif_outline": "serif-outline",
     "pov-bar": "pov-bar",
     "pov_bar": "pov-bar",
-}
-_FIGMA_TO_PILLOW_STYLE: Dict[str, str] = {
-    "invert-box": "line_blocks",
-    "white-label": "line_blocks",
-    "serif-outline": "stroke_bold",
-    "pov-bar": "panel_card",
+    # Legacy Pillow style aliases mapped to canonical 4 Figma Storybook styles
+    "stroke": "serif-outline",
+    "stroke_bold": "serif-outline",
+    "blocks": "white-label",
+    "line_blocks": "white-label",
+    "card": "invert-box",
+    "panel_card": "invert-box",
+    "split": "pov-bar",
 }
 
 
 def normalize_thumbnail_style(style: Optional[str]) -> str:
     raw = str(style or "").strip().lower()
-    return THUMBNAIL_STYLE_ALIASES.get(raw, "stroke_bold")
-
-
-def _pillow_render_style(style: Optional[str]) -> str:
-    norm = normalize_thumbnail_style(style)
-    return _FIGMA_TO_PILLOW_STYLE.get(norm, norm if norm in THUMBNAIL_STYLES else "stroke_bold")
+    return THUMBNAIL_STYLE_ALIASES.get(raw, DEFAULT_THUMBNAIL_STYLE)
 
 
 def _build_thumb_spec_item(
@@ -71,44 +63,26 @@ def _build_thumb_spec_item(
     clean_lines: List[str],
     clean_badge: str,
     style: str,
+    clean_highlight: str = "",
 ) -> Dict[str, Any]:
-    valid_style = _pillow_render_style(style)
-    line_entries = [
-        {
-            "text": ln,
-            "color": (
-                [214, 255, 63]
-                if (idx == 1 and valid_style == "stroke_bold")
-                else ([14, 18, 26] if valid_style == "line_blocks" else [255, 255, 255])
-            ),
-        }
-        for idx, ln in enumerate(clean_lines)
-    ]
+    valid_style = normalize_thumbnail_style(style)
     thumb_item: Dict[str, Any] = {
         "id": item_id,
         "filename": filename,
-        "layout": "single",
+        "layout": "figma",
+        "figma_variant": valid_style,
         "image": str(chosen_bg),
         "strict_margin": True,
-        "scrim": {"y_top": 450, "y_bottom": 960, "peak_alpha": 185, "edge_soft": 110},
         "headline": {
             "style": valid_style,
-            "font_size": 88,
-            "gap_after_pill": 22,
-            "lines": line_entries,
+            "lines": [{"text": ln} for ln in clean_lines],
+            **({"highlight_word": clean_highlight} if clean_highlight else {}),
         },
     }
     if clean_badge:
-        thumb_item["pill"] = {
-            "y": 510,
-            "text": clean_badge,
-            "fill": [214, 255, 63, 245],
-            "outline": [10, 10, 10, 255],
-            "text_color": [10, 10, 10, 255],
-            "font_size": 36,
-        }
-    else:
-        thumb_item["headline"]["y"] = 560
+        thumb_item["badge"] = clean_badge
+    if clean_highlight:
+        thumb_item["highlight_word"] = clean_highlight
     return thumb_item
 
 
@@ -237,7 +211,8 @@ def generate_project_thumbnail(
     job: Optional[Dict[str, Any]] = None,
     headline_lines: Optional[Sequence[str]] = None,
     badge: Optional[str] = None,
-    style: str = "stroke_bold",
+    highlight_word: Optional[str] = None,
+    style: str = DEFAULT_THUMBNAIL_STYLE,
     source_image_key: Optional[str] = None,
     include_style_previews: bool = True,
 ) -> Dict[str, Any]:
@@ -314,13 +289,17 @@ def generate_project_thumbnail(
         candidate_keys.append(ckey)
 
     chosen_bg = unique_cands[0]
-    clean_lines = [_strip_emojis(ln)[:18] for ln in (headline_lines or default_headline_lines(project, scenario)) if _strip_emojis(ln)][:2]
+    clean_lines = [
+        _strip_emojis(ln)[:36]
+        for ln in (headline_lines or default_headline_lines(project, scenario))
+        if _strip_emojis(ln)
+    ][:3]
     if not clean_lines:
-        clean_lines = [str((project.get("product") or {}).get("name") or "제품 확인")[:14]]
+        clean_lines = [str((project.get("product") or {}).get("name") or "제품 확인")[:18]]
 
-    clean_badge = _strip_emojis(badge)[:18] if badge else ""
+    clean_badge = _strip_emojis(badge)[:32] if badge else ""
+    clean_highlight = _strip_emojis(highlight_word)[:24] if highlight_word else ""
     valid_style = normalize_thumbnail_style(style)
-    render_style = _pillow_render_style(valid_style)
 
     thumb_items: List[Dict[str, Any]] = [
         _build_thumb_spec_item(
@@ -329,13 +308,14 @@ def generate_project_thumbnail(
             chosen_bg=chosen_bg,
             clean_lines=clean_lines,
             clean_badge=clean_badge,
-            style=render_style,
+            clean_highlight=clean_highlight,
+            style=valid_style,
         )
     ]
     sibling_styles: List[str] = []
     if include_style_previews:
         for st in THUMBNAIL_STYLES:
-            if st == render_style:
+            if st == valid_style:
                 continue
             sibling_styles.append(st)
             thumb_items.append(
@@ -345,6 +325,7 @@ def generate_project_thumbnail(
                     chosen_bg=chosen_bg,
                     clean_lines=clean_lines,
                     clean_badge=clean_badge,
+                    clean_highlight=clean_highlight,
                     style=st,
                 )
             )
@@ -385,9 +366,7 @@ def generate_project_thumbnail(
     cover_key = thumbnail_object_key(project_id, thumb_id, "cover.png")
     storage.upload_file(cover_path, cover_key)
 
-    style_preview_keys: Dict[str, str] = {render_style: cover_key}
-    if valid_style != render_style:
-        style_preview_keys[valid_style] = cover_key
+    style_preview_keys: Dict[str, str] = {valid_style: cover_key}
     for st in sibling_styles:
         entry = rendered_by_id.get(f"preview_{st}")
         if entry and entry.get("path"):
@@ -404,6 +383,7 @@ def generate_project_thumbnail(
         "warnings": list(thumb_info.get("warnings") or []),
         "headline_lines": clean_lines,
         "badge": clean_badge or None,
+        "highlight_word": clean_highlight or None,
         "style": valid_style,
         "candidate_keys": candidate_keys,
         "style_preview_keys": style_preview_keys,

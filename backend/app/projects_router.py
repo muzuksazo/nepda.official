@@ -101,7 +101,12 @@ from .project_store import ProjectStore
 from .retention import is_project_expired, sync_project_status_with_job
 from .storage import StorageBackend
 from .store import JobStore
-from .thumbnail_service import generate_project_thumbnail
+from .thumbnail_service import (
+    DEFAULT_THUMBNAIL_STYLE,
+    THUMBNAIL_STYLES,
+    generate_project_thumbnail,
+    normalize_thumbnail_style,
+)
 from .tts_service import build_tts_provider
 from .upload_service import validate_and_complete_uploads
 
@@ -2000,7 +2005,10 @@ def build_projects_router(
             project_store.update_project(project_id, thumbnail=stored_thumb)
         elif (
             isinstance(stored_thumb, dict)
-            and not stored_thumb.get("style_preview_keys")
+            and (
+                not stored_thumb.get("style_preview_keys")
+                or not all(k in (stored_thumb.get("style_preview_keys") or {}) for k in THUMBNAIL_STYLES)
+            )
             and job["status"] == "QC_READY"
         ):
             sel_id = proj.get("selected_scenario_id")
@@ -2013,7 +2021,8 @@ def build_projects_router(
                 job=job,
                 headline_lines=stored_thumb.get("headline_lines") or None,
                 badge=stored_thumb.get("badge"),
-                style=str(stored_thumb.get("style") or "stroke_bold"),
+                highlight_word=stored_thumb.get("highlight_word"),
+                style=normalize_thumbnail_style(stored_thumb.get("style")),
             )
             project_store.update_project(project_id, thumbnail=stored_thumb)
 
@@ -2023,7 +2032,7 @@ def build_projects_router(
             dl_url = resolve_media_url(
                 t_key, storage=storage, settings=settings, download=True, filename="cover.png"
             )
-            active_style = str(stored_thumb.get("style") or "stroke_bold")
+            active_style = normalize_thumbnail_style(stored_thumb.get("style"))
             cand_keys = list(stored_thumb.get("candidate_keys") or [])
             cand_urls = [
                 u
@@ -2048,6 +2057,7 @@ def build_projects_router(
                 safe_zone_1_1_ok=stored_thumb.get("safe_zone_1_1_ok"),
                 headline_lines=list(stored_thumb.get("headline_lines") or []),
                 style=active_style,
+                highlight_word=stored_thumb.get("highlight_word"),
                 candidate_image_urls=cand_urls,
                 candidate_keys=cand_keys,
                 style_previews=style_previews,
@@ -2056,7 +2066,7 @@ def build_projects_router(
             t0 = thumbs[0]
             t_ref = t0.get("url")
             img_url = resolve_media_url(t_ref, storage=storage, settings=settings)
-            active_style = str(t0.get("style") or "stroke_bold")
+            active_style = normalize_thumbnail_style(t0.get("style") or DEFAULT_THUMBNAIL_STYLE)
             thumb = DeliverableThumbnail(
                 image_url=img_url,
                 download_url=resolve_media_url(

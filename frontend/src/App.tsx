@@ -104,8 +104,10 @@ function normalizeFigmaVariant(id: string | null | undefined): ThumbnailVariant 
   if (id === 'invert-box' || id === 'white-label' || id === 'serif-outline' || id === 'pov-bar') {
     return id;
   }
+  if (id === 'stroke_bold' || id === 'stroke') return 'serif-outline';
   if (id === 'line_blocks' || id === 'blocks') return 'white-label';
-  if (id === 'panel_card' || id === 'card') return 'pov-bar';
+  if (id === 'panel_card' || id === 'card') return 'invert-box';
+  if (id === 'split') return 'pov-bar';
   return 'invert-box';
 }
 
@@ -113,6 +115,8 @@ interface DeliverableThumbnailState {
   imageUrl?: string;
   downloadUrl?: string;
   style: ThumbnailVariant;
+  highlightWord?: string;
+  badge?: string;
   candidateImageUrls: string[];
   candidateKeys: string[];
 }
@@ -619,6 +623,8 @@ export function App() {
         imageUrl: thumb.image_url ?? undefined,
         downloadUrl: thumb.download_url ?? thumb.image_url ?? undefined,
         style,
+        highlightWord: thumb.highlight_word ?? undefined,
+        badge: thumb.badge ?? undefined,
         candidateImageUrls: Array.isArray(thumb.candidate_image_urls) ? thumb.candidate_image_urls : [],
         candidateKeys: Array.isArray(thumb.candidate_keys) ? thumb.candidate_keys : [],
       });
@@ -1203,6 +1209,8 @@ export function App() {
             download_url?: string | null;
             image_url?: string | null;
             style?: string | null;
+            highlight_word?: string | null;
+            badge?: string | null;
             candidate_image_urls?: string[];
             candidate_keys?: string[];
           };
@@ -1212,6 +1220,10 @@ export function App() {
           body: JSON.stringify({
             headline_lines: lines.length > 0 ? lines : [productInfo.name || '지금 확인'],
             style: variant,
+            ...(deliverableThumb?.highlightWord
+              ? { highlight_word: deliverableThumb.highlightWord }
+              : {}),
+            ...(deliverableThumb?.badge ? { badge: deliverableThumb.badge } : {}),
             ...(sourceImageKey ? { source_image_key: sourceImageKey } : {}),
           }),
         });
@@ -1223,11 +1235,16 @@ export function App() {
         const nextCandidateKeys = Array.isArray(res.data?.candidate_keys)
           ? res.data.candidate_keys
           : (deliverableThumb?.candidateKeys ?? []);
+        const nextHighlightWord =
+          res.data?.highlight_word ?? deliverableThumb?.highlightWord;
+        const nextBadge = res.data?.badge ?? deliverableThumb?.badge;
 
         setDeliverableThumb((prev) => ({
           imageUrl: newImageUrl ?? prev?.imageUrl,
           downloadUrl: newDownloadUrl ?? prev?.downloadUrl,
           style: variant,
+          highlightWord: nextHighlightWord,
+          badge: nextBadge,
           candidateImageUrls: nextCandidateUrls,
           candidateKeys: nextCandidateKeys,
         }));
@@ -1242,7 +1259,9 @@ export function App() {
         try {
           await exportThumbnailPng({
             variant,
+            badge: nextBadge,
             headline: formattedHeadline,
+            highlightWord: nextHighlightWord,
             imageUrl: cleanBgUrl,
           });
         } catch {
@@ -1885,6 +1904,8 @@ export function App() {
           key={`thumb-${projectId ?? 'none'}`}
           useFigmaTemplates
           backgroundImageUrl={cleanKeyframeUrl}
+          badge={deliverableThumb?.badge}
+          highlightWord={deliverableThumb?.highlightWord}
           initialTemplateId={deliverableThumb?.style ?? 'invert-box'}
           initialCaption={publishedCaption || productInfo.name || ''}
           aiDisclosure={aiDisclosureGuide}

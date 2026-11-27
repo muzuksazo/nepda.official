@@ -12,6 +12,8 @@ export interface DeliverableThumbnail {
   safe_zone_1_1_ok?: boolean | null;
   headline_lines?: string[];
   style?: string | null;
+  highlight_word?: string | null;
+  badge?: string | null;
   style_previews?: Record<string, string>;
   candidate_image_urls?: string[];
   candidate_keys?: string[];

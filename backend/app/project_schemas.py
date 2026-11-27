@@ -376,7 +376,8 @@ class DeliverableThumbnail(BaseModel):
     download_url: Optional[str] = None
     safe_zone_1_1_ok: Optional[bool] = None
     headline_lines: List[str] = Field(default_factory=list)
-    style: str = "stroke_bold"
+    style: str = "invert-box"
+    highlight_word: Optional[str] = None
     candidate_image_urls: List[str] = Field(default_factory=list)
     candidate_keys: List[str] = Field(default_factory=list)
     style_previews: Dict[str, str] = Field(default_factory=dict)

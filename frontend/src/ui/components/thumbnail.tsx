@@ -11,14 +11,24 @@ export interface ThumbnailPickerProps {
   onChange: (id: string) => void;
   /** 정적 이미지 대신 라이브 템플릿 미리보기를 그릴 때 넘긴다 */
   renderPreview?: (template: ThumbnailTemplate) => ReactNode;
+  /** 라벨 오른쪽에 둘 보조 컨트롤 (예: 안전 영역 보기 토글) */
+  headerEnd?: ReactNode;
 }
 
 /**
  * 썸네일 시안 고르기 — 가로로 넘기는 캐러셀에서 하나만 고른다 (라디오 그룹).
  * 다음 시안이 오른쪽에 살짝 보여 넘길 수 있다는 걸 알려 준다. 고른 시안은 사진에 붙은 라임 테두리 + 체크.
  */
-export function ThumbnailPicker({ label, templates, value, onChange, renderPreview }: ThumbnailPickerProps) {
+export function ThumbnailPicker({
+  label,
+  templates,
+  value,
+  onChange,
+  renderPreview,
+  headerEnd,
+}: ThumbnailPickerProps) {
   const name = useId();
+  const labelId = `${name}-label`;
   const trackRef = useRef<HTMLDivElement>(null);
 
   // 처음에 골라 둔 시안이 뒤쪽에 있으면 그 시안이 보이게 가로로만 옮겨 둔다 (화면 세로 위치는 건드리지 않는다)
@@ -33,10 +43,13 @@ export function ThumbnailPicker({ label, templates, value, onChange, renderPrevi
   }, []);
 
   return (
-    <fieldset className="n-field n-thumb-picker" style={{ border: 0, padding: 0, margin: 0 }}>
-      <legend className="n-field__label" style={{ marginBottom: 4, padding: 0 }}>
-        {label}
-      </legend>
+    <div className="n-field n-thumb-picker" role="radiogroup" aria-labelledby={labelId}>
+      <div className="n-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <span id={labelId} className="n-field__label">
+          {label}
+        </span>
+        {headerEnd}
+      </div>
       <div ref={trackRef} className="n-thumb-picker__track">
         {templates.map((template) => {
           const descId = template.description ? `${name}-${template.id}-desc` : undefined;
@@ -79,6 +92,6 @@ export function ThumbnailPicker({ label, templates, value, onChange, renderPrevi
           );
         })}
       </div>
-    </fieldset>
+    </div>
   );
 }
