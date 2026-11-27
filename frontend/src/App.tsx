@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AdminUsagePage } from './admin/AdminUsagePage';
 import { readScenarioAbOverride } from './api/abConfig';
-import { customFetch } from './api/mutator';
+import { customFetch, NapdaApiError } from './api/mutator';
 import {
   getBillingOrderV1BillingOrdersOrderIdGet,
   getGetWalletV1BillingWalletGetQueryKey,
@@ -31,6 +31,7 @@ import {
   ProductInputCategory,
   type CreateCheckoutRequestPackageId,
   type CreateRenderRequestSelectedType,
+  type DeliverablesResponse,
   type GenerateScenariosRequest,
   type ProjectSummary,
   type ProjectSummaryStatus,
@@ -39,7 +40,15 @@ import {
 import { GoogleSignInButton, useAuth } from './auth';
 import { openPaddleCheckout } from './billing';
 import { NapdaProvider, type ThemeSetting } from './ui/NapdaProvider';
-import type { CreditPackage, NavTab, ShareHandlers, VideoComment } from './ui/components';
+import {
+  InfoSheet,
+  type AgreementDoc,
+  type CreditPackage,
+  type NavTab,
+  type ShareHandlers,
+  type ThumbnailTemplate,
+  type VideoComment,
+} from './ui/components';
 import {
   ChargeResultScreen,
   CommunityScreen,
@@ -71,25 +80,57 @@ import {
   type MyVideosTab,
   type NicknameScreenProps,
   type ProductInfo,
+  type ProfileDoc,
 } from './ui/screens';
 import type { GuideScene } from './ui/screens/ShootingGuideScreen';
 import type { StoryboardScene } from './ui/screens/StoryboardScreen';
 import {
-  SAMPLE_BANNERS,
   SAMPLE_COMMENTS,
   SAMPLE_COMMUNITY,
-  SAMPLE_CREDIT_EXPIRING,
-  SAMPLE_CREDIT_HISTORY,
   SAMPLE_CREDIT_PACKAGES,
   SAMPLE_CREDITS_PER_VIDEO,
   SAMPLE_LOGIN_SHOWCASE,
-  SAMPLE_NOTIFICATIONS,
-  SAMPLE_THUMBNAIL_TEMPLATES,
   filterCommunityByType,
   sampleCreator,
 } from './ui/screens/sampleProjects';
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
+const SUPPORT_EMAIL = 'dudnjsckrgo@gmail.com';
+const DEFAULT_AI_DISCLOSURE_GUIDE = "인스타그램 게시 시 'AI 정보' 라벨 활성화를 권장합니다.";
+
+type ThumbnailStyleId = 'stroke_bold' | 'line_blocks' | 'panel_card';
+
+const THUMBNAIL_STYLE_DEFS: readonly {
+  id: ThumbnailStyleId;
+  name: string;
+  description: string;
+}[] = [
+  { id: 'stroke_bold', name: '큼직', description: '굵은 글자를 가운데에 크게' },
+  { id: 'line_blocks', name: '띠지', description: '줄마다 띠를 깔아 또렷하게' },
+  { id: 'panel_card', name: '카드', description: '어두운 카드에 담아 차분하게' },
+];
+
+function normalizeThumbnailStyle(id: string | null | undefined): ThumbnailStyleId {
+  if (id === 'line_blocks' || id === 'blocks') return 'line_blocks';
+  if (id === 'panel_card' || id === 'card') return 'panel_card';
+  return 'stroke_bold';
+}
+
+interface DeliverableThumbnailState {
+  imageUrl?: string;
+  downloadUrl?: string;
+  style: ThumbnailStyleId;
+  stylePreviews: Partial<Record<ThumbnailStyleId, string>>;
+  candidateImageUrls: string[];
+  candidateKeys: string[];
+}
+
+interface InfoSheetState {
+  title: string;
+  description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}
 
 function subscribeSystemDark(onChange: () => void) {
   const query = window.matchMedia(DARK_QUERY);
@@ -127,11 +168,13 @@ function splitProjects(projects: ProjectSummary[]): {
   const completed: CompletedProject[] = [];
 
   for (const project of projects) {
+    const thumbnailUrl = project.thumbnail_url ?? undefined;
     if (COMPLETED_STATUSES.has(project.status)) {
       completed.push({
         id: project.project_id,
         productName: project.product_name,
         status: '영상과 썸네일을 만들었어요',
+        thumbnailUrl,
       });
     } else {
       const meta = PROGRESS_COPY[project.status as keyof typeof PROGRESS_COPY] ?? {
@@ -145,6 +188,7 @@ function splitProjects(projects: ProjectSummary[]): {
         status: meta.status,
         completedSteps: meta.completedSteps,
         nextStep: meta.nextStep,
+        thumbnailUrl,
       });
     }
   }
@@ -275,6 +319,7 @@ export function App() {
   const [communityHookType, setCommunityHookType] = useState<HookType | null>(null);
   const [chargeState, setChargeState] = useState<ChargeFlowState | null>(null);
   const [overlayScreen, setOverlayScreen] = useState<OverlayScreen | null>(null);
+  const [infoSheet, setInfoSheet] = useState<InfoSheetState | null>(null);
 
   // Onboarding / Login / Signup flow
   const [authEntryStep, setAuthEntryStep] = useState<'onboarding' | 'login'>('onboarding');
@@ -285,11 +330,10 @@ export function App() {
   const [onboardedUsers, setOnboardedUsers] = useState<Record<string, boolean>>({});
   const nicknameTimerRef = useRef<number | undefined>(undefined);
 
-  // Feed / Comments / Notifications / Credit ledger (local interactive state until backend social APIs land)
-  const [feedCount, setFeedCount] = useState(4);
+  // Notifications / Credit ledger / Community comments
   const [commentsByVideo, setCommentsByVideo] = useState<Record<string, VideoComment[]>>(SAMPLE_COMMENTS);
-  const [notifications, setNotifications] = useState<AppNotification[]>(SAMPLE_NOTIFICATIONS);
-  const [creditLedger, setCreditLedger] = useState<CreditEntry[]>(SAMPLE_CREDIT_HISTORY);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [creditLedger, setCreditLedger] = useState<CreditEntry[]>([]);
   const [publicProjectIds, setPublicProjectIds] = useState<Record<string, boolean>>({});
 
   // 8-step creation flow state
@@ -298,13 +342,20 @@ export function App() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [productInfo, setProductInfo] = useState<Partial<ProductInfo>>({});
   const [hookType, setHookType] = useState<HookType>('A');
+  const [skippedDrafts, setSkippedDrafts] = useState(false);
   const [scenarioId, setScenarioId] = useState<string | null>(null);
   const [scenarioText, setScenarioText] = useState<string | undefined>(undefined);
   const [storyboardScenes, setStoryboardScenes] = useState<StoryboardScene[] | undefined>(undefined);
+  const [storyboardLoading, setStoryboardLoading] = useState(false);
+  const [storyboardError, setStoryboardError] = useState<string | null>(null);
   const [guideScenes, setGuideScenes] = useState<GuideScene[] | undefined>(undefined);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | undefined>(undefined);
   const [videoDownloadUrl, setVideoDownloadUrl] = useState<string | undefined>(undefined);
+  const [deliverableThumb, setDeliverableThumb] = useState<DeliverableThumbnailState | null>(null);
+  const [aiDisclosureGuide, setAiDisclosureGuide] = useState<string | undefined>(undefined);
+  const [isDownloadingThumb, setIsDownloadingThumb] = useState(false);
+  const [thumbError, setThumbError] = useState<string | null>(null);
   const [genJob, setGenJob] = useState<GeneratingJobState | null>(null);
 
   const pollCancelRef = useRef<(() => void) | null>(null);
@@ -376,7 +427,108 @@ export function App() {
     }));
   }, [billingConfig]);
 
+  const projectThumbnailTemplates = useMemo<ThumbnailTemplate[]>(() => {
+    const fallbackPreview =
+      deliverableThumb?.imageUrl || deliverableThumb?.candidateImageUrls[0] || undefined;
+    return THUMBNAIL_STYLE_DEFS.map((def) => ({
+      id: def.id,
+      name: def.name,
+      description: def.description,
+      previewUrl: deliverableThumb?.stylePreviews[def.id] || fallbackPreview,
+    }));
+  }, [deliverableThumb]);
+
   const shareHandlers = useMemo<ShareHandlers>(() => buildShareHandlers(), []);
+
+  const openInfoDocument = useCallback(
+    (doc: ProfileDoc | AgreementDoc) => {
+      if (doc === 'privacy') {
+        const opened = window.open('/privacy.html', '_blank');
+        if (opened) {
+          opened.opener = null;
+        } else {
+          window.location.assign('/privacy.html');
+        }
+        return;
+      }
+      if (doc === 'terms') {
+        setInfoSheet({
+          title: '이용약관',
+          description: [
+            '• 냅다(NAPDA)는 입력한 제품 정보와 촬영 영상을 바탕으로 숏폼 광고 훅 영상과 썸네일을 제작하는 서비스입니다.',
+            '• 완성된 영상과 썸네일은 생성일로부터 7일간 보관되며, 기간이 지나면 자동으로 삭제됩니다.',
+            '• 결제한 크레딧은 영상 제작 완료 시 차감되며, 시스템 오류로 제작에 실패한 경우 자동으로 환불됩니다.',
+            `• 약관 및 서비스 관련 문의: ${SUPPORT_EMAIL}`,
+          ].join('\n'),
+        });
+        return;
+      }
+      if (doc === 'aiLabel' || doc === 'ai') {
+        setInfoSheet({
+          title: 'AI 라벨 안내',
+          description: [
+            aiDisclosureGuide || DEFAULT_AI_DISCLOSURE_GUIDE,
+            '• 냅다로 제작한 영상의 훅 구간에는 AI 생성 이미지·음성·영상이 포함될 수 있습니다.',
+            '• 인스타그램 릴스 게시 화면에서 [고급 설정 → AI 정보 레이블 추가]를 켜고 게시해 주세요.',
+          ].join('\n'),
+        });
+        return;
+      }
+      if (doc === 'marketing') {
+        setInfoSheet({
+          title: '이벤트·혜택 알림 안내',
+          description: '새로운 훅 템플릿 출시와 크레딧 할인 이벤트 소식을 안내해 드립니다. 원하지 않으시면 동의하지 않아도 서비스 이용에 제한이 없어요.',
+        });
+        return;
+      }
+      setInfoSheet({
+        title: '도움말·문의',
+        description: [
+          '영상 제작이나 결제 중 문제가 생기면 아래 이메일로 문의해 주세요.',
+          `이메일: ${SUPPORT_EMAIL}`,
+          '프로젝트 이름과 발생 시각을 함께 보내 주시면 더 빠르게 확인해 드려요.',
+        ].join('\n'),
+        actionLabel: '이메일 주소 복사',
+        onAction: () => {
+          navigator.clipboard?.writeText(SUPPORT_EMAIL).catch(() => undefined);
+          setInfoSheet(null);
+        },
+      });
+    },
+    [aiDisclosureGuide],
+  );
+
+  const openCreditPolicy = useCallback(() => {
+    setInfoSheet({
+      title: '환불·유효기간 안내',
+      description: [
+        '• 영상 1편 제작 시 12 크레딧이 사용됩니다. 시나리오 글, 그림 콘티, 촬영 가이드는 무료입니다.',
+        '• 시스템 오류로 영상 제작에 실패하면 차감된 크레딧은 자동으로 돌려드립니다.',
+        '• 사용하지 않은 충전 크레딧의 결제 취소·환불은 결제일로부터 7일 이내에 고객지원으로 요청해 주세요.',
+        `• 결제·환불 문의: ${SUPPORT_EMAIL}`,
+      ].join('\n'),
+      actionLabel: '이메일 주소 복사',
+      onAction: () => {
+        navigator.clipboard?.writeText(SUPPORT_EMAIL).catch(() => undefined);
+        setInfoSheet(null);
+      },
+    });
+  }, []);
+
+  const openDeleteAccountSupport = useCallback(() => {
+    setInfoSheet({
+      title: '회원 탈퇴 안내',
+      description: [
+        '계정과 프로젝트 데이터의 안전한 영구 삭제를 위해 탈퇴는 고객지원 이메일로 접수하고 있어요.',
+        `가입하신 구글 이메일과 함께 ${SUPPORT_EMAIL}로 탈퇴를 요청해 주시면 확인 후 모든 데이터를 삭제해 드립니다.`,
+      ].join('\n'),
+      actionLabel: '이메일 주소 복사',
+      onAction: () => {
+        navigator.clipboard?.writeText(SUPPORT_EMAIL).catch(() => undefined);
+        setInfoSheet(null);
+      },
+    });
+  }, []);
 
   const appendNotification = useCallback((entry: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>) => {
     notifSeqRef.current += 1;
@@ -403,6 +555,57 @@ export function App() {
     ]);
   }, []);
 
+  const applyDeliverables = useCallback((data: DeliverablesResponse) => {
+    if (data.video?.stream_url) {
+      setVideoUrl(data.video.stream_url);
+      setVideoDownloadUrl(data.video.download_url ?? data.video.stream_url);
+    }
+    if (data.ai_disclosure?.instagram_guide) {
+      setAiDisclosureGuide(data.ai_disclosure.instagram_guide);
+    }
+    const thumb = data.thumbnail;
+    if (thumb) {
+      const style = normalizeThumbnailStyle(thumb.style);
+      const rawPreviews = thumb.style_previews ?? {};
+      const stylePreviews: Partial<Record<ThumbnailStyleId, string>> = {};
+      for (const [k, v] of Object.entries(rawPreviews)) {
+        if (typeof v === 'string' && v) {
+          stylePreviews[normalizeThumbnailStyle(k)] = v;
+        }
+      }
+      if (thumb.image_url && !stylePreviews[style]) {
+        stylePreviews[style] = thumb.image_url;
+      }
+      setDeliverableThumb({
+        imageUrl: thumb.image_url ?? undefined,
+        downloadUrl: thumb.download_url ?? thumb.image_url ?? undefined,
+        style,
+        stylePreviews,
+        candidateImageUrls: Array.isArray(thumb.candidate_image_urls) ? thumb.candidate_image_urls : [],
+        candidateKeys: Array.isArray(thumb.candidate_keys) ? thumb.candidate_keys : [],
+      });
+    } else {
+      setDeliverableThumb(null);
+    }
+    setThumbError(null);
+  }, []);
+
+  const openCharge = useCallback(
+    (from: ChargeFrom, shortfall?: number) => {
+      pollCancelRef.current?.();
+      setChargeState({
+        stage: 'charge',
+        from,
+        shortfall,
+        before: wallet?.credits ?? 0,
+        added: 0,
+        isPaying: false,
+        hasPaymentError: false,
+      });
+    },
+    [wallet?.credits],
+  );
+
   const startNewCreation = useCallback((initialType: HookType = 'A') => {
     renderPollCancelRef.current?.();
     setChargeState(null);
@@ -410,13 +613,19 @@ export function App() {
     setProjectId(null);
     setProductInfo({});
     setHookType(initialType);
+    setSkippedDrafts(false);
     setScenarioId(null);
     setScenarioText(undefined);
     setStoryboardScenes(undefined);
+    setStoryboardLoading(false);
+    setStoryboardError(null);
     setGuideScenes(undefined);
     setUploadFile(null);
     setVideoUrl(undefined);
     setVideoDownloadUrl(undefined);
+    setDeliverableThumb(null);
+    setAiDisclosureGuide(undefined);
+    setThumbError(null);
     setGenJob(null);
     setCreationStep('product');
   }, []);
@@ -438,7 +647,13 @@ export function App() {
             if (projRes.status === 200) {
               const proj = projRes.data;
               const jobObj = proj.latest_job as
-                | { status?: string; stage?: string; error?: string }
+                | {
+                    status?: string;
+                    stage?: string;
+                    error?: string;
+                    deducted_credits?: number;
+                    refunded_credits?: number;
+                  }
                 | null
                 | undefined;
               const stageKey = jobObj?.stage || '';
@@ -447,10 +662,7 @@ export function App() {
                 const delivRes = await getDeliverablesV1ProjectsProjectIdDeliverablesGet(pid);
                 if (cancelled) return;
                 if (delivRes.status === 200 && delivRes.data.video?.stream_url) {
-                  setVideoUrl(delivRes.data.video.stream_url);
-                  setVideoDownloadUrl(
-                    delivRes.data.video.download_url ?? delivRes.data.video.stream_url,
-                  );
+                  applyDeliverables(delivRes.data);
                   setGenJob({
                     status: 'done',
                     progress: 100,
@@ -476,6 +688,8 @@ export function App() {
               }
 
               if (proj.status === 'FAILED' || jobObj?.status === 'FAILED') {
+                const refunded =
+                  typeof jobObj?.refunded_credits === 'number' ? jobObj.refunded_credits : 0;
                 setGenJob({
                   status: 'failed',
                   progress: 42,
@@ -484,14 +698,16 @@ export function App() {
                     kind: 'temporary',
                     detail: jobObj?.error || '영상 합성 중 오류가 발생했어요.',
                   },
-                  refundedCredits: creditsPerVideo,
+                  refundedCredits: refunded > 0 ? refunded : undefined,
                 });
-                appendLedgerEntry({
-                  kind: 'refund',
-                  amount: creditsPerVideo,
-                  balance: walletCredits + creditsPerVideo,
-                  productName: nameForNotice || proj.product.name,
-                });
+                if (refunded > 0) {
+                  appendLedgerEntry({
+                    kind: 'refund',
+                    amount: refunded,
+                    balance: walletCredits + refunded,
+                    productName: nameForNotice || proj.product.name,
+                  });
+                }
                 void queryClient.invalidateQueries({
                   queryKey: getListProjectsV1ProjectsGetQueryKey(),
                 });
@@ -502,7 +718,10 @@ export function App() {
                   appendNotification({
                     kind: 'videoFailed',
                     title: '영상을 못 만들었어요',
-                    body: `${nameForNotice || proj.product.name} · 쓴 크레딧 ${creditsPerVideo}는 돌려드렸어요. 다시 해 볼까요?`,
+                    body:
+                      refunded > 0
+                        ? `${nameForNotice || proj.product.name} · 쓴 크레딧 ${refunded}는 돌려드렸어요. 다시 해 볼까요?`
+                        : `${nameForNotice || proj.product.name} · 다시 시도해 볼까요?`,
                     targetId: pid,
                   });
                 }
@@ -552,14 +771,22 @@ export function App() {
 
       void run();
     },
-    [appendLedgerEntry, appendNotification, creditsPerVideo, queryClient, walletCredits],
+    [appendLedgerEntry, appendNotification, applyDeliverables, queryClient, walletCredits],
   );
 
   const openExistingProject = useCallback(
     async (pid: string, target: 'continue' | 'download') => {
       try {
         const res = await getProjectV1ProjectsProjectIdGet(pid);
-        if (res.status !== 200) return;
+        if (res.status !== 200) {
+          if (target === 'download') {
+            setInfoSheet({
+              title: '영상을 불러오지 못했어요',
+              description: '프로젝트 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
+            });
+          }
+          return;
+        }
         const proj = res.data;
         setOverlayScreen(null);
         setProjectId(pid);
@@ -569,12 +796,33 @@ export function App() {
         });
         const firstType = (proj.selected_types?.[0] as HookType | undefined) ?? 'A';
         setHookType(firstType);
+        setStoryboardError(null);
+        setStoryboardLoading(false);
+        setThumbError(null);
+
         const selScn =
           proj.scenarios?.find((s) => s.scenario_id === proj.selected_scenario_id) ?? proj.scenarios?.[0];
         if (selScn) {
           setScenarioId(selScn.scenario_id);
           setScenarioText(formatScenarioText(selScn));
+          setSkippedDrafts(false);
+          if (selScn.storyboard_frames && selScn.storyboard_frames.length > 0) {
+            setStoryboardScenes(
+              selScn.storyboard_frames.map((f) => ({
+                imageUrl: f.image_url ?? undefined,
+                caption: f.caption,
+              })),
+            );
+          } else {
+            setStoryboardScenes(undefined);
+          }
+        } else {
+          setScenarioId(null);
+          setScenarioText(undefined);
+          setStoryboardScenes(undefined);
+          setSkippedDrafts(!proj.filming_guide?.shots?.length);
         }
+
         if (proj.filming_guide?.shots?.length) {
           setGuideScenes(
             proj.filming_guide.shots.map((sh) => ({
@@ -582,14 +830,37 @@ export function App() {
               duration: `${sh.duration_sec}초`,
             })),
           );
+        } else {
+          setGuideScenes(undefined);
         }
-        if (proj.status === 'DELIVERABLE_READY') {
-          const deliv = await getDeliverablesV1ProjectsProjectIdDeliverablesGet(pid);
-          if (deliv.status === 200 && deliv.data.video?.stream_url) {
-            setVideoUrl(deliv.data.video.stream_url);
-            setVideoDownloadUrl(deliv.data.video.download_url ?? deliv.data.video.stream_url);
-            setGenJob({ status: 'done', progress: 100, stageIndex: 2, remainingSeconds: 0 });
-            setCreationStep(target === 'download' ? 'thumbnail' : 'review');
+
+        if (proj.status === 'DELIVERABLE_READY' || target === 'download') {
+          try {
+            const deliv = await getDeliverablesV1ProjectsProjectIdDeliverablesGet(pid);
+            if (deliv.status === 200 && deliv.data.video?.stream_url) {
+              applyDeliverables(deliv.data);
+              setGenJob({ status: 'done', progress: 100, stageIndex: 2, remainingSeconds: 0 });
+              setCreationStep(target === 'download' ? 'thumbnail' : 'review');
+              return;
+            }
+          } catch (delivErr) {
+            if (target === 'download') {
+              const detail =
+                delivErr instanceof NapdaApiError && delivErr.status === 404
+                  ? '아직 완성된 영상이 없거나 보관 기간(7일)이 지나 내려받을 수 없어요.'
+                  : '영상 파일을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+              setInfoSheet({
+                title: '영상을 불러오지 못했어요',
+                description: detail,
+              });
+              return;
+            }
+          }
+          if (target === 'download') {
+            setInfoSheet({
+              title: '영상을 불러오지 못했어요',
+              description: '아직 완성된 영상이 준비되지 않았어요. 잠시 후 다시 확인해 주세요.',
+            });
             return;
           }
         }
@@ -601,16 +872,21 @@ export function App() {
         }
         if (proj.filming_guide?.shots?.length) {
           setCreationStep('upload');
+        } else if (proj.status === 'STORYBOARD_READY' && selScn?.storyboard_frames?.length) {
+          setCreationStep('storyboard');
         } else if (selScn) {
           setCreationStep('scenario');
         } else {
           setCreationStep('hook');
         }
       } catch {
-        // Stay on current tab if load fails.
+        setInfoSheet({
+          title: '프로젝트를 열지 못했어요',
+          description: '네트워크 상태를 확인한 뒤 다시 시도해 주세요.',
+        });
       }
     },
-    [pollRenderCompletion],
+    [applyDeliverables, pollRenderCompletion],
   );
 
   const handleProductNext = useCallback(
@@ -642,15 +918,17 @@ export function App() {
     async (selected: HookType[]) => {
       const primary = selected[0] ?? 'A';
       setHookType(primary);
+      setSkippedDrafts(false);
       setScenarioText(undefined);
       setScenarioId(null);
       setStoryboardScenes(undefined);
+      setStoryboardError(null);
       setCreationStep('scenario');
       if (!projectId) return;
       try {
         const ab = readScenarioAbOverride();
         const res = await generateScenariosV1ProjectsProjectIdScenariosPost(projectId, {
-          types: selected as GenerateScenariosRequest['types'],
+          types: [primary] as GenerateScenariosRequest['types'],
           ...(ab.provider ? { provider: ab.provider } : {}),
           ...(ab.model ? { model: ab.model } : {}),
           count: 1,
@@ -673,29 +951,52 @@ export function App() {
     [projectId],
   );
 
-  const handleGoStoryboard = useCallback(async () => {
-    setCreationStep('storyboard');
-    if (!projectId || !scenarioId) return;
-    try {
-      const res = await generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost(
-        projectId,
-        scenarioId,
-        {
-          visual_style: hookType === 'B' ? 'blender_3d_cutaway' : 'blender_clay_diorama',
-        },
-      );
-      if (res.status === 200) {
-        setStoryboardScenes(
-          res.data.frames.map((f) => ({
-            imageUrl: f.image_url ?? undefined,
-            caption: f.caption,
-          })),
-        );
+  const handleGoStoryboard = useCallback(
+    async (force = false) => {
+      setCreationStep('storyboard');
+      if (!force && storyboardScenes && storyboardScenes.length > 0) {
+        setStoryboardError(null);
+        return;
       }
-    } catch {
-      // Keep skeleton cleanly.
-    }
-  }, [hookType, projectId, scenarioId]);
+      if (!projectId || !scenarioId) {
+        setStoryboardError('시나리오를 먼저 불러와 주세요.');
+        return;
+      }
+      setStoryboardLoading(true);
+      setStoryboardError(null);
+      if (force) {
+        setStoryboardScenes(undefined);
+      }
+      try {
+        const res = await generateStoryboardV1ProjectsProjectIdScenariosScenarioIdStoryboardPost(
+          projectId,
+          scenarioId,
+          {
+            visual_style: hookType === 'B' ? 'blender_3d_cutaway' : 'blender_clay_diorama',
+          },
+        );
+        if (res.status === 200 && res.data.frames.length > 0) {
+          setStoryboardScenes(
+            res.data.frames.map((f) => ({
+              imageUrl: f.image_url ?? undefined,
+              caption: f.caption,
+            })),
+          );
+        } else {
+          setStoryboardError('그림 콘티를 만들지 못했어요. 다시 시도해 주세요.');
+        }
+      } catch (err) {
+        setStoryboardError(
+          err instanceof Error
+            ? err.message
+            : '그림 콘티를 불러오는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.',
+        );
+      } finally {
+        setStoryboardLoading(false);
+      }
+    },
+    [hookType, projectId, scenarioId, storyboardScenes],
+  );
 
   const handleGoShootingGuide = useCallback(async () => {
     setCreationStep('guide');
@@ -724,6 +1025,8 @@ export function App() {
       setUploadFile(file);
       setVideoUrl(undefined);
       setVideoDownloadUrl(undefined);
+      setDeliverableThumb(null);
+      setThumbError(null);
       setGenJob({ status: 'queued', progress: 8, stageIndex: 0, remainingSeconds: 110 });
       setCreationStep('generating');
 
@@ -776,16 +1079,37 @@ export function App() {
           throw new Error('영상 제작 요청에 실패했어요.');
         }
 
-        const remaining = Math.max(0, walletCredits - creditsPerVideo);
-        appendLedgerEntry({
-          kind: 'use',
-          amount: -creditsPerVideo,
-          balance: remaining,
-          productName: productInfo.name || '내 영상',
-        });
+        const deducted =
+          typeof renderRes.data.deducted_credits === 'number'
+            ? renderRes.data.deducted_credits
+            : creditsPerVideo;
+        if (deducted > 0) {
+          const remaining = Math.max(0, walletCredits - deducted);
+          appendLedgerEntry({
+            kind: 'use',
+            amount: -deducted,
+            balance: remaining,
+            productName: productInfo.name || '내 영상',
+          });
+        }
         void queryClient.invalidateQueries({ queryKey: getGetWalletV1BillingWalletGetQueryKey() });
         pollRenderCompletion(projectId, productInfo.name);
       } catch (err) {
+        if (
+          err instanceof NapdaApiError &&
+          (err.status === 402 || err.code === 'INSUFFICIENT_CREDITS')
+        ) {
+          const detailShortfall =
+            typeof err.details?.shortfall === 'number'
+              ? err.details.shortfall
+              : Math.max(1, creditsPerVideo - walletCredits);
+          setGenJob(null);
+          void queryClient.invalidateQueries({
+            queryKey: getGetWalletV1BillingWalletGetQueryKey(),
+          });
+          openCharge('upload', detailShortfall);
+          return;
+        }
         const detail = err instanceof Error ? err.message : '영상 제작 요청 중 오류가 발생했어요.';
         setGenJob({
           status: 'failed',
@@ -803,6 +1127,7 @@ export function App() {
       auth.user,
       creditsPerVideo,
       hookType,
+      openCharge,
       pollRenderCompletion,
       productInfo.name,
       projectId,
@@ -813,46 +1138,83 @@ export function App() {
   );
 
   const handleDownloadThumbnail = useCallback(
-    async (_templateId: string | null, caption: string) => {
+    async (templateId: string | null, caption: string) => {
       if (!projectId) return;
+      const style = normalizeThumbnailStyle(templateId ?? deliverableThumb?.style);
       const lines = caption
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean)
         .slice(0, 2);
-      const res = await customFetch<{
-        status: number;
-        data: { download_url?: string | null; image_url?: string | null };
-      }>(`/v1/projects/${projectId}/thumbnail`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          headline_lines: lines.length > 0 ? lines : [productInfo.name || '지금 확인'],
-          style: 'stroke_bold',
-        }),
-      });
-      const url = res.data?.download_url || res.data?.image_url;
-      if (url) {
-        triggerFileDownload(url, 'cover.png');
+      setIsDownloadingThumb(true);
+      setThumbError(null);
+      try {
+        const res = await customFetch<{
+          status: number;
+          data: {
+            download_url?: string | null;
+            image_url?: string | null;
+            style?: string | null;
+            style_previews?: Record<string, string>;
+            candidate_image_urls?: string[];
+            candidate_keys?: string[];
+          };
+        }>(`/v1/projects/${projectId}/thumbnail`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            headline_lines: lines.length > 0 ? lines : [productInfo.name || '지금 확인'],
+            style,
+          }),
+        });
+        const newImageUrl = res.data?.image_url ?? undefined;
+        const newDownloadUrl = res.data?.download_url || newImageUrl;
+        setDeliverableThumb((prev) => {
+          const mergedPreviews: Partial<Record<ThumbnailStyleId, string>> = {
+            ...(prev?.stylePreviews ?? {}),
+          };
+          if (res.data?.style_previews) {
+            for (const [k, v] of Object.entries(res.data.style_previews)) {
+              if (typeof v === 'string' && v) {
+                mergedPreviews[normalizeThumbnailStyle(k)] = v;
+              }
+            }
+          }
+          if (newImageUrl) {
+            mergedPreviews[style] = newImageUrl;
+          }
+          return {
+            imageUrl: newImageUrl ?? prev?.imageUrl,
+            downloadUrl: newDownloadUrl ?? prev?.downloadUrl,
+            style,
+            stylePreviews: mergedPreviews,
+            candidateImageUrls: Array.isArray(res.data?.candidate_image_urls)
+              ? res.data.candidate_image_urls
+              : (prev?.candidateImageUrls ?? []),
+            candidateKeys: Array.isArray(res.data?.candidate_keys)
+              ? res.data.candidate_keys
+              : (prev?.candidateKeys ?? []),
+          };
+        });
+        void queryClient.invalidateQueries({
+          queryKey: getListProjectsV1ProjectsGetQueryKey(),
+        });
+        if (newDownloadUrl) {
+          triggerFileDownload(newDownloadUrl, 'cover.png');
+        } else {
+          setThumbError('썸네일 주소를 받지 못했어요. 다시 시도해 주세요.');
+        }
+      } catch (err) {
+        setThumbError(
+          err instanceof Error
+            ? err.message
+            : '썸네일을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.',
+        );
+      } finally {
+        setIsDownloadingThumb(false);
       }
     },
-    [productInfo.name, projectId],
-  );
-
-  const openCharge = useCallback(
-    (from: ChargeFrom, shortfall?: number) => {
-      pollCancelRef.current?.();
-      setChargeState({
-        stage: 'charge',
-        from,
-        shortfall,
-        before: wallet?.credits ?? 0,
-        added: 0,
-        isPaying: false,
-        hasPaymentError: false,
-      });
-    },
-    [wallet?.credits],
+    [deliverableThumb?.style, productInfo.name, projectId, queryClient],
   );
 
   const pollOrderCompletion = useCallback(
@@ -1125,6 +1487,7 @@ export function App() {
           themeMode={themeMode}
           onThemeModeChange={setThemeMode}
           onNavigate={handleNavigate}
+          onOpenDoc={openInfoDocument}
         />
       ) : (
         <OnboardingScreen
@@ -1143,6 +1506,7 @@ export function App() {
           themeMode={themeMode}
           onThemeModeChange={setThemeMode}
           onNavigate={handleNavigate}
+          onOpenDoc={openInfoDocument}
           signInSlot={<GoogleSignInButton theme={gisTheme} />}
         />
       ) : authEntryStep === 'login' ? (
@@ -1151,6 +1515,7 @@ export function App() {
           isSigningIn={auth.isSubmitting}
           hasError={Boolean(auth.error)}
           signInSlot={<GoogleSignInButton theme={gisTheme} />}
+          onOpenDoc={openInfoDocument}
         />
       ) : (
         <OnboardingScreen onStart={() => setAuthEntryStep('login')} />
@@ -1160,6 +1525,7 @@ export function App() {
       <LoginScreen
         showcase={SAMPLE_LOGIN_SHOWCASE}
         isTermsOpen
+        onOpenDoc={openInfoDocument}
         onAgreeTerms={() => {
           setNicknameStatus('available');
           setTermsAgreed(true);
@@ -1180,14 +1546,14 @@ export function App() {
       <NicknameScreen
         initialNickname={initialNick}
         availability={nicknameStatus}
-        onNicknameChange={(name) => {
+        onNicknameChange={() => {
           if (nicknameTimerRef.current) {
             window.clearTimeout(nicknameTimerRef.current);
           }
           setNicknameStatus('checking');
           nicknameTimerRef.current = window.setTimeout(() => {
-            setNicknameStatus(name.trim() === '도마왕' ? 'taken' : 'available');
-          }, 300);
+            setNicknameStatus('available');
+          }, 200);
         }}
         onBack={() => {
           setTermsAgreed(false);
@@ -1227,6 +1593,7 @@ export function App() {
             shortfall={chargeState.shortfall}
             isPaying={chargeState.isPaying}
             hasPaymentError={chargeState.hasPaymentError}
+            onOpenPolicy={openCreditPolicy}
             onBack={() => {
               const target = chargeState.from;
               setChargeState(null);
@@ -1268,6 +1635,7 @@ export function App() {
       screen = (
         <ProductInfoScreen
           initialValue={productInfo}
+          showPhotoUpload={false}
           onBack={() => setCreationStep(null)}
           onNext={(val) => {
             void handleProductNext(val);
@@ -1278,12 +1646,20 @@ export function App() {
       screen = (
         <HookTypeScreen
           initialSelected={[hookType]}
+          creditsPerVideo={creditsPerVideo}
           onBack={() => setCreationStep('product')}
           onNext={(selected) => {
             void handleHookNext(selected);
           }}
-          onSkipToVideo={() => {
-            setCreationStep('guide');
+          onSkipToVideo={(selected) => {
+            setHookType(selected[0] ?? hookType);
+            setScenarioId(null);
+            setScenarioText(undefined);
+            setStoryboardScenes(undefined);
+            setStoryboardError(null);
+            setGuideScenes(undefined);
+            setSkippedDrafts(true);
+            setCreationStep('upload');
           }}
         />
       );
@@ -1306,6 +1682,11 @@ export function App() {
         <StoryboardScreen
           hookType={hookType}
           scenes={storyboardScenes}
+          isLoading={storyboardLoading}
+          error={storyboardError}
+          onRetry={() => {
+            void handleGoStoryboard(true);
+          }}
           onBack={() => setCreationStep('scenario')}
           onShootingGuide={() => {
             void handleGoShootingGuide();
@@ -1327,8 +1708,8 @@ export function App() {
           initialFile={uploadFile}
           cost={creditsPerVideo}
           credits={wallet?.credits}
-          onBack={() => setCreationStep('guide')}
-          onReviewGuide={() => setCreationStep('guide')}
+          onBack={() => setCreationStep(skippedDrafts ? 'hook' : 'guide')}
+          onReviewGuide={skippedDrafts ? undefined : () => setCreationStep('guide')}
           onCreate={(file) => {
             void handleUploadAndRender(file);
           }}
@@ -1373,7 +1754,8 @@ export function App() {
             }
           }}
           onReupload={() => setCreationStep('upload')}
-          onReviewGuide={() => setCreationStep('guide')}
+          onReviewGuide={skippedDrafts ? undefined : () => setCreationStep('guide')}
+          onContact={() => openInfoDocument('help')}
         />
       );
     } else if (creationStep === 'review') {
@@ -1391,8 +1773,12 @@ export function App() {
       const currentPublic = Boolean(projectId && publicProjectIds[projectId]);
       screen = (
         <ThumbnailDownloadScreen
-          templates={SAMPLE_THUMBNAIL_TEMPLATES}
+          templates={projectThumbnailTemplates}
+          initialTemplateId={deliverableThumb?.style ?? 'stroke_bold'}
           initialCaption={productInfo.name || ''}
+          aiDisclosure={aiDisclosureGuide}
+          isDownloadingThumbnail={isDownloadingThumb}
+          thumbnailError={thumbError}
           initialIsPublic={currentPublic}
           needsPublishConsent={!currentPublic}
           onPublicChange={(next) => {
@@ -1426,7 +1812,7 @@ export function App() {
         <CreditHistoryScreen
           credits={wallet?.credits}
           entries={creditLedger}
-          expiring={SAMPLE_CREDIT_EXPIRING}
+          onOpenPolicy={openCreditPolicy}
           onBack={() => {
             if (overlayScreen.from === 'notifications') {
               setOverlayScreen({ type: 'notifications' });
@@ -1440,7 +1826,7 @@ export function App() {
     } else if (overlayScreen?.type === 'communityViewer') {
       const viewerItems =
         overlayScreen.from === 'creator'
-          ? sampleCreator(overlayScreen.creatorName || '도마왕').videos
+          ? sampleCreator(overlayScreen.creatorName || '').videos
           : filterCommunityByType(SAMPLE_COMMUNITY, communityHookType);
       screen = (
         <CommunityViewerScreen
@@ -1511,6 +1897,7 @@ export function App() {
           key={`my-videos-${myTab}`}
           inProgress={inProgress}
           completed={completed}
+          retentionDays={7}
           initialTab={myTab}
           onContinue={(id) => {
             void openExistingProject(id, 'continue');
@@ -1544,6 +1931,7 @@ export function App() {
           themeMode={themeMode}
           onThemeModeChange={setThemeMode}
           onNavigate={handleNavigate}
+          onOpenDoc={openInfoDocument}
           onChargeClick={() => openCharge('profile')}
           onCreditHistoryClick={() =>
             setOverlayScreen({ type: 'creditHistory', from: 'profile' })
@@ -1560,14 +1948,7 @@ export function App() {
             setAuthEntryStep('login');
             void auth.logout();
           }}
-          onDeleteAccount={() => {
-            renderPollCancelRef.current?.();
-            setCreationStep(null);
-            setOverlayScreen(null);
-            setChargeState(null);
-            setAuthEntryStep('onboarding');
-            void auth.logout();
-          }}
+          onRequestDeleteSupport={openDeleteAccountSupport}
         />
       );
     } else {
@@ -1575,7 +1956,6 @@ export function App() {
         <HomeScreen
           inProgress={inProgress}
           completed={completed}
-          banners={SAMPLE_BANNERS}
           credits={wallet?.credits}
           unreadCount={notifications.filter((n) => !n.isRead).length}
           onNotificationsClick={() => setOverlayScreen({ type: 'notifications' })}
@@ -1589,27 +1969,6 @@ export function App() {
           onDownloadAgain={(id) => {
             void openExistingProject(id, 'download');
           }}
-          feed={SAMPLE_COMMUNITY.slice(0, feedCount)}
-          feedHasMore={feedCount < SAMPLE_COMMUNITY.length}
-          onLoadMoreFeed={() =>
-            setFeedCount((count) => Math.min(SAMPLE_COMMUNITY.length, count + 4))
-          }
-          onOpenFeed={(videoId) =>
-            setOverlayScreen({ type: 'communityViewer', from: 'home', videoId })
-          }
-          onOpenCreator={(creatorName) =>
-            setOverlayScreen({
-              type: 'creator',
-              name: creatorName,
-              returnTo: { type: 'home' },
-            })
-          }
-          onRemixFeed={(video) => startNewCreation(video.hookType)}
-          onSeeAllFeed={() => setActiveTab('community')}
-          share={shareHandlers}
-          comments={commentsByVideo}
-          onAddComment={handleAddComment}
-          onDeleteComment={handleDeleteComment}
           onNavigate={handleNavigate}
           onSeeAllMyVideos={() => {
             setMyTab('inProgress');
@@ -1622,7 +1981,17 @@ export function App() {
 
   return (
     <div className="napda-app-shell">
-      <NapdaProvider mode={themeMode}>{screen}</NapdaProvider>
+      <NapdaProvider mode={themeMode}>
+        {screen}
+        <InfoSheet
+          isOpen={infoSheet !== null}
+          title={infoSheet?.title ?? ''}
+          description={infoSheet?.description}
+          actionLabel={infoSheet?.actionLabel}
+          onAction={infoSheet?.onAction}
+          onClose={() => setInfoSheet(null)}
+        />
+      </NapdaProvider>
     </div>
   );
 }

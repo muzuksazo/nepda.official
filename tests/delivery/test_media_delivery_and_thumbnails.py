@@ -160,6 +160,31 @@ class TestMediaDeliveryAndThumbnails(unittest.TestCase):
             self.assertIsNotNone(dj["thumbnail"])
             self.assertTrue(dj["thumbnail"]["safe_zone_1_1_ok"])
             self.assertGreaterEqual(len(dj["thumbnail"]["headline_lines"]), 1)
+            self.assertEqual(dj["thumbnail"]["style"], "stroke_bold")
+            self.assertGreaterEqual(len(dj["thumbnail"]["candidate_keys"]), 1)
+            self.assertEqual(
+                len(dj["thumbnail"]["candidate_image_urls"]),
+                len(dj["thumbnail"]["candidate_keys"]),
+            )
+            style_previews = dj["thumbnail"]["style_previews"]
+            self.assertEqual(set(style_previews.keys()), {"stroke_bold", "line_blocks", "panel_card"})
+            for st_name, prev_url in style_previews.items():
+                self.assertTrue(prev_url.startswith("/v1/media/"), (st_name, prev_url))
+                prev_resp = client.get(prev_url)
+                self.assertEqual(prev_resp.status_code, 200, st_name)
+                self.assertGreater(len(prev_resp.content), 10_000, st_name)
+                p_file = root / f"preview_{st_name}.png"
+                p_file.write_bytes(prev_resp.content)
+                with Image.open(p_file) as im:
+                    self.assertEqual(im.size, (1080, 1920))
+
+            # BUG-07: ProjectSummary.thumbnail_url is populated with signed URL once thumbnail exists
+            listed = client.get("/v1/projects")
+            self.assertEqual(listed.status_code, 200, listed.text)
+            summary = next(p for p in listed.json()["projects"] if p["project_id"] == pid)
+            self.assertIsNotNone(summary["thumbnail_url"])
+            self.assertTrue(summary["thumbnail_url"].startswith("/v1/media/"))
+            self.assertEqual(client.get(summary["thumbnail_url"]).status_code, 200)
 
             img_resp = client.get(dj["thumbnail"]["image_url"])
             self.assertEqual(img_resp.status_code, 200)
@@ -168,7 +193,7 @@ class TestMediaDeliveryAndThumbnails(unittest.TestCase):
             with Image.open(cover_file) as im:
                 self.assertEqual(im.size, (1080, 1920))
 
-            # Explicit custom thumbnail regeneration
+            # Explicit custom thumbnail regeneration + style alias support
             custom = client.post(
                 f"/v1/projects/{pid}/thumbnail",
                 json={
@@ -180,5 +205,23 @@ class TestMediaDeliveryAndThumbnails(unittest.TestCase):
             self.assertEqual(custom.status_code, 200, custom.text)
             cj = custom.json()
             self.assertTrue(cj["safe_zone_1_1_ok"])
+            self.assertEqual(cj["style"], "line_blocks")
             self.assertEqual(cj["headline_lines"], ["타이머 고르기 전", "이것만 보세요"])
             self.assertGreaterEqual(len(cj["candidate_image_urls"]), 1)
+            self.assertEqual(
+                set(cj["style_previews"].keys()),
+                {"stroke_bold", "line_blocks", "panel_card"},
+            )
+
+            # Alias mapping: stroke -> stroke_bold, blocks -> line_blocks, card -> panel_card
+            for alias, canonical in (("stroke", "stroke_bold"), ("blocks", "line_blocks"), ("card", "panel_card")):
+                alias_resp = client.post(
+                    f"/v1/projects/{pid}/thumbnail",
+                    json={"headline_lines": ["3초 만에 물기 순삭"], "style": alias},
+                )
+                self.assertEqual(alias_resp.status_code, 200, alias_resp.text)
+                self.assertEqual(alias_resp.json()["style"], canonical)
+
+            # Deliverables reflects the latest selected style (panel_card)
+            deliv_after = client.get(f"/v1/projects/{pid}/deliverables").json()
+            self.assertEqual(deliv_after["thumbnail"]["style"], "panel_card")

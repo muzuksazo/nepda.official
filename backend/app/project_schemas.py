@@ -135,6 +135,7 @@ class ProjectSummary(BaseModel):
     selected_types: List[HookType]
     selected_scenario_id: Optional[str] = None
     latest_job_id: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     expires_at: str
     created_at: str
     updated_at: str
@@ -353,6 +354,7 @@ class CreateRenderResponse(BaseModel):
     status: str
     selected_type: HookType
     estimated_credits: int
+    deducted_credits: int = 0
     quota: QuotaStatus
     expires_at: str
 
@@ -373,6 +375,10 @@ class DeliverableThumbnail(BaseModel):
     download_url: Optional[str] = None
     safe_zone_1_1_ok: Optional[bool] = None
     headline_lines: List[str] = Field(default_factory=list)
+    style: str = "stroke_bold"
+    candidate_image_urls: List[str] = Field(default_factory=list)
+    candidate_keys: List[str] = Field(default_factory=list)
+    style_previews: Dict[str, str] = Field(default_factory=dict)
 
 
 class AIDisclosureInfo(BaseModel):

@@ -1,4 +1,4 @@
-import { Badge, Button, Card, FlowHeader, Mascot, MobileScreen, PendingBadge, ScreenTitle, SkeletonText, Stack } from '../components';
+import { Badge, Button, Card, FlowHeader, Mascot, MobileScreen, ScreenTitle, SkeletonText, Stack } from '../components';
 import { brand } from '../brand';
 import { HOOK_TYPES, type HookType } from './flowData';
 
@@ -14,20 +14,16 @@ export interface ScenarioScreenProps {
 /** 안1-4 시나리오 글 (3/8) */
 export function ScenarioScreen({ hookType, scenario, onBack, onShootingGuide, onStoryboard }: ScenarioScreenProps) {
   const description = HOOK_TYPES.find((h) => h.type === hookType)?.description;
+  const isReady = Boolean(scenario);
 
   return (
     <MobileScreen
       header={<FlowHeader title="시나리오 글" step={3} onBack={onBack} />}
-      footerSummary={
-        <>
-          <span>그림은 크레딧이 더 들어요</span>
-          <PendingBadge>크레딧 미정</PendingBadge>
-        </>
-      }
+      footerSummary={<span>그림 콘티는 무료로 미리 볼 수 있어요</span>}
       footer={
         <>
-          <Button label="촬영 가이드 받기" isBlock onClick={onShootingGuide} />
-          <Button label="그림으로 보기" variant="secondary" isBlock onClick={onStoryboard} />
+          <Button label="촬영 가이드 받기" isBlock isDisabled={!isReady} onClick={onShootingGuide} />
+          <Button label="그림으로 보기" variant="secondary" isBlock isDisabled={!isReady} onClick={onStoryboard} />
         </>
       }
     >
@@ -40,7 +36,7 @@ export function ScenarioScreen({ hookType, scenario, onBack, onShootingGuide, on
             <Badge tone="brand">{hookType} 유형</Badge>
           </div>
           {scenario ? (
-            <p>{scenario}</p>
+            <p style={{ whiteSpace: 'pre-line' }}>{scenario}</p>
           ) : (
             <Stack gap={16}>
               <div className="n-row" style={{ gap: 12 }} role="status">
@@ -50,9 +46,6 @@ export function ScenarioScreen({ hookType, scenario, onBack, onShootingGuide, on
               <SkeletonText widths={[100, 94, 98, 72, 90, 48]} />
             </Stack>
           )}
-          <div>
-            <PendingBadge>훅 길이 미정 · OQ-002</PendingBadge>
-          </div>
         </Stack>
       </Card>
     </MobileScreen>

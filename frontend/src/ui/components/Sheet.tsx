@@ -108,3 +108,94 @@ function ConfirmSheetDialog({
     </div>
   );
 }
+
+export interface InfoSheetProps {
+  isOpen: boolean;
+  title: string;
+  description?: string;
+  closeLabel?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  onClose: () => void;
+  children?: ReactNode;
+}
+
+/**
+ * 아래에서 올라오는 안내 시트. 약관·환불 정책·문의·오류 안내에 쓴다.
+ */
+export function InfoSheet({ isOpen, ...rest }: InfoSheetProps) {
+  return isOpen ? <InfoSheetDialog {...rest} /> : null;
+}
+
+function InfoSheetDialog({
+  title,
+  description,
+  closeLabel = '닫기',
+  actionLabel,
+  onAction,
+  onClose,
+  children,
+}: Omit<InfoSheetProps, 'isOpen'>) {
+  const titleId = useId();
+  const descId = useId();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
+
+  useEffect(() => {
+    sheetRef.current?.focus();
+    return () => opener?.focus();
+  }, [opener]);
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const buttons = sheetRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]');
+    if (!buttons || buttons.length === 0) return;
+    const first = buttons[0];
+    const last = buttons[buttons.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || active === sheetRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  return (
+    <div className="n-sheet-layer">
+      <div className="n-sheet-backdrop" onClick={onClose} />
+      <div
+        ref={sheetRef}
+        className="n-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descId : undefined}
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+      >
+        <h2 id={titleId} className="n-sheet__title">
+          {title}
+        </h2>
+        {description ? (
+          <p id={descId} className="n-sheet__desc" style={{ whiteSpace: 'pre-line' }}>
+            {description}
+          </p>
+        ) : null}
+        {children}
+        <div className="n-sheet__actions">
+          {actionLabel && onAction ? (
+            <Button label={actionLabel} variant="secondary" isBlock onClick={onAction} />
+          ) : null}
+          <Button label={closeLabel} isBlock onClick={onClose} />
+        </div>
+      </div>
+    </div>
+  );
+}

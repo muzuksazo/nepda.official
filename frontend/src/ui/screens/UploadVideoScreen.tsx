@@ -8,7 +8,6 @@ import {
   FilePicker,
   FlowHeader,
   MobileScreen,
-  PendingBadge,
   ScreenTitle,
   Stack,
   TimeEstimate,
@@ -22,7 +21,7 @@ export interface UploadVideoScreenProps {
   onBack?: () => void;
   onReviewGuide?: () => void;
   onCreate?: (file: File) => void;
-  /** 이 영상에 드는 크레딧(견적 API). 없으면 "크레딧 미정"으로 둔다 */
+  /** 이 영상에 드는 크레딧(견적 API). 없으면 예상 소요 시간만 보여 준다 */
   cost?: number;
   /** 지금 보유한 크레딧 */
   credits?: number;
@@ -30,7 +29,7 @@ export interface UploadVideoScreenProps {
   onCharge?: (file: File, shortfall: number) => void;
   /** 처음부터 크레딧 부족 시트를 열어 둔다 (스토리·테스트용) */
   initialIsShort?: boolean;
-  /** 예상 소요 시간(서버가 알려 주는 값). 아직 정해지지 않아 예시 값을 기본으로 둔다 */
+  /** 예상 소요 시간(서버가 알려 주는 값). 없으면 기본 안내 값을 쓴다 */
   estimate?: { total: string; stages: TimeEstimateStage[] };
 }
 
@@ -72,12 +71,7 @@ export function UploadVideoScreen({
   if (!file) {
     summary = <span>영상부터 골라 주세요</span>;
   } else if (cost === undefined) {
-    summary = (
-      <>
-        <span>{estimate.total}이면 나와요</span>
-        <PendingBadge>크레딧 미정</PendingBadge>
-      </>
-    );
+    summary = <span>{estimate.total}이면 나와요</span>;
   } else {
     summary = (
       <span className="n-cost">
@@ -106,7 +100,9 @@ export function UploadVideoScreen({
                 <span className="n-small n-muted">붙일 훅</span>
                 <Badge tone="brand">{hookType} 유형</Badge>
               </div>
-              <Button label="가이드 다시 보기" variant="ghost" size="sm" onClick={onReviewGuide} />
+              {onReviewGuide ? (
+                <Button label="가이드 다시 보기" variant="ghost" size="sm" onClick={onReviewGuide} />
+              ) : null}
             </div>
             <FilePicker
               label="촬영한 영상"
@@ -116,16 +112,13 @@ export function UploadVideoScreen({
               onChange={setFile}
               placeholder="찍은 영상을 골라 주세요"
             />
-            <div>
-              <PendingBadge>길이·용량 제한 미정 · OQ-007</PendingBadge>
-            </div>
+            <p className="n-small n-muted">5~90초 · 100MB 이하 · 세로 9:16 영상</p>
           </Stack>
         </Card>
 
         {/* 누르기 전에 기다릴 시간을 알려 준다: 총 시간 하나 + 단계별 시간 */}
         <TimeEstimate total={estimate.total} stages={estimate.stages}>
           <span>만드는 동안 다른 화면 봐도 괜찮아요.</span>
-          <PendingBadge>시간·완료 알림 미정</PendingBadge>
         </TimeEstimate>
       </MobileScreen>
 

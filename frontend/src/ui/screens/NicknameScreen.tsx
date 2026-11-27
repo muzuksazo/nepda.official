@@ -94,7 +94,7 @@ export function NicknameScreen({
           setNickname(next);
           onNicknameChange?.(next.trim());
         }}
-        placeholder="예: 도마왕"
+        placeholder="예: 냅다사장"
         maxLength={NICKNAME_MAX}
         hasClear
         hasCounter

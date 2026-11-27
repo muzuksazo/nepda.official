@@ -7,7 +7,6 @@ import {
   FlowHeader,
   MobileScreen,
   Note,
-  PendingBadge,
   ScreenTitle,
   Switch,
   TextField,
@@ -27,6 +26,12 @@ export interface ThumbnailDownloadScreenProps {
   onDownloadVideo?: () => void;
   /** 고른 템플릿과 지금 글자로 썸네일을 내려받는다 */
   onDownloadThumbnail?: (templateId: string | null, caption: string) => void;
+  /** 썸네일 생성·내려받기 진행 중 */
+  isDownloadingThumbnail?: boolean;
+  /** 썸네일 생성·내려받기 오류 문구 */
+  thumbnailError?: string | null;
+  /** AI 생성물 표기 안내 문구 (deliverables.ai_disclosure.instagram_guide) */
+  aiDisclosure?: string;
   /** 이 영상이 이미 커뮤니티에 올라가 있는지 */
   initialIsPublic?: boolean;
   /** 커뮤니티에 올리거나(true) 내릴 때(false) */
@@ -37,7 +42,9 @@ export interface ThumbnailDownloadScreenProps {
   initialIsConfirmingPublish?: boolean;
 }
 
-/** 안1-9 썸네일·내려받기 (8/8) — 팀이 만든 템플릿 중 하나를 캐러셀에서 고르고, 글자를 넣어 내려받는다 */
+const DEFAULT_AI_DISCLOSURE = "인스타그램 게시 시 'AI 정보' 라벨 활성화를 권장합니다.";
+
+/** 안1-9 썸네일·내려받기 (8/8) — 시안 중 하나를 캐러셀에서 고르고, 글자를 넣어 내려받는다 */
 export function ThumbnailDownloadScreen({
   templates,
   initialTemplateId,
@@ -46,6 +53,9 @@ export function ThumbnailDownloadScreen({
   onBack,
   onDownloadVideo,
   onDownloadThumbnail,
+  isDownloadingThumbnail = false,
+  thumbnailError = null,
+  aiDisclosure,
   initialIsPublic = false,
   onPublicChange,
   needsPublishConsent = true,
@@ -55,6 +65,13 @@ export function ThumbnailDownloadScreen({
   const [templateId, setTemplateId] = useState<string | null>(initialTemplateId ?? templates[0]?.id ?? null);
   const [isPublic, setIsPublic] = useState(initialIsPublic);
   const [isConfirmingPublish, setIsConfirmingPublish] = useState(initialIsConfirmingPublish);
+
+  const effectiveTemplateId =
+    templateId && templates.some((t) => t.id === templateId)
+      ? templateId
+      : (initialTemplateId && templates.some((t) => t.id === initialTemplateId)
+          ? initialTemplateId
+          : (templates[0]?.id ?? null));
 
   const chooseTemplate = (next: string) => {
     setTemplateId(next);
@@ -79,11 +96,12 @@ export function ThumbnailDownloadScreen({
           <>
             <Button label="영상 내려받기" isBlock icon={<Download size={20} aria-hidden="true" />} onClick={onDownloadVideo} />
             <Button
-              label="썸네일 내려받기"
+              label={isDownloadingThumbnail ? '썸네일 만드는 중…' : '썸네일 내려받기'}
               variant="secondary"
               isBlock
+              isDisabled={isDownloadingThumbnail}
               icon={<Download size={20} aria-hidden="true" />}
-              onClick={() => onDownloadThumbnail?.(templateId, caption)}
+              onClick={() => onDownloadThumbnail?.(effectiveTemplateId, caption)}
             />
           </>
         }
@@ -91,19 +109,26 @@ export function ThumbnailDownloadScreen({
         {/* 썸네일 시안이 주인공인 화면이라 냅다곰은 두지 않는다 */}
         <ScreenTitle title="끝! 썸네일만 골라요" description="시안 하나 콕, 글자 한 줄이면 끝." />
 
-        {/* 시안 → 글자 순서: 템플릿 미리보기는 팀이 만든 이미지라 입력한 글자가 반영되지 않는다 */}
         {templates.length > 0 ? (
-          <ThumbnailPicker label="시안 고르기" templates={templates} value={templateId} onChange={chooseTemplate} />
+          <ThumbnailPicker label="시안 고르기" templates={templates} value={effectiveTemplateId} onChange={chooseTemplate} />
         ) : null}
 
         <TextField
           label="썸네일 글자"
-          placeholder="예: 이 도마, 미쳤다"
+          placeholder="예: 3초 만에 물기 순삭"
           value={caption}
           onChange={setCaption}
           maxLength={THUMBNAIL_CAPTION_MAX}
           hasClear
         />
+
+        {thumbnailError ? (
+          <div role="alert">
+            <Note title="썸네일을 만들지 못했어요">
+              <span className="n-small n-muted">{thumbnailError}</span>
+            </Note>
+          </div>
+        ) : null}
 
         {/* 기본은 비공개. 켜면 탐색 탭에서 누구나 볼 수 있다 */}
         <Card>
@@ -116,7 +141,7 @@ export function ThumbnailDownloadScreen({
         </Card>
 
         <Note title="올리기 전에 AI 라벨 안내를 꼭 봐요.">
-          <PendingBadge>안내 문구 미정 · FR-014</PendingBadge>
+          <span className="n-small n-muted">{aiDisclosure || DEFAULT_AI_DISCLOSURE}</span>
         </Note>
       </MobileScreen>
 

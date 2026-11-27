@@ -1,5 +1,5 @@
 import { ImageIcon } from '../icons';
-import { Badge, Button, FlowHeader, MediaPlaceholder, MobileScreen, ScreenTitle, SkeletonText, Stack } from '../components';
+import { Badge, Button, FlowHeader, MediaPlaceholder, MobileScreen, Note, ScreenTitle, SkeletonText, Stack } from '../components';
 import type { HookType } from './flowData';
 
 export interface StoryboardScene {
@@ -10,12 +10,23 @@ export interface StoryboardScene {
 export interface StoryboardScreenProps {
   hookType: HookType;
   scenes?: StoryboardScene[];
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   onBack?: () => void;
   onShootingGuide?: () => void;
 }
 
 /** 안1-5 그림 콘티 (4/8) */
-export function StoryboardScreen({ hookType, scenes = [{}, {}, {}, {}], onBack, onShootingGuide }: StoryboardScreenProps) {
+export function StoryboardScreen({
+  hookType,
+  scenes = [{}, {}, {}, {}],
+  isLoading = false,
+  error = null,
+  onRetry,
+  onBack,
+  onShootingGuide,
+}: StoryboardScreenProps) {
   return (
     <MobileScreen
       header={<FlowHeader title="그림 콘티" step={4} onBack={onBack} />}
@@ -23,32 +34,48 @@ export function StoryboardScreen({ hookType, scenes = [{}, {}, {}, {}], onBack, 
     >
       <ScreenTitle title="그림으로 보면 이 느낌" description={`${hookType} 유형, 네 컷이면 끝나요.`} />
 
-      {/* 장면 번호를 그림 위에 얹어 그림·번호·설명을 한 칸으로 묶는다(공통 영역) */}
-      <ol style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px 12px' }}>
-        {scenes.map((scene, i) => (
-          <li key={i}>
-            <Stack gap={8}>
-              <div style={{ position: 'relative' }}>
-                {scene.imageUrl ? (
-                  <img
-                    src={scene.imageUrl}
-                    alt={`장면 ${i + 1}`}
-                    style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', borderRadius: 'var(--radius-md)' }}
-                  />
-                ) : (
-                  <MediaPlaceholder ratio="4 / 5" variant="sketch">
-                    <ImageIcon size={26} aria-hidden="true" />
-                  </MediaPlaceholder>
-                )}
-                <span style={{ position: 'absolute', top: 8, left: 8 }}>
-                  <Badge>장면 {i + 1}</Badge>
-                </span>
-              </div>
-              {scene.caption ? <p className="n-small">{scene.caption}</p> : <SkeletonText widths={[92, 64]} />}
+      {error ? (
+        <div role="alert">
+          <Note title="그림 콘티를 불러오지 못했어요">
+            <Stack gap={10} style={{ alignItems: 'flex-start' }}>
+              <span className="n-small n-muted">{error}</span>
+              {onRetry ? (
+                <Button label="다시 시도하기" variant="secondary" size="sm" isDisabled={isLoading} onClick={onRetry} />
+              ) : null}
             </Stack>
-          </li>
-        ))}
-      </ol>
+          </Note>
+        </div>
+      ) : (
+        /* 장면 번호를 그림 위에 얹어 그림·번호·설명을 한 칸으로 묶는다(공통 영역) */
+        <ol
+          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px 12px' }}
+          aria-busy={isLoading || undefined}
+        >
+          {scenes.map((scene, i) => (
+            <li key={i}>
+              <Stack gap={8}>
+                <div style={{ position: 'relative' }}>
+                  {scene.imageUrl ? (
+                    <img
+                      src={scene.imageUrl}
+                      alt={`장면 ${i + 1}`}
+                      style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', borderRadius: 'var(--radius-md)' }}
+                    />
+                  ) : (
+                    <MediaPlaceholder ratio="4 / 5" variant="sketch">
+                      <ImageIcon size={26} aria-hidden="true" />
+                    </MediaPlaceholder>
+                  )}
+                  <span style={{ position: 'absolute', top: 8, left: 8 }}>
+                    <Badge>장면 {i + 1}</Badge>
+                  </span>
+                </div>
+                {scene.caption ? <p className="n-small">{scene.caption}</p> : <SkeletonText widths={[92, 64]} />}
+              </Stack>
+            </li>
+          ))}
+        </ol>
+      )}
     </MobileScreen>
   );
 }

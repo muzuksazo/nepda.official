@@ -19,6 +19,7 @@ export interface ProjectSummary {
   selected_types: ProjectSummarySelectedTypesItem[];
   selected_scenario_id?: string | null;
   latest_job_id?: string | null;
+  thumbnail_url?: string | null;
   expires_at: string;
   created_at: string;
   updated_at: string;

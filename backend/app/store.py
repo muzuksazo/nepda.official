@@ -43,6 +43,8 @@ class JobStore:
                     generation_json TEXT,
                     artifacts_json TEXT,
                     error TEXT,
+                    deducted_credits INTEGER NOT NULL DEFAULT 0,
+                    refunded_credits INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -56,6 +58,11 @@ class JobStore:
                 );
                 """
             )
+            cols = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+            if "deducted_credits" not in cols:
+                conn.execute("ALTER TABLE jobs ADD COLUMN deducted_credits INTEGER NOT NULL DEFAULT 0")
+            if "refunded_credits" not in cols:
+                conn.execute("ALTER TABLE jobs ADD COLUMN refunded_credits INTEGER NOT NULL DEFAULT 0")
 
     def create_job(
         self,
@@ -65,15 +72,30 @@ class JobStore:
         *,
         status: str = "QUEUED",
         stage: str = "QUEUED",
+        deducted_credits: int = 0,
+        refunded_credits: int = 0,
     ) -> Dict[str, Any]:
         now = _now_iso()
         with self._lock, self._connect() as conn:
             conn.execute(
                 """
-                INSERT INTO jobs (id, campaign_id, status, stage, payload_json, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO jobs (
+                    id, campaign_id, status, stage, payload_json,
+                    deducted_credits, refunded_credits, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (job_id, campaign_id, status, stage, json.dumps(payload, ensure_ascii=False), now, now),
+                (
+                    job_id,
+                    campaign_id,
+                    status,
+                    stage,
+                    json.dumps(payload, ensure_ascii=False),
+                    max(0, int(deducted_credits)),
+                    max(0, int(refunded_credits)),
+                    now,
+                    now,
+                ),
             )
         return self.get_job(job_id)  # type: ignore[return-value]
 
@@ -87,6 +109,8 @@ class JobStore:
         generation: Optional[Dict[str, Any]] = None,
         artifacts: Optional[Dict[str, Any]] = None,
         error: Optional[str] = None,
+        deducted_credits: Optional[int] = None,
+        refunded_credits: Optional[int] = None,
     ) -> Dict[str, Any]:
         fields: List[str] = ["updated_at = ?"]
         vals: List[Any] = [_now_iso()]
@@ -108,6 +132,12 @@ class JobStore:
         if error is not None:
             fields.append("error = ?")
             vals.append(error)
+        if deducted_credits is not None:
+            fields.append("deducted_credits = ?")
+            vals.append(max(0, int(deducted_credits)))
+        if refunded_credits is not None:
+            fields.append("refunded_credits = ?")
+            vals.append(max(0, int(refunded_credits)))
         vals.append(job_id)
 
         with self._lock, self._connect() as conn:
@@ -119,6 +149,7 @@ class JobStore:
         def _loads(val: Optional[str]) -> Any:
             return json.loads(val) if val else None
 
+        keys = set(row.keys())
         return {
             "id": row["id"],
             "campaign_id": row["campaign_id"],
@@ -129,6 +160,8 @@ class JobStore:
             "generation": _loads(row["generation_json"]),
             "artifacts": _loads(row["artifacts_json"]),
             "error": row["error"],
+            "deducted_credits": int(row["deducted_credits"] or 0) if "deducted_credits" in keys else 0,
+            "refunded_credits": int(row["refunded_credits"] or 0) if "refunded_credits" in keys else 0,
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
         }

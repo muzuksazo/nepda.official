@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BottomNav, Mascot, MobileScreen, PageHeader, PendingBadge, ProjectCard, Stack, Tabs, type NavTab } from '../components';
+import { BottomNav, Mascot, MobileScreen, PageHeader, ProjectCard, Stack, Tabs, type NavTab } from '../components';
 import { brand } from '../brand';
 import type { CompletedProject, InProgressProject } from './HomeScreen';
 
@@ -8,6 +8,8 @@ export type MyVideosTab = 'inProgress' | 'completed';
 export interface MyVideosScreenProps {
   inProgress: InProgressProject[];
   completed: CompletedProject[];
+  /** 영상 보관 기간(일). 기본 7일 */
+  retentionDays?: number;
   /** 홈에서 누른 화살표에 맞춰 처음 열 탭 */
   initialTab?: MyVideosTab;
   onBack?: () => void;
@@ -21,6 +23,7 @@ export interface MyVideosScreenProps {
 export function MyVideosScreen({
   inProgress,
   completed,
+  retentionDays = 7,
   initialTab = 'inProgress',
   onBack,
   onContinue,
@@ -74,9 +77,7 @@ export function MyVideosScreen({
               empty('아직 완료한 영상이 없어요.')
             ) : (
               <Stack gap={12}>
-                <div>
-                  <PendingBadge>보관 기간 미정 · OQ-012</PendingBadge>
-                </div>
+                <p className="n-small n-muted">만든 날부터 {retentionDays}일 동안 보관돼요.</p>
                 {completed.map((p) => (
                   <ProjectCard
                     key={p.id}

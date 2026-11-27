@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .auth import SESSION_COOKIE_NAME, AuthenticatedUser, AuthenticationError, verify_session_token
 from .body_pipeline import build_body_video
@@ -20,7 +20,7 @@ from .project_store import ProjectStore
 from .retention import is_project_expired
 from .storage import LocalStorageBackend, StorageBackend
 from .store import JobStore
-from .thumbnail_service import generate_project_thumbnail
+from .thumbnail_service import THUMBNAIL_STYLE_ALIASES, generate_project_thumbnail
 from .tts_service import TTSError, TTSProvider
 
 
@@ -62,6 +62,17 @@ class CreateThumbnailRequest(BaseModel):
     style: Literal["stroke_bold", "line_blocks", "panel_card"] = "stroke_bold"
     source_image_key: Optional[str] = None
 
+    @field_validator("style", mode="before")
+    @classmethod
+    def _normalize_style(cls, value: object) -> object:
+        if value is None:
+            return "stroke_bold"
+        if isinstance(value, str):
+            mapped = THUMBNAIL_STYLE_ALIASES.get(value.strip().lower())
+            if mapped is not None:
+                return mapped
+        return value
+
 
 class ThumbnailBuildResponse(BaseModel):
     thumb_id: str
@@ -76,6 +87,7 @@ class ThumbnailBuildResponse(BaseModel):
     style: str
     candidate_image_urls: List[str] = Field(default_factory=list)
     candidate_keys: List[str] = Field(default_factory=list)
+    style_previews: Dict[str, str] = Field(default_factory=dict)
     created_at: str
 
 
@@ -161,10 +173,21 @@ def build_pipeline_extras_router(
             )
             if u
         ]
+        image_url = resolve_media_url(meta.get("object_key"), storage=storage, settings=settings)
+        active_style = str(meta.get("style") or "stroke_bold")
+        preview_keys = meta.get("style_preview_keys") or {}
+        style_previews: Dict[str, str] = {}
+        if isinstance(preview_keys, dict):
+            for st_key, obj_key in preview_keys.items():
+                resolved = resolve_media_url(obj_key, storage=storage, settings=settings)
+                if resolved:
+                    style_previews[str(st_key)] = resolved
+        if active_style not in style_previews and image_url:
+            style_previews[active_style] = image_url
         return ThumbnailBuildResponse(
             thumb_id=meta["thumb_id"],
             project_id=project_id,
-            image_url=resolve_media_url(meta.get("object_key"), storage=storage, settings=settings),
+            image_url=image_url,
             download_url=resolve_media_url(
                 meta.get("object_key"), storage=storage, settings=settings, download=True, filename="cover.png"
             ),
@@ -173,9 +196,10 @@ def build_pipeline_extras_router(
             warnings=list(meta.get("warnings") or []),
             headline_lines=list(meta.get("headline_lines") or []),
             badge=meta.get("badge"),
-            style=str(meta.get("style") or "stroke_bold"),
+            style=active_style,
             candidate_image_urls=cand_urls,
             candidate_keys=cand_keys,
+            style_previews=style_previews,
             created_at=meta["created_at"],
         )
 

@@ -11,4 +11,8 @@ export interface DeliverableThumbnail {
   download_url?: string | null;
   safe_zone_1_1_ok?: boolean | null;
   headline_lines?: string[];
+  style?: string | null;
+  style_previews?: Record<string, string>;
+  candidate_image_urls?: string[];
+  candidate_keys?: string[];
 }

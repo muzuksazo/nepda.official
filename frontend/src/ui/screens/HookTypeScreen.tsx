@@ -1,20 +1,27 @@
 import { useState } from 'react';
-import { Button, FlowHeader, HookTypeCard, MobileScreen, PendingBadge, ScreenTitle, Stack } from '../components';
+import { Button, FlowHeader, HookTypeCard, MobileScreen, ScreenTitle, Stack } from '../components';
 import { HOOK_TYPES, type HookType } from './flowData';
 
 export interface HookTypeScreenProps {
   initialSelected?: HookType[];
+  /** 영상 한 편당 크레딧(있으면 안내 문구에 표시) */
+  creditsPerVideo?: number;
   onBack?: () => void;
   onNext?: (selected: HookType[]) => void;
-  onSkipToVideo?: () => void;
+  onSkipToVideo?: (selected: HookType[]) => void;
 }
 
-/** 안1-3 유형 선택 (2/8) */
-export function HookTypeScreen({ initialSelected = [], onBack, onNext, onSkipToVideo }: HookTypeScreenProps) {
-  const [selected, setSelected] = useState<HookType[]>(initialSelected);
+/** 안1-3 유형 선택 (2/8) — 훅 유형 하나를 고른다 */
+export function HookTypeScreen({
+  initialSelected = [],
+  creditsPerVideo,
+  onBack,
+  onNext,
+  onSkipToVideo,
+}: HookTypeScreenProps) {
+  const [selected, setSelected] = useState<HookType[]>(initialSelected.length > 0 ? [initialSelected[0]] : []);
 
-  const toggle = (type: HookType, isOn: boolean) =>
-    setSelected((prev) => (isOn ? [...prev, type].sort() : prev.filter((t) => t !== type)));
+  const choose = (type: HookType) => setSelected([type]);
 
   return (
     <MobileScreen
@@ -22,19 +29,30 @@ export function HookTypeScreen({ initialSelected = [], onBack, onNext, onSkipToV
       footerSummary={
         <>
           <span className="n-semibold" style={{ color: 'var(--text)' }} aria-live="polite">
-            {selected.length > 0 ? `${selected.join('·')} 유형 ${selected.length}개 골랐어요` : '하나는 골라 주세요'}
+            {selected.length > 0 ? `${selected[0]} 유형을 골랐어요` : '하나를 골라 주세요'}
           </span>
-          <PendingBadge>크레딧 미정 · OQ-003</PendingBadge>
+          <span className="n-small n-muted">
+            {creditsPerVideo !== undefined
+              ? `영상 완성 시 ${creditsPerVideo.toLocaleString('ko-KR')} 크레딧`
+              : '시안은 무료예요'}
+          </span>
         </>
       }
       footer={
         <>
           <Button label="시나리오 글 보기" isBlock isDisabled={selected.length === 0} onClick={() => onNext?.(selected)} />
-          <Button label="시안 없이 냅다 만들기" variant="ghost" size="md" isBlock onClick={onSkipToVideo} />
+          <Button
+            label="시안 없이 냅다 만들기"
+            variant="ghost"
+            size="md"
+            isBlock
+            isDisabled={selected.length === 0}
+            onClick={() => onSkipToVideo?.(selected)}
+          />
         </>
       }
     >
-      <ScreenTitle title="첫 3초, 어떻게 낚을까요?" description="여러 개 골라도 돼요. 대신 크레딧도 늘어요." />
+      <ScreenTitle title="첫 3초, 어떻게 낚을까요?" description="제품에 가장 어울리는 훅 유형 하나를 골라 주세요." />
 
       <Stack gap={12} as="section">
         {HOOK_TYPES.map(({ type, description }) => (
@@ -42,8 +60,8 @@ export function HookTypeScreen({ initialSelected = [], onBack, onNext, onSkipToV
             key={type}
             type={type}
             description={description}
-            isSelected={selected.includes(type)}
-            onChange={(isOn) => toggle(type, isOn)}
+            isSelected={selected[0] === type}
+            onChange={() => choose(type)}
           />
         ))}
       </Stack>

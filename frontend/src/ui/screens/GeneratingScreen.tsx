@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { brand } from '../brand';
-import { Button, CreditIcon, FlowHeader, Mascot, MobileScreen, Note, PendingBadge, Stack } from '../components';
+import { Button, CreditIcon, FlowHeader, Mascot, MobileScreen, Note, Stack } from '../components';
 import { Check, X } from '../icons';
 
 /** 만드는 단계 (영상 올리기 화면의 예상 시간과 같은 이름) */
@@ -115,7 +115,9 @@ export function GeneratingScreen({
     footer = (
       <>
         <Button label="다른 영상 올리기" isBlock onClick={onReupload} />
-        <Button label="촬영 가이드 다시 보기" variant="secondary" isBlock onClick={onReviewGuide} />
+        {onReviewGuide ? (
+          <Button label="촬영 가이드 다시 보기" variant="secondary" isBlock onClick={onReviewGuide} />
+        ) : null}
       </>
     );
   } else if (isFailed) {
@@ -245,10 +247,7 @@ export function GeneratingScreen({
         ) : null
       ) : isDone ? null : (
         <Note title="다른 화면 봐도 괜찮아요">
-          <Stack gap={6} style={{ alignItems: 'flex-start' }}>
-            <span className="n-small n-muted">다 되면 알림으로 알려 드려요. 홈의 내 영상에서도 볼 수 있어요.</span>
-            <PendingBadge>푸시 알림 방식 미정</PendingBadge>
-          </Stack>
+          <span className="n-small n-muted">다 되면 알림으로 알려 드려요. 홈의 내 영상에서도 볼 수 있어요.</span>
         </Note>
       )}
 

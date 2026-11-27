@@ -95,3 +95,73 @@ class TestFilmingGuideAPI(unittest.TestCase):
         # 22s hook -> still minimum 10.0s
         scn_long = {"beats": [{"order": 1, "duration_sec": 22.0}]}
         self.assertEqual(compute_target_body_duration(scn_long), 10.0)
+
+    def test_last_hook_visual_uses_pre_payoff_beat_and_never_leaks_internal_ids(self) -> None:
+        project = {
+            "project_id": "prj_track_a",
+            "product": {
+                "name": "초흡수 PVA 물걸레 스펀지",
+                "category": "living",
+                "verified_facts": ["3초 만에 물기 즉시 흡수", "원터치 탈수"],
+            },
+        }
+        scn_a = {
+            "scenario_id": "scn_A_1",
+            "type": "A",
+            "hook_title": "50층 높이 도미노 반전",
+            "hook_duration_sec": 9.88,
+            "body_duration_sec": 15.0,
+            "beats": [
+                {
+                    "order": 1,
+                    "role": "video",
+                    "duration_sec": 4.9,
+                    "visual": "1cm 도미노가 2배씩 커지며 쓰러지는 장면",
+                    "caption": "1cm 도미노를 2배씩 키우면",
+                },
+                {
+                    "order": 2,
+                    "role": "video",
+                    "duration_sec": 4.98,
+                    "visual": "아파트 50층 높이 마지막 도미노가 바닥에 닿는 순간",
+                    "caption": "마지막 조각은 아파트 50층 높이",
+                },
+                {
+                    "order": 3,
+                    "role": "silence_gap",
+                    "duration_sec": 0.25,
+                    "visual": "twist_gap",
+                    "caption": "",
+                },
+                {
+                    "order": 4,
+                    "role": "source",
+                    "duration_sec": 6.5,
+                    "visual": "payoff_1",
+                    "caption": "물기 즉시 흡수, 댓글로 링크 받기",
+                },
+            ],
+            "ad_spec": {},
+        }
+        guide = build_filming_guide(project, scn_a)
+        first_tip = guide["shots"][0]["framing_tip"]
+        self.assertIn("아파트 50층 높이", first_tip)
+        self.assertNotIn("payoff_1", first_tip)
+        self.assertNotIn("twist_gap", first_tip)
+
+        # Even when all hook beats only contain legacy internal IDs, never leak them
+        scn_legacy_ids = {
+            "scenario_id": "scn_A_legacy",
+            "type": "A",
+            "hook_title": "도미노 반전",
+            "beats": [
+                {"order": 1, "role": "video", "duration_sec": 5.0, "visual": "tpl_hook_1", "caption": ""},
+                {"order": 2, "role": "silence_gap", "duration_sec": 0.25, "visual": "twist_gap", "caption": ""},
+                {"order": 3, "role": "source", "duration_sec": 6.5, "visual": "payoff_1", "caption": ""},
+            ],
+        }
+        guide_legacy = build_filming_guide(project, scn_legacy_ids)
+        for shot in guide_legacy["shots"]:
+            self.assertNotIn("payoff_1", shot["framing_tip"])
+            self.assertNotIn("twist_gap", shot["framing_tip"])
+            self.assertNotIn("tpl_hook_1", shot["framing_tip"])

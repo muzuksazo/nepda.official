@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-11-27",
-  "commit": "4fb986b",
+  "commit": "ae95341",
   "repoUrl": "https://github.com/muzuksazo/nepda.official",
   "planDocPath": "tests/E2E_TEST_PLAN.md",
   "overviewImage": "./recordings/e2e_features_overview.png",
@@ -14,7 +14,7 @@
     {
       "id": "creation",
       "name": "영상 제작 · 8단계 위저드",
-      "description": "제품 정보 입력 → 훅 유형(A/B/C) → 시나리오 → 촬영 가이드 → 업로드 → 생성 중 → 결과 확인 → 썸네일"
+      "description": "제품 정보 입력 → 훅 유형(A/B/C) → 시나리오 → 그림 콘티 → 촬영 가이드 → 업로드 → 생성 중 → 결과 확인 → 썸네일"
     },
     {
       "id": "discovery",
@@ -74,24 +74,25 @@
       "env": "local",
       "status": "pass",
       "fr": "A안 · FR-001~014",
-      "durationSec": 50.96,
-      "sizeKb": 573,
+      "durationSec": 83.08,
+      "sizeKb": 744,
       "video": "./recordings/abc_A_hook_e2e.mp4",
-      "poster": "./recordings/shots/abc_A_hook_e2e/07_review.webp",
+      "poster": "./recordings/shots/abc_A_hook_e2e/08_review.webp",
       "screenshots": [
         { "label": "1/8 제품 정보", "src": "./recordings/shots/abc_A_hook_e2e/01_product.webp" },
         { "label": "2/8 유형 선택 (A)", "src": "./recordings/shots/abc_A_hook_e2e/02_hook.webp" },
         { "label": "3/8 시나리오 글", "src": "./recordings/shots/abc_A_hook_e2e/03_scenario.webp" },
-        { "label": "5/8 촬영 가이드", "src": "./recordings/shots/abc_A_hook_e2e/04_guide.webp" },
-        { "label": "6/8 영상 올리기", "src": "./recordings/shots/abc_A_hook_e2e/05_upload.webp" },
-        { "label": "영상 만드는 중", "src": "./recordings/shots/abc_A_hook_e2e/06_generating.webp" },
-        { "label": "7/8 영상 확인", "src": "./recordings/shots/abc_A_hook_e2e/07_review.webp" },
-        { "label": "8/8 썸네일·내려받기", "src": "./recordings/shots/abc_A_hook_e2e/08_thumbnail.webp" }
+        { "label": "4/8 그림 콘티", "src": "./recordings/shots/abc_A_hook_e2e/04_storyboard.webp" },
+        { "label": "5/8 촬영 가이드", "src": "./recordings/shots/abc_A_hook_e2e/05_guide.webp" },
+        { "label": "6/8 영상 올리기", "src": "./recordings/shots/abc_A_hook_e2e/06_upload.webp" },
+        { "label": "영상 만드는 중", "src": "./recordings/shots/abc_A_hook_e2e/07_generating.webp" },
+        { "label": "7/8 영상 확인", "src": "./recordings/shots/abc_A_hook_e2e/08_review.webp" },
+        { "label": "8/8 썸네일·내려받기", "src": "./recordings/shots/abc_A_hook_e2e/09_thumbnail.webp" }
       ],
       "checks": [
-        "제품 정보 입력 → A 유형 선택 → 시나리오 글 수신 → 촬영 가이드 조회",
-        "8.5초 세로 MP4 업로드(presign + ffprobe) → GeneratingScreen('영상 만드는 중' → '영상 보러 가기')",
-        "Track A FFmpeg/Inworld TTS 실렌더 7/8 영상 확인(<video>) → 8/8 썸네일·내려받기 완주, 에러 0건"
+        "제품 정보 → A 유형('시안 없이 냅다 만들기'→업로드→뒤로 복귀 검증 포함) → 시나리오 글(6.5초 정렬, 내부ID 미노출) → 4/8 그림 콘티(4컷 /v1/media/ 실이미지) → 촬영 가이드",
+        "8.5초 세로 MP4 업로드(presign + ffprobe) → GeneratingScreen('영상 만드는 중' → '영상 보러 가기') → Track A FFmpeg/Inworld TTS 실렌더 7/8 영상 확인(<video>, MP4 200)",
+        "8/8 썸네일·내려받기 실 /v1/media/ 프리뷰 3종 확인 → '띠지'(line_blocks) 선택 및 POST /thumbnail 200 실 PNG(>10KB) 내려받기, HTTP>=400·에러 0건"
       ]
     },
     {
@@ -102,8 +103,8 @@
       "env": "local",
       "status": "pass",
       "fr": "FR-006",
-      "durationSec": 11.48,
-      "sizeKb": 239,
+      "durationSec": 12.2,
+      "sizeKb": 118,
       "video": "./recordings/05_local_billing_paddle_webhook.mp4",
       "poster": "./recordings/shots/05_local_billing_paddle_webhook/02_paddle.webp",
       "screenshots": [
@@ -112,7 +113,7 @@
         { "label": "웹훅 적립 · 100 크레딧", "src": "./recordings/shots/05_local_billing_paddle_webhook/03_after_100.webp" }
       ],
       "checks": [
-        "c100(12,900원) 선택 → POST /v1/billing/checkout(200)",
+        "0크레딧 사용자 직접 POST /renders 402(INSUFFICIENT_CREDITS) 가드 검증 + c100(12,900원) 선택 → POST /v1/billing/checkout(200)",
         "실제 Paddle Sandbox 결제 오버레이 iframe 오픈 확인",
         "HMAC-SHA256 서명 웹훅 전송 → UI 잔액 0 → 100 크레딧 즉시 반영"
       ]
@@ -125,8 +126,8 @@
       "env": "local",
       "status": "pass",
       "fr": "Auth · Privacy",
-      "durationSec": 9.96,
-      "sizeKb": 159,
+      "durationSec": 10.08,
+      "sizeKb": 100,
       "video": "./recordings/01_local_onboarding_privacy.mp4",
       "poster": "./recordings/shots/01_local_onboarding_privacy/02_onboarding.webp",
       "screenshots": [
@@ -146,8 +147,8 @@
       "env": "local",
       "status": "pass",
       "fr": "Auth",
-      "durationSec": 10.56,
-      "sizeKb": 213,
+      "durationSec": 14.4,
+      "sizeKb": 169,
       "video": "./recordings/06_local_logout.mp4",
       "poster": "./recordings/shots/06_local_logout/01_sheet.webp",
       "screenshots": [
@@ -168,8 +169,8 @@
       "env": "live",
       "status": "pass",
       "fr": "Live Ops · Billing Config",
-      "durationSec": 12.52,
-      "sizeKb": 106,
+      "durationSec": 11.8,
+      "sizeKb": 103,
       "video": "./recordings/07_live_prod_smoke.mp4",
       "poster": "./recordings/shots/07_live_prod_smoke/02_live_onboarding.webp",
       "screenshots": [
@@ -178,7 +179,7 @@
       ],
       "checks": [
         "GET https://napda.vercel.app/health 200 (status: ok, Vercel 리라이트)",
-        "GET /v1/billing/config 200 (sandbox, c30/c100/c300), /v1/auth/me 401",
+        "GET /v1/billing/config 200 (paddle/sandbox, c30/c100/c300), /v1/auth/me 401",
         "실서버 /privacy.html & '/' 온보딩 렌더, 콘솔 pageerror 0건"
       ]
     },
@@ -190,8 +191,8 @@
       "env": "local",
       "status": "pass",
       "fr": "Core UI",
-      "durationSec": 8.84,
-      "sizeKb": 106,
+      "durationSec": 9.44,
+      "sizeKb": 69,
       "video": "./recordings/02_local_home_my_videos.mp4",
       "poster": "./recordings/shots/02_local_home_my_videos/01_home.webp",
       "screenshots": [
@@ -200,8 +201,8 @@
         { "label": "내 영상 · 완료", "src": "./recordings/shots/02_local_home_my_videos/03_completed.webp" }
       ],
       "checks": [
-        "PR #14 통합 '내 영상 2' 캐러셀 실DB 시드 2건(진행 중/완료) 표시",
-        "내 영상 탭 진입 및 진행 중 ↔ 완료 탭 전환 정상"
+        "통합 '내 영상 2' 캐러셀 실DB 시드 2건(진행 중/완료) 표시 + 목업 배너/가짜 알림 배지/도마왕 누수 0건",
+        "내 영상 탭 진입 및 진행 중 ↔ 완료 탭 전환 정상(7일 보관 안내 일관성 확인)"
       ]
     },
     {
@@ -212,10 +213,10 @@
       "env": "local",
       "status": "pass",
       "fr": "Core UI",
-      "durationSec": 12.6,
-      "sizeKb": 229,
+      "durationSec": 12.96,
+      "sizeKb": 160,
       "video": "./recordings/03_local_community_filters.mp4",
-      "poster": "./recordings/shots/03_local_community_filters/01_all.webp",
+      "poster": "./recordings/shots/03_local_community_filters/02_type_a.webp",
       "screenshots": [
         { "label": "탐색 · 전체", "src": "./recordings/shots/03_local_community_filters/01_all.webp" },
         { "label": "탐색 · A 유형", "src": "./recordings/shots/03_local_community_filters/02_type_a.webp" },
@@ -235,8 +236,8 @@
       "env": "local",
       "status": "pass",
       "fr": "Core UI",
-      "durationSec": 9.16,
-      "sizeKb": 167,
+      "durationSec": 10.2,
+      "sizeKb": 189,
       "video": "./recordings/04_local_profile_theme.mp4",
       "poster": "./recordings/shots/04_local_profile_theme/02_dark.webp",
       "screenshots": [
@@ -244,8 +245,8 @@
         { "label": "내 정보 · #1A1A1A 다크", "src": "./recordings/shots/04_local_profile_theme/02_dark.webp" }
       ],
       "checks": [
-        "사용자 이메일·보유 크레딧·영상 수·7일 보관 안내 확인",
-        "PR #14 #1A1A1A 다크 / 라이트 / 기기 설정 전환 확인"
+        "크레딧 내역 빈 상태('아직 텅 비었어요') 확인, 개인정보 처리방침(/privacy.html) 새 탭 오픈, 회원 탈퇴 고객지원 안내 시트 검증",
+        "사용자 이메일·보유 크레딧·영상 수·7일 보관 안내 및 #1A1A1A 다크 / 라이트 / 기기 설정 전환 확인"
       ]
     },
     {
