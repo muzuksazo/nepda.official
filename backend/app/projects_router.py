@@ -29,7 +29,7 @@ from .auth import (
 from .config import Settings
 from .filming_guide_service import build_filming_guide
 from .genai_provider import GenAIMediaProvider
-from .media_delivery import resolve_media_url
+from .media_delivery import MediaTokenError, resolve_media_url, verify_media_token
 from .paddle_billing import (
     HttpxPaddleApiClient,
     PaddleApiClient,
@@ -45,6 +45,8 @@ from .project_schemas import (
     AuthUserResponse,
     BillingConfigResponse,
     BillingOrderStatusResponse,
+    CommunityVideoItem,
+    CommunityVideosResponse,
     CompleteUploadsRequest,
     CompleteUploadsResponse,
     CreateCheckoutRequest,
@@ -70,6 +72,7 @@ from .project_schemas import (
     GoogleAuthResponse,
     HookFiles,
     HookStatusResponse,
+    HookType,
     HookTypeMeta,
     HookTypesResponse,
     OutputItem,
@@ -81,6 +84,8 @@ from .project_schemas import (
     ProjectDetailResponse,
     ProjectListResponse,
     ProjectSummary,
+    PublishProjectRequest,
+    PublishProjectResponse,
     QuotaStatus,
     ScenarioBeat,
     ScenarioItem,
@@ -96,7 +101,12 @@ from .project_store import ProjectStore
 from .retention import is_project_expired, sync_project_status_with_job
 from .storage import StorageBackend
 from .store import JobStore
-from .thumbnail_service import generate_project_thumbnail
+from .thumbnail_service import (
+    DEFAULT_THUMBNAIL_STYLE,
+    THUMBNAIL_STYLES,
+    generate_project_thumbnail,
+    normalize_thumbnail_style,
+)
 from .tts_service import build_tts_provider
 from .upload_service import validate_and_complete_uploads
 
@@ -350,6 +360,147 @@ def _clean_caption_display(text: Any) -> str:
     return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
 
+_INTERNAL_ID_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+_INTERNAL_ID_PREFIX_RE = re.compile(
+    r"^(?:seg|beat|cut|shot|hook|payoff|clip|gap|tpl|scene|frame|twist|intro|outro)\d*$",
+    re.IGNORECASE,
+)
+
+
+def _is_internal_id(text: Any) -> bool:
+    s = str(text or "").strip()
+    if not s:
+        return True
+    if _INTERNAL_ID_TOKEN_RE.fullmatch(s) and ("_" in s or bool(_INTERNAL_ID_PREFIX_RE.fullmatch(s))):
+        return True
+    return False
+
+
+def _segment_duration_sec(seg: Dict[str, Any]) -> float:
+    if seg.get("duration") is not None:
+        try:
+            d = float(seg["duration"])
+            if d > 0:
+                return round(d, 2)
+        except (TypeError, ValueError):
+            pass
+    if seg.get("src_start") is not None and seg.get("src_end") is not None:
+        try:
+            spd = float(seg.get("speed") or 1.0)
+            d = (float(seg["src_end"]) - float(seg["src_start"])) / max(spd, 0.01)
+            if d > 0:
+                return round(d, 2)
+        except (TypeError, ValueError):
+            pass
+    return 0.25 if seg.get("type") == "silence_gap" else 5.0
+
+
+def _safe_beat_caption(beat: Dict[str, Any]) -> str:
+    for field in ("caption", "narration", "visual"):
+        cleaned = _clean_caption_display(beat.get(field) or "")
+        if cleaned and not _is_internal_id(cleaned):
+            return cleaned
+    return ""
+
+
+def _build_beats_from_spec(
+    spec: Dict[str, Any],
+    *,
+    product_name: str = "제품",
+) -> List[Dict[str, Any]]:
+    """Build user-facing scenario beats without leaking raw segment IDs or misaligning silence_gap captions."""
+    raw_caps = [c for c in (spec.get("captions") or []) if isinstance(c, dict)]
+    for c in raw_caps:
+        if "text" in c:
+            c["text"] = _unescape_newlines(c.get("text"))
+    tl = [seg for seg in (spec.get("timeline") or []) if isinstance(seg, dict)]
+    if not tl:
+        return []
+
+    durations = [_segment_duration_sec(seg) for seg in tl]
+    windows: List[Tuple[float, float]] = []
+    cursor = 0.0
+    for d in durations:
+        windows.append((cursor, cursor + d))
+        cursor += d
+
+    non_silence_indices = [i for i, seg in enumerate(tl) if seg.get("type") != "silence_gap"]
+    gap_idx = next((i for i, seg in enumerate(tl) if seg.get("type") == "silence_gap"), None)
+
+    cap_texts_by_idx: Dict[int, List[str]] = {i: [] for i in non_silence_indices}
+    if raw_caps and non_silence_indices:
+        if len(raw_caps) == len(non_silence_indices):
+            for seg_i, cap in zip(non_silence_indices, raw_caps):
+                txt = str(cap.get("text") or "").strip()
+                if txt:
+                    cap_texts_by_idx[seg_i].append(txt)
+        elif all(cap.get("start") is not None and cap.get("end") is not None for cap in raw_caps):
+            for cap in raw_caps:
+                txt = str(cap.get("text") or "").strip()
+                if not txt:
+                    continue
+                try:
+                    c_start = float(cap["start"])
+                    c_end = float(cap["end"])
+                except (TypeError, ValueError):
+                    continue
+                mid = (c_start + c_end) / 2.0
+                target_i = next(
+                    (i for i in non_silence_indices if windows[i][0] <= mid <= windows[i][1]),
+                    None,
+                )
+                if target_i is None:
+                    target_i = min(
+                        non_silence_indices,
+                        key=lambda i: min(abs(mid - windows[i][0]), abs(mid - windows[i][1])),
+                    )
+                cap_texts_by_idx[target_i].append(txt)
+        else:
+            for k, seg_i in enumerate(non_silence_indices):
+                if k < len(raw_caps):
+                    txt = str(raw_caps[k].get("text") or "").strip()
+                    if txt:
+                        cap_texts_by_idx[seg_i].append(txt)
+
+    clean_product = str(product_name or "제품").strip() or "제품"
+    beats: List[Dict[str, Any]] = []
+    for i, seg in enumerate(tl):
+        role = str(seg.get("type") or "beat")
+        dur = durations[i]
+        cap_text = "\n".join(cap_texts_by_idx.get(i, [])) if role != "silence_gap" else ""
+        is_post_gap = gap_idx is not None and i > gap_idx
+
+        if role == "silence_gap":
+            visual = "반전 전환 구간"
+        else:
+            visual = ""
+            for cand_field in ("flow_ref_prompt", "visual", "description", "scene"):
+                cand_val = _clean_caption_display(seg.get(cand_field) or "")
+                if cand_val and not _is_internal_id(cand_val):
+                    visual = cand_val
+                    break
+            if not visual and cap_text:
+                visual = _clean_caption_display(cap_text)
+            if not visual:
+                visual = (
+                    f"{clean_product} 실물 시연 장면"
+                    if (role == "source" or is_post_gap)
+                    else "오프닝 훅 장면"
+                )
+
+        beats.append(
+            {
+                "order": i + 1,
+                "role": role,
+                "duration_sec": dur,
+                "visual": visual,
+                "narration": cap_text,
+                "caption": cap_text,
+            }
+        )
+    return beats
+
+
 def _resolve_ab_request(
     settings: Settings,
     body: GenerateScenariosRequest,
@@ -460,22 +611,7 @@ def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
                 if ht == "A" and tpl_entry:
                     spec["track_a_template_id"] = str(tpl_entry.get("id") or "")
                     spec["a_genre_archetype"] = str(tpl_entry.get("a_genre_archetype") or "mock_documentary")
-                caps = spec.get("captions") or []
-                for c in caps:
-                    if isinstance(c, dict) and "text" in c:
-                        c["text"] = _unescape_newlines(c.get("text"))
-                tl = spec.get("timeline") or []
-                beats = [
-                    {
-                        "order": i + 1,
-                        "role": seg.get("type", "beat"),
-                        "duration_sec": float(seg.get("duration") or 5.0),
-                        "visual": seg.get("flow_ref_prompt") or seg.get("id") or "촬영 장면",
-                        "narration": caps[i]["text"] if i < len(caps) else "",
-                        "caption": caps[i]["text"] if i < len(caps) else "",
-                    }
-                    for i, seg in enumerate(tl)
-                ]
+                beats = _build_beats_from_spec(spec, product_name=str(product.get("name") or "제품"))
                 meta = next(m for m in HOOK_TYPE_CATALOG if m.type == ht)
                 scenarios.append(
                     {
@@ -544,24 +680,31 @@ def _default_storyboard_generator(
         )
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        non_silence = [
-            b for b in (scenario.get("beats") or []) if b.get("role") != "silence_gap"
-        ]
-        raw_caps = [
-            _clean_caption_display(b.get("caption") or b.get("narration") or b.get("visual") or "")
-            for b in non_silence
-        ]
+        all_beats = [b for b in (scenario.get("beats") or []) if isinstance(b, dict)]
+        gap_idx = next(
+            (i for i, b in enumerate(all_beats) if str(b.get("role") or "").lower() == "silence_gap"),
+            None,
+        )
+        if gap_idx is not None:
+            pre_gap_beats = all_beats[:gap_idx]
+        else:
+            pre_gap_beats = [
+                b
+                for b in all_beats
+                if str(b.get("role") or "").lower() not in {"silence_gap", "source", "payoff", "cta"}
+            ]
+        raw_pre_caps = [_safe_beat_caption(b) for b in pre_gap_beats]
         default_hook_caps = [
             _clean_caption_display(x) for x in (tpl_entry.get("default_hook_captions") or []) if str(x).strip()
         ]
         cut_captions: List[str] = []
         for idx in range(4):
-            if idx < len(raw_caps) and raw_caps[idx]:
-                cut_captions.append(raw_caps[idx])
+            if idx < len(raw_pre_caps) and raw_pre_caps[idx]:
+                cut_captions.append(raw_pre_caps[idx])
             elif idx < len(default_hook_caps) and default_hook_caps[idx]:
                 cut_captions.append(default_hook_caps[idx])
             elif idx == 3:
-                cut_captions.append("반전 후 실제 제품 핵심 효과가 이어집니다")
+                cut_captions.append("반전 직전 임팩트 · 실제 제품 효과 공개")
             else:
                 cut_captions.append(f"3D 물리 훅 장면 {idx + 1}")
 
@@ -655,7 +798,7 @@ def _default_storyboard_generator(
                 {
                     "beat_order": order,
                     "image_url": url,
-                    "caption": _clean_caption_display(beat.get("caption", "")),
+                    "caption": _safe_beat_caption(beat),
                 }
             )
         return frames
@@ -1027,6 +1170,101 @@ def build_projects_router(
         spec["vo_audio"] = str(vo_wav)
         return spec, str(staged_src)
 
+    def _charge_render_credits(user_id: str) -> int:
+        cost = int(settings.credits_per_video or 0)
+        if cost <= 0:
+            return 0
+        wallet = project_store.get_or_create_wallet(
+            user_id, default_free_videos=settings.initial_free_videos
+        )
+        if wallet["credits"] < cost or not project_store.deduct_wallet_credits(user_id, cost):
+            latest_wallet = project_store.get_or_create_wallet(
+                user_id, default_free_videos=settings.initial_free_videos
+            )
+            raise _api_error(
+                status.HTTP_402_PAYMENT_REQUIRED,
+                "INSUFFICIENT_CREDITS",
+                f"영상을 만들려면 {cost} 크레딧이 필요해요. (현재 보유: {latest_wallet['credits']} 크레딧)",
+                {
+                    "required_credits": cost,
+                    "available_credits": latest_wallet["credits"],
+                    "shortfall": max(0, cost - latest_wallet["credits"]),
+                },
+            )
+        return cost
+
+    def _refund_if_failed(jid: str, *, user_id: Optional[str], deducted_credits: int) -> None:
+        job = job_store.get_job(jid)
+        if job and job.get("status") == "FAILED" and user_id and deducted_credits > 0:
+            project_store.refund_wallet_credits(user_id, deducted_credits)
+            job_store.update_job(jid, refunded_credits=deducted_credits)
+
+    def _resign_media_ref(raw_ref: Optional[str]) -> Optional[str]:
+        if not raw_ref or not isinstance(raw_ref, str):
+            return None
+        val = raw_ref.strip()
+        if not val:
+            return None
+        if val.startswith("/v1/media/"):
+            tok = val[len("/v1/media/") :].split("?", 1)[0]
+            try:
+                obj_key, _ = verify_media_token(tok, settings.session_secret)
+                return resolve_media_url(obj_key, storage=storage, settings=settings) or val
+            except MediaTokenError:
+                return val
+        return resolve_media_url(val, storage=storage, settings=settings)
+
+    def _project_thumbnail_url(proj: Dict[str, Any]) -> Optional[str]:
+        stored_thumb = proj.get("thumbnail")
+        if isinstance(stored_thumb, dict):
+            t_key = stored_thumb.get("object_key")
+            if t_key:
+                return resolve_media_url(t_key, storage=storage, settings=settings)
+        jid = proj.get("latest_job_id")
+        if jid:
+            job = job_store.get_job(jid)
+            thumbs = ((job or {}).get("artifacts") or {}).get("thumbnails") or []
+            if thumbs and isinstance(thumbs[0], dict) and thumbs[0].get("url"):
+                return _resign_media_ref(thumbs[0]["url"])
+        # R2-04 fallback: use first storyboard frame for in-progress projects past Step 4
+        pid = proj.get("project_id")
+        if pid:
+            sel_id = proj.get("selected_scenario_id")
+            candidate_scns: List[Dict[str, Any]] = []
+            if sel_id:
+                sel_scn = project_store.get_scenario(pid, sel_id)
+                if sel_scn:
+                    candidate_scns.append(sel_scn)
+            for s in project_store.list_scenarios(pid):
+                if not sel_id or s.get("scenario_id") != sel_id:
+                    candidate_scns.append(s)
+            for scn in candidate_scns:
+                frames = scn.get("storyboard_frames") or []
+                for frame in frames:
+                    if isinstance(frame, dict) and frame.get("image_url"):
+                        resolved = _resign_media_ref(str(frame["image_url"]))
+                        if resolved:
+                            return resolved
+        return None
+
+    def _run_hookpipe_render_bg(
+        project_id: str,
+        jid: str,
+        user_id: str,
+        scn: Dict[str, Any],
+        voice_id: str,
+        *,
+        deducted_credits: int = 0,
+    ) -> None:
+        try:
+            hooks.process_render(project_id, jid, user_id, scn, voice_id)
+        except Exception as exc:
+            job = job_store.get_job(jid)
+            if job and job.get("status") != "FAILED":
+                job_store.update_job(jid, status="FAILED", error=str(exc))
+        finally:
+            _refund_if_failed(jid, user_id=user_id, deducted_credits=deducted_credits)
+
     def _run_job_bg(
         req: CampaignRequest,
         jid: str,
@@ -1041,9 +1279,7 @@ def build_projects_router(
             if job and job.get("status") != "FAILED":
                 job_store.update_job(jid, status="FAILED", error=str(exc))
         finally:
-            job = job_store.get_job(jid)
-            if job and job.get("status") == "FAILED" and user_id and refunded_credits > 0:
-                project_store.refund_wallet_credits(user_id, refunded_credits)
+            _refund_if_failed(jid, user_id=user_id, deducted_credits=refunded_credits)
 
     def _run_track_a_template_bg(
         req: CampaignRequest,
@@ -1083,9 +1319,7 @@ def build_projects_router(
             if job and job.get("status") != "FAILED":
                 job_store.update_job(jid, status="FAILED", error=str(exc))
         finally:
-            job = job_store.get_job(jid)
-            if job and job.get("status") == "FAILED" and user_id and refunded_credits > 0:
-                project_store.refund_wallet_credits(user_id, refunded_credits)
+            _refund_if_failed(jid, user_id=user_id, deducted_credits=refunded_credits)
 
     @router.post("/v1/auth/google", response_model=GoogleAuthResponse, tags=["Auth"])
     def auth_google(body: GoogleAuthRequest, response: Response) -> GoogleAuthResponse:
@@ -1202,6 +1436,8 @@ def build_projects_router(
             selected_types=proj["selected_types"],
             selected_scenario_id=proj["selected_scenario_id"],
             latest_job_id=proj["latest_job_id"],
+            thumbnail_url=_project_thumbnail_url(proj),
+            is_public=bool(proj.get("is_public", False)),
             expires_at=proj["expires_at"],
             created_at=proj["created_at"],
             updated_at=proj["updated_at"],
@@ -1225,6 +1461,8 @@ def build_projects_router(
                 selected_types=r["selected_types"],
                 selected_scenario_id=r["selected_scenario_id"],
                 latest_job_id=r["latest_job_id"],
+                thumbnail_url=_project_thumbnail_url(r),
+                is_public=bool(r.get("is_public", False)),
                 expires_at=r["expires_at"],
                 created_at=r["created_at"],
                 updated_at=r["updated_at"],
@@ -1265,11 +1503,98 @@ def build_projects_router(
             uploads=up,
             latest_job_id=proj.get("latest_job_id"),
             latest_job=latest_job,
+            is_public=bool(proj.get("is_public", False)),
+            public_caption=proj.get("public_caption"),
             quota=_quota(user.user_id),
             expires_at=proj["expires_at"],
             created_at=proj["created_at"],
             updated_at=proj["updated_at"],
         )
+
+    @router.patch(
+        "/v1/projects/{project_id}/publish",
+        response_model=PublishProjectResponse,
+        tags=["Projects"],
+    )
+    def publish_project(
+        project_id: str,
+        body: PublishProjectRequest,
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> PublishProjectResponse:
+        _ = _get_owned_project(project_id, user)
+        updated = project_store.set_project_public(
+            project_id,
+            body.is_public,
+            caption=body.caption,
+        )
+        if not updated:
+            raise _api_error(status.HTTP_404_NOT_FOUND, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.")
+        return PublishProjectResponse(
+            project_id=project_id,
+            is_public=bool(updated.get("is_public", False)),
+            caption=updated.get("public_caption"),
+        )
+
+    @router.get(
+        "/v1/community/videos",
+        response_model=CommunityVideosResponse,
+        tags=["Community"],
+    )
+    def list_community_videos(
+        hook_type: Optional[HookType] = Query(default=None),
+        limit: int = Query(default=50, ge=1, le=100),
+    ) -> CommunityVideosResponse:
+        rows = project_store.list_public_projects(hook_type=hook_type, limit=limit)
+        items: List[CommunityVideoItem] = []
+        for r in rows:
+            pid = r["project_id"]
+            sel_id = r.get("selected_scenario_id")
+            scn = project_store.get_scenario(pid, sel_id) if sel_id else None
+            if scn is None:
+                scns = project_store.list_scenarios(pid)
+                scn = scns[0] if scns else None
+            eff_type = str(
+                (scn or {}).get("type")
+                or ((r.get("selected_types") or ["A"])[0])
+            ).upper()
+            if eff_type not in {"A", "B", "C"}:
+                eff_type = "A"
+            if hook_type and eff_type != hook_type:
+                continue
+
+            video_url: Optional[str] = None
+            jid = r.get("latest_job_id")
+            if jid:
+                job = job_store.get_job(jid)
+                rendered = ((job or {}).get("artifacts") or {}).get("rendered") or []
+                if rendered and isinstance(rendered[0], dict):
+                    v_ref = rendered[0].get("master_mp4") or rendered[0].get("clean_mp4")
+                    video_url = resolve_media_url(v_ref, storage=storage, settings=settings)
+
+            thumb_url = _project_thumbnail_url(r)
+            product_name = str((r.get("product") or {}).get("name") or "내 제품")
+            title = str((scn or {}).get("hook_title") or product_name).strip() or product_name
+            raw_caption = str(r.get("public_caption") or "").strip()
+            if not raw_caption and isinstance(r.get("thumbnail"), dict):
+                hl = [str(x).strip() for x in (r["thumbnail"].get("headline_lines") or []) if str(x).strip()]
+                raw_caption = " ".join(hl)
+
+            items.append(
+                CommunityVideoItem(
+                    id=pid,
+                    project_id=pid,
+                    hook_type=eff_type,  # type: ignore[arg-type]
+                    title=title,
+                    caption=raw_caption,
+                    product_name=product_name,
+                    creator_name=str(r.get("creator_name") or "크리에이터"),
+                    thumbnail_url=thumb_url,
+                    video_url=video_url,
+                    like_count=0,
+                    created_at=r["created_at"],
+                )
+            )
+        return CommunityVideosResponse(items=items)
 
     @router.post(
         "/v1/projects/{project_id}/scenarios",
@@ -1490,6 +1815,8 @@ def build_projects_router(
             chosen_type = scn["type"]
             if is_worker_scenario(scn):
                 # A·B·C 작업자 시나리오: 영상 모델 훅을 만들고(이미 있으면 재사용) 올린 본편을 뒤에 붙인다
+                is_dry = bool(body.dry_run or hooks.is_dry_run())
+                deducted_credits = 0 if is_dry else _charge_render_credits(user.user_id)
                 jid = f"job_{uuid.uuid4().hex[:12]}"
                 job_store.create_job(
                     jid,
@@ -1498,25 +1825,37 @@ def build_projects_router(
                         "pipeline": "hookpipe",
                         "scenario_id": scn_id,
                         "voice_id": body.voice_id,
-                        "dry_run": body.dry_run,
+                        "dry_run": is_dry,
+                        "deducted_credits": deducted_credits,
                     },
                     status="QUEUED",
                     stage="QUEUED",
+                    deducted_credits=deducted_credits,
+                    refunded_credits=0,
                 )
                 project_store.record_render_usage(user.user_id, project_id, jid)
                 project_store.update_project(project_id, status="RENDERING", latest_job_id=jid)
-                if body.dry_run or hooks.is_dry_run():
+                if is_dry:
                     job_store.update_job(
                         jid, status="DRY_RUN_READY", stage="DRY_RUN_READY", artifacts={"pipeline": "hookpipe"}
                     )
                 else:
-                    executor.submit(hooks.process_render, project_id, jid, user.user_id, scn, body.voice_id)
+                    executor.submit(
+                        _run_hookpipe_render_bg,
+                        project_id,
+                        jid,
+                        user.user_id,
+                        scn,
+                        body.voice_id,
+                        deducted_credits=deducted_credits,
+                    )
                 return CreateRenderResponse(
                     project_id=project_id,
                     job_id=jid,
                     status="QUEUED",
                     selected_type=chosen_type,
                     estimated_credits=12 if body.resolution == "360p" else 32,
+                    deducted_credits=deducted_credits,
                     quota=_quota(user.user_id),
                     expires_at=proj["expires_at"],
                 )
@@ -1544,14 +1883,7 @@ def build_projects_router(
             if (chosen_type == "A" and not body.dry_run)
             else None
         )
-        deducted_credits = 0
-        if not body.dry_run and settings.credits_per_video > 0:
-            wallet = project_store.get_or_create_wallet(
-                user.user_id, default_free_videos=settings.initial_free_videos
-            )
-            if wallet["credits"] >= settings.credits_per_video:
-                if project_store.deduct_wallet_credits(user.user_id, settings.credits_per_video):
-                    deducted_credits = settings.credits_per_video
+        deducted_credits = 0 if body.dry_run else _charge_render_credits(user.user_id)
 
         jid = f"job_{uuid.uuid4().hex[:12]}"
         req = CampaignRequest(
@@ -1566,7 +1898,16 @@ def build_projects_router(
             dry_run=body.dry_run,
             skip_cross_campaign_reskin=(tpl_path is not None),
         )
-        job_store.create_job(jid, project_id, req.__dict__, status="QUEUED", stage="QUEUED")
+        job_payload = {**req.__dict__, "deducted_credits": deducted_credits}
+        job_store.create_job(
+            jid,
+            project_id,
+            job_payload,
+            status="QUEUED",
+            stage="QUEUED",
+            deducted_credits=deducted_credits,
+            refunded_credits=0,
+        )
         project_store.record_render_usage(user.user_id, project_id, jid)
         project_store.update_project(project_id, status="RENDERING", latest_job_id=jid)
         if tpl_path is not None:
@@ -1596,6 +1937,7 @@ def build_projects_router(
             status="QUEUED",
             selected_type=chosen_type,
             estimated_credits=est_cr,
+            deducted_credits=deducted_credits,
             quota=_quota(user.user_id),
             expires_at=proj["expires_at"],
         )
@@ -1649,40 +1991,94 @@ def build_projects_router(
 
         thumbs = arts.get("thumbnails") or []
         thumb = None
-        if thumbs:
+        stored_thumb = proj.get("thumbnail")
+        if stored_thumb is None and not thumbs and job["status"] == "QC_READY":
+            sel_id = proj.get("selected_scenario_id")
+            scn = project_store.get_scenario(project_id, sel_id) if sel_id else None
+            stored_thumb = generate_project_thumbnail(
+                proj,
+                storage=storage,
+                settings=settings,
+                scenario=scn,
+                job=job,
+            )
+            project_store.update_project(project_id, thumbnail=stored_thumb)
+        elif (
+            isinstance(stored_thumb, dict)
+            and (
+                not stored_thumb.get("style_preview_keys")
+                or not all(k in (stored_thumb.get("style_preview_keys") or {}) for k in THUMBNAIL_STYLES)
+            )
+            and job["status"] == "QC_READY"
+        ):
+            sel_id = proj.get("selected_scenario_id")
+            scn = project_store.get_scenario(project_id, sel_id) if sel_id else None
+            stored_thumb = generate_project_thumbnail(
+                proj,
+                storage=storage,
+                settings=settings,
+                scenario=scn,
+                job=job,
+                headline_lines=stored_thumb.get("headline_lines") or None,
+                badge=stored_thumb.get("badge"),
+                highlight_word=stored_thumb.get("highlight_word"),
+                style=normalize_thumbnail_style(stored_thumb.get("style")),
+            )
+            project_store.update_project(project_id, thumbnail=stored_thumb)
+
+        if isinstance(stored_thumb, dict):
+            t_key = stored_thumb.get("object_key")
+            img_url = resolve_media_url(t_key, storage=storage, settings=settings)
+            dl_url = resolve_media_url(
+                t_key, storage=storage, settings=settings, download=True, filename="cover.png"
+            )
+            active_style = normalize_thumbnail_style(stored_thumb.get("style"))
+            cand_keys = list(stored_thumb.get("candidate_keys") or [])
+            cand_urls = [
+                u
+                for u in (
+                    resolve_media_url(k, storage=storage, settings=settings)
+                    for k in cand_keys
+                )
+                if u
+            ]
+            raw_preview_keys = stored_thumb.get("style_preview_keys") or {}
+            style_previews: Dict[str, str] = {}
+            if isinstance(raw_preview_keys, dict):
+                for st_key, obj_key in raw_preview_keys.items():
+                    resolved = resolve_media_url(obj_key, storage=storage, settings=settings)
+                    if resolved:
+                        style_previews[str(st_key)] = resolved
+            if active_style not in style_previews and img_url:
+                style_previews[active_style] = img_url
+            thumb = DeliverableThumbnail(
+                image_url=img_url,
+                download_url=dl_url,
+                safe_zone_1_1_ok=stored_thumb.get("safe_zone_1_1_ok"),
+                headline_lines=list(stored_thumb.get("headline_lines") or []),
+                style=active_style,
+                highlight_word=stored_thumb.get("highlight_word"),
+                candidate_image_urls=cand_urls,
+                candidate_keys=cand_keys,
+                style_previews=style_previews,
+            )
+        elif thumbs:
             t0 = thumbs[0]
             t_ref = t0.get("url")
+            img_url = resolve_media_url(t_ref, storage=storage, settings=settings)
+            active_style = normalize_thumbnail_style(t0.get("style") or DEFAULT_THUMBNAIL_STYLE)
             thumb = DeliverableThumbnail(
-                image_url=resolve_media_url(t_ref, storage=storage, settings=settings),
+                image_url=img_url,
                 download_url=resolve_media_url(
                     t_ref, storage=storage, settings=settings, download=True, filename="cover.png"
                 ),
                 safe_zone_1_1_ok=t0.get("safe_zone_ok"),
                 headline_lines=list(t0.get("headline_lines") or []),
+                style=active_style,
+                candidate_image_urls=[],
+                candidate_keys=[],
+                style_previews={active_style: img_url} if img_url else {},
             )
-        else:
-            stored_thumb = proj.get("thumbnail")
-            if stored_thumb is None and job["status"] == "QC_READY":
-                sel_id = proj.get("selected_scenario_id")
-                scn = project_store.get_scenario(project_id, sel_id) if sel_id else None
-                stored_thumb = generate_project_thumbnail(
-                    proj,
-                    storage=storage,
-                    settings=settings,
-                    scenario=scn,
-                    job=job,
-                )
-                project_store.update_project(project_id, thumbnail=stored_thumb)
-            if stored_thumb:
-                t_key = stored_thumb.get("object_key")
-                thumb = DeliverableThumbnail(
-                    image_url=resolve_media_url(t_key, storage=storage, settings=settings),
-                    download_url=resolve_media_url(
-                        t_key, storage=storage, settings=settings, download=True, filename="cover.png"
-                    ),
-                    safe_zone_1_1_ok=stored_thumb.get("safe_zone_1_1_ok"),
-                    headline_lines=list(stored_thumb.get("headline_lines") or []),
-                )
         return DeliverablesResponse(
             project_id=project_id,
             job_id=jid,

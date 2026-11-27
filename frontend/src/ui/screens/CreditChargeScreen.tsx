@@ -7,7 +7,6 @@ import {
   MobileScreen,
   Note,
   PageHeader,
-  PendingBadge,
   ScreenTitle,
   Stack,
   type CreditPackage,
@@ -112,18 +111,13 @@ export function CreditChargeScreen({
         </div>
       ) : null}
 
-      <Stack gap={8}>
-        <CreditPackagePicker
-          label="충전할 크레딧"
-          packages={packages}
-          value={packageId}
-          onChange={setPackageId}
-          creditsPerVideo={creditsPerVideo}
-        />
-        <div>
-          <PendingBadge>가격·묶음 예시 값 · OQ-003</PendingBadge>
-        </div>
-      </Stack>
+      <CreditPackagePicker
+        label="충전할 크레딧"
+        packages={packages}
+        value={packageId}
+        onChange={setPackageId}
+        creditsPerVideo={creditsPerVideo}
+      />
 
       {/* 결제 전에 알아야 할 것: 짧게 한 덩어리로 */}
       <Stack gap={8}>
@@ -133,7 +127,6 @@ export function CreditChargeScreen({
         </ul>
         <div className="n-row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <Button label="환불·유효기간 안내" variant="ghost" size="sm" onClick={onOpenPolicy} />
-          <PendingBadge>환불·유효기간 미정</PendingBadge>
         </div>
       </Stack>
     </MobileScreen>

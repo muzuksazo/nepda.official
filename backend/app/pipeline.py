@@ -401,6 +401,10 @@ class ProductionPipeline:
                 )
             for key in ("clean_mp4", "srt"):
                 fpath = item.get(key)
+                if key == "clean_mp4" and (not fpath or not os.path.exists(fpath)) and mp4_path:
+                    sibling = Path(mp4_path).with_name(f"{Path(mp4_path).stem}_clean.mp4")
+                    if sibling.is_file():
+                        fpath = str(sibling)
                 if fpath and os.path.exists(fpath):
                     entry[key] = self.storage.upload_file(
                         fpath, f"{campaign_id}/{job_id}/final/{Path(fpath).name}"

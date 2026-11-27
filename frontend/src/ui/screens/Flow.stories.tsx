@@ -442,6 +442,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       return (
         <ScenarioScreen
           hookType={hookType}
+          scenario={'[예시 훅 시나리오]\n1. 시선을 끄는 첫 장면 (3초)\n2. 제품 핵심 장점을 한눈에 보여 주기 (5초)'}
           onBack={() => setStep('hook')}
           onShootingGuide={() => setStep('guide')}
           onStoryboard={() => setStep('storyboard')}

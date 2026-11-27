@@ -143,3 +143,69 @@ class TestGoogleAuthAndResumeFlow(unittest.TestCase):
             self.assertIn("napda_session=", clear_cookie)
             self.assertIn("Max-Age=0", clear_cookie)
             self.assertEqual(client.get("/v1/auth/me").status_code, 401)
+
+    def test_publish_project_and_community_videos_persistence(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            client = build_test_client(root)
+
+            # Empty community feed before any project is published
+            empty = client.get("/v1/community/videos")
+            self.assertEqual(empty.status_code, 200, empty.text)
+            self.assertEqual(empty.json()["items"], [])
+
+            login_client(client, "pub-u1:pub@example.com")
+            created = client.post(
+                "/v1/projects",
+                json={
+                    "product": {
+                        "name": "초흡수 PVA 물걸레 스펀지",
+                        "category": "living",
+                        "verified_facts": ["3초 만에 물기 순삭"],
+                    },
+                    "selected_types": ["A"],
+                },
+            ).json()
+            pid = created["project_id"]
+            self.assertFalse(created["is_public"])
+
+            # Publish project to community
+            pub = client.patch(
+                f"/v1/projects/{pid}/publish",
+                json={"is_public": True, "caption": "3초 만에 물기 순삭"},
+            )
+            self.assertEqual(pub.status_code, 200, pub.text)
+            self.assertEqual(
+                pub.json(),
+                {"project_id": pid, "is_public": True, "caption": "3초 만에 물기 순삭"},
+            )
+
+            # Persisted in ProjectSummary & ProjectDetailResponse
+            listed = client.get("/v1/projects").json()["projects"]
+            self.assertTrue(listed[0]["is_public"])
+            detail = client.get(f"/v1/projects/{pid}").json()
+            self.assertTrue(detail["is_public"])
+            self.assertEqual(detail["public_caption"], "3초 만에 물기 순삭")
+
+            # Visible in public GET /v1/community/videos (with hook_type filtering)
+            feed_all = client.get("/v1/community/videos")
+            self.assertEqual(feed_all.status_code, 200, feed_all.text)
+            items = feed_all.json()["items"]
+            self.assertEqual(len(items), 1)
+            self.assertEqual(items[0]["project_id"], pid)
+            self.assertEqual(items[0]["hook_type"], "A")
+            self.assertEqual(items[0]["product_name"], "초흡수 PVA 물걸레 스펀지")
+            self.assertEqual(items[0]["caption"], "3초 만에 물기 순삭")
+            self.assertEqual(items[0]["creator_name"], "테스트 셀러")
+
+            self.assertEqual(len(client.get("/v1/community/videos?hook_type=A").json()["items"]), 1)
+            self.assertEqual(len(client.get("/v1/community/videos?hook_type=B").json()["items"]), 0)
+
+            # Unpublishing removes it from community feed
+            unpub = client.patch(
+                f"/v1/projects/{pid}/publish",
+                json={"is_public": False},
+            )
+            self.assertEqual(unpub.status_code, 200, unpub.text)
+            self.assertFalse(unpub.json()["is_public"])
+            self.assertEqual(client.get("/v1/community/videos").json()["items"], [])

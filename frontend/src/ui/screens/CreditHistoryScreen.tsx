@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { Button, CreditBalanceCard, MobileScreen, Note, PageHeader, PendingBadge, Stack, Tabs } from '../components';
+import { Button, CreditBalanceCard, MobileScreen, Note, PageHeader, Stack, Tabs } from '../components';
 import { dayKey, formatClock, formatDate, formatDay, formatWon } from '../format';
 import { Clock, Film, Gift, Lightning, Refund, type IconProps } from '../icons';
 
@@ -227,7 +227,6 @@ export function CreditHistoryScreen({
 
       <div className="n-row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <Button label="환불·유효기간 안내" variant="ghost" size="sm" onClick={onOpenPolicy} />
-        <PendingBadge>환불·유효기간 미정</PendingBadge>
       </div>
     </MobileScreen>
   );

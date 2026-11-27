@@ -135,6 +135,8 @@ class ProjectSummary(BaseModel):
     selected_types: List[HookType]
     selected_scenario_id: Optional[str] = None
     latest_job_id: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    is_public: bool = False
     expires_at: str
     created_at: str
     updated_at: str
@@ -353,6 +355,7 @@ class CreateRenderResponse(BaseModel):
     status: str
     selected_type: HookType
     estimated_credits: int
+    deducted_credits: int = 0
     quota: QuotaStatus
     expires_at: str
 
@@ -373,6 +376,11 @@ class DeliverableThumbnail(BaseModel):
     download_url: Optional[str] = None
     safe_zone_1_1_ok: Optional[bool] = None
     headline_lines: List[str] = Field(default_factory=list)
+    style: str = "invert-box"
+    highlight_word: Optional[str] = None
+    candidate_image_urls: List[str] = Field(default_factory=list)
+    candidate_keys: List[str] = Field(default_factory=list)
+    style_previews: Dict[str, str] = Field(default_factory=dict)
 
 
 class AIDisclosureInfo(BaseModel):
@@ -403,10 +411,41 @@ class ProjectDetailResponse(BaseModel):
     uploads: Optional[CompleteUploadsResponse] = None
     latest_job_id: Optional[str] = None
     latest_job: Optional[Dict[str, Any]] = None
+    is_public: bool = False
+    public_caption: Optional[str] = None
     quota: QuotaStatus
     expires_at: str
     created_at: str
     updated_at: str
+
+
+class PublishProjectRequest(BaseModel):
+    is_public: bool
+    caption: Optional[str] = Field(default=None, max_length=200)
+
+
+class PublishProjectResponse(BaseModel):
+    project_id: str
+    is_public: bool
+    caption: Optional[str] = None
+
+
+class CommunityVideoItem(BaseModel):
+    id: str
+    project_id: str
+    hook_type: HookType
+    title: str
+    caption: str = ""
+    product_name: str
+    creator_name: str
+    thumbnail_url: Optional[str] = None
+    video_url: Optional[str] = None
+    like_count: int = 0
+    created_at: str
+
+
+class CommunityVideosResponse(BaseModel):
+    items: List[CommunityVideoItem] = Field(default_factory=list)
 
 
 CreditPackageId = Literal["c30", "c100", "c300"]

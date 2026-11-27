@@ -3,7 +3,58 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+_INTERNAL_ID_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+_INTERNAL_ID_PREFIX_RE = re.compile(
+    r"^(?:seg|beat|cut|shot|hook|payoff|clip|gap|tpl|scene|frame|twist|intro|outro)\d*$",
+    re.IGNORECASE,
+)
+
+
+def _is_internal_id(text: str) -> bool:
+    s = str(text or "").strip()
+    if not s:
+        return True
+    if _INTERNAL_ID_TOKEN_RE.fullmatch(s) and ("_" in s or bool(_INTERNAL_ID_PREFIX_RE.fullmatch(s))):
+        return True
+    return False
+
+
+def _clean_visual_text(text: Any) -> str:
+    cleaned = str(text or "").replace("\\n", "\n").replace("\r", "")
+    cleaned = re.sub(r"\*\*(.+?)\*\*", r"\1", cleaned)
+    cleaned = re.sub(r"\n+", " ", cleaned)
+    return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
+
+
+def _select_last_hook_visual(beats: List[Dict[str, Any]]) -> str:
+    """Pick the last pre-payoff hook beat's human-readable visual/caption, never raw internal IDs."""
+    if not beats:
+        return ""
+    gap_idx = next(
+        (idx for idx, b in enumerate(beats) if str(b.get("role") or "").lower() == "silence_gap"),
+        None,
+    )
+    if gap_idx is not None:
+        hook_candidates = beats[:gap_idx]
+    else:
+        non_payoff = [
+            b
+            for b in beats
+            if str(b.get("role") or "").lower() not in {"payoff", "silence_gap", "cta"}
+        ]
+        hook_candidates = (
+            non_payoff
+            if non_payoff
+            else [b for b in beats if str(b.get("role") or "").lower() != "silence_gap"]
+        )
+    for beat in reversed(hook_candidates):
+        for field in ("visual", "caption", "narration"):
+            val = _clean_visual_text(beat.get(field))
+            if val and not _is_internal_id(val):
+                return val
+    return ""
 
 
 def compute_actual_hook_duration(scenario: Dict[str, Any]) -> float:
@@ -83,7 +134,7 @@ def build_filming_guide(project: Dict[str, Any], scenario: Dict[str, Any]) -> Di
     first_mention_beat = ad_spec.get("product_first_mention_beat")
 
     ordered_facts = _prioritize_facts(raw_facts, claim_ids)
-    last_hook_visual = str(beats[-1].get("visual") or "").strip() if beats else ""
+    last_hook_visual = _select_last_hook_visual(beats)
     hook_title = str(scenario.get("hook_title") or "").strip()
 
     target_body_sec = compute_target_body_duration(scenario)

@@ -207,6 +207,10 @@ class ProjectStore:
                 conn.execute("ALTER TABLE projects ADD COLUMN body_json TEXT")
             if "thumbnail_json" not in cols:
                 conn.execute("ALTER TABLE projects ADD COLUMN thumbnail_json TEXT")
+            if "is_public" not in cols:
+                conn.execute("ALTER TABLE projects ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0")
+            if "public_caption" not in cols:
+                conn.execute("ALTER TABLE projects ADD COLUMN public_caption TEXT")
 
     def upsert_user(self, user: AuthenticatedUser) -> Dict[str, Any]:
         now_iso = _now_utc().isoformat()
@@ -243,6 +247,8 @@ class ProjectStore:
             "body": json.loads(row["body_json"]) if ("body_json" in keys and row["body_json"]) else None,
             "thumbnail": json.loads(row["thumbnail_json"]) if ("thumbnail_json" in keys and row["thumbnail_json"]) else None,
             "latest_job_id": row["latest_job_id"],
+            "is_public": bool(row["is_public"]) if "is_public" in keys else False,
+            "public_caption": row["public_caption"] if "public_caption" in keys else None,
             "expires_at": row["expires_at"],
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
@@ -355,6 +361,66 @@ class ProjectStore:
         with self._lock, self._connect() as conn:
             conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id = ?", vals)
         return self.get_project(project_id)  # type: ignore[return-value]
+
+    def set_project_public(
+        self,
+        project_id: str,
+        is_public: bool,
+        *,
+        caption: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        now_iso = _now_utc().isoformat()
+        fields = ["is_public = ?", "updated_at = ?"]
+        vals: List[Any] = [1 if is_public else 0, now_iso]
+        if caption is not None:
+            clean_cap = caption.strip()
+            fields.append("public_caption = ?")
+            vals.append(clean_cap or None)
+        vals.append(project_id)
+        with self._lock, self._connect() as conn:
+            conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id = ?", vals)
+        return self.get_project(project_id)
+
+    def list_public_projects(
+        self,
+        *,
+        hook_type: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT p.*, u.name AS creator_user_name, u.email AS creator_user_email
+                FROM projects p
+                LEFT JOIN users u ON u.user_id = p.user_id
+                WHERE p.is_public = 1 AND p.expires_at > ?
+                ORDER BY p.updated_at DESC, p.id DESC
+                LIMIT ?
+                """,
+                (now_iso, max(1, int(limit))),
+            ).fetchall()
+        results: List[Dict[str, Any]] = []
+        want_type = str(hook_type or "").strip().upper() or None
+        for r in rows:
+            item = self._row_to_project(r)
+            raw_name = (r["creator_user_name"] or "").strip() if "creator_user_name" in r.keys() else ""
+            raw_email = (r["creator_user_email"] or "").strip() if "creator_user_email" in r.keys() else ""
+            if raw_name:
+                item["creator_name"] = raw_name
+            elif raw_email and "@" in raw_email:
+                item["creator_name"] = raw_email.split("@", 1)[0]
+            else:
+                item["creator_name"] = "크리에이터"
+            if want_type:
+                sel_types = [str(t).upper() for t in (item.get("selected_types") or [])]
+                scn_id = item.get("selected_scenario_id")
+                scn = self.get_scenario(item["project_id"], scn_id) if scn_id else None
+                eff_type = str((scn or {}).get("type") or (sel_types[0] if sel_types else "")).upper()
+                if eff_type != want_type:
+                    continue
+            results.append(item)
+        return results
 
     def list_projects_by_status(self, statuses: List[str] | Tuple[str, ...]) -> List[Dict[str, Any]]:
         if not statuses:

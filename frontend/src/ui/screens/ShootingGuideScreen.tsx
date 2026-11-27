@@ -3,7 +3,6 @@ import {
   FlowHeader,
   MobileScreen,
   Note,
-  PendingBadge,
   ScreenTitle,
   SkeletonText,
   Stack,
@@ -28,9 +27,7 @@ export function ShootingGuideScreen({ scenes = [{}, {}, {}, {}], onBack, onUploa
       header={<FlowHeader title="촬영 가이드" step={5} onBack={onBack} />}
       footer={<Button label="찍은 영상 올리기" isBlock onClick={onUpload} />}
     >
-      <ScreenTitle title="이대로만 찍어요" description="훅까지 합쳐 30초 안팎이에요.">
-        <PendingBadge>본편 길이 미정 · OQ-002</PendingBadge>
-      </ScreenTitle>
+      <ScreenTitle title="이대로만 찍어요" description="훅까지 합쳐 30초 안팎이에요." />
 
       {/* 온보딩과 같은 번호 원 + 연결선: 순서대로 찍는다는 흐름(유사성·연속성) */}
       <ol aria-label="촬영 순서">
@@ -46,14 +43,22 @@ export function ShootingGuideScreen({ scenes = [{}, {}, {}, {}], onBack, onUploa
               )}
             </Stack>
             <div style={{ paddingTop: 4 }}>
-              {scene.duration ? <span className="n-small n-bold">{scene.duration}</span> : <PendingBadge>길이</PendingBadge>}
+              {scene.duration ? (
+                <span className="n-small n-bold">{scene.duration}</span>
+              ) : (
+                <span
+                  className="n-shimmer"
+                  style={{ display: 'inline-block', width: 28, height: 14, borderRadius: 4 }}
+                  aria-hidden="true"
+                />
+              )}
             </div>
           </li>
         ))}
       </ol>
 
       <Note title="찍고 오면 여기서 이어져요.">
-        <PendingBadge>이어하기 방식 미정 · OQ-008</PendingBadge>
+        <span className="n-small n-muted">홈의 내 영상에서 언제든 다시 들어와 영상을 올릴 수 있어요.</span>
       </Note>
     </MobileScreen>
   );

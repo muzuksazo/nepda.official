@@ -322,6 +322,7 @@ class SharedBody(unittest.TestCase):
                              provider_factory=lambda _s: provider, body_writer=counting_writer)
             client = TestClient(app)
             login_client(client)
+            app.state.project_store.refund_wallet_credits("seller-1", 100)
             pid = client.post("/v1/projects", json={"product": PRODUCT, "selected_types": ["B", "C"]}).json()["project_id"]
             scenarios = client.post(f"/v1/projects/{pid}/scenarios", json={"count": 1}).json()["scenarios"]
             footage = make_video(TOOLS, root / "shot.mp4", seconds=6.0)
@@ -403,6 +404,7 @@ def _client(root: Path, provider: Any, *, scenario_generator: Any = None, **over
     )
     client = TestClient(app)
     login_client(client)
+    app.state.project_store.refund_wallet_credits("seller-1", 100)
     return client
 
 
@@ -453,6 +455,7 @@ class ApiFlow(unittest.TestCase):
                              body_writer=fake_body_writer)
             client = TestClient(app)
             login_client(client)
+            app.state.project_store.refund_wallet_credits("seller-1", 100)
 
             pid = client.post("/v1/projects", json={"product": PRODUCT, "selected_types": ["B"]}).json()["project_id"]
             scn = client.post(f"/v1/projects/{pid}/scenarios", json={"count": 1})
@@ -538,7 +541,10 @@ class ApiFlow(unittest.TestCase):
             footage = make_video(TOOLS, root / "shot1.mp4", seconds=5.0)
             client.post(f"/v1/projects/{pid}/uploads/complete",
                         json={"clips": [{"shot_no": 1, "object_key": "uploads/shot1.mp4", "local_path": str(footage)}]})
-            jid = client.post(f"/v1/projects/{pid}/renders", json={"scenario_id": sid}).json()["job_id"]
+            render_fail = client.post(f"/v1/projects/{pid}/renders", json={"scenario_id": sid})
+            self.assertEqual(render_fail.status_code, 202, render_fail.text)
+            self.assertEqual(render_fail.json()["deducted_credits"], 12)
+            jid = render_fail.json()["job_id"]
             failed = _wait(lambda: client.get(f"/v1/projects/{pid}/deliverables").json(),
                            lambda d: d.get("job_id") == jid and d.get("status") in ("QC_READY", "FAILED"))
             self.assertEqual(failed["status"], "FAILED")
@@ -546,6 +552,9 @@ class ApiFlow(unittest.TestCase):
             detail = client.get(f"/v1/projects/{pid}").json()
             self.assertEqual(detail["status"], "FAILED")
             self.assertIn("quota exceeded", detail["latest_job"]["error"])
+            self.assertEqual(detail["latest_job"]["deducted_credits"], 12)
+            self.assertEqual(detail["latest_job"]["refunded_credits"], 12)
+            self.assertEqual(client.get("/v1/billing/wallet").json()["credits"], 100)
             tts_bought = len(provider.tts_calls)
             self.assertEqual(tts_bought, 3)
 
@@ -555,6 +564,7 @@ class ApiFlow(unittest.TestCase):
             ok = _wait(lambda: client.get(f"/v1/projects/{pid}/deliverables").json(),
                        lambda d: d.get("job_id") == jid2 and d.get("status") in ("QC_READY", "FAILED"))
             self.assertEqual(ok["status"], "QC_READY", ok)
+            self.assertEqual(client.get("/v1/billing/wallet").json()["credits"], 88)
             # 훅 나레이션은 다시 사지 않고, 새로 산 것은 공용 본편 나레이션 2문장뿐이다
             self.assertEqual((len(provider.tts_calls), len(provider.image_calls)), (tts_bought + 2, 1))
 

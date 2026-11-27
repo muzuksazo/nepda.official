@@ -32,6 +32,580 @@ GRID_3_4_Y_MAX = 1680
 SAFE_X_MIN = 56
 SAFE_X_MAX = 1024
 
+FIGMA_VARIANTS = ("invert-box", "white-label", "serif-outline", "pov-bar")
+_SSOT_CACHE: Optional[Dict[str, Any]] = None
+
+
+def load_thumbnail_ssot() -> Dict[str, Any]:
+    global _SSOT_CACHE
+    if _SSOT_CACHE is None:
+        ssot_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "thumbnail_ssot.json")
+        if os.path.isfile(ssot_path):
+            with open(ssot_path, "r", encoding="utf-8") as fh:
+                _SSOT_CACHE = json.load(fh)
+        else:
+            _SSOT_CACHE = {}
+    return _SSOT_CACHE
+
+
+def _hex_to_rgb(val: str, default: Tuple[int, int, int] = (255, 255, 255)) -> Tuple[int, int, int]:
+    s = str(val or "").strip().lstrip("#")
+    if len(s) == 6:
+        try:
+            return int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16)
+        except ValueError:
+            pass
+    return default
+
+
+def resolve_serif_font_path(font_override: Optional[str] = None) -> str:
+    ssot = load_thumbnail_ssot()
+    serif_cfg = (ssot.get("fonts") or {}).get("serif") or {}
+    candidates: List[str] = []
+    if font_override:
+        candidates.append(font_override)
+    env_serif = os.environ.get(str(serif_cfg.get("env_override") or "SHORTFORM_FONT_SERIF"), "").strip()
+    if env_serif:
+        candidates.append(env_serif)
+    for cand in serif_cfg.get("pillow_candidates") or []:
+        candidates.append(os.path.expanduser(str(cand)))
+    candidates.extend([
+        os.path.expanduser("~/Library/Fonts/BookkMyungjo-Bd.ttf"),
+        os.path.expanduser("~/Library/Fonts/BookkMyungjo-Bd.otf"),
+        "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/nanum/NanumMyeongjoBold.ttf",
+        "/System/Library/Fonts/Supplemental/AppleMyungjo.ttf",
+    ])
+    for cand in candidates:
+        if cand and os.path.exists(cand):
+            return cand
+    return resolve_font_path(font_override)
+
+
+def compute_serif_outline_base_size(lines: Sequence[str], ssot: Dict[str, Any]) -> int:
+    max_chars = max((len(str(ln).strip()) for ln in lines), default=1)
+    rules = ((ssot.get("variants") or {}).get("serif-outline") or {}).get("dynamic_font_size") or [
+        {"max_chars": 5, "font_size": 210},
+        {"max_chars": 8, "font_size": 152},
+        {"max_chars": None, "font_size": 112},
+    ]
+    for rule in rules:
+        mc = rule.get("max_chars")
+        if mc is None or max_chars <= int(mc):
+            return int(rule["font_size"])
+    return 112
+
+
+def _split_highlight_segments(line: str, highlight_word: Optional[str]) -> List[Tuple[str, bool]]:
+    target = str(highlight_word or "").strip()
+    if target and target in line:
+        idx = line.index(target)
+        out: List[Tuple[str, bool]] = []
+        if idx > 0:
+            out.append((line[:idx], False))
+        out.append((target, True))
+        after = line[idx + len(target):]
+        if after:
+            out.append((after, False))
+        return out
+    return [(line, False)]
+
+
+def _fit_figma_font_size(
+    draw: ImageDraw.ImageDraw,
+    lines: Sequence[str],
+    *,
+    font_path: str,
+    base_size: int,
+    min_size: int,
+    max_width: int,
+    stroke_width: int = 0,
+    extra_pad_x: int = 0,
+    max_total_height: Optional[int] = None,
+    line_height_ratio: float = 1.2,
+) -> int:
+    eff = max(min_size, int(base_size))
+    while eff > min_size:
+        font = load_font(eff, font_path)
+        widest = 0.0
+        for ln in lines:
+            bb = draw.textbbox((0, 0), ln, font=font, stroke_width=stroke_width)
+            w = max(float(bb[2] - bb[0]), float(draw.textlength(ln, font=font)) + stroke_width * 2)
+            widest = max(widest, w + extra_pad_x)
+        total_h = len(lines) * int(round(eff * line_height_ratio))
+        height_ok = max_total_height is None or total_h <= max_total_height
+        if widest <= max_width and height_ok:
+            break
+        if widest > max_width:
+            scaled = int(eff * (max_width / max(widest, 1.0)))
+            eff = max(min_size, min(eff - 2, scaled))
+        else:
+            eff = max(min_size, eff - 2)
+    return eff
+
+
+def _validate_figma_box(
+    warnings: List[str],
+    name: str,
+    box: Tuple[int, int, int, int],
+    ssot: Dict[str, Any],
+) -> None:
+    sz = ssot.get("safe_zone") or {}
+    reels = sz.get("reels_ui") or {}
+    ig34 = sz.get("ig_profile_3_4_crop") or {}
+    cutout = reels.get("lower_right_cutout") or {}
+    x_min = int(reels.get("x_min", 63))
+    x_max = int(reels.get("x_max", 1016))
+    y_min = int(ig34.get("y_min", 240))
+    y_max = int(reels.get("y_max", 1396))
+    cut_y = int(cutout.get("y_min", 1094))
+    cut_x = int(cutout.get("x_max", 924))
+
+    x0, y0, x1, y1 = box
+    if y0 < y_min or y1 > y_max:
+        warnings.append(f"{name} y=[{y0}, {y1}] exceeds Figma safe zone [{y_min}, {y_max}]")
+    if x0 < x_min or x1 > x_max:
+        warnings.append(f"{name} x=[{x0}, {x1}] exceeds Figma horizontal safe margin [{x_min}, {x_max}]")
+    if y1 > cut_y and x1 > cut_x:
+        warnings.append(f"{name} enters Reels lower-right cutout (x={x1} > {cut_x} at y={y1} > {cut_y})")
+
+
+def _draw_figma_badge_pill(
+    draw: ImageDraw.ImageDraw,
+    *,
+    center_x: Optional[int],
+    left_x: int,
+    top_y: int,
+    text: str,
+    font_path: str,
+) -> Tuple[int, Tuple[int, int, int, int]]:
+    font = load_font(28, font_path)
+    tb = draw.textbbox((0, 0), text, font=font)
+    tw, th = tb[2] - tb[0], tb[3] - tb[1]
+    pad_x = 26
+    h = 56
+    w = tw + pad_x * 2
+    bx = (center_x - w // 2) if center_x is not None else left_x
+    draw.rounded_rectangle([bx, top_y, bx + w, top_y + h], radius=h // 2, fill=(214, 255, 63, 255))
+    tx = bx + pad_x - tb[0]
+    ty = top_y + (h - th) // 2 - tb[1]
+    draw.text((tx, ty), text, font=font, fill=(0, 0, 0, 255))
+    return top_y + h + 18, (bx, top_y, bx + w, top_y + h)
+
+
+def _draw_figma_line_segments(
+    draw: ImageDraw.ImageDraw,
+    *,
+    line: str,
+    start_x: int,
+    font: ImageFont.ImageFont,
+    base_rgb: Tuple[int, int, int],
+    highlight_word: Optional[str],
+    hi_rgb: Tuple[int, int, int],
+    hi_bg_rgba: Optional[Tuple[int, int, int, int]] = None,
+    stroke_rgba: Optional[Tuple[int, int, int, int]] = None,
+    stroke_w: int = 0,
+    hi_stroke_rgba: Optional[Tuple[int, int, int, int]] = None,
+    box_center_y: Optional[int] = None,
+    top_y: Optional[int] = None,
+) -> Tuple[int, int, int, int]:
+    full_bb = draw.textbbox((0, 0), line, font=font, stroke_width=stroke_w)
+    full_h = full_bb[3] - full_bb[1]
+    if top_y is not None:
+        anchor_y = top_y - full_bb[1]
+    else:
+        cy = int(box_center_y or 0)
+        anchor_y = cy - full_h // 2 - full_bb[1]
+
+    cur_x = float(start_x)
+    min_x, max_x = start_x, start_x
+    min_y, max_y = int(anchor_y + full_bb[1]), int(anchor_y + full_bb[3])
+    for seg_text, is_hi in _split_highlight_segments(line, highlight_word):
+        if not seg_text:
+            continue
+        seg_bb = draw.textbbox((0, 0), seg_text, font=font, stroke_width=stroke_w)
+        seg_adv = float(draw.textlength(seg_text, font=font))
+        seg_w = max(seg_adv, float(seg_bb[2] - seg_bb[0]))
+        x_int = int(round(cur_x))
+        if is_hi and hi_bg_rgba is not None:
+            pad_h = 6
+            pad_v = 4
+            bx0 = x_int - pad_h
+            by0 = int(anchor_y + seg_bb[1]) - pad_v
+            bx1 = int(round(cur_x + seg_adv)) + pad_h
+            by1 = int(anchor_y + seg_bb[3]) + pad_v
+            draw.rounded_rectangle([bx0, by0, bx1, by1], radius=8, fill=hi_bg_rgba)
+            min_x = min(min_x, bx0)
+            max_x = max(max_x, bx1)
+            min_y = min(min_y, by0)
+            max_y = max(max_y, by1)
+        sc = (hi_stroke_rgba or stroke_rgba) if is_hi else stroke_rgba
+        fill_col = (*hi_rgb, 255) if is_hi else (*base_rgb, 255)
+        if sc is not None and stroke_w > 0:
+            draw.text(
+                (x_int, anchor_y),
+                seg_text,
+                font=font,
+                fill=fill_col,
+                stroke_width=stroke_w,
+                stroke_fill=sc,
+            )
+        else:
+            draw.text((x_int, anchor_y), seg_text, font=font, fill=fill_col)
+        min_x = min(min_x, x_int + seg_bb[0])
+        max_x = max(max_x, int(round(cur_x + seg_w)) + stroke_w)
+        cur_x += seg_adv
+    return min_x, min_y, max_x, max_y
+
+
+def _render_figma_thumbnail(
+    item: Dict[str, Any],
+    *,
+    variant: str,
+    base_dir: str,
+    out_dir: str,
+    font_path: str,
+    width: int = DEFAULT_W,
+    height: int = DEFAULT_H,
+) -> Dict[str, Any]:
+    """Render one of the 4 canonical Storybook Figma cover styles using `thumbnail_ssot.json`."""
+    ssot = load_thumbnail_ssot()
+    vcfg = (ssot.get("variants") or {}).get(variant) or {}
+    tid = item["id"]
+    filename = item.get("filename") or f"thumb_{tid}.png"
+
+    headline_cfg = item.get("headline") or {}
+    raw_lines = headline_cfg.get("lines") or item.get("headline_lines") or []
+    lines: List[str] = []
+    for idx, ln in enumerate(raw_lines):
+        txt = str(ln["text"] if isinstance(ln, dict) else (ln[0] if isinstance(ln, (list, tuple)) else ln)).strip()
+        if txt:
+            _check_no_emoji(txt, f"{tid}.headline.lines[{idx}]")
+            lines.append(txt)
+    badge_raw = item.get("badge")
+    if badge_raw is None and isinstance(item.get("pill"), dict):
+        badge_raw = item["pill"].get("text")
+    badge_text = str(badge_raw or "").strip()
+    if badge_text:
+        _check_no_emoji(badge_text, f"{tid}.badge")
+    highlight_word = str(item.get("highlight_word") or headline_cfg.get("highlight_word") or "").strip() or None
+    if highlight_word:
+        _check_no_emoji(highlight_word, f"{tid}.highlight_word")
+
+    p_path = _resolve_path(base_dir, item["image"])
+    with Image.open(p_path) as raw:
+        cropped = _crop_source_image(raw, item)
+        anchor = tuple(float(v) for v in item.get("anchor", (0.5, 0.5)))
+
+    bg_rgb = _hex_to_rgb(vcfg.get("bg_fallback_hex", "#111317"), (17, 19, 23))
+    bounds: Dict[str, List[int]] = {}
+    warnings: List[str] = []
+
+    if variant == "pov-bar":
+        top_bar = vcfg.get("top_bar") or {}
+        bar_h = int(top_bar.get("height", 560))
+        text_y_min = int(top_bar.get("text_y_min", 248))
+        text_y_max = int(top_bar.get("text_y_max", 532))
+        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 255))
+        fitted_bottom = fit_cover(cropped, (width, height - bar_h), anchor=anchor, contrast=1.0).convert("RGBA")
+        canvas.paste(fitted_bottom, (0, bar_h))
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([0, 0, width, bar_h], fill=(0, 0, 0, 255))
+
+        max_w = int(vcfg.get("max_text_width", 936))
+        base_fs = int(vcfg.get("font_size", 60))
+        min_fs = int(vcfg.get("min_font_size", 28))
+        lh_ratio = float(vcfg.get("line_height", 1.32))
+        badge_h = 74 if badge_text else 0
+        avail_h = max(60, (text_y_max - text_y_min) - badge_h)
+        eff_fs = _fit_figma_font_size(
+            draw,
+            lines or [" "],
+            font_path=font_path,
+            base_size=base_fs,
+            min_size=min_fs,
+            max_width=max_w,
+            max_total_height=avail_h,
+            line_height_ratio=lh_ratio,
+        )
+        font = load_font(eff_fs, font_path)
+        line_h = int(round(eff_fs * lh_ratio))
+        block_h = badge_h + len(lines) * line_h
+        cur_y = text_y_min + max(0, (text_y_max - text_y_min - block_h) // 2)
+
+        if badge_text:
+            cur_y, pb = _draw_figma_badge_pill(
+                draw, center_x=width // 2, left_x=width // 2, top_y=cur_y, text=badge_text, font_path=font_path
+            )
+            bounds["pill"] = list(pb)
+            _validate_figma_box(warnings, "pill", pb, ssot)
+
+        if lines:
+            hx0, hy0, hx1, hy1 = width, height, 0, 0
+            ink_rgb = _hex_to_rgb(vcfg.get("ink", "#ffffff"), (255, 255, 255))
+            hi_rgb = _hex_to_rgb(vcfg.get("highlight_ink", "#d6ff3f"), (214, 255, 63))
+            for ln in lines:
+                tw = int(round(draw.textlength(ln, font=font)))
+                lb = _draw_figma_line_segments(
+                    draw,
+                    line=ln,
+                    start_x=(width - tw) // 2,
+                    font=font,
+                    base_rgb=ink_rgb,
+                    highlight_word=highlight_word,
+                    hi_rgb=hi_rgb,
+                    box_center_y=cur_y + line_h // 2,
+                )
+                hx0, hy0, hx1, hy1 = min(hx0, lb[0]), min(hy0, lb[1]), max(hx1, lb[2]), max(hy1, lb[3])
+                cur_y += line_h
+            bounds["headline"] = [hx0, hy0, hx1, hy1]
+            _validate_figma_box(warnings, "headline", (hx0, hy0, hx1, hy1), ssot)
+
+    elif variant == "invert-box":
+        canvas = fit_cover(cropped, (width, height), anchor=anchor, contrast=1.0).convert("RGBA")
+        draw = ImageDraw.Draw(canvas)
+        cur_y = int(vcfg.get("top", 296))
+        if badge_text:
+            cur_y, pb = _draw_figma_badge_pill(
+                draw, center_x=width // 2, left_x=width // 2, top_y=cur_y, text=badge_text, font_path=font_path
+            )
+            bounds["pill"] = list(pb)
+            _validate_figma_box(warnings, "pill", pb, ssot)
+
+        if lines:
+            pad_x = int(vcfg.get("pad_x", 22))
+            pad_y = int(vcfg.get("pad_y", 10))
+            max_w = int(vcfg.get("max_text_width", 900))
+            max_bw = int(vcfg.get("max_box_width", 952))
+            eff_fs = _fit_figma_font_size(
+                draw,
+                lines,
+                font_path=font_path,
+                base_size=int(vcfg.get("font_size", 78)),
+                min_size=int(vcfg.get("min_font_size", 28)),
+                max_width=max_w,
+                extra_pad_x=16 if highlight_word else 0,
+            )
+            font = load_font(eff_fs, font_path)
+            lh_ratio = float(vcfg.get("line_height", 1.16))
+            box_h = int(round(eff_fs * lh_ratio + 2 * pad_y))
+            even_cfg = vcfg.get("even_line") or {}
+            odd_cfg = vcfg.get("odd_line") or {}
+
+            hx0, hy0, hx1, hy1 = width, cur_y, 0, cur_y
+            for idx, ln in enumerate(lines):
+                is_odd = idx % 2 == 1
+                lcfg = odd_cfg if is_odd else even_cfg
+                box_rgb = _hex_to_rgb(lcfg.get("bg", "#020202" if is_odd else "#ffffff"))
+                ink_rgb = _hex_to_rgb(lcfg.get("ink", "#ffffff" if is_odd else "#111111"))
+                hi_rgb = _hex_to_rgb(lcfg.get("highlight_ink", "#d6ff3f" if is_odd else "#000000"))
+                hi_bg_hex = lcfg.get("highlight_bg")
+                hi_bg_rgba = (*_hex_to_rgb(hi_bg_hex), 255) if hi_bg_hex else None
+
+                tw = int(round(draw.textlength(ln, font=font)))
+                bw = min(max_bw, tw + pad_x * 2)
+                bx = (width - bw) // 2
+                draw.rectangle([bx, cur_y, bx + bw, cur_y + box_h], fill=(*box_rgb, 255))
+                _draw_figma_line_segments(
+                    draw,
+                    line=ln,
+                    start_x=(width - tw) // 2,
+                    font=font,
+                    base_rgb=ink_rgb,
+                    highlight_word=highlight_word,
+                    hi_rgb=hi_rgb,
+                    hi_bg_rgba=hi_bg_rgba,
+                    box_center_y=cur_y + box_h // 2,
+                )
+                hx0 = min(hx0, bx)
+                hx1 = max(hx1, bx + bw)
+                cur_y += box_h
+                hy1 = max(hy1, cur_y)
+            bounds["headline"] = [hx0, hy0, hx1, hy1]
+            _validate_figma_box(warnings, "headline", (hx0, hy0, hx1, hy1), ssot)
+
+    elif variant == "white-label":
+        canvas = fit_cover(cropped, (width, height), anchor=anchor, contrast=1.0).convert("RGBA")
+        draw = ImageDraw.Draw(canvas)
+        left_x = int(vcfg.get("left", 68))
+        cur_y = int(vcfg.get("top", 340))
+        if badge_text:
+            cur_y, pb = _draw_figma_badge_pill(
+                draw, center_x=None, left_x=left_x, top_y=cur_y, text=badge_text, font_path=font_path
+            )
+            bounds["pill"] = list(pb)
+            _validate_figma_box(warnings, "pill", pb, ssot)
+
+        if lines:
+            pad_x = int(vcfg.get("pad_x", 20))
+            pad_y = int(vcfg.get("pad_y", 10))
+            max_w = int(vcfg.get("max_text_width", 880))
+            max_bw = int(vcfg.get("max_box_width", 944))
+            eff_fs = _fit_figma_font_size(
+                draw,
+                lines,
+                font_path=font_path,
+                base_size=int(vcfg.get("font_size", 92)),
+                min_size=int(vcfg.get("min_font_size", 28)),
+                max_width=max_w,
+                extra_pad_x=16 if highlight_word else 0,
+            )
+            font = load_font(eff_fs, font_path)
+            lh_ratio = float(vcfg.get("line_height", 1.12))
+            box_h = int(round(eff_fs * lh_ratio + 2 * pad_y))
+            lcfg = vcfg.get("line_style") or {}
+            box_rgb = _hex_to_rgb(lcfg.get("bg", "#ffffff"), (255, 255, 255))
+            ink_rgb = _hex_to_rgb(lcfg.get("ink", "#000000"), (0, 0, 0))
+            hi_rgb = _hex_to_rgb(lcfg.get("highlight_ink", "#000000"), (0, 0, 0))
+            hi_bg_rgba = (*_hex_to_rgb(lcfg.get("highlight_bg", "#d6ff3f"), (214, 255, 63)), 255)
+
+            hx0, hy0, hx1, hy1 = left_x, cur_y, left_x, cur_y
+            for ln in lines:
+                tw = int(round(draw.textlength(ln, font=font)))
+                bw = min(max_bw, tw + pad_x * 2)
+                draw.rectangle([left_x, cur_y, left_x + bw, cur_y + box_h], fill=(*box_rgb, 255))
+                _draw_figma_line_segments(
+                    draw,
+                    line=ln,
+                    start_x=left_x + pad_x,
+                    font=font,
+                    base_rgb=ink_rgb,
+                    highlight_word=highlight_word,
+                    hi_rgb=hi_rgb,
+                    hi_bg_rgba=hi_bg_rgba,
+                    box_center_y=cur_y + box_h // 2,
+                )
+                hx1 = max(hx1, left_x + bw)
+                cur_y += box_h
+                hy1 = max(hy1, cur_y)
+            bounds["headline"] = [hx0, hy0, hx1, hy1]
+            _validate_figma_box(warnings, "headline", (hx0, hy0, hx1, hy1), ssot)
+
+    else:
+        # serif-outline
+        canvas = fit_cover(cropped, (width, height), anchor=anchor, contrast=1.0).convert("RGBA")
+        serif_font_path = resolve_serif_font_path()
+        tmp_draw = ImageDraw.Draw(canvas)
+        cur_y = int(vcfg.get("top", 248))
+        max_w = int(vcfg.get("max_text_width", 920))
+
+        shadow_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        sd = ImageDraw.Draw(shadow_layer)
+        text_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        td = ImageDraw.Draw(text_layer)
+
+        if badge_text:
+            bcfg = vcfg.get("badge") or {}
+            b_stroke_w = int(bcfg.get("stroke_width_pillow", 5))
+            b_fs = _fit_figma_font_size(
+                tmp_draw,
+                [badge_text],
+                font_path=serif_font_path,
+                base_size=int(bcfg.get("font_size", 52)),
+                min_size=26,
+                max_width=max_w,
+                stroke_width=b_stroke_w,
+            )
+            b_font = load_font(b_fs, serif_font_path)
+            b_bb = tmp_draw.textbbox((0, 0), badge_text, font=b_font, stroke_width=b_stroke_w)
+            b_tw = b_bb[2] - b_bb[0]
+            b_th = b_bb[3] - b_bb[1]
+            bx = (width - b_tw) // 2 - b_bb[0]
+            by = cur_y - b_bb[1]
+            sd.text(
+                (bx, by + 4),
+                badge_text,
+                font=b_font,
+                fill=(0, 0, 0, 115),
+                stroke_width=b_stroke_w,
+                stroke_fill=(0, 0, 0, 115),
+            )
+            td.text(
+                (bx, by),
+                badge_text,
+                font=b_font,
+                fill=(*_hex_to_rgb(bcfg.get("ink", "#ffffff"), (255, 255, 255)), 255),
+                stroke_width=b_stroke_w,
+                stroke_fill=(*_hex_to_rgb(bcfg.get("stroke_color", "#000000"), (0, 0, 0)), 255),
+            )
+            pb = (bx + b_bb[0], cur_y, bx + b_bb[2], cur_y + b_th)
+            bounds["pill"] = list(pb)
+            _validate_figma_box(warnings, "pill", pb, ssot)
+            cur_y += b_th + int(bcfg.get("gap_below", 16))
+
+        if lines:
+            stroke_w = int(vcfg.get("stroke_width_pillow", 11))
+            base_fs = compute_serif_outline_base_size(lines, ssot)
+            eff_fs = _fit_figma_font_size(
+                tmp_draw,
+                lines,
+                font_path=serif_font_path,
+                base_size=base_fs,
+                min_size=int(vcfg.get("min_font_size", 32)),
+                max_width=max_w,
+                stroke_width=stroke_w,
+            )
+            font = load_font(eff_fs, serif_font_path)
+            lh_ratio = float(vcfg.get("line_height", 1.06))
+            ink_rgb = _hex_to_rgb(vcfg.get("ink", "#000000"), (0, 0, 0))
+            stroke_rgba = (*_hex_to_rgb(vcfg.get("stroke_color", "#ffffff"), (255, 255, 255)), 255)
+            hi_rgb = _hex_to_rgb(vcfg.get("highlight_ink", "#d6ff3f"), (214, 255, 63))
+            hi_stroke_rgba = (*_hex_to_rgb(vcfg.get("highlight_stroke_color", "#000000"), (0, 0, 0)), 255)
+
+            hx0, hy0, hx1, hy1 = width, cur_y, 0, cur_y
+            for ln in lines:
+                l_bb = tmp_draw.textbbox((0, 0), ln, font=font, stroke_width=stroke_w)
+                l_adv = int(round(tmp_draw.textlength(ln, font=font)))
+                l_th = l_bb[3] - l_bb[1]
+                start_x = (width - l_adv) // 2
+                anchor_y = cur_y - l_bb[1]
+                sd.text(
+                    (start_x, anchor_y + 8),
+                    ln,
+                    font=font,
+                    fill=(0, 0, 0, 82),
+                    stroke_width=stroke_w,
+                    stroke_fill=(0, 0, 0, 82),
+                )
+                lb = _draw_figma_line_segments(
+                    td,
+                    line=ln,
+                    start_x=start_x,
+                    font=font,
+                    base_rgb=ink_rgb,
+                    highlight_word=highlight_word,
+                    hi_rgb=hi_rgb,
+                    stroke_rgba=stroke_rgba,
+                    stroke_w=stroke_w,
+                    hi_stroke_rgba=hi_stroke_rgba,
+                    top_y=cur_y,
+                )
+                hx0, hy0 = min(hx0, lb[0]), min(hy0, lb[1])
+                hx1, hy1 = max(hx1, lb[2]), max(hy1, lb[3])
+                cur_y += max(int(round(eff_fs * lh_ratio)), l_th + 6)
+            bounds["headline"] = [hx0, hy0, hx1, hy1]
+            _validate_figma_box(warnings, "headline", (hx0, hy0, hx1, hy1), ssot)
+
+        shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=10))
+        canvas = Image.alpha_composite(canvas, shadow_layer)
+        canvas = Image.alpha_composite(canvas, text_layer)
+
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, filename)
+    canvas.convert("RGB").save(out_path, format="PNG")
+    return {
+        "id": tid,
+        "path": os.path.abspath(out_path),
+        "width": width,
+        "height": height,
+        "layout": f"figma:{variant}",
+        "figma_variant": variant,
+        "strict_margin": True,
+        "bounds": bounds,
+        "safe_zone_ok": len(warnings) == 0,
+        "warnings": warnings,
+    }
+
 EMOJI_RE = re.compile(
     "["
     "\U0001F300-\U0001F6FF"
@@ -421,6 +995,21 @@ def render_thumbnail(
     tid = item["id"]
     filename = item.get("filename") or f"thumb_{tid}.png"
     layout = item.get("layout", "single")
+    figma_variant = item.get("figma_variant")
+    if not figma_variant and isinstance(item.get("headline"), dict):
+        cand_style = str(item["headline"].get("style") or "").strip().lower()
+        if cand_style in FIGMA_VARIANTS:
+            figma_variant = cand_style
+    if figma_variant and str(figma_variant).strip().lower() in FIGMA_VARIANTS:
+        return _render_figma_thumbnail(
+            item,
+            variant=str(figma_variant).strip().lower(),
+            base_dir=base_dir,
+            out_dir=out_dir,
+            font_path=font_path,
+            width=width,
+            height=height,
+        )
     strict_margin = bool(item.get("strict_margin", default_strict_margin))
 
     if layout == "split_2panel":
