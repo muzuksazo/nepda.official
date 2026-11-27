@@ -2632,6 +2632,42 @@ button.n-list-row:active {
   transform: scale(0.88);
 }
 
+/* "B 만들기": 게시자 줄 오른쪽, 테두리 없이 꽉 찬 검정 알약 (다크에서는 흰 알약) — 한눈에 버튼으로 읽힌다 */
+.n-post__remix {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  margin-left: auto;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--inverse);
+  color: var(--on-inverse);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.n-post__remix:hover {
+  background: var(--inverse-hover);
+}
+
+.n-post__remix:active {
+  transform: scale(0.97);
+}
+
+.n-post__remix:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .n-post__action:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
