@@ -83,6 +83,13 @@ export interface TextFieldProps {
   hasClear?: boolean;
   /** 넣을 수 있는 글자 수 한도 */
   maxLength?: number;
+  /** 입력 아래 한 줄 (확인 결과·오류). 바뀌면 스크린 리더가 읽는다 */
+  message?: ReactNode;
+  /** error면 빨간 테두리 + 빨간 문구 (빨강은 입력 오류에만 쓴다) */
+  messageTone?: 'neutral' | 'success' | 'error';
+  /** 오른쪽 아래에 "5/12" 글자 수 (maxLength가 있을 때) */
+  hasCounter?: boolean;
+  autoComplete?: string;
 }
 
 /** 라벨은 항상 입력 위에 보인다(placeholder로 라벨을 대신하지 않는다) */
@@ -98,17 +105,26 @@ export function TextField({
   rows = 3,
   hasClear,
   maxLength,
+  message,
+  messageTone = 'neutral',
+  hasCounter,
+  autoComplete,
 }: TextFieldProps) {
   const id = useId();
   const descId = description ? `${id}-desc` : undefined;
+  const messageId = `${id}-msg`;
+  const isError = messageTone === 'error' && Boolean(message);
+  const showFoot = message !== undefined || (hasCounter && maxLength);
   const common = {
     id,
-    className: 'n-input',
+    className: `n-input${isError ? ' is-invalid' : ''}`,
     value,
     placeholder,
     required: isRequired,
     maxLength,
-    'aria-describedby': descId,
+    autoComplete,
+    'aria-invalid': isError || undefined,
+    'aria-describedby': [descId, showFoot ? messageId : undefined].filter(Boolean).join(' ') || undefined,
   };
   return (
     <div className="n-field">
@@ -136,6 +152,18 @@ export function TextField({
       ) : (
         <input {...common} type="text" onChange={(e) => onChange(e.target.value)} />
       )}
+      {showFoot ? (
+        <div className="n-field__foot">
+          <p id={messageId} className={`n-field__msg n-field__msg--${messageTone}`} aria-live="polite">
+            {message}
+          </p>
+          {hasCounter && maxLength ? (
+            <span className="n-field__count n-num" aria-hidden="true">
+              {value.length}/{maxLength}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

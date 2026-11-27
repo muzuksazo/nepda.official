@@ -121,7 +121,7 @@ class TestGenAIMediaProvider(GenAIMediaProviderCase):
             )
             vtx_settings = Settings(
                 google_genai_use_vertexai=True,
-                google_cloud_project="gentle-voltage-464223-h6",
+                google_cloud_project="my-gcp-project",
                 google_cloud_location="us-central1",
             )
             vtx_provider = GenAIMediaProvider(vtx_settings, client=vtx_client)

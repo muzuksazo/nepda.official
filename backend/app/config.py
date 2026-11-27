@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     # Auth: AI Studio (`GEMINI_API_KEY`) or Vertex AI (`GOOGLE_GENAI_USE_VERTEXAI=true`)
     gemini_api_key: Optional[str] = None
+    google_vertex_api_key: Optional[str] = None
     google_genai_use_vertexai: bool = False
     google_cloud_project: Optional[str] = None
     google_cloud_location: str = "us-central1"
@@ -132,6 +133,8 @@ class Settings(BaseSettings):
     hook_burn_captions: bool = True
     require_uploaded_object_exists: bool = False
     media_url_ttl_sec: int = 3600
+    track_a_template_dir: Optional[str] = None
+    track_a_template_urls: Optional[str] = None
 
     @property
     def auth_mode(self) -> str:

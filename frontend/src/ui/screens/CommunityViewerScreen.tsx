@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Avatar, Badge, Button, ConfirmSheet } from '../components';
+import { Avatar, Badge, Button, CommentSheet, ConfirmSheet, ShareSheet, type ShareHandlers, type VideoComment } from '../components';
 import { formatCount } from '../format';
-import { Alert, ChevronLeft, Heart, Play, Share, SoundOff, SoundOn, Stars } from '../icons';
+import { Alert, ChevronLeft, Comment, Heart, Play, Share, SoundOff, SoundOn, Stars } from '../icons';
 import type { CommunityVideo } from './CommunityScreen';
 
 export interface CommunityViewerScreenProps {
@@ -11,7 +11,10 @@ export interface CommunityViewerScreenProps {
   initialId?: string;
   onBack?: () => void;
   onToggleLike?: (id: string, isLiked: boolean) => void;
-  onShare?: (id: string) => void;
+  /** 프로필 원·닉네임을 눌렀을 때 → 만든 사람 프로필 */
+  onOpenCreator?: (creatorName: string) => void;
+  /** 공유 시트에 쓸 링크·복사·기기 공유 창. 없으면 공유 버튼을 숨긴다 */
+  share?: ShareHandlers;
   onReport?: (id: string) => void;
   /** "이 훅으로 만들기": 같은 훅 유형으로 새 영상 만들기를 시작한다 (영상·시나리오를 복사하지 않는다) */
   onRemix?: (video: CommunityVideo) => void;
@@ -19,6 +22,12 @@ export interface CommunityViewerScreenProps {
   onActiveChange?: (id: string) => void;
   /** 처음부터 신고 확인 시트를 열어 둔다 (스토리·테스트용) */
   initialIsReporting?: boolean;
+  /** 영상별 댓글 (불러온 것만) */
+  comments?: Record<string, VideoComment[]>;
+  /** 댓글 입력 줄에 보일 내 닉네임 */
+  myName?: string;
+  onAddComment?: (videoId: string, text: string) => void;
+  onDeleteComment?: (videoId: string, commentId: string) => void;
 }
 
 /** 내려받기 API의 AI 라벨 문구(label_text). 커뮤니티에서는 모든 영상에 항상 붙인다 */
@@ -33,17 +42,26 @@ export function CommunityViewerScreen({
   initialId,
   onBack,
   onToggleLike,
-  onShare,
+  share,
+  onOpenCreator,
   onReport,
   onRemix,
   onActiveChange,
   initialIsReporting = false,
+  comments = {},
+  myName,
+  onAddComment,
+  onDeleteComment,
 }: CommunityViewerScreenProps) {
   const [activeId, setActiveId] = useState<string | undefined>(initialId ?? items[0]?.id);
   const [likeOverrides, setLikeOverrides] = useState<Record<string, boolean>>({});
   const [isMuted, setIsMuted] = useState(true);
   const [pausedId, setPausedId] = useState<string | null>(null);
   const [isReporting, setIsReporting] = useState(initialIsReporting);
+  const [isCommenting, setIsCommenting] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  // 시트(신고·댓글·공유)가 떠 있으면 뒤 화면을 잠그고 영상을 멈춘다
+  const isSheetOpen = isReporting || isCommenting || isSharing;
   const [toast, setToast] = useState<string | null>(null);
 
   const feedRef = useRef<HTMLDivElement>(null);
@@ -102,14 +120,14 @@ export function CommunityViewerScreen({
   useEffect(() => {
     videoRefs.current.forEach((video, id) => {
       video.muted = isMuted;
-      if (id === activeId && pausedId !== id && !isReporting) {
+      if (id === activeId && pausedId !== id && !isSheetOpen) {
         // 자동 재생이 막히면(브라우저 정책) 멈춘 채로 두고, 사용자가 눌러 재생한다
         video.play().catch(() => setPausedId(id));
       } else {
         video.pause();
       }
     });
-  }, [activeId, pausedId, isMuted, isReporting, items]);
+  }, [activeId, pausedId, isMuted, isSheetOpen, items]);
 
   useEffect(() => {
     if (!toast) return;
@@ -132,7 +150,7 @@ export function CommunityViewerScreen({
 
   return (
     <div className="n-viewer" data-theme="dark">
-      <div className="n-viewer__top" inert={isReporting}>
+      <div className="n-viewer__top" inert={isSheetOpen}>
         <button type="button" className="n-viewer__icon-btn" aria-label="뒤로" onClick={onBack}>
           <ChevronLeft size={26} />
         </button>
@@ -144,7 +162,7 @@ export function CommunityViewerScreen({
         </button>
       </div>
 
-      <div ref={feedRef} className="n-viewer__feed" role="group" aria-label="커뮤니티 영상. 위아래로 넘겨요" tabIndex={0} inert={isReporting}>
+      <div ref={feedRef} className="n-viewer__feed" role="group" aria-label="탐색 영상. 위아래로 넘겨요" tabIndex={0} inert={isSheetOpen}>
         {items.map((video, index) => {
           const isActive = video.id === activeId;
           const wasLiked = video.isLiked ?? false;
@@ -222,9 +240,22 @@ export function CommunityViewerScreen({
                         {formatCount(likeCount)}
                       </span>
                     </button>
-                    <button type="button" className="n-viewer__action" aria-label="공유" onClick={() => onShare?.(video.id)}>
-                      <Share size={22} />
+                    <button
+                      type="button"
+                      className="n-viewer__action"
+                      aria-label={`댓글 ${comments[video.id]?.length ?? video.commentCount ?? 0}개`}
+                      onClick={() => setIsCommenting(true)}
+                    >
+                      <Comment size={22} />
+                      <span className="n-viewer__action-count n-num" aria-hidden="true">
+                        {formatCount(comments[video.id]?.length ?? video.commentCount ?? 0)}
+                      </span>
                     </button>
+                    {share ? (
+                      <button type="button" className="n-viewer__action" aria-label="공유" onClick={() => setIsSharing(true)}>
+                        <Share size={22} />
+                      </button>
+                    ) : null}
                     {video.videoUrl ? (
                       <button
                         type="button"
@@ -241,11 +272,28 @@ export function CommunityViewerScreen({
 
               <div className="n-viewer__panel">
                 <div className="n-viewer__meta">
-                  <Avatar name={video.creatorName} />
-                  <div className="n-viewer__who">
-                    <span className="n-viewer__creator">{video.creatorName}</span>
-                    <span className="n-viewer__product">{video.productName}</span>
-                  </div>
+                  {onOpenCreator ? (
+                    <button
+                      type="button"
+                      className="n-creator-link"
+                      onClick={() => onOpenCreator(video.creatorName)}
+                      aria-label={`${video.creatorName} 프로필 보기, ${video.productName}`}
+                    >
+                      <Avatar name={video.creatorName} />
+                      <span className="n-viewer__who" aria-hidden="true">
+                        <span className="n-viewer__creator">{video.creatorName}</span>
+                        <span className="n-viewer__product">{video.productName}</span>
+                      </span>
+                    </button>
+                  ) : (
+                    <>
+                      <Avatar name={video.creatorName} />
+                      <div className="n-viewer__who">
+                        <span className="n-viewer__creator">{video.creatorName}</span>
+                        <span className="n-viewer__product">{video.productName}</span>
+                      </div>
+                    </>
+                  )}
                   <Badge tone="brand">{video.hookType} 유형</Badge>
                 </div>
                 <Button label="이 훅으로 만들기" isBlock onClick={() => onRemix?.(video)} />
@@ -270,6 +318,28 @@ export function CommunityViewerScreen({
           setToast('신고를 접수했어요');
         }}
         onClose={() => setIsReporting(false)}
+      />
+
+      <CommentSheet
+        isOpen={isCommenting}
+        comments={activeId ? (comments[activeId] ?? []) : []}
+        myName={myName}
+        onSubmit={(text) => activeId && onAddComment?.(activeId, text)}
+        onDelete={(id) => activeId && onDeleteComment?.(activeId, id)}
+        onClose={() => setIsCommenting(false)}
+      />
+
+      <ShareSheet
+        video={isSharing && share ? (items.find((item) => item.id === activeId) ?? null) : null}
+        url={activeId && share ? share.shareUrlOf(activeId) : ''}
+        canShareNative={share?.canShareNative}
+        onShareNative={() => {
+          if (!activeId) return;
+          share?.onShareNative?.(activeId);
+          setIsSharing(false);
+        }}
+        onCopyLink={() => activeId && share?.onCopyLink?.(activeId)}
+        onClose={() => setIsSharing(false)}
       />
     </div>
   );

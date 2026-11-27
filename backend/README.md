@@ -62,7 +62,8 @@ docker build -f backend/Dockerfile -t napda-backend .
 ## Google 인증
 
 - API 키: `GOOGLE_GENAI_USE_VERTEXAI=false`, `GEMINI_API_KEY` 설정.
-- Vertex AI: `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` 설정과 실행 환경의 ADC 인증 사용.
+- Vertex AI (ADC): `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` 설정과 실행 환경의 ADC 인증 사용.
+- Vertex AI (Vercel OIDC ↔ GCP Workload Identity): 정적 JSON 키 없이 Vercel 서버리스에서 본인 GCP 크레딧으로 Vertex AI를 호출하는 방법은 [backend/GCP_WIF_SETUP.md](./GCP_WIF_SETUP.md) 가이드를 참고하세요.
 - 서비스 계정 키 파일은 저장소에 보관하지 않습니다.
 
 이 폴더는 기존 워커의 실행 위치를 정리한 것입니다. 최종 생성 방식과 PRD의 제품 흐름은 추가 개발이 필요합니다. [PRD별 테스트](../tests/README.md)를 참고하세요.

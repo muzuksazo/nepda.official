@@ -3,7 +3,7 @@ import { formatCount } from '../format';
 import { ArrowRight, ChevronRight, Clock, Download, Heart, Lightning, Package, Play } from '../icons';
 import { FLOW_TOTAL_STEPS } from './layout';
 import { MediaPlaceholder } from './media';
-import { Badge, Button, Card, CheckMark, ProgressBar, SelectCard, Stack } from './primitives';
+import { Button, Card, CheckMark, ProgressBar, SelectCard, Stack } from './primitives';
 
 export interface HookTypeCardProps {
   type: string;
@@ -56,14 +56,15 @@ export function ProjectCard({ productName, status, completedSteps, nextStep, act
           </Stack>
         </div>
 
-        {!isDone ? (
-          <div className="n-row" style={{ gap: 12 }}>
-            <ProgressBar label={`${productName} 진행`} value={completedSteps} max={FLOW_TOTAL_STEPS} />
-            <span className="n-small n-bold n-num">
-              {completedSteps}/{FLOW_TOTAL_STEPS}
-            </span>
-          </div>
-        ) : null}
+        {/* 진행 중은 "5/8", 완료는 꽉 찬 막대 + "완료" — 한 줄에 섞여 있어도 상태를 바로 알아보고 카드 높이도 같다 */}
+        <div className="n-row" style={{ gap: 12 }}>
+          <ProgressBar
+            label={isDone ? `${productName} 완료` : `${productName} 진행`}
+            value={isDone ? FLOW_TOTAL_STEPS : completedSteps}
+            max={FLOW_TOTAL_STEPS}
+          />
+          <span className="n-small n-bold n-num">{isDone ? '완료' : `${completedSteps}/${FLOW_TOTAL_STEPS}`}</span>
+        </div>
 
         {/* 다음 할 일(왼쪽)과 원형 아이콘 버튼(오른쪽)을 한 타일로 묶는다 */}
         <div className="n-card-action">
@@ -134,24 +135,30 @@ export function TimeEstimate({ total, stages, children }: TimeEstimateProps) {
 export interface CreditBalanceCardProps {
   /** 크레딧 잔액. 아직 못 불러왔으면 undefined → "—" */
   credits?: number;
-  /** 온보딩 때 주는 무료 제작 1회가 아직 남아 있는지 */
-  hasFreeVideo?: boolean;
   onChargeClick?: () => void;
+  /** 있으면 오른쪽 위에 "내역" 링크를 보여 준다 → 크레딧 내역 */
+  onHistoryClick?: () => void;
+  /** 잔액 줄 아래 한 줄 (예: 곧 사라지는 크레딧) */
+  note?: ReactNode;
 }
 
-/**
- * 크레딧 잔액 카드: 잔액(큰 숫자) + 충전하기. 영상은 횟수 제한 없이 크레딧으로 만든다.
- * 무료 제작 1회(온보딩)가 남아 있으면 아래에 한 줄로 알려 준다.
- */
-export function CreditBalanceCard({ credits, hasFreeVideo, onChargeClick }: CreditBalanceCardProps) {
+/** 크레딧 잔액 카드: 잔액(큰 숫자) + 충전하기. 영상은 횟수 제한 없이, 충전한 크레딧으로 만든다. */
+export function CreditBalanceCard({ credits, onChargeClick, onHistoryClick, note }: CreditBalanceCardProps) {
   const titleId = useId();
   const shownCredits = credits === undefined ? '—' : credits.toLocaleString('ko-KR');
-  const isOut = credits === 0 && !hasFreeVideo;
   return (
     <section className="n-card n-wallet" aria-labelledby={titleId}>
-      <h2 id={titleId} className="n-wallet__label">
-        내 크레딧
-      </h2>
+      <div className="n-wallet__head">
+        <h2 id={titleId} className="n-wallet__label">
+          내 크레딧
+        </h2>
+        {onHistoryClick ? (
+          <button type="button" className="n-wallet__link" onClick={onHistoryClick} aria-label="크레딧 내역 보기">
+            내역
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
       <div className="n-wallet__row">
         <p className="n-wallet__balance">
           <span className="n-credit__icon n-wallet__icon" aria-hidden="true">
@@ -161,14 +168,7 @@ export function CreditBalanceCard({ credits, hasFreeVideo, onChargeClick }: Cred
         </p>
         <Button label="충전하기" size="md" onClick={onChargeClick} />
       </div>
-      <p className="n-wallet__hint">{isOut ? '크레딧이 없어요. 충전하면 바로 만들 수 있어요.' : '횟수 제한 없이, 충전한 만큼 만들 수 있어요.'}</p>
-      {hasFreeVideo ? (
-        <p className="n-wallet__free">
-          <Badge tone="brand">무료</Badge>
-          <span className="n-wallet__free-text">첫 영상 한 편은 무료예요</span>
-          <span className="n-wallet__free-count n-num">1회 남음</span>
-        </p>
-      ) : null}
+      {note ? <div className="n-wallet__note">{note}</div> : null}
     </section>
   );
 }

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import random
+import re
+import shutil
 import subprocess
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -93,6 +96,7 @@ from .retention import is_project_expired, sync_project_status_with_job
 from .storage import StorageBackend
 from .store import JobStore
 from .thumbnail_service import generate_project_thumbnail
+from .tts_service import build_tts_provider
 from .upload_service import validate_and_complete_uploads
 
 from hookpipe import HookPipeline, is_worker_scenario  # backend/hookpipe: 훅 영상 + 본편 붙이기
@@ -304,6 +308,13 @@ def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
             for ht in hook_types:
                 track = _TRACK_BY_TYPE[ht]
                 try:
+                    extra_notes = (
+                        "Narrative Track A (16-18s total): 9.0s hook_window_sec pre-prepared visual template opener "
+                        "-> 0.25s silence_gap twist -> 6.5-7.0s product payoff from source cuts (payoff <= 45% of total runtime). "
+                        "Never mention product or category words before silence_gap."
+                        if ht == "A"
+                        else ""
+                    )
                     resp = client.post(
                         f"{settings.planner_base_url.rstrip('/')}/v1/plan",
                         json={
@@ -315,6 +326,7 @@ def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
                                 "sourceDuration": 15.0,
                                 "trackArchetype": track,
                                 "visualStyle": "blender_3d_cutaway" if ht == "B" else "blender_clay_diorama",
+                                **({"extraNotes": extra_notes} if extra_notes else {}),
                             },
                         },
                     )
@@ -465,8 +477,199 @@ def build_projects_router(
             )
         return proj
 
+    def _resolve_track_a_template() -> Optional[Path]:
+        """Resolve a pre-prepared Track A opener MP4 from configured URLs, dir, or backend/data/templates/track_a."""
+        raw_urls = [u.strip() for u in (settings.track_a_template_urls or "").split(",") if u.strip()]
+        if raw_urls:
+            cache_dir = Path("/tmp/napda_templates")
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            chosen_url = random.choice(raw_urls)
+            fname = Path(chosen_url.split("?", 1)[0]).name or "track_a_tpl.mp4"
+            cached = cache_dir / fname
+            if not cached.exists():
+                with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+                    dl = client.get(chosen_url)
+                    dl.raise_for_status()
+                    cached.write_bytes(dl.content)
+            return cached
+
+        candidates: List[Path] = []
+        if settings.track_a_template_dir and settings.track_a_template_dir.strip():
+            d = Path(settings.track_a_template_dir).expanduser().resolve()
+            if d.is_dir():
+                candidates.extend(sorted(d.glob("*.mp4")))
+        default_dir = Path(__file__).resolve().parents[1] / "data" / "templates" / "track_a"
+        if default_dir.is_dir():
+            candidates.extend(sorted(default_dir.glob("*.mp4")))
+        return random.choice(candidates) if candidates else None
+
+    def _prepare_track_a_template_spec(
+        raw_spec: Dict[str, Any],
+        *,
+        template_mp4: Path,
+        source_mp4: Path,
+        source_dur: float,
+        jid: str,
+    ) -> Tuple[Dict[str, Any], str]:
+        """Swap Track A hook cuts to pre-prepared template clip + synthesize Inworld Korean VO."""
+        tmp_dir = Path("/tmp/napda_track_a") / jid
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        staged_tpl = tmp_dir / "template_hook_a.mp4"
+        staged_src = tmp_dir / "source_product.mp4"
+        shutil.copy2(template_mp4, staged_tpl)
+        shutil.copy2(source_mp4, staged_src)
+
+        def _seg_dur(seg: Dict[str, Any]) -> float:
+            if seg.get("type") == "source" and "src_start" in seg and "src_end" in seg:
+                spd = float(seg.get("speed") or 1.0)
+                return max(0.05, (float(seg["src_end"]) - float(seg["src_start"])) / max(spd, 0.01))
+            return max(0.05, float(seg.get("duration") or 1.0))
+
+        spec = json.loads(json.dumps(raw_spec))
+        spec["track_archetype"] = "A_bgrade_reversal"
+        spec["source_video"] = str(staged_src)
+        spec["source_duration"] = float(source_dur)
+        spec["disclosure"] = "ai_assisted"
+        spec["allow_static_intro"] = True
+        spec.setdefault("a_genre_archetype", "absurd_skit")
+
+        pre_segs: List[Dict[str, Any]] = [
+            {
+                "id": "tpl_hook_1",
+                "type": "video",
+                "path": str(staged_tpl),
+                "src_start": 0.0,
+                "duration": 9.0,
+                "framing": "full-bleed",
+                "audio_owner": "vo",
+            }
+        ]
+        pre_dur = 9.0
+        target_post = round(min(max(3.5, source_dur - 1.0), 7.0), 2)
+        if pre_dur + 0.25 + target_post < 15.2:
+            pre_dur = round(15.2 - 0.25 - target_post, 2)
+            pre_segs[0]["duration"] = pre_dur
+
+        s_start = 1.0 if source_dur >= 4.5 else 0.0
+        s_end = round(min(source_dur, s_start + target_post), 2)
+        if s_start < 1.0 and source_dur >= 5.0:
+            s_start = 1.0
+            s_end = round(min(source_dur, 1.0 + target_post), 2)
+        post_segs: List[Dict[str, Any]] = [
+            {
+                "id": "payoff_1",
+                "type": "source",
+                "src_start": s_start,
+                "src_end": s_end,
+                "framing": "full-bleed",
+                "audio_owner": "vo",
+                "fact_ids": ["F01"],
+            }
+        ]
+        gap_seg = {
+            "id": "twist_gap",
+            "type": "silence_gap",
+            "duration": 0.25,
+            "audio_owner": "silence",
+            "framing": "full-bleed",
+        }
+        spec["timeline"] = pre_segs + [gap_seg] + post_segs
+        spec["hook_window_sec"] = round(pre_dur, 2)
+        total_dur = round(sum(_seg_dur(s) for s in spec["timeline"]), 2)
+
+        orig_tl = list(raw_spec.get("timeline") or [])
+        orig_gap_start = 0.0
+        found_orig_gap = False
+        for seg in orig_tl:
+            if seg.get("type") == "silence_gap":
+                found_orig_gap = True
+                break
+            orig_gap_start += _seg_dur(seg)
+
+        caps = list(spec.get("captions") or [])
+        if caps:
+            orig_end = max(float(c.get("end") or 0.1) for c in caps)
+            remapped = []
+            if found_orig_gap and 0.1 < orig_gap_start < orig_end:
+                pre_caps = [c for c in caps if float(c.get("start", 0.0)) < orig_gap_start]
+                post_caps = [c for c in caps if float(c.get("start", 0.0)) >= orig_gap_start]
+                pre_span = max(pre_caps[-1]["end"] if pre_caps else orig_gap_start, orig_gap_start, 0.1)
+                post_base = float(post_caps[0]["start"]) if post_caps else orig_gap_start
+                post_span = max(orig_end - post_base, 0.1)
+                post_target_dur = max(total_dur - (pre_dur + 0.25), 0.5)
+                for c in pre_caps:
+                    st_t = round(min(pre_dur - 0.4, max(0.0, float(c.get("start", 0.0)) * (pre_dur / pre_span))), 2)
+                    en_t = round(min(pre_dur, max(st_t + 0.4, float(c.get("end", pre_span)) * (pre_dur / pre_span))), 2)
+                    item = dict(c)
+                    item["start"], item["end"] = st_t, en_t
+                    remapped.append(item)
+                for c in post_caps:
+                    rel_s = max(0.0, float(c.get("start", post_base)) - post_base)
+                    rel_e = max(rel_s + 0.4, float(c.get("end", orig_end)) - post_base)
+                    st_t = round(min(total_dur - 0.4, pre_dur + 0.25 + rel_s * (post_target_dur / post_span)), 2)
+                    en_t = round(min(total_dur, max(st_t + 0.4, pre_dur + 0.25 + rel_e * (post_target_dur / post_span))), 2)
+                    item = dict(c)
+                    item["start"], item["end"] = st_t, en_t
+                    remapped.append(item)
+            else:
+                factor = total_dur / max(orig_end, 0.1)
+                for c in caps:
+                    st_t = round(min(total_dur - 0.5, max(0.0, float(c.get("start", 0.0)) * factor)), 2)
+                    en_t = round(min(total_dur, max(st_t + 0.5, float(c.get("end", 1.0)) * factor)), 2)
+                    item = dict(c)
+                    item["start"] = st_t
+                    item["end"] = en_t
+                    remapped.append(item)
+            spec["captions"] = remapped
+
+        plain_lines = [
+            re.sub(r"\*\*(.+?)\*\*", r"\1", str(c.get("text") or "")).replace("\n", " ").strip()
+            for c in (spec.get("captions") or [])
+        ]
+        narration_text = " ".join(ln for ln in plain_lines if ln) or "지금 바로 확인해 보세요."
+        vo_wav = tmp_dir / "vo_master.wav"
+        tts = build_tts_provider(settings)
+        tts.synthesize(narration_text, vo_wav)
+        spec["vo_audio"] = str(vo_wav)
+        return spec, str(staged_src)
+
     def _run_job_bg(req: CampaignRequest, jid: str) -> None:
         try:
+            pipeline.run_campaign(req, job_id=jid)
+        except Exception as exc:
+            job = job_store.get_job(jid)
+            if job and job.get("status") != "FAILED":
+                job_store.update_job(jid, status="FAILED", error=str(exc))
+
+    def _run_track_a_template_bg(
+        req: CampaignRequest,
+        jid: str,
+        template_mp4: Path,
+        src_key: Optional[str],
+        src_dur: float,
+    ) -> None:
+        try:
+            src_path = Path(req.source_video) if (req.source_video and os.path.exists(req.source_video)) else None
+            if src_path is None and src_key:
+                resolve_local = getattr(storage, "resolve_local_path", None)
+                src_path = resolve_local(src_key) if callable(resolve_local) else None
+                if src_path is None:
+                    dl_tmp = Path("/tmp/napda_track_a") / jid / "downloaded_source.mp4"
+                    dl_tmp.parent.mkdir(parents=True, exist_ok=True)
+                    storage.download_file(src_key, dl_tmp)
+                    src_path = dl_tmp
+            if src_path is not None and src_path.exists() and req.spec_data is not None:
+                job_store.update_job(jid, status="RUNNING", stage="PLANNING")
+                prepared_spec, staged_src = _prepare_track_a_template_spec(
+                    req.spec_data,
+                    template_mp4=template_mp4,
+                    source_mp4=src_path,
+                    source_dur=src_dur,
+                    jid=jid,
+                )
+                req.spec_data = prepared_spec
+                req.source_video = staged_src
+                req.source_object_key = None
             pipeline.run_campaign(req, job_id=jid)
         except Exception as exc:
             job = job_store.get_job(jid)
@@ -842,6 +1045,11 @@ def build_projects_router(
         first_clip = uploads["clips"][0]
         src_local = first_clip.get("local_path")
         src_key = first_clip.get("object_key")
+        if not src_local and src_key:
+            resolve_local = getattr(storage, "resolve_local_path", None)
+            resolved = resolve_local(src_key) if callable(resolve_local) else None
+            if resolved and resolved.exists():
+                src_local = str(resolved)
         src_dur = float(uploads.get("total_duration_sec") or 12.0)
 
         scn_id = body.scenario_id or proj.get("selected_scenario_id")
@@ -925,7 +1133,11 @@ def build_projects_router(
         job_store.create_job(jid, project_id, req.__dict__, status="QUEUED", stage="QUEUED")
         project_store.record_render_usage(user.user_id, project_id, jid)
         project_store.update_project(project_id, status="RENDERING", latest_job_id=jid)
-        executor.submit(_run_job_bg, req, jid)
+        tpl_path = _resolve_track_a_template() if (chosen_type == "A" and not body.dry_run) else None
+        if tpl_path is not None:
+            executor.submit(_run_track_a_template_bg, req, jid, tpl_path, src_key, src_dur)
+        else:
+            executor.submit(_run_job_bg, req, jid)
 
         est_cr = 12 if body.resolution == "360p" else 32
         return CreateRenderResponse(

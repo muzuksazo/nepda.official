@@ -1,6 +1,6 @@
 /*
  * 냅다 디자인 토큰 — 정본은 /DESIGN.md frontmatter.
- * 팔레트는 라임·블랙·그레이·화이트뿐이다. 그레이는 와이어프레임 같은 차가운 순회색 대신 아주 살짝 따뜻한 종이 톤을 쓴다. 빨강(danger)은 오류 표시에만 쓴다.
+ * 팔레트는 라임·블랙·그레이·화이트뿐이다. 블랙은 순검정 대신 #1A1A1A 한 가지만 쓴다(글자·1차 버튼·선·다크 바탕 모두). 그레이는 와이어프레임 같은 차가운 순회색 대신 아주 살짝 따뜻한 종이 톤을 쓴다. 빨강(danger)은 오류 표시에만 쓴다.
  * 라임은 면으로 크게 쓰지 않는다: 선택 체크, 브랜드 배지 글자, 화면당 강조 단어 하나에만.
  */
 :root,
@@ -9,7 +9,7 @@
 
   /* brand */
   --napda-lime: #d6ff3f;
-  --napda-black: #000000;
+  --napda-black: #1a1a1a;
   --napda-white: #ffffff;
 
   /* background / surface */
@@ -20,7 +20,7 @@
   --surface-strong: #dcdad2;
 
   /* text */
-  --text: #0a0a0a;
+  --text: #1a1a1a;
   --text-2: #2e2d2a;
   --text-3: #5e5c55;
   --text-weak: #77756c;
@@ -28,18 +28,18 @@
   /* border */
   --border-weak: #ecebe5;
   --border: #d6d4cc;
-  --border-strong: #0a0a0a;
+  --border-strong: #1a1a1a;
 
   /* 반전 면: 1차 버튼, 선택된 칩, 진행 막대 채움 */
-  --inverse: #0a0a0a;
-  --inverse-hover: #2b2b2b;
+  --inverse: #1a1a1a;
+  --inverse-hover: #333333;
   --on-inverse: #ffffff;
 
   /* 작은 기능 표시(게이지·단계 번호·선택 칩·체크·배지)의 라임.
-     흰/회색 바탕과 대비가 1.1:1이라 라이트에서는 1.5px 검정 외곽선으로 경계를 만든다(17:1). */
+     흰/회색 바탕과 대비가 1.1:1이라 라이트에서는 1.5px 검정 외곽선으로 경계를 만든다(15:1). */
   --accent-fill: #d6ff3f;
-  --on-accent-fill: #000000;
-  --accent-edge: #0a0a0a;
+  --on-accent-fill: #1a1a1a;
+  --accent-edge: #1a1a1a;
 
   /* 선택된 카드: 라임 18% 틴트 면 + 한 단계 진한 라임 테두리 */
   --selected-bg: #f8ffdc;
@@ -50,7 +50,7 @@
   --on-tint: #4a5e00;
 
   --danger: #d12a24;
-  --focus: #0a0a0a;
+  --focus: #1a1a1a;
 
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.06);
   --shadow-sheet: 0 -8px 24px rgb(0 0 0 / 0.06);
@@ -59,33 +59,34 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: #0e0e0c;
-  --bg-weak: #000000;
-  --surface-weak: #1a1a17;
-  --surface: #24231f;
-  --surface-strong: #33322c;
+  /* 바탕은 #1A1A1A. 안쪽 판·카드·입력칸은 한 단계씩 밝혀 겹을 만든다 (순검정은 쓰지 않는다) */
+  --bg: #1a1a1a;
+  --bg-weak: #20201d;
+  --surface-weak: #262623;
+  --surface: #30302b;
+  --surface-strong: #3f3e38;
 
   --text: #ffffff;
   --text-2: #e8e7e2;
   --text-3: #a8a69d;
-  --text-weak: #8a887f;
+  --text-weak: #918f86;
 
-  --border-weak: #272622;
-  --border: #3d3c36;
+  --border-weak: #33322e;
+  --border: #494842;
   --border-strong: #ffffff;
 
   --inverse: #ffffff;
   --inverse-hover: #e5e5e5;
-  --on-inverse: #0a0a0a;
+  --on-inverse: #1a1a1a;
 
   --accent-fill: #d6ff3f;
-  --on-accent-fill: #000000;
+  --on-accent-fill: #1a1a1a;
   --accent-edge: transparent; /* 다크 바탕 위 라임은 13.6:1이라 외곽선 불필요 */
 
-  --selected-bg: #1e220f;
+  --selected-bg: #2a2e1b;
   --selected-border: #d6ff3f;
 
-  --tint: #1d2210;
+  --tint: #292e1c;
   --on-tint: #c9e86a;
 
   --danger: #ff6b61;

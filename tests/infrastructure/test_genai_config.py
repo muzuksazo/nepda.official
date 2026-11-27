@@ -13,12 +13,13 @@ from tests.support.tempdirs import temporary_directory
 class TestGenAIClientFactory(GenAIClientFactoryCase):
     def test_build_client_ai_studio_vs_vertex_ai(self) -> None:
         with patch("app.genai_provider.genai.Client") as m_client:
-            s_key = Settings(gemini_api_key="AIzaDummyKey", google_genai_use_vertexai=False)
+            s_key = Settings(_env_file=None, gemini_api_key="AIzaDummyKey", google_genai_use_vertexai=False)
             build_genai_client(s_key)
             m_client.assert_called_once_with(api_key="AIzaDummyKey", http_options=ANY)
 
         with patch("app.genai_provider.genai.Client") as m_client:
             s_vtx = Settings(
+                _env_file=None,
                 google_genai_use_vertexai=True,
                 google_cloud_project="my-gcp-proj",
                 google_cloud_location="us-central1",
@@ -32,19 +33,35 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
             )
 
         with self.assertRaises(ValueError):
-            build_genai_client(Settings(gemini_api_key=None, google_genai_use_vertexai=False))
+            build_genai_client(Settings(_env_file=None, gemini_api_key=None, google_genai_use_vertexai=False))
         with self.assertRaises(ValueError):
-            build_genai_client(Settings(google_genai_use_vertexai=True, google_cloud_project=None))
+            build_genai_client(Settings(_env_file=None, google_genai_use_vertexai=True, google_cloud_project=None))
+
+    def test_build_client_vertex_api_key_express_mode(self) -> None:
+        with patch("app.genai_provider.genai.Client") as m_client:
+            s_vtx_key = Settings(
+                _env_file=None,
+                google_genai_use_vertexai=True,
+                google_vertex_api_key="AQ.DummyVertexKey",
+                google_cloud_project=None,
+            )
+            build_genai_client(s_vtx_key)
+            m_client.assert_called_once_with(
+                vertexai=True,
+                api_key="AQ.DummyVertexKey",
+                http_options=ANY,
+            )
 
     def test_build_client_vercel_wif_credentials(self) -> None:
         provider = (
-            "projects/94766443061/locations/global/workloadIdentityPools/"
+            "projects/123456789012/locations/global/workloadIdentityPools/"
             "vercel-napda-pool/providers/vercel-provider"
         )
-        sa_email = "napda-vercel-wif@gentle-voltage-464223-h6.iam.gserviceaccount.com"
+        sa_email = "napda-vercel-wif@my-gcp-project.iam.gserviceaccount.com"
         s_wif = Settings(
+            _env_file=None,
             google_genai_use_vertexai=True,
-            google_cloud_project="gentle-voltage-464223-h6",
+            google_cloud_project="my-gcp-project",
             google_cloud_location="us-central1",
             gcp_workload_identity_provider=provider,
             gcp_service_account_email=sa_email,
@@ -56,7 +73,7 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
                 self.assertEqual(m_client.call_count, 1)
                 kwargs = m_client.call_args.kwargs
                 self.assertTrue(kwargs["vertexai"])
-                self.assertEqual(kwargs["project"], "gentle-voltage-464223-h6")
+                self.assertEqual(kwargs["project"], "my-gcp-project")
                 self.assertEqual(kwargs["location"], "us-central1")
                 creds = kwargs["credentials"]
                 self.assertEqual(creds._audience, f"//iam.googleapis.com/{provider}")
@@ -74,7 +91,7 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
                 build_genai_client(s_wif)
                 m_client.assert_called_once_with(
                     vertexai=True,
-                    project="gentle-voltage-464223-h6",
+                    project="my-gcp-project",
                     location="us-central1",
                     http_options=ANY,
                 )
@@ -83,13 +100,14 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
         from app.genai_provider import bind_vercel_oidc_token, reset_vercel_oidc_token
 
         provider = (
-            "projects/94766443061/locations/global/workloadIdentityPools/"
+            "projects/123456789012/locations/global/workloadIdentityPools/"
             "vercel-napda-pool/providers/vercel-napda-api"
         )
-        sa_email = "napda-vercel-wif@gentle-voltage-464223-h6.iam.gserviceaccount.com"
+        sa_email = "napda-vercel-wif@my-gcp-project.iam.gserviceaccount.com"
         s_wif = Settings(
+            _env_file=None,
             google_genai_use_vertexai=True,
-            google_cloud_project="gentle-voltage-464223-h6",
+            google_cloud_project="my-gcp-project",
             google_cloud_location="us-central1",
             gcp_workload_identity_provider=provider,
             gcp_service_account_email=sa_email,
@@ -112,7 +130,7 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
                 build_genai_client(s_wif)
                 m_client.assert_called_once_with(
                     vertexai=True,
-                    project="gentle-voltage-464223-h6",
+                    project="my-gcp-project",
                     location="us-central1",
                     http_options=ANY,
                 )
