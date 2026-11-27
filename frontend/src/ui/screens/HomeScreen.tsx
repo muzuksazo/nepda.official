@@ -29,12 +29,16 @@ export interface InProgressProject {
   status: string;
   completedSteps: number;
   nextStep: string;
+  /** 9:16 썸네일 (올린 본편의 첫 장면 등). 없으면 제품 아이콘 칸 */
+  thumbnailUrl?: string;
 }
 
 export interface CompletedProject {
   id: string;
   productName: string;
   status: string;
+  /** 9:16 썸네일 (완성 영상의 썸네일). 없으면 제품 아이콘 칸 */
+  thumbnailUrl?: string;
 }
 
 export interface HomeScreenProps {
@@ -158,7 +162,7 @@ export function HomeScreen({
     return (
       <MobileScreen header={header} footer={createButton} bottomNav={bottomNav}>
         <Stack gap={16} align="center" justify="center" style={{ flex: 1, textAlign: 'center', paddingBottom: 24 }}>
-          <Mascot src={brand.mascot.clapboard} width={140} />
+          <Mascot src={brand.mascot.clapboard} />
           <Stack gap={8} align="center">
             <h2 className="n-display">
               첫 광고, <span className="n-mark">냅다</span> 만들어 볼까요?
@@ -192,6 +196,7 @@ export function HomeScreen({
                   status={p.status}
                   completedSteps={p.completedSteps}
                   nextStep={p.nextStep}
+                  thumbnailUrl={p.thumbnailUrl}
                   actionLabel="이어하기"
                   onAction={() => onContinue?.(p.id)}
                 />
@@ -201,6 +206,7 @@ export function HomeScreen({
                   key={p.id}
                   productName={p.productName}
                   status={p.status}
+                  thumbnailUrl={p.thumbnailUrl}
                   actionLabel="다시 받기"
                   onAction={() => onDownloadAgain?.(p.id)}
                 />

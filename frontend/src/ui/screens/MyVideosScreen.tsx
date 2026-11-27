@@ -30,7 +30,7 @@ export function MyVideosScreen({
   const [tab, setTab] = useState<MyVideosTab>(initialTab);
   const empty = (text: string) => (
     <Stack gap={12} align="center" style={{ padding: '64px 0', textAlign: 'center' }}>
-      <Mascot src={brand.mascot.lying} width={120} />
+      <Mascot src={brand.mascot.lying} size="md" />
       <p className="n-muted">{text}</p>
     </Stack>
   );
@@ -63,6 +63,7 @@ export function MyVideosScreen({
                       status={p.status}
                       completedSteps={p.completedSteps}
                       nextStep={p.nextStep}
+                      thumbnailUrl={p.thumbnailUrl}
                       actionLabel="이어하기"
                       onAction={() => onContinue?.(p.id)}
                     />
@@ -81,6 +82,7 @@ export function MyVideosScreen({
                     key={p.id}
                     productName={p.productName}
                     status={p.status}
+                    thumbnailUrl={p.thumbnailUrl}
                     actionLabel="다시 받기"
                     onAction={() => onDownloadAgain?.(p.id)}
                   />

@@ -131,7 +131,7 @@ export function LoginScreen({
               ))}
             </div>
           ) : (
-            <Mascot src={isExpired ? brand.mascot.lying : brand.mascot.happy} width={150} />
+            <Mascot src={isExpired ? brand.mascot.lying : brand.mascot.happy} />
           )}
 
           <Stack gap={8} align="center">
