@@ -110,6 +110,9 @@ class Settings(BaseSettings):
     hook_worker_claude_model: Optional[str] = None
     hook_render_mode: Literal["video_model", "dry_run"] = "video_model"  # dry_run: 과금 호출 없이 scenario.json·hook.srt 만
     hook_max_sec: float = 20.0
+    # B 반전 장면 끝 "그래서 ~가 뭐냐고요?" 앞뒤 뜸 (초). 0 이면 끈다
+    hook_reveal_pause_sec: float = 0.8
+    hook_reveal_pause_after_sec: float = 0.6
     hook_clip_resolution: str = "720p"
     hook_max_clip_sec_per_hook: int = 45  # 훅 하나에서 영상 모델에 요청하는 클립 길이 합 상한(과금 방어)
     body_max_sec: float = 60.0

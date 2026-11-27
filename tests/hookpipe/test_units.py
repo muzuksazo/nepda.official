@@ -289,6 +289,17 @@ class WorkerConnection(unittest.TestCase):
         self.assertIn("no speech", motion)
         self.assertNotIn("이 문장은", motion)
 
+    def test_reveal_question_is_split_for_a_pause(self) -> None:
+        from hookpipe.render import split_reveal
+
+        self.assertEqual(
+            split_reveal("그런데 물기제거 스펀지는 꾹 짜면 물기를 흡수합니다. 그래서 물기제거 스펀지가 뭐냐고요?"),
+            ("그런데 물기제거 스펀지는 꾹 짜면 물기를 흡수합니다.", "그래서 물기제거 스펀지가 뭐냐고요?"),
+        )
+        self.assertIsNone(split_reveal("그래서 물기제거 스펀지가 뭐냐고요?"))  # 질문만 있으면 나눌 앞부분이 없다
+        self.assertIsNone(split_reveal("그래서 이 원리를 썼습니다."))  # 질문이 아니면 그대로
+        self.assertIsNone(split_reveal(""))
+
     def test_types_run_at_the_same_time(self) -> None:
         import threading
 
