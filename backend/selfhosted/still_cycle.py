@@ -35,12 +35,18 @@ image = modal.Image.from_dockerfile(ROOT / "backend" / "Dockerfile", context_dir
 })
 app = modal.App("napda-still-cycle")
 # 뒤에 둔 Secret 이 같은 이름을 덮는다: 이 실행에서만 글 모델을 Claude 로
-override = modal.Secret.from_dict({"HOOK_WORKER_LLM": "claude-opus-5-5"})
+_override = {"HOOK_WORKER_LLM": "claude-opus-5-5"}
+# STILL_GEMINI_VIA=apikey: Gemini 를 Vertex(WIF) 대신 AI Studio 키로 부른다 (모델 이름이 Vertex 에 없을 때 비교용)
+import os as _os
+
+if _os.environ.get("STILL_GEMINI_VIA", "").strip().lower() == "apikey":
+    _override["GOOGLE_GENAI_USE_VERTEXAI"] = "false"
+override = modal.Secret.from_dict(_override)
 
 
 @app.function(image=image, secrets=[modal.Secret.from_name("napda-backend"), override], cpu=2.0, memory=4096, timeout=3600)
 def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenarios_in: list | None = None,
-          engine: str = "flux") -> dict:
+          engine: str = "flux", fixed_captions: dict | None = None) -> dict:
     import sys as _sys
 
     if "/app" not in _sys.path:
@@ -62,9 +68,11 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
         print(msg, flush=True)
         log.append(msg)
 
-    def still(spec: str, ref_b64: list, captioner: str) -> dict:
+    def still(spec: str, ref_b64: list, captioner: str, name: str = "") -> dict:
+        fixed = (fixed_captions or {}).get(name)
         if engine == "gemini":
-            return gemini_still(spec, ref_b64)
+            # 비교용: FLUX 때 쓴 장면 묘사를 그대로 주면 두 모델의 입력 글자가 같아진다
+            return gemini_still(fixed or spec, ref_b64)
         t = time.time()
         cap = to_flux_caption(spec, provider=captioner, settings=settings)
         t_cap = time.time() - t
@@ -83,10 +91,11 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
         for i, b in enumerate(ref_b64):
             anchors.append(work / f"ref{i}.png")
             anchors[-1].write_bytes(base64.b64decode(b))
-        target = work / "out.png"
+        target = work / "out.jpg"
         t = time.time()
+        # Vertex 의 Gemini 이미지 모델은 결과 형식으로 JPEG 만 받는다 (훅 파이프라인도 JPEG 로 받는다)
         GenAIMediaProvider(settings).generate_reference_image(spec, target, aspect_ratio="9:16", anchor_paths=anchors,
-                                                              skip_existing=False)
+                                                              mime_type="image/jpeg", skip_existing=False)
         return {"caption": spec, "caption_sec": 0.0, "flux_ms": int((time.time() - t) * 1000),
                 "png": base64.b64encode(target.read_bytes()).decode("ascii")}
 
@@ -109,7 +118,7 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
         product_orders = set(product_beat_orders(scenario))
         for captioner in captioners:
             try:
-                ref = still(reference_image_prompt(scenario), [], captioner)
+                ref = still(reference_image_prompt(scenario), [], captioner, "ref")
             except Exception as exc:
                 note(f"[{hook_type}/{captioner}] 대표 컷 실패: {exc}")
                 continue
@@ -120,7 +129,7 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
                 spec = beat_prompt(scenario, beat, i, len(beats), product=product, shows_product=shows,
                                    has_product_reference=use_product, has_style_reference=not use_product)
                 try:
-                    st = still(spec, product_refs if use_product else [ref["png"]], captioner)
+                    st = still(spec, product_refs if use_product else [ref["png"]], captioner, f"beat{i}")
                 except Exception as exc:
                     note(f"[{hook_type}/{captioner}] 장면 {i} 실패: {exc}")
                     continue
@@ -128,6 +137,45 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
                                       "product": use_product, "spec": spec, **st})
             note(f"[{hook_type}/{captioner}] 스틸컷 {1 + len(beats)}장 완료")
     return out
+
+
+@app.function(image=image, secrets=[modal.Secret.from_name("napda-backend"), override], cpu=2.0, memory=4096, timeout=1800)
+def assemble(scenario: dict, product: dict, clips: dict) -> dict:
+    """장면별 클립(이미 만든 것)으로 훅 조립: 나레이션 TTS + 자막 + 소리 맞춤. 영상 모델은 부르지 않는다."""
+    import sys as _sys
+
+    if "/app" not in _sys.path:
+        _sys.path.insert(0, "/app")
+    import copy
+    import tempfile
+
+    from app.config import Settings
+    from app.genai_provider import GenAIMediaProvider
+    from hookpipe.render import render_hook
+    from hookpipe.tts import InworldTts, MediaWithTts
+
+    settings = Settings()
+    work = Path(tempfile.mkdtemp())
+    sc = copy.deepcopy(scenario)
+    for beat in sc.get("beats") or []:
+        data = clips.get(str(beat.get("order")))
+        if data:
+            name = f"clip{beat['order']}.mp4"
+            (work / name).write_bytes(data)
+            beat["prebuilt_clip"] = name
+    media = GenAIMediaProvider(settings)
+    provider = MediaWithTts(media, InworldTts(settings)) if settings.tts_provider == "inworld" else media
+    t = time.time()
+    result = render_hook(sc, product, work / "out", provider=provider, settings=settings, tts_enabled=True,
+                         resolve_asset=lambda ref: work / ref)
+    out_dir = work / "out"
+    return {
+        "hook_mp4": (out_dir / "hook.mp4").read_bytes(),
+        "srt": (out_dir / "hook.srt").read_text(encoding="utf-8") if (out_dir / "hook.srt").exists() else "",
+        "seconds": round(time.time() - t, 1),
+        "duration": getattr(result, "duration_sec", None),
+        "warnings": list(getattr(result, "warnings", []) or []),
+    }
 
 
 def main() -> None:
@@ -139,6 +187,7 @@ def main() -> None:
     ap.add_argument("--captioner", default="claude,gemini", help="FLUX 엔진일 때 장면 묘사 변환기")
     ap.add_argument("--scenario", help="저장된 cycle.json 의 시나리오를 다시 쓴다 (생성 생략)")
     ap.add_argument("--engine", default="flux", choices=["flux", "gemini"], help="스틸컷 이미지 모델")
+    ap.add_argument("--same-captions", help="이 cycle.json 의 장면 묘사(이름별)를 그대로 쓴다 (모델 비교용)")
     args = ap.parse_args()
 
     product = json.loads(Path(args.product).read_text(encoding="utf-8"))
@@ -149,10 +198,16 @@ def main() -> None:
     with modal.enable_output(), app.run():
         given = json.loads(Path(args.scenario).read_text(encoding="utf-8"))["scenarios"] if args.scenario else None
         captioners = ["gemini-image"] if args.engine == "gemini" else [c.strip() for c in args.captioner.split(",") if c.strip()]
+        fixed = None
+        if args.same_captions:
+            prev = json.loads(Path(args.same_captions).read_text(encoding="utf-8"))
+            fixed = {st["name"]: st["caption"] for st in prev["stills"] if st.get("captioner") == "claude"}
         result = cycle.remote(product, [t.strip().upper() for t in args.types.split(",") if t.strip()], refs,
-                              captioners, given, args.engine)
+                              captioners, given, args.engine, fixed)
     for s in result["stills"]:
-        (out / f"{s['type']}_{s['captioner']}_{s['name']}.png").write_bytes(base64.b64decode(s.pop("png")))
+        data = base64.b64decode(s.pop("png"))
+        ext = "jpg" if data.startswith(bytes([0xFF, 0xD8, 0xFF])) else "png"
+        (out / f"{s['type']}_{s['captioner']}_{s['name']}.{ext}").write_bytes(data)
     (out / "cycle.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[끝] 시나리오 {len(result['scenarios'])}개, 스틸컷 {len(result['stills'])}장, 전체 {time.time() - t0:.0f}초 → {out}")
 
