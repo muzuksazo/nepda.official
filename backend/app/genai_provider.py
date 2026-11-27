@@ -8,6 +8,7 @@ and Vertex AI / Workload Identity (`GOOGLE_GENAI_USE_VERTEXAI=true`).
 from __future__ import annotations
 
 import base64
+from contextvars import ContextVar, Token
 import io
 import json
 import mimetypes
@@ -23,6 +24,8 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import httpx
 from google import genai
+from google.auth import exceptions as google_auth_exceptions
+from google.auth import identity_pool
 from google.genai import types
 
 from .config import Settings
@@ -44,12 +47,96 @@ class MediaResult:
     skipped: bool = False
 
 
+_REQUEST_VERCEL_OIDC_TOKEN: ContextVar[Optional[str]] = ContextVar(
+    "_REQUEST_VERCEL_OIDC_TOKEN",
+    default=None,
+)
+
+
+def bind_vercel_oidc_token(token: str) -> Token[Optional[str]]:
+    """Bind a per-request Vercel OIDC JWT (from `x-vercel-oidc-token`) to context."""
+    return _REQUEST_VERCEL_OIDC_TOKEN.set(token.strip())
+
+
+def reset_vercel_oidc_token(reset_token: Token[Optional[str]]) -> None:
+    """Restore the previous request-scoped Vercel OIDC token binding."""
+    _REQUEST_VERCEL_OIDC_TOKEN.reset(reset_token)
+
+
+def get_active_vercel_oidc_token(token_env_var: str = "VERCEL_OIDC_TOKEN") -> Optional[str]:
+    """Return active Vercel OIDC JWT from request context or process environment."""
+    from_ctx = _REQUEST_VERCEL_OIDC_TOKEN.get()
+    if from_ctx:
+        cleaned = from_ctx.strip()
+        if cleaned:
+            return cleaned
+    from_env = os.environ.get(token_env_var, "").strip()
+    return from_env or None
+
+
+class VercelOidcSubjectTokenSupplier(identity_pool.SubjectTokenSupplier):
+    """Supply a Vercel OIDC JWT from request header context or environment for GCP WIF."""
+
+    def __init__(self, token_env_var: str = "VERCEL_OIDC_TOKEN") -> None:
+        self._token_env_var = token_env_var
+
+    def get_subject_token(self, context: Any, request: Any) -> str:
+        """Return the active Vercel OIDC subject token or raise RefreshError."""
+        token = get_active_vercel_oidc_token(self._token_env_var)
+        if not token:
+            raise google_auth_exceptions.RefreshError(
+                f"{self._token_env_var} / x-vercel-oidc-token is not set for GCP WIF exchange."
+            )
+        return token
+
+
+def build_vercel_wif_credentials(
+    provider: str,
+    service_account_email: str,
+    *,
+    token_env_var: str = "VERCEL_OIDC_TOKEN",
+) -> identity_pool.Credentials:
+    """Create identity_pool Credentials exchanging Vercel OIDC tokens via STS."""
+    clean_provider = provider.strip()
+    audience = (
+        clean_provider
+        if clean_provider.startswith("//iam.googleapis.com/")
+        else f"//iam.googleapis.com/{clean_provider.lstrip('/')}"
+    )
+    return identity_pool.Credentials(
+        audience=audience,
+        subject_token_type="urn:ietf:params:oauth:token-type:jwt",
+        token_url="https://sts.googleapis.com/v1/token",
+        subject_token_supplier=VercelOidcSubjectTokenSupplier(token_env_var=token_env_var),
+        service_account_impersonation_url=(
+            "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/"
+            f"{service_account_email.strip()}:generateAccessToken"
+        ),
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+
+
 def build_genai_client(settings: Settings) -> genai.Client:
     """Create a `google.genai.Client` configured for AI Studio or Vertex AI / WIF."""
     if settings.google_genai_use_vertexai:
         if not settings.google_cloud_project:
             raise ValueError(
                 "GOOGLE_CLOUD_PROJECT is required when GOOGLE_GENAI_USE_VERTEXAI=true"
+            )
+        if (
+            settings.gcp_workload_identity_provider
+            and settings.gcp_service_account_email
+            and get_active_vercel_oidc_token()
+        ):
+            creds = build_vercel_wif_credentials(
+                settings.gcp_workload_identity_provider,
+                settings.gcp_service_account_email,
+            )
+            return genai.Client(
+                vertexai=True,
+                project=settings.google_cloud_project,
+                location=settings.google_cloud_location,
+                credentials=creds,
             )
         return genai.Client(
             vertexai=True,
@@ -61,6 +148,26 @@ def build_genai_client(settings: Settings) -> genai.Client:
             "GEMINI_API_KEY is required unless GOOGLE_GENAI_USE_VERTEXAI=true"
         )
     return genai.Client(api_key=settings.gemini_api_key)
+
+
+def _sanitize_gcp_label_value(raw: str) -> str:
+    """Normalize a string to a valid GCP billing label value (`[a-z0-9_-]`, <=63 chars)."""
+    cleaned = re.sub(r"[^a-z0-9_-]+", "-", raw.strip().lower()).strip("-_")
+    return cleaned[:63]
+
+
+def _vertex_request_labels(settings: Settings, component: str) -> Optional[Dict[str, str]]:
+    """Return GCP billing labels when running on Vertex AI, else None for AI Studio."""
+    if not settings.google_genai_use_vertexai:
+        return None
+    app_label = _sanitize_gcp_label_value(settings.gcp_billing_app_label or "")
+    if not app_label:
+        return None
+    labels: Dict[str, str] = {"app": app_label}
+    comp_label = _sanitize_gcp_label_value(component)
+    if comp_label:
+        labels["component"] = comp_label
+    return labels
 
 
 def _require_interactions(client: Any) -> Any:
@@ -341,6 +448,7 @@ class GenAIMediaProvider:
                         prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=chosen_voice)
                     )
                 ),
+                labels=_vertex_request_labels(self.settings, "tts"),
             ),
         )
 
@@ -416,6 +524,7 @@ class GenAIMediaProvider:
             config=types.GenerateContentConfig(
                 system_instruction=system_note,
                 response_mime_type="application/json",
+                labels=_vertex_request_labels(self.settings, "planner"),
             ),
         )
         raw_text = (getattr(resp, "text", None) or "").strip()

@@ -18,7 +18,11 @@ from pydantic import BaseModel, Field
 
 from .auth import SESSION_COOKIE_NAME, AuthenticationError, verify_session_token
 from .config import Settings
-from .genai_provider import GenAIMediaProvider
+from .genai_provider import (
+    GenAIMediaProvider,
+    bind_vercel_oidc_token,
+    reset_vercel_oidc_token,
+)
 from .media_delivery import sanitize_object_key
 from .paddle_billing import PaddleApiClient
 from .pipeline import CampaignRequest, ProductionPipeline
@@ -102,6 +106,18 @@ def create_app(
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+    @app.middleware("http")
+    async def _capture_vercel_oidc_token(request: Request, call_next):
+        oidc_token = request.headers.get("x-vercel-oidc-token", "").strip()
+        if not oidc_token:
+            return await call_next(request)
+        reset_tok = bind_vercel_oidc_token(oidc_token)
+        try:
+            return await call_next(request)
+        finally:
+            reset_vercel_oidc_token(reset_tok)
+
     app.state.settings = cfg
     app.state.store = job_store
     app.state.project_store = proj_store
