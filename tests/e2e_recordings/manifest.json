@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-11-28",
-  "commit": "c2da863",
+  "commit": "942b9b8",
   "repoUrl": "https://github.com/muzuksazo/nepda.official",
   "planDocPath": "tests/E2E_TEST_PLAN.md",
   "overviewImage": "./recordings/e2e_features_overview.png",
@@ -267,13 +267,26 @@
     {
       "id": "E2E-P03",
       "domain": "auth",
-      "title": "실서버 실계정 Google One Tap 로그인 & 세션 쿠키 유지",
+      "title": "실서버 실계정 Google 로그인 & 세션 쿠키 유지",
       "owner": "me",
       "env": "live",
-      "status": "todo",
+      "status": "pass",
       "fr": "Auth",
-      "expectedVideo": "08_live_google_auth.mp4",
-      "checks": ["실제 Google 계정으로 https://napda.vercel.app 로그인 후 새로고침 세션 유지"]
+      "durationSec": 9.2,
+      "sizeKb": 83,
+      "video": "./recordings/08_live_google_auth.mp4",
+      "poster": "./recordings/shots/08_live_google_auth/04_live_profile_session.webp",
+      "screenshots": [
+        { "label": "실서버 Google 로그인", "src": "./recordings/shots/08_live_google_auth/01_live_google_login.webp" },
+        { "label": "실서버 로그인 홈", "src": "./recordings/shots/08_live_google_auth/02_live_signed_in_home.webp" },
+        { "label": "새로고침 세션 유지", "src": "./recordings/shots/08_live_google_auth/03_live_reload_persisted.webp" },
+        { "label": "실서버 프로필 세션", "src": "./recordings/shots/08_live_google_auth/04_live_profile_session.webp" }
+      ],
+      "checks": [
+        "https://napda.vercel.app 온보딩 → GIS Google 버튼(accounts.google.com) 실계정 로그인 → POST /v1/auth/google 200 및 홈 진입 (432×932 모바일 뷰포트)",
+        "전체 페이지 새로고침(Full Reload) 후에도 napda_session Secure HTTPS 쿠키 세션 유지(홈 로그인 상태 유지)",
+        "프로필 화면에서 실계정(구글 계정 · 크레딧 0 · 7일 보관 안내) 정상 렌더링 확인 (공개 대시보드용 개인 이메일 마스킹 적용)"
+      ]
     },
     {
       "id": "E2E-P05",
@@ -284,7 +297,10 @@
       "status": "todo",
       "fr": "FR-006",
       "expectedVideo": "10_live_paddle_checkout.mp4",
-      "checks": ["실계정 로그인 상태에서 테스트 카드로 결제 완료 후 실웹훅/잔액 증가 확인"]
+      "checks": [
+        "실계정 로그인 상태에서 테스트 카드로 결제 완료 후 실웹훅/잔액 증가 확인",
+        "실서버 환경 변수 대기(Blocker): frontend/vercel.json 리라이트 대상(dltldn333--napda-backend-api.modal.run)의 Modal Secret(napda-backend)에 PADDLE_* 환경변수 미설정 → GET /v1/billing/config enabled:false(client_token/paddle_price_id null) · POST /v1/billing/checkout HTTP 503"
+      ]
     },
     {
       "id": "E2E-ABC-B",

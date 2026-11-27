@@ -1,7 +1,7 @@
 # NAPDA Full-Stack E2E 테스트 계획 및 3인 개발자 분배표
 
 > **E2E 영상 & 도메인별 스크린샷 대시보드**: https://muzuksazo.github.io/nepda.official/ · [사용/업로드 가이드](./e2e_dashboard/README.md)  
-> 최종 업데이트: 2026-11-28 (`origin/main` @ `c2da863` + Round 3 Thumbnail SSOT 통일·안전 영역·24자 자동 축소·Storybook Figma 4종 Pillow 커버 반영)  
+> 최종 업데이트: 2026-11-28 (`origin/main` @ `942b9b8` + `E2E-P03` 실서버 실계정 Google 로그인·세션 쿠키 유지 통과 반영)  
 > 대상 서비스: `frontend/` (React 19 + Vite) ↔ `backend/` (FastAPI) ↔ `libraries/planner-api` (Node) ↔ `libraries/media-tools` (FFmpeg / Pillow)  
 > 3인 편성: **나** (**A안**) · **시우님** (**B안**, `FR-003, FR-004, FR-005, FR-010` 전담) · **상윤님** (**C안**)
 
@@ -67,9 +67,9 @@
 |---|---|---|---|
 | **E2E-P01** | 공개 페이지 & 프론트-백엔드 리라이트 | `GET https://napda.vercel.app/health` (`200`, `status: "ok"`), `/privacy.html` (`200`), `/` 온보딩 렌더, 콘솔 `pageerror`·`5xx` 0건 | **현재 통과** (`07_live_prod_smoke.mp4`) |
 | **E2E-P02** | 프로덕션 Billing Config & 미인증 가드 | `GET /v1/billing/config` (`enabled: true`, `sandbox`, `c30/c100/c300`), `GET /v1/auth/me` (`401`) | **현재 통과** (`07_live_prod_smoke.mp4`) |
-| **E2E-P03** | 실계정 Google One Tap 로그인 & 세션 쿠키 | `https://napda.vercel.app`에서 실제 Google 로그인 → `POST /v1/auth/google` `200` + `napda_session` Secure/HTTPS 쿠키 유지 → 새로고침 후 로그인 유지 확인 | QA 계정 반자동 녹화 (`08_live_google_auth.mp4`) |
+| **E2E-P03** | 실계정 Google One Tap 로그인 & 세션 쿠키 | `https://napda.vercel.app`에서 실제 Google 로그인 → `POST /v1/auth/google` `200` + `napda_session` Secure/HTTPS 쿠키 유지 → 새로고침 후 로그인 유지 확인 | **현재 통과** (`08_live_google_auth.mp4`) |
 | **E2E-P04** | 실서버 UI 탐색 · 반응형 · 다크모드 | 로그인 후 `Home` / `MyVideos` / `Community` / `Profile` 실응답 전환, 모바일(`432×932`)·데스크톱 깨짐 0건 | `09_live_ui_navigation.mp4` |
-| **E2E-P05** | 실서버 Paddle Sandbox 결제 E2E | `충전하기` → `POST /v1/billing/checkout` → Paddle Sandbox 테스트 카드(`4242...`) 결제 → Paddle 서버 실웹훅 → `GET /v1/billing/orders/{id}?sync=true` → 잔액 증가 확인 | `10_live_paddle_checkout.mp4` |
+| **E2E-P05** | 실서버 Paddle Sandbox 결제 E2E | `충전하기` → `POST /v1/billing/checkout` → Paddle Sandbox 테스트 카드(`4242...`) 결제 → Paddle 서버 실웹훅 → `GET /v1/billing/orders/{id}?sync=true` → 잔액 증가 확인 | `dltldn333--napda-backend-api.modal.run` Modal Secret(`napda-backend`) `PADDLE_*` 미설정으로 보류 (`enabled: false`, `POST /checkout` `503`) |
 | **E2E-P06** | 웹훅 HMAC 서명 보안 검증 | 무서명/변조 요청 `POST https://napda-api.vercel.app/v1/billing/webhooks/paddle` → `401 INVALID_WEBHOOK_SIGNATURE`, 정상 서명 → `200` | 자동 검증 스크립트 |
 | **E2E-P07** | GitHub Actions CI/CD 자동 배포 게이트 | `.github/workflows/ci.yml` + `cd-backend.yml` 푸시 시 자동 테스트·`napda-api` 배포·스모크 체크 통과 | CI/CD 로그 |
 | **E2E-P08a** | 실서버 AI/플래너 기획·생성 API 연동 (**시우님**) | 실배포 서버 환경(`VERTEX_AI` / `GEMINI_API_KEY` / `planner-api`)에서 `FR-003~005, FR-010` 기획·이미지·영상 생성 엔드포인트 스모크 | 실키 연동 후 검증 |
@@ -120,7 +120,7 @@ npm --prefix frontend run lint && npm --prefix frontend run build
 
 ---
 
-## 5. 최신 실행 결과 기록 (2026-11-28 `c2da863` + Round 3 Thumbnail SSOT 통일 기준 · 6개 도메인 28장 스크린샷)
+## 5. 최신 실행 결과 기록 (2026-11-28 `942b9b8` + `E2E-P03` 실서버 Google 로그인 반영 · 6개 도메인 32장 스크린샷)
 
 ![E2E 8개 기능 녹화 요약](./e2e_recordings/e2e_features_overview.png)
 
@@ -134,7 +134,8 @@ npm --prefix frontend run lint && npm --prefix frontend run build
 | [`abc_A_hook_e2e.mp4`](./e2e_recordings/abc_A_hook_e2e.mp4) (**나 담당 A안**) | 영상 제작 · 8단계 위저드 | Local (`:15175` → `:18082` + Track A) | `63.76s` / 780 KB / 9장 | **PASS** | 실제 앱 8단계 완주: `제품 정보` → `A 유형`(`시안 없이 냅다 만들기` 왕복 검증) → 3D 도미노 1:1 정렬 `시나리오`·**`4/8 그림 콘티`**(4컷 `/v1/media/` 실이미지) → `촬영 가이드` → `pva_sponge_demo.mp4` 업로드 → `GeneratingScreen` → Track A 실렌더(`7/8 영상 확인` `<video>`·MP4 `200`) → `8/8` Storybook Figma 4종 SSOT 클린 키프레임 + `안전 영역 보기` 토글 + 24자 한글 자동 축소(무오버플로) + `white-label` PNG(`>10KB`) + `탐색에도 올리기`(`PATCH /publish`) 영속성 검증 |
 | [`06_local_logout.mp4`](./e2e_recordings/06_local_logout.mp4) | 인증 · 온보딩 | Local (`:15175` → `:18082`) | `10.72s` / 176 KB / 3장 | **PASS** | `POST /v1/auth/logout` `204` → `로그인이 풀렸어요` → 홈 온보딩 복귀 |
 | [`07_live_prod_smoke.mp4`](./e2e_recordings/07_live_prod_smoke.mp4) | 실서버 배포 스모크 | Live (`https://napda.vercel.app`) | `19.92s` / 111 KB / 2장 | **PASS** | `/health` `200`(`status: ok`), `/v1/billing/config` `200`(`paddle`/`sandbox`, 3종), `/v1/auth/me` `401`, `/privacy.html` `200`, `/` 온보딩 정상 |
+| [`08_live_google_auth.mp4`](./e2e_recordings/08_live_google_auth.mp4) | 인증 · 온보딩 | Live (`https://napda.vercel.app`) | `9.20s` / 83 KB / 4장 | **PASS** | 실제 Google 계정 GIS 로그인(`POST /v1/auth/google` `200`, `432×932`) → 홈 진입 → 전체 새로고침 후 `napda_session` Secure HTTPS 쿠키 세션 유지 + 프로필(`구글 계정`·`크레딧 0`·개인 이메일 마스킹) 정상 |
 | `E2E-P06` (API 보안 검증) | 결제 · 크레딧 (Paddle) | Live (`https://napda-api.vercel.app`) | — | **PASS** | 무서명 `401`, 변조 서명 `401`, 정상 HMAC-SHA256 `200` (`received: true`, `credited: false`) |
 
-- **오프라인 테스트 현황 (`c2da863` + Round 3 SSOT 기준)**: Python `delivery` **7/7** · `integration` **2/2** · `infrastructure` **13/13** 통과 (24자 한글 자동 축소·4종 Figma SSOT 안전 영역 검증 포함), Node **7/7 통과**, Frontend `oxlint` 0 error & `vite build` 통과 (`SAMPLE_*` 누수 0건).
-- **남은 실서버 대화형 QA (실계정 Google 로그인 필요)**: `E2E-P03` (실계정 Google 로그인/쿠키 유지), `E2E-P05` (실서버 Paddle Sandbox 테스트 카드 결제).
+- **오프라인 테스트 현황 (`942b9b8` 기준)**: Python `delivery` **7/7** · `integration` **2/2** · `infrastructure` **13/13** 통과 (24자 한글 자동 축소·4종 Figma SSOT 안전 영역 검증 포함), Node **7/7 통과**, Frontend `oxlint` 0 error & `vite build` 통과 (`SAMPLE_*` 누수 0건).
+- **남은 실서버 대화형 QA 상태**: `E2E-P03` (실계정 Google 로그인/새로고침 세션 유지) **PASS** · `E2E-P05` (실서버 Paddle Sandbox 테스트 카드 결제)는 `frontend/vercel.json` 리라이트 대상(`dltldn333--napda-backend-api.modal.run`)의 Modal Secret(`napda-backend`)에 `PADDLE_*` 환경변수가 누락되어 `GET /v1/billing/config` `enabled: false`(`client_token`/`paddle_price_id` `null`) 및 `POST /v1/billing/checkout` HTTP `503`을 반환하므로 실서버 Paddle 시크릿 설정 후 재실행 대기 중.
