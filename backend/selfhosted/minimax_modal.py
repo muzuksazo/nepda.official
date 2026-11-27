@@ -101,18 +101,38 @@ def _call(path: str, body: dict | None = None) -> dict:
         return json.loads(r.read() or b"{}")
 
 
-@app.function(gpu="H100", volumes={str(MODELS): models}, memory=65536, timeout=3600)
-def render(image_bytes: bytes, prompt: str, width: int, height: int, length: int, steps: int, seed: int) -> bytes:
-    _link_models()
-    comfy = Path(str(COMFY))
-    (comfy / "input").mkdir(exist_ok=True)
-    (comfy / "input" / "first.png").write_bytes(image_bytes)
-    t0 = time.time()
-    log = open("/tmp/comfy.log", "w")
-    proc = subprocess.Popen(["python", "main.py", "--listen", "127.0.0.1", "--port", "8188"], cwd=str(COMFY), stdout=log, stderr=subprocess.STDOUT)
-    try:
+def _wait_prompt(pid: str, proc: "subprocess.Popen") -> None:
+    while True:
+        hist = _call(f"/history/{pid}")
+        if pid in hist:
+            status = hist[pid].get("status", {})
+            if status.get("status_str") == "error":
+                raise RuntimeError(f"생성 실패: {json.dumps(status.get('messages'), ensure_ascii=False)[-3000:]}")
+            if status.get("completed"):
+                return
+        if proc.poll() is not None:
+            raise RuntimeError("ComfyUI 가 종료됨: " + Path("/tmp/comfy.log").read_text()[-3000:])
+        time.sleep(2)
+
+
+# 서비스 형태: 컨테이너가 뜰 때 ComfyUI 를 한 번 띄우고, 첫 생성 때 올라간 모델(약 40GB)을 다음 요청에 그대로 쓴다.
+# 콘티 확인 화면이 뜨면 warm 으로 미리 켜 두고, 확인 뒤 render 로 바로 만든다 (2026-11-27: 클립마다 적재 1분+).
+@app.cls(gpu="H100", volumes={str(MODELS): models}, memory=65536, timeout=1800, scaledown_window=180, max_containers=4)
+class MiniMax:
+    @modal.enter()
+    def start(self) -> None:
+        import uuid as _uuid
+
+        self._uuid = _uuid
+        _link_models()
+        self.comfy = Path(str(COMFY))
+        (self.comfy / "input").mkdir(exist_ok=True)
+        t0 = time.time()
+        log = open("/tmp/comfy.log", "w")
+        self.proc = subprocess.Popen(["python", "main.py", "--listen", "127.0.0.1", "--port", "8188"],
+                                     cwd=str(self.comfy), stdout=log, stderr=subprocess.STDOUT)
         for _ in range(600):
-            if proc.poll() is not None:
+            if self.proc.poll() is not None:
                 raise RuntimeError("ComfyUI 가 시작하지 못함: " + Path("/tmp/comfy.log").read_text()[-3000:])
             try:
                 _call("/system_stats")
@@ -121,29 +141,52 @@ def render(image_bytes: bytes, prompt: str, width: int, height: int, length: int
                 time.sleep(1)
         else:
             raise RuntimeError("ComfyUI 가 10분 안에 뜨지 않음")
+        self.warmed = False
         print(f"[ComfyUI 준비] {time.time() - t0:.0f}초", flush=True)
+
+    def _run(self, image_bytes: bytes, prompt: str, width: int, height: int, length: int, steps: int, seed: int) -> bytes:
+        tag = self._uuid.uuid4().hex[:10]
+        name = f"first_{tag}.png"
+        (self.comfy / "input" / name).write_bytes(image_bytes)
+        graph = _graph(name, prompt, width, height, length, steps, seed)
+        graph["15"]["inputs"]["filename_prefix"] = f"napda/{tag}"
         try:
-            pid = _call("/prompt", {"prompt": _graph("first.png", prompt, width, height, length, steps, seed)})["prompt_id"]
+            pid = _call("/prompt", {"prompt": graph})["prompt_id"]
         except urllib.error.HTTPError as exc:
             raise RuntimeError(f"그래프 거절: {exc.read().decode()[:3000]}") from exc
-        t1 = time.time()
-        while True:
-            hist = _call(f"/history/{pid}")
-            if pid in hist:
-                status = hist[pid].get("status", {})
-                if status.get("status_str") == "error":
-                    raise RuntimeError(f"생성 실패: {json.dumps(status.get('messages'), ensure_ascii=False)[-3000:]}")
-                if status.get("completed"):
-                    break
-            if proc.poll() is not None:
-                raise RuntimeError("ComfyUI 가 종료됨: " + Path("/tmp/comfy.log").read_text()[-3000:])
-            time.sleep(3)
-        print(f"[생성] {time.time() - t1:.0f}초 (모델 적재 포함)", flush=True)
-        outs = [p for p in (comfy / "output" / "napda").glob("clip*.mp4")]
-        return max(outs, key=lambda p: p.stat().st_mtime).read_bytes()
-    finally:
-        print(Path("/tmp/comfy.log").read_text()[-2500:], flush=True)
-        proc.terminate()
+        _wait_prompt(pid, self.proc)
+        outs = list((self.comfy / "output" / "napda").glob(f"{tag}*.mp4"))
+        if not outs:
+            raise RuntimeError("결과 영상이 없습니다: " + Path("/tmp/comfy.log").read_text()[-2000:])
+        return outs[0].read_bytes()
+
+    @modal.method()
+    def warm(self, _slot: int = 0) -> float:
+        """모델을 GPU 에 올려 둔다: 아주 작은 영상을 1단계로 한 번 만든다 (몇 초)."""
+        t = time.time()
+        if not self.warmed:
+            import io
+
+            from PIL import Image
+
+            buf = io.BytesIO()
+            Image.new("RGB", (256, 448), (128, 128, 128)).save(buf, format="PNG")
+            self._run(buf.getvalue(), "A grey wall, gentle light.", 256, 448, 5, 1, 1)
+            self.warmed = True
+        return round(time.time() - t, 1)
+
+    @modal.method()
+    def render(self, image_bytes: bytes, prompt: str, width: int, height: int, length: int, steps: int, seed: int) -> bytes:
+        t = time.time()
+        data = self._run(image_bytes, prompt, width, height, length, steps, seed)
+        self.warmed = True
+        print(f"[생성] {time.time() - t:.0f}초", flush=True)
+        return data
+
+    @modal.exit()
+    def stop(self) -> None:
+        if getattr(self, "proc", None) is not None:
+            self.proc.terminate()
 
 
 @app.local_entrypoint()
@@ -152,6 +195,6 @@ def generate(image: str, prompt: str, out: str = "minimax_clip.mp4", width: int 
     frames = max(5, round(seconds * 24))
     length = frames + (5 - frames % 17) % 17  # 템플릿과 같은 17k+5 규칙
     t0 = time.time()
-    data = render.remote(Path(image).read_bytes(), prompt, width, height, length, steps, seed)
+    data = MiniMax().render.remote(Path(image).read_bytes(), prompt, width, height, length, steps, seed)
     Path(out).write_bytes(data)
     print(f"[끝] {out} {len(data) / 1e6:.1f}MB 프레임={length} 전체 {time.time() - t0:.0f}초")

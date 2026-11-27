@@ -100,7 +100,7 @@ def main() -> None:
 
     t1 = time.time()
     with modal.enable_output(), minimax_modal.app.run():
-        clips = list(minimax_modal.render.starmap(calls))
+        clips = list(minimax_modal.MiniMax().render.starmap(calls))
     for plan, data in zip(plans, clips):
         (out / f"beat{plan['order']}.mp4").write_bytes(data)
     print(f"[클립] {len(clips)}개 {time.time() - t1:.0f}초 (전체 {time.time() - t0:.0f}초) → {out}", flush=True)

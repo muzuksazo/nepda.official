@@ -17,7 +17,9 @@ import base64
 import json
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 import modal
 
@@ -79,13 +81,18 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
     STYLE_REF_LEAD = ("Use the reference image only for the character design, colors and materials. "
                       "Build a completely new composition, pose, setting detail and camera angle as described: ")
 
-    def still(spec: str, ref_b64: list, captioner: str, name: str = "", style_ref: bool = False) -> dict:
+    def still(spec: str, ref_b64: list, captioner: str, name: str = "", style_ref: bool = False,
+              caption: Any = None) -> dict:
+        """caption: 미리 부른 묘사(Future 또는 문자열). 없으면 여기서 부른다."""
         fixed = (fixed_captions or {}).get(name)
         if engine == "gemini":
             # 비교용: FLUX 때 쓴 장면 묘사를 그대로 주면 두 모델의 입력 글자가 같아진다
             return gemini_still(fixed or spec, ref_b64)
         t = time.time()
-        cap = to_flux_caption(spec, provider=captioner, settings=settings)
+        if caption is None:
+            cap = to_flux_caption(spec, provider=captioner, settings=settings)
+        else:
+            cap = caption.result() if hasattr(caption, "result") else str(caption)
         if style_ref:
             cap = STYLE_REF_LEAD + cap
         t_cap = time.time() - t
@@ -129,35 +136,49 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
         note(f"[{hook_type}] 시나리오 {time.time() - t0:.0f}초: {scenario.get('hook_title')}")
         beats = ordered_beats(scenario)
         product_orders = set(product_beat_orders(scenario))
+        # 장면 프롬프트는 대표 컷 그림과 상관없이 정해진다 → Claude 묘사를 처음부터 한꺼번에 부른다
+        plans_ = []
+        for i, beat in enumerate(beats, start=1):
+            shows = int(beat.get("order") or 0) in product_orders
+            use_product = shows and bool(product_refs)
+            spec = beat_prompt(scenario, beat, i, len(beats), product=product, shows_product=shows,
+                               has_product_reference=use_product, has_style_reference=not use_product)
+            # 컷마다 달라 보이게: 장면 순서마다 촬영 크기를 다르게 배정한다 (4장면이 같은 그림처럼 보였다, 2026-11-27)
+            spec += "\nSHOT SIZE: " + (SHOT_PRODUCT if use_product else SHOT_PLAN[(i - 1) % len(SHOT_PLAN)])
+            plans_.append((i, use_product, spec))
         for captioner in captioners:
-            try:
-                ref = still(reference_image_prompt(scenario), [], captioner, "ref")
-            except Exception as exc:
-                note(f"[{hook_type}/{captioner}] 대표 컷 실패: {exc}")
-                continue
-            out["stills"].append({"type": hook_type, "captioner": captioner, "name": "ref", **ref})
-            for i, beat in enumerate(beats, start=1):
-                shows = int(beat.get("order") or 0) in product_orders
-                use_product = shows and bool(product_refs)
-                spec = beat_prompt(scenario, beat, i, len(beats), product=product, shows_product=shows,
-                                   has_product_reference=use_product, has_style_reference=not use_product)
-                # 컷마다 달라 보이게: 장면 순서마다 촬영 크기를 다르게 배정한다 (4장면이 같은 그림처럼 보였다, 2026-11-27)
-                spec += "\nSHOT SIZE: " + (SHOT_PRODUCT if use_product else SHOT_PLAN[(i - 1) % len(SHOT_PLAN)])
+            t1 = time.time()
+            with ThreadPoolExecutor(max_workers=12, thread_name_prefix="caption") as pool:
+                flux_mode = engine == "flux"
+                ref_cap = pool.submit(to_flux_caption, reference_image_prompt(scenario), provider=captioner,
+                                      settings=settings) if flux_mode else None
+                caps = {i: pool.submit(to_flux_caption, spec, provider=captioner, settings=settings)
+                        for i, _, spec in plans_} if flux_mode else {}
+                # 영상(MiniMax)용 움직임 묘사: 영어만, 글자를 부르는 말 없이 (Claude)
+                motions = {i: pool.submit(motion_prompt_for_video, spec) for i, _, spec in plans_} if flux_mode else {}
+                # 그림은 켜진 GPU 한 대에서 순서대로 (동시에 부르면 GPU 를 새로 켜서 더 느리고 비싸다)
                 try:
-                    st = still(spec, product_refs if use_product else [ref["png"]], captioner, f"beat{i}",
-                               style_ref=not use_product)
-                    # 영상(MiniMax)용 움직임 묘사: 영어만, 글자를 부르는 말 없이 (Claude)
-                    st["motion"] = motion_prompt_for_video(spec) if engine == "flux" else ""
+                    ref = still(reference_image_prompt(scenario), [], captioner, "ref", caption=ref_cap)
                 except Exception as exc:
-                    note(f"[{hook_type}/{captioner}] 장면 {i} 실패: {exc}")
+                    note(f"[{hook_type}/{captioner}] 대표 컷 실패: {exc}")
                     continue
-                out["stills"].append({"type": hook_type, "captioner": captioner, "name": f"beat{i}",
-                                      "product": use_product, "spec": spec, **st})
-            note(f"[{hook_type}/{captioner}] 스틸컷 {1 + len(beats)}장 완료")
+                out["stills"].append({"type": hook_type, "captioner": captioner, "name": "ref", **ref})
+                for i, use_product, spec in plans_:
+                    try:
+                        st = still(spec, product_refs if use_product else [ref["png"]], captioner, f"beat{i}",
+                                   style_ref=not use_product, caption=caps.get(i))
+                        st["motion"] = motions[i].result() if i in motions else ""
+                    except Exception as exc:
+                        note(f"[{hook_type}/{captioner}] 장면 {i} 실패: {exc}")
+                        continue
+                    out["stills"].append({"type": hook_type, "captioner": captioner, "name": f"beat{i}",
+                                          "product": use_product, "spec": spec, **st})
+            note(f"[{hook_type}/{captioner}] 스틸컷 {1 + len(beats)}장 완료 {time.time() - t1:.0f}초")
     return out
 
 
-@app.function(image=image, secrets=[modal.Secret.from_name("napda-backend"), override], cpu=2.0, memory=4096, timeout=1800)
+# 조립은 1080x1920 인코딩이 대부분이라 CPU 를 늘린다 (2코어에서 2분 걸렸다)
+@app.function(image=image, secrets=[modal.Secret.from_name("napda-backend"), override], cpu=8.0, memory=8192, timeout=1800)
 def assemble(scenario: dict, product: dict, clips: dict) -> dict:
     """장면별 클립(이미 만든 것)으로 훅 조립: 나레이션 TTS + 자막 + 소리 맞춤. 영상 모델은 부르지 않는다."""
     import sys as _sys

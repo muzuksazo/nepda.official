@@ -69,7 +69,8 @@ def main() -> None:
     (out / "prompts.json").write_text(json.dumps(
         {s["name"]: {"frame": s.get("caption"), "motion": s.get("motion")} for s in result["stills"]},
         ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[스틸컷] {len(stills)}장 {time.time() - t0:.0f}초", flush=True)
+    phase1 = time.time() - t0
+    print(f"[스틸컷] {len(stills)}장 {phase1:.0f}초  ← ① 시나리오→콘티 (사용자가 기다리는 구간)", flush=True)
 
     # 3) 장면 클립 (장면마다 컨테이너가 동시에)
     beats = sorted(scenario["beats"], key=lambda b: int(b.get("order") or 0))
@@ -83,14 +84,20 @@ def main() -> None:
         motion = st.get("motion") or motion_from(st["spec"])
         calls.append((base64.b64decode(st["png"]), motion, CLIP_W, CLIP_H, frames_for(seconds), 20, 1))
         orders.append(int(beat.get("order") or i))
-    t1 = time.time()
     with minimax_modal.app.run():
-        clip_bytes = list(minimax_modal.render.starmap(calls))
+        service = minimax_modal.MiniMax()
+        # 실제 서비스에서는 콘티 확인 화면이 뜰 때 미리 켠다 (생성은 확인 뒤). 여기서는 바로 이어서 잰다
+        tw = time.time()
+        warm = list(service.warm.map(range(len(calls))))
+        print(f"[미리 켜기] GPU {len(warm)}대 {time.time() - tw:.0f}초 (확인하는 동안 일어나는 구간)", flush=True)
+        t1 = time.time()
+        clip_bytes = list(service.render.starmap(calls))
     clips = {}
     for order, data in zip(orders, clip_bytes):
         (out / f"clip{order}.mp4").write_bytes(data)
         clips[str(order)] = data
-    print(f"[클립] {len(clips)}개 {time.time() - t1:.0f}초", flush=True)
+    t_clips = time.time() - t1
+    print(f"[클립] {len(clips)}개 {t_clips:.0f}초", flush=True)
 
     # 4) 나레이션·자막 조립 (서버 훅 조립 코드)
     t2 = time.time()
@@ -98,8 +105,10 @@ def main() -> None:
         hook = still_cycle.assemble.remote(scenario, product, clips)
     (out / "hook.mp4").write_bytes(hook["hook_mp4"])
     (out / "hook.srt").write_text(hook["srt"], encoding="utf-8")
-    print(f"[조립] {hook['duration']}초짜리 훅, {time.time() - t2:.0f}초, 경고={hook['warnings']}", flush=True)
-    print(f"[끝] 전체 {time.time() - t0:.0f}초 → {out / 'hook.mp4'}", flush=True)
+    t_asm = time.time() - t2
+    print(f"[조립] {hook['duration']}초짜리 훅, {t_asm:.0f}초, 경고={hook['warnings']}", flush=True)
+    print(f"[끝] ① {phase1:.0f}초 + ② {t_clips + t_asm:.0f}초 (클립 {t_clips:.0f} + 조립 {t_asm:.0f}), "
+          f"전체 {time.time() - t0:.0f}초 → {out / 'hook.mp4'}", flush=True)
 
 
 if __name__ == "__main__":
