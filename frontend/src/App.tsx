@@ -37,14 +37,21 @@ import {
 import { GoogleSignInButton, useAuth } from './auth';
 import { openPaddleCheckout } from './billing';
 import { NapdaProvider, type ThemeSetting } from './ui/NapdaProvider';
-import type { CreditPackage, NavTab } from './ui/components';
+import type { CreditPackage, NavTab, ShareHandlers, VideoComment } from './ui/components';
 import {
   ChargeResultScreen,
   CommunityScreen,
+  CommunityViewerScreen,
+  CreatorProfileScreen,
   CreditChargeScreen,
+  CreditHistoryScreen,
+  GeneratingScreen,
   HomeScreen,
   HookTypeScreen,
+  LoginScreen,
   MyVideosScreen,
+  NicknameScreen,
+  NotificationsScreen,
   OnboardingScreen,
   ProductInfoScreen,
   ProfileScreen,
@@ -54,21 +61,30 @@ import {
   ThumbnailDownloadScreen,
   UploadVideoScreen,
   VideoReviewScreen,
+  type AppNotification,
   type CompletedProject,
+  type CreditEntry,
   type HookType,
   type InProgressProject,
   type MyVideosTab,
+  type NicknameScreenProps,
   type ProductInfo,
 } from './ui/screens';
 import type { GuideScene } from './ui/screens/ShootingGuideScreen';
 import type { StoryboardScene } from './ui/screens/StoryboardScreen';
 import {
   SAMPLE_BANNERS,
+  SAMPLE_COMMENTS,
   SAMPLE_COMMUNITY,
+  SAMPLE_CREDIT_EXPIRING,
+  SAMPLE_CREDIT_HISTORY,
   SAMPLE_CREDIT_PACKAGES,
   SAMPLE_CREDITS_PER_VIDEO,
+  SAMPLE_LOGIN_SHOWCASE,
+  SAMPLE_NOTIFICATIONS,
   SAMPLE_THUMBNAIL_TEMPLATES,
   filterCommunityByType,
+  sampleCreator,
 } from './ui/screens/sampleProjects';
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
@@ -167,16 +183,37 @@ function triggerFileDownload(url: string, filename: string): void {
   document.body.removeChild(a);
 }
 
-const STAGE_LABEL_KO: Record<string, string> = {
-  QUEUED: '작업 대기열에 올렸어요…',
-  ANALYZING: '올린 영상의 길이와 구도를 분석하고 있어요…',
-  PLANNING: '템플릿 훅과 한국어 내레이션을 맞추고 있어요…',
-  LINTING: '광고 품질과 자막 규칙을 점검하고 있어요…',
-  GENERATING: '오디오와 영상 소스를 준비하고 있어요…',
-  ASSEMBLING: '훅 템플릿과 본편 영상을 깔끔하게 이어 붙이고 있어요…',
-};
+function buildShareHandlers(): ShareHandlers {
+  const shareUrlOf = (id: string) => `${window.location.origin}/v/${id}`;
+  return {
+    shareUrlOf,
+    canShareNative: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
+    onShareNative: (id) => {
+      navigator.share?.({ title: '냅다로 만든 릴스 광고', url: shareUrlOf(id) }).catch(() => undefined);
+    },
+    onCopyLink: (id) => {
+      navigator.clipboard?.writeText(shareUrlOf(id)).catch(() => undefined);
+    },
+  };
+}
 
-type ChargeFrom = 'home' | 'profile' | 'upload';
+function getStorageFlag(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function setStorageFlag(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage quota errors in restricted browsers.
+  }
+}
+
+type ChargeFrom = 'home' | 'profile' | 'upload' | 'creditHistory';
 type CreationStep =
   | 'product'
   | 'hook'
@@ -184,16 +221,44 @@ type CreationStep =
   | 'storyboard'
   | 'guide'
   | 'upload'
+  | 'generating'
   | 'review'
   | 'thumbnail';
+
+type OverlayScreen =
+  | { type: 'notifications' }
+  | { type: 'creditHistory'; from: 'profile' | 'notifications' }
+  | {
+      type: 'communityViewer';
+      from: 'home' | 'community' | 'creator';
+      videoId?: string;
+      creatorName?: string;
+    }
+  | {
+      type: 'creator';
+      name: string;
+      returnTo:
+        | { type: 'home' }
+        | { type: 'communityViewer'; from: 'home' | 'community'; videoId?: string };
+    };
 
 interface ChargeFlowState {
   stage: 'charge' | 'confirming' | 'done';
   from: ChargeFrom;
+  shortfall?: number;
   before: number;
   added: number;
   isPaying: boolean;
   hasPaymentError: boolean;
+}
+
+interface GeneratingJobState {
+  status: 'queued' | 'running' | 'done' | 'failed';
+  progress: number;
+  stageIndex: number;
+  remainingSeconds?: number;
+  failure?: { kind: 'temporary' | 'video'; detail?: string };
+  refundedCredits?: number;
 }
 
 export function App() {
@@ -204,9 +269,27 @@ export function App() {
   const [myTab, setMyTab] = useState<MyVideosTab>('inProgress');
   const [communityHookType, setCommunityHookType] = useState<HookType | null>(null);
   const [chargeState, setChargeState] = useState<ChargeFlowState | null>(null);
+  const [overlayScreen, setOverlayScreen] = useState<OverlayScreen | null>(null);
+
+  // Onboarding / Login / Signup flow
+  const [authEntryStep, setAuthEntryStep] = useState<'onboarding' | 'login'>('onboarding');
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [nicknameStatus, setNicknameStatus] =
+    useState<NicknameScreenProps['availability']>('available');
+  const [nicknameOverrides, setNicknameOverrides] = useState<Record<string, string>>({});
+  const [onboardedUsers, setOnboardedUsers] = useState<Record<string, boolean>>({});
+  const nicknameTimerRef = useRef<number | undefined>(undefined);
+
+  // Feed / Comments / Notifications / Credit ledger (local interactive state until backend social APIs land)
+  const [feedCount, setFeedCount] = useState(4);
+  const [commentsByVideo, setCommentsByVideo] = useState<Record<string, VideoComment[]>>(SAMPLE_COMMENTS);
+  const [notifications, setNotifications] = useState<AppNotification[]>(SAMPLE_NOTIFICATIONS);
+  const [creditLedger, setCreditLedger] = useState<CreditEntry[]>(SAMPLE_CREDIT_HISTORY);
+  const [publicProjectIds, setPublicProjectIds] = useState<Record<string, boolean>>({});
 
   // 8-step creation flow state
   const [creationStep, setCreationStep] = useState<CreationStep | null>(null);
+  const creationStepRef = useRef<CreationStep | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [productInfo, setProductInfo] = useState<Partial<ProductInfo>>({});
   const [hookType, setHookType] = useState<HookType>('A');
@@ -217,17 +300,25 @@ export function App() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | undefined>(undefined);
   const [videoDownloadUrl, setVideoDownloadUrl] = useState<string | undefined>(undefined);
-  const [isRendering, setIsRendering] = useState(false);
-  const [renderStatusText, setRenderStatusText] = useState<string | undefined>(undefined);
-  const [renderError, setRenderError] = useState<string | undefined>(undefined);
+  const [genJob, setGenJob] = useState<GeneratingJobState | null>(null);
 
   const pollCancelRef = useRef<(() => void) | null>(null);
   const renderPollCancelRef = useRef<(() => void) | null>(null);
+  const commentSeqRef = useRef(0);
+  const notifSeqRef = useRef(0);
+  const ledgerSeqRef = useRef(0);
+
+  useEffect(() => {
+    creationStepRef.current = creationStep;
+  }, [creationStep]);
 
   useEffect(() => {
     return () => {
       pollCancelRef.current?.();
       renderPollCancelRef.current?.();
+      if (nicknameTimerRef.current) {
+        window.clearTimeout(nicknameTimerRef.current);
+      }
     };
   }, []);
 
@@ -265,6 +356,8 @@ export function App() {
   const billingConfig =
     billingConfigQuery.data?.status === 200 ? billingConfigQuery.data.data : undefined;
   const wallet = walletQuery.data?.status === 200 ? walletQuery.data.data : undefined;
+  const walletCredits = wallet?.credits ?? 0;
+  const creditsPerVideo = billingConfig?.credits_per_video ?? SAMPLE_CREDITS_PER_VIDEO;
 
   const creditPackages = useMemo<CreditPackage[]>(() => {
     if (!billingConfig?.packages?.length) {
@@ -278,9 +371,37 @@ export function App() {
     }));
   }, [billingConfig]);
 
+  const shareHandlers = useMemo<ShareHandlers>(() => buildShareHandlers(), []);
+
+  const appendNotification = useCallback((entry: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>) => {
+    notifSeqRef.current += 1;
+    setNotifications((prev) => [
+      {
+        ...entry,
+        id: `live-notif-${notifSeqRef.current}`,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+      },
+      ...prev,
+    ]);
+  }, []);
+
+  const appendLedgerEntry = useCallback((entry: Omit<CreditEntry, 'id' | 'createdAt'>) => {
+    ledgerSeqRef.current += 1;
+    setCreditLedger((prev) => [
+      {
+        ...entry,
+        id: `live-ledger-${ledgerSeqRef.current}`,
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  }, []);
+
   const startNewCreation = useCallback((initialType: HookType = 'A') => {
     renderPollCancelRef.current?.();
     setChargeState(null);
+    setOverlayScreen(null);
     setProjectId(null);
     setProductInfo({});
     setHookType(initialType);
@@ -291,14 +412,12 @@ export function App() {
     setUploadFile(null);
     setVideoUrl(undefined);
     setVideoDownloadUrl(undefined);
-    setIsRendering(false);
-    setRenderStatusText(undefined);
-    setRenderError(undefined);
+    setGenJob(null);
     setCreationStep('product');
   }, []);
 
   const pollRenderCompletion = useCallback(
-    (pid: string) => {
+    (pid: string, nameForNotice?: string) => {
       renderPollCancelRef.current?.();
       let cancelled = false;
       renderPollCancelRef.current = () => {
@@ -313,44 +432,122 @@ export function App() {
             if (cancelled) return;
             if (projRes.status === 200) {
               const proj = projRes.data;
-              const jobObj = proj.latest_job as { status?: string; stage?: string; error?: string } | null | undefined;
+              const jobObj = proj.latest_job as
+                | { status?: string; stage?: string; error?: string }
+                | null
+                | undefined;
               const stageKey = jobObj?.stage || '';
-              if (STAGE_LABEL_KO[stageKey]) {
-                setRenderStatusText(STAGE_LABEL_KO[stageKey]);
-              }
+
               if (proj.status === 'DELIVERABLE_READY' || jobObj?.status === 'QC_READY') {
                 const delivRes = await getDeliverablesV1ProjectsProjectIdDeliverablesGet(pid);
                 if (cancelled) return;
                 if (delivRes.status === 200 && delivRes.data.video?.stream_url) {
                   setVideoUrl(delivRes.data.video.stream_url);
-                  setVideoDownloadUrl(delivRes.data.video.download_url ?? delivRes.data.video.stream_url);
-                  setIsRendering(false);
-                  setRenderError(undefined);
-                  void queryClient.invalidateQueries({ queryKey: getListProjectsV1ProjectsGetQueryKey() });
-                  void queryClient.invalidateQueries({ queryKey: getGetWalletV1BillingWalletGetQueryKey() });
+                  setVideoDownloadUrl(
+                    delivRes.data.video.download_url ?? delivRes.data.video.stream_url,
+                  );
+                  setGenJob({
+                    status: 'done',
+                    progress: 100,
+                    stageIndex: 2,
+                    remainingSeconds: 0,
+                  });
+                  void queryClient.invalidateQueries({
+                    queryKey: getListProjectsV1ProjectsGetQueryKey(),
+                  });
+                  void queryClient.invalidateQueries({
+                    queryKey: getGetWalletV1BillingWalletGetQueryKey(),
+                  });
+                  if (creationStepRef.current !== 'generating') {
+                    appendNotification({
+                      kind: 'videoReady',
+                      title: '영상 나왔어요!',
+                      body: `${nameForNotice || proj.product.name} · 훅 붙여서 완성했어요. 썸네일만 고르면 끝.`,
+                      targetId: pid,
+                    });
+                  }
                   return;
                 }
               }
+
               if (proj.status === 'FAILED' || jobObj?.status === 'FAILED') {
-                setRenderError(jobObj?.error || '영상 합성 중 오류가 발생했어요.');
-                setIsRendering(false);
+                setGenJob({
+                  status: 'failed',
+                  progress: 42,
+                  stageIndex: 0,
+                  failure: {
+                    kind: 'temporary',
+                    detail: jobObj?.error || '영상 합성 중 오류가 발생했어요.',
+                  },
+                  refundedCredits: creditsPerVideo,
+                });
+                appendLedgerEntry({
+                  kind: 'refund',
+                  amount: creditsPerVideo,
+                  balance: walletCredits + creditsPerVideo,
+                  productName: nameForNotice || proj.product.name,
+                });
+                void queryClient.invalidateQueries({
+                  queryKey: getListProjectsV1ProjectsGetQueryKey(),
+                });
+                void queryClient.invalidateQueries({
+                  queryKey: getGetWalletV1BillingWalletGetQueryKey(),
+                });
+                if (creationStepRef.current !== 'generating') {
+                  appendNotification({
+                    kind: 'videoFailed',
+                    title: '영상을 못 만들었어요',
+                    body: `${nameForNotice || proj.product.name} · 쓴 크레딧 ${creditsPerVideo}는 돌려드렸어요. 다시 해 볼까요?`,
+                    targetId: pid,
+                  });
+                }
                 return;
               }
+
+              if (stageKey === 'ASSEMBLING') {
+                setGenJob({
+                  status: 'running',
+                  progress: 78,
+                  stageIndex: 1,
+                  remainingSeconds: 25,
+                });
+              } else if (stageKey === 'GENERATING' || stageKey === 'LINTING') {
+                setGenJob({
+                  status: 'running',
+                  progress: 52,
+                  stageIndex: 0,
+                  remainingSeconds: 50,
+                });
+              } else if (stageKey === 'ANALYZING' || stageKey === 'PLANNING') {
+                setGenJob({
+                  status: 'running',
+                  progress: 28,
+                  stageIndex: 0,
+                  remainingSeconds: 80,
+                });
+              }
             }
-          } catch (err) {
-            setRenderError(err instanceof Error ? err.message : '상태를 불러오지 못했어요.');
+          } catch {
+            // Keep polling across transient network errors.
           }
           await new Promise((resolve) => window.setTimeout(resolve, 1500));
         }
         if (!cancelled) {
-          setRenderError('렌더링 확인 시간이 초과되었어요. 내 영상에서 다시 확인해 주세요.');
-          setIsRendering(false);
+          setGenJob({
+            status: 'failed',
+            progress: 78,
+            stageIndex: 1,
+            failure: {
+              kind: 'temporary',
+              detail: '렌더링 확인 시간이 초과되었어요. 잠시 후 다시 확인해 주세요.',
+            },
+          });
         }
       };
 
       void run();
     },
-    [queryClient],
+    [appendLedgerEntry, appendNotification, creditsPerVideo, queryClient, walletCredits],
   );
 
   const openExistingProject = useCallback(
@@ -359,6 +556,7 @@ export function App() {
         const res = await getProjectV1ProjectsProjectIdGet(pid);
         if (res.status !== 200) return;
         const proj = res.data;
+        setOverlayScreen(null);
         setProjectId(pid);
         setProductInfo({
           name: proj.product.name,
@@ -385,15 +583,15 @@ export function App() {
           if (deliv.status === 200 && deliv.data.video?.stream_url) {
             setVideoUrl(deliv.data.video.stream_url);
             setVideoDownloadUrl(deliv.data.video.download_url ?? deliv.data.video.stream_url);
-            setIsRendering(false);
+            setGenJob({ status: 'done', progress: 100, stageIndex: 2, remainingSeconds: 0 });
             setCreationStep(target === 'download' ? 'thumbnail' : 'review');
             return;
           }
         }
         if (proj.status === 'RENDERING') {
-          setIsRendering(true);
-          setCreationStep('review');
-          pollRenderCompletion(pid);
+          setGenJob({ status: 'running', progress: 42, stageIndex: 0, remainingSeconds: 60 });
+          setCreationStep('generating');
+          pollRenderCompletion(pid, proj.product.name);
           return;
         }
         if (proj.filming_guide?.shots?.length) {
@@ -410,27 +608,30 @@ export function App() {
     [pollRenderCompletion],
   );
 
-  const handleProductNext = useCallback(async (info: ProductInfo) => {
-    setProductInfo(info);
-    if (projectId) {
-      setCreationStep('hook');
-      return;
-    }
-    const res = await createProjectV1ProjectsPost({
-      product: {
-        name: info.name.trim(),
-        category: mapCategoryToApi(info.category),
-        verified_facts: parseFactsFromIntro(info.name, info.intro),
-      },
-      selected_types: [hookType],
-      flow_mode: CreateProjectRequestFlowMode.guide_first,
-    });
-    if (res.status === 201) {
-      setProjectId(res.data.project_id);
-      setCreationStep('hook');
-      void queryClient.invalidateQueries({ queryKey: getListProjectsV1ProjectsGetQueryKey() });
-    }
-  }, [hookType, projectId, queryClient]);
+  const handleProductNext = useCallback(
+    async (info: ProductInfo) => {
+      setProductInfo(info);
+      if (projectId) {
+        setCreationStep('hook');
+        return;
+      }
+      const res = await createProjectV1ProjectsPost({
+        product: {
+          name: info.name.trim(),
+          category: mapCategoryToApi(info.category),
+          verified_facts: parseFactsFromIntro(info.name, info.intro),
+        },
+        selected_types: [hookType],
+        flow_mode: CreateProjectRequestFlowMode.guide_first,
+      });
+      if (res.status === 201) {
+        setProjectId(res.data.project_id);
+        setCreationStep('hook');
+        void queryClient.invalidateQueries({ queryKey: getListProjectsV1ProjectsGetQueryKey() });
+      }
+    },
+    [hookType, projectId, queryClient],
+  );
 
   const handleHookNext = useCallback(
     async (selected: HookType[]) => {
@@ -485,7 +686,7 @@ export function App() {
         );
       }
     } catch {
-      // Keep skeleton or empty scenes cleanly.
+      // Keep skeleton cleanly.
     }
   }, [hookType, projectId, scenarioId]);
 
@@ -516,11 +717,10 @@ export function App() {
       setUploadFile(file);
       setVideoUrl(undefined);
       setVideoDownloadUrl(undefined);
-      setRenderError(undefined);
-      setIsRendering(true);
-      setRenderStatusText('영상을 안전하게 올리고 있어요…');
-      setCreationStep('review');
+      setGenJob({ status: 'queued', progress: 8, stageIndex: 0, remainingSeconds: 110 });
+      setCreationStep('generating');
 
+      let failedAsVideoProblem = true;
       try {
         const cleanName = (file.name || 'clip.mp4').replace(/[^a-zA-Z0-9._-]+/g, '_');
         const objKey = `uploads/${auth.user.user_id}/${projectId}/shot_01_${Date.now()}_${cleanName}`;
@@ -539,10 +739,9 @@ export function App() {
           credentials: 'include',
         });
         if (!putRes.ok) {
-          throw new Error(`영상 파일 전송 실패 (HTTP ${putRes.status})`);
+          throw new Error(`올린 영상을 전송하지 못했어요 (HTTP ${putRes.status})`);
         }
 
-        setRenderStatusText('올린 영상의 길이와 해상도를 확인하고 있어요…');
         const completeRes = await completeUploadsV1ProjectsProjectIdUploadsCompletePost(projectId, {
           clips: [
             {
@@ -553,10 +752,12 @@ export function App() {
           ],
         });
         if (completeRes.status !== 200) {
-          throw new Error('업로드 검증에 실패했어요.');
+          throw new Error('올린 영상의 길이와 해상도를 확인할 수 없어요.');
         }
 
-        setRenderStatusText('영상 제작 작업을 시작했어요…');
+        failedAsVideoProblem = false;
+        setGenJob({ status: 'running', progress: 20, stageIndex: 0, remainingSeconds: 90 });
+
         const renderRes = await createRenderV1ProjectsProjectIdRendersPost(projectId, {
           scenario_id: scenarioId,
           selected_type: hookType as CreateRenderRequestSelectedType,
@@ -567,13 +768,41 @@ export function App() {
         if (renderRes.status !== 202) {
           throw new Error('영상 제작 요청에 실패했어요.');
         }
-        pollRenderCompletion(projectId);
+
+        const remaining = Math.max(0, walletCredits - creditsPerVideo);
+        appendLedgerEntry({
+          kind: 'use',
+          amount: -creditsPerVideo,
+          balance: remaining,
+          productName: productInfo.name || '내 영상',
+        });
+        void queryClient.invalidateQueries({ queryKey: getGetWalletV1BillingWalletGetQueryKey() });
+        pollRenderCompletion(projectId, productInfo.name);
       } catch (err) {
-        setRenderError(err instanceof Error ? err.message : '영상 제작 요청 중 오류가 발생했어요.');
-        setIsRendering(false);
+        const detail = err instanceof Error ? err.message : '영상 제작 요청 중 오류가 발생했어요.';
+        setGenJob({
+          status: 'failed',
+          progress: 15,
+          stageIndex: 0,
+          failure: {
+            kind: failedAsVideoProblem ? 'video' : 'temporary',
+            detail,
+          },
+        });
       }
     },
-    [auth.user, hookType, pollRenderCompletion, projectId, scenarioId],
+    [
+      appendLedgerEntry,
+      auth.user,
+      creditsPerVideo,
+      hookType,
+      pollRenderCompletion,
+      productInfo.name,
+      projectId,
+      queryClient,
+      scenarioId,
+      walletCredits,
+    ],
   );
 
   const handleDownloadThumbnail = useCallback(
@@ -604,11 +833,12 @@ export function App() {
   );
 
   const openCharge = useCallback(
-    (from: ChargeFrom) => {
+    (from: ChargeFrom, shortfall?: number) => {
       pollCancelRef.current?.();
       setChargeState({
         stage: 'charge',
         from,
+        shortfall,
         before: wallet?.credits ?? 0,
         added: 0,
         isPaying: false,
@@ -619,7 +849,7 @@ export function App() {
   );
 
   const pollOrderCompletion = useCallback(
-    (orderId: string, expectedAdded: number) => {
+    (orderId: string, expectedAdded: number, expectedPrice?: number) => {
       pollCancelRef.current?.();
       let cancelled = false;
       pollCancelRef.current = () => {
@@ -636,17 +866,24 @@ export function App() {
             if (cancelled) return;
             if (res.status === 200) {
               if (res.data.status === 'completed') {
+                const credited = res.data.credits || expectedAdded;
                 queryClient.setQueryData(getGetWalletV1BillingWalletGetQueryKey(), {
                   data: res.data.wallet,
                   status: 200,
                   headers: res.headers,
+                });
+                appendLedgerEntry({
+                  kind: 'charge',
+                  amount: credited,
+                  balance: res.data.wallet.credits,
+                  price: res.data.amount_krw || expectedPrice,
                 });
                 setChargeState((prev) =>
                   prev
                     ? {
                         ...prev,
                         stage: 'done',
-                        added: res.data.credits || expectedAdded,
+                        added: credited,
                         isPaying: false,
                         hasPaymentError: false,
                       }
@@ -692,7 +929,7 @@ export function App() {
 
       void run();
     },
-    [queryClient],
+    [appendLedgerEntry, queryClient],
   );
 
   const handlePayPackage = useCallback(
@@ -740,7 +977,7 @@ export function App() {
                   }
                 : null,
             );
-            pollOrderCompletion(checkout.order_id, pkg.credits);
+            pollOrderCompletion(checkout.order_id, pkg.credits, pkg.price);
           },
           onClosed: () => {
             setChargeState((prev) =>
@@ -768,13 +1005,95 @@ export function App() {
     return splitProjects(list);
   }, [projectsQuery.data]);
 
+  const displayName = useMemo(() => {
+    if (!auth.user) return '냅다사장';
+    const uid = auth.user.user_id;
+    return (
+      nicknameOverrides[uid] ??
+      getStorageFlag(`napda:nickname:${uid}`) ??
+      (auth.user.name?.trim() || auth.user.email.split('@')[0] || '냅다사장')
+    );
+  }, [auth.user, nicknameOverrides]);
+
+  const handleAddComment = useCallback(
+    (videoId: string, text: string) => {
+      commentSeqRef.current += 1;
+      const item: VideoComment = {
+        id: `live-comment-${commentSeqRef.current}`,
+        authorName: displayName,
+        text,
+        createdAt: new Date().toISOString(),
+        isMine: true,
+      };
+      setCommentsByVideo((prev) => ({
+        ...prev,
+        [videoId]: [...(prev[videoId] ?? []), item],
+      }));
+    },
+    [displayName],
+  );
+
+  const handleDeleteComment = useCallback((videoId: string, commentId: string) => {
+    setCommentsByVideo((prev) => ({
+      ...prev,
+      [videoId]: (prev[videoId] ?? []).filter((c) => c.id !== commentId),
+    }));
+  }, []);
+
+  const handleOpenNotification = useCallback(
+    (target: AppNotification) => {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === target.id ? { ...n, isRead: true } : n)),
+      );
+      if (target.kind === 'videoReady' || target.kind === 'videoFailed') {
+        if (target.targetId && target.targetId.startsWith('prj_')) {
+          void openExistingProject(
+            target.targetId,
+            target.kind === 'videoReady' ? 'download' : 'continue',
+          );
+          return;
+        }
+        setOverlayScreen(null);
+        setActiveTab('myVideos');
+        setMyTab(target.kind === 'videoReady' ? 'completed' : 'inProgress');
+        return;
+      }
+      if (target.kind === 'expiring') {
+        setOverlayScreen(null);
+        setMyTab('completed');
+        setActiveTab('myVideos');
+        return;
+      }
+      if (target.kind === 'creditCharged') {
+        setOverlayScreen({ type: 'creditHistory', from: 'notifications' });
+        return;
+      }
+      if (target.kind === 'communityLike') {
+        setOverlayScreen({
+          type: 'communityViewer',
+          from: 'home',
+          videoId: target.targetId,
+        });
+      }
+    },
+    [openExistingProject],
+  );
+
   const handleNavigate = (tab: NavTab) => {
+    setOverlayScreen(null);
     setCreationStep(null);
     if (tab === 'myVideos') {
       setMyTab('inProgress');
     }
     setActiveTab(tab);
   };
+
+  const needsSignup =
+    auth.status === 'authenticated' &&
+    Boolean(auth.user) &&
+    authEntryStep === 'login' &&
+    !onboardedUsers[auth.user!.user_id] &&
+    !getStorageFlag(`napda:onboarded:${auth.user!.user_id}`);
 
   let screen;
   if (auth.status === 'loading') {
@@ -805,12 +1124,74 @@ export function App() {
           onNavigate={handleNavigate}
           signInSlot={<GoogleSignInButton theme={gisTheme} />}
         />
+      ) : authEntryStep === 'login' ? (
+        <LoginScreen
+          showcase={SAMPLE_LOGIN_SHOWCASE}
+          isSigningIn={auth.isSubmitting}
+          hasError={Boolean(auth.error)}
+          signInSlot={<GoogleSignInButton theme={gisTheme} />}
+        />
       ) : (
-        <OnboardingScreen footer={<GoogleSignInButton theme={gisTheme} />} />
+        <OnboardingScreen onStart={() => setAuthEntryStep('login')} />
       );
+  } else if (needsSignup && !termsAgreed) {
+    screen = (
+      <LoginScreen
+        showcase={SAMPLE_LOGIN_SHOWCASE}
+        isTermsOpen
+        onAgreeTerms={() => {
+          setNicknameStatus('available');
+          setTermsAgreed(true);
+        }}
+        onCloseTerms={() => {
+          setTermsAgreed(false);
+          setAuthEntryStep('login');
+          void auth.logout();
+        }}
+      />
+    );
+  } else if (needsSignup && termsAgreed) {
+    const initialNick =
+      (auth.user.name || auth.user.email.split('@')[0] || '냅다사장')
+        .replace(/[^가-힣a-zA-Z0-9_]+/g, '')
+        .slice(0, 12) || '냅다사장';
+    screen = (
+      <NicknameScreen
+        initialNickname={initialNick}
+        availability={nicknameStatus}
+        onNicknameChange={(name) => {
+          if (nicknameTimerRef.current) {
+            window.clearTimeout(nicknameTimerRef.current);
+          }
+          setNicknameStatus('checking');
+          nicknameTimerRef.current = window.setTimeout(() => {
+            setNicknameStatus(name.trim() === '도마왕' ? 'taken' : 'available');
+          }, 300);
+        }}
+        onBack={() => {
+          setTermsAgreed(false);
+        }}
+        onSubmit={(chosenName) => {
+          if (auth.user) {
+            setStorageFlag(`napda:nickname:${auth.user.user_id}`, chosenName);
+            setStorageFlag(`napda:onboarded:${auth.user.user_id}`, '1');
+            setNicknameOverrides((prev) => ({
+              ...prev,
+              [auth.user!.user_id]: chosenName,
+            }));
+            setOnboardedUsers((prev) => ({
+              ...prev,
+              [auth.user!.user_id]: true,
+            }));
+          }
+          setTermsAgreed(false);
+          setAuthEntryStep('onboarding');
+        }}
+      />
+    );
   } else {
     const profileUser = {
-      name: auth.user.name ?? undefined,
+      name: displayName,
       email: auth.user.email,
       imageUrl: auth.user.picture ?? undefined,
     };
@@ -821,7 +1202,8 @@ export function App() {
           <CreditChargeScreen
             credits={wallet?.credits ?? 0}
             packages={creditPackages}
-            creditsPerVideo={billingConfig?.credits_per_video ?? SAMPLE_CREDITS_PER_VIDEO}
+            creditsPerVideo={creditsPerVideo}
+            shortfall={chargeState.shortfall}
             isPaying={chargeState.isPaying}
             hasPaymentError={chargeState.hasPaymentError}
             onBack={() => {
@@ -829,6 +1211,8 @@ export function App() {
               setChargeState(null);
               if (target === 'upload') {
                 setCreationStep('upload');
+              } else if (target === 'creditHistory') {
+                setOverlayScreen({ type: 'creditHistory', from: 'profile' });
               } else {
                 setActiveTab(target);
               }
@@ -850,6 +1234,8 @@ export function App() {
               setChargeState(null);
               if (target === 'upload') {
                 setCreationStep('upload');
+              } else if (target === 'creditHistory') {
+                setOverlayScreen({ type: 'creditHistory', from: 'profile' });
               } else {
                 setActiveTab(target);
               }
@@ -918,26 +1304,61 @@ export function App() {
         <UploadVideoScreen
           hookType={hookType}
           initialFile={uploadFile}
-          cost={billingConfig?.credits_per_video ?? SAMPLE_CREDITS_PER_VIDEO}
+          cost={creditsPerVideo}
           credits={wallet?.credits}
           onBack={() => setCreationStep('guide')}
           onReviewGuide={() => setCreationStep('guide')}
           onCreate={(file) => {
             void handleUploadAndRender(file);
           }}
-          onCharge={(file, _shortfall) => {
+          onCharge={(file, shortfall) => {
             setUploadFile(file);
-            openCharge('upload');
+            openCharge('upload', shortfall);
           }}
+        />
+      );
+    } else if (creationStep === 'generating') {
+      screen = (
+        <GeneratingScreen
+          status={genJob?.status ?? 'running'}
+          queuePosition={genJob?.status === 'queued' ? 1 : undefined}
+          progress={genJob?.progress}
+          stageIndex={genJob?.stageIndex ?? 0}
+          remainingSeconds={genJob?.remainingSeconds}
+          productName={productInfo.name}
+          failure={genJob?.failure}
+          refundedCredits={genJob?.refundedCredits}
+          credits={wallet?.credits}
+          retryCost={creditsPerVideo}
+          onBack={() => {
+            setCreationStep(null);
+            setActiveTab('home');
+          }}
+          onWaitAtHome={() => {
+            setCreationStep(null);
+            setActiveTab('home');
+          }}
+          onViewVideo={() => setCreationStep('review')}
+          onRetry={() => {
+            if (!uploadFile) {
+              setCreationStep('upload');
+              return;
+            }
+            const currentCredits = wallet?.credits ?? 0;
+            if (currentCredits < creditsPerVideo) {
+              openCharge('upload', creditsPerVideo - currentCredits);
+            } else {
+              void handleUploadAndRender(uploadFile);
+            }
+          }}
+          onReupload={() => setCreationStep('upload')}
+          onReviewGuide={() => setCreationStep('guide')}
         />
       );
     } else if (creationStep === 'review') {
       screen = (
         <VideoReviewScreen
           videoUrl={videoUrl}
-          isRendering={isRendering}
-          renderStatusText={renderStatusText}
-          errorMessage={renderError}
           onBack={() => {
             renderPollCancelRef.current?.();
             setCreationStep('upload');
@@ -946,10 +1367,17 @@ export function App() {
         />
       );
     } else if (creationStep === 'thumbnail') {
+      const currentPublic = Boolean(projectId && publicProjectIds[projectId]);
       screen = (
         <ThumbnailDownloadScreen
           templates={SAMPLE_THUMBNAIL_TEMPLATES}
           initialCaption={productInfo.name || ''}
+          initialIsPublic={currentPublic}
+          needsPublishConsent={!currentPublic}
+          onPublicChange={(next) => {
+            if (!projectId) return;
+            setPublicProjectIds((prev) => ({ ...prev, [projectId]: next }));
+          }}
           onBack={() => setCreationStep('review')}
           onDownloadVideo={() => {
             if (videoDownloadUrl) {
@@ -959,6 +1387,101 @@ export function App() {
           onDownloadThumbnail={(tplId, caption) => {
             void handleDownloadThumbnail(tplId, caption);
           }}
+        />
+      );
+    } else if (overlayScreen?.type === 'notifications') {
+      screen = (
+        <NotificationsScreen
+          items={notifications}
+          onBack={() => setOverlayScreen(null)}
+          onOpen={handleOpenNotification}
+          onMarkAllRead={() =>
+            setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+          }
+        />
+      );
+    } else if (overlayScreen?.type === 'creditHistory') {
+      screen = (
+        <CreditHistoryScreen
+          credits={wallet?.credits}
+          entries={creditLedger}
+          expiring={SAMPLE_CREDIT_EXPIRING}
+          onBack={() => {
+            if (overlayScreen.from === 'notifications') {
+              setOverlayScreen({ type: 'notifications' });
+            } else {
+              setOverlayScreen(null);
+            }
+          }}
+          onCharge={() => openCharge('creditHistory')}
+        />
+      );
+    } else if (overlayScreen?.type === 'communityViewer') {
+      const viewerItems =
+        overlayScreen.from === 'creator'
+          ? sampleCreator(overlayScreen.creatorName || '도마왕').videos
+          : filterCommunityByType(SAMPLE_COMMUNITY, communityHookType);
+      screen = (
+        <CommunityViewerScreen
+          items={viewerItems}
+          initialId={overlayScreen.videoId}
+          share={shareHandlers}
+          comments={commentsByVideo}
+          myName={displayName}
+          onAddComment={handleAddComment}
+          onDeleteComment={handleDeleteComment}
+          onBack={() => {
+            if (overlayScreen.from === 'creator' && overlayScreen.creatorName) {
+              setOverlayScreen({
+                type: 'creator',
+                name: overlayScreen.creatorName,
+                returnTo: { type: 'home' },
+              });
+            } else if (overlayScreen.from === 'home') {
+              setOverlayScreen(null);
+              setActiveTab('home');
+            } else {
+              setOverlayScreen(null);
+              setActiveTab('community');
+            }
+          }}
+          onOpenCreator={(creatorName) => {
+            setOverlayScreen({
+              type: 'creator',
+              name: creatorName,
+              returnTo: {
+                type: 'communityViewer',
+                from: overlayScreen.from === 'home' ? 'home' : 'community',
+                videoId: overlayScreen.videoId,
+              },
+            });
+          }}
+          onRemix={(video) => startNewCreation(video.hookType)}
+        />
+      );
+    } else if (overlayScreen?.type === 'creator') {
+      const { profile, videos } = sampleCreator(overlayScreen.name);
+      screen = (
+        <CreatorProfileScreen
+          creator={profile}
+          videos={videos}
+          onBack={() => {
+            if (overlayScreen.returnTo.type === 'communityViewer') {
+              setOverlayScreen(overlayScreen.returnTo);
+            } else {
+              setOverlayScreen(null);
+              setActiveTab('home');
+            }
+          }}
+          onOpenVideo={(videoId) => {
+            setOverlayScreen({
+              type: 'communityViewer',
+              from: 'creator',
+              videoId,
+              creatorName: overlayScreen.name,
+            });
+          }}
+          onRemix={(ht) => startNewCreation(ht)}
         />
       );
     } else if (activeTab === 'myVideos') {
@@ -983,6 +1506,9 @@ export function App() {
           items={filterCommunityByType(SAMPLE_COMMUNITY, communityHookType)}
           hookType={communityHookType}
           onHookTypeChange={setCommunityHookType}
+          onOpenVideo={(videoId) =>
+            setOverlayScreen({ type: 'communityViewer', from: 'community', videoId })
+          }
           onCreate={() => startNewCreation('A')}
           onNavigate={handleNavigate}
         />
@@ -998,6 +1524,9 @@ export function App() {
           onThemeModeChange={setThemeMode}
           onNavigate={handleNavigate}
           onChargeClick={() => openCharge('profile')}
+          onCreditHistoryClick={() =>
+            setOverlayScreen({ type: 'creditHistory', from: 'profile' })
+          }
           onOpenMyVideos={(tab) => {
             setMyTab(tab);
             setActiveTab('myVideos');
@@ -1005,7 +1534,17 @@ export function App() {
           onLogout={() => {
             renderPollCancelRef.current?.();
             setCreationStep(null);
+            setOverlayScreen(null);
             setChargeState(null);
+            setAuthEntryStep('login');
+            void auth.logout();
+          }}
+          onDeleteAccount={() => {
+            renderPollCancelRef.current?.();
+            setCreationStep(null);
+            setOverlayScreen(null);
+            setChargeState(null);
+            setAuthEntryStep('onboarding');
             void auth.logout();
           }}
         />
@@ -1017,6 +1556,8 @@ export function App() {
           completed={completed}
           banners={SAMPLE_BANNERS}
           credits={wallet?.credits}
+          unreadCount={notifications.filter((n) => !n.isRead).length}
+          onNotificationsClick={() => setOverlayScreen({ type: 'notifications' })}
           onCreditClick={() => openCharge('home')}
           profile={profileUser}
           onProfileClick={() => setActiveTab('profile')}
@@ -1027,6 +1568,27 @@ export function App() {
           onDownloadAgain={(id) => {
             void openExistingProject(id, 'download');
           }}
+          feed={SAMPLE_COMMUNITY.slice(0, feedCount)}
+          feedHasMore={feedCount < SAMPLE_COMMUNITY.length}
+          onLoadMoreFeed={() =>
+            setFeedCount((count) => Math.min(SAMPLE_COMMUNITY.length, count + 4))
+          }
+          onOpenFeed={(videoId) =>
+            setOverlayScreen({ type: 'communityViewer', from: 'home', videoId })
+          }
+          onOpenCreator={(creatorName) =>
+            setOverlayScreen({
+              type: 'creator',
+              name: creatorName,
+              returnTo: { type: 'home' },
+            })
+          }
+          onRemixFeed={(video) => startNewCreation(video.hookType)}
+          onSeeAllFeed={() => setActiveTab('community')}
+          share={shareHandlers}
+          comments={commentsByVideo}
+          onAddComment={handleAddComment}
+          onDeleteComment={handleDeleteComment}
           onNavigate={handleNavigate}
           onSeeAllMyVideos={() => {
             setMyTab('inProgress');

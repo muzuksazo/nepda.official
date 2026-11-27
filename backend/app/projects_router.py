@@ -297,22 +297,84 @@ def _build_default_ad_spec(
     }
 
 
+def _load_track_a_manifest_entries(settings: Settings) -> List[Dict[str, Any]]:
+    """Load validated Track A visual template metadata entries from configured or default dirs."""
+    dirs: List[Path] = []
+    if settings.track_a_template_dir and settings.track_a_template_dir.strip():
+        dirs.append(Path(settings.track_a_template_dir).expanduser().resolve())
+    dirs.append((Path(__file__).resolve().parents[1] / "data" / "templates" / "track_a").resolve())
+
+    entries: List[Dict[str, Any]] = []
+    seen_dirs: set[Path] = set()
+    for d in dirs:
+        if d in seen_dirs or not d.is_dir():
+            continue
+        seen_dirs.add(d)
+        manifest_path = d / "manifest.json"
+        if not manifest_path.is_file():
+            continue
+        try:
+            raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(raw, list):
+            continue
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            fname = str(item.get("filename") or "").strip()
+            if not fname:
+                continue
+            video_path = (d / fname).resolve()
+            if not video_path.is_file():
+                continue
+            enriched = dict(item)
+            enriched["path"] = str(video_path)
+            entries.append(enriched)
+    return entries
+
+
 def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
     def _generate(project: Dict[str, Any], hook_types: List[str], provider: str) -> List[Dict[str, Any]]:
         product = project["product"]
         facts_md = _product_to_facts_md(product)
+        manifest_entries = _load_track_a_manifest_entries(settings)
+        tpl_entry = manifest_entries[0] if manifest_entries else None
         scenarios: List[Dict[str, Any]] = []
         with httpx.Client(timeout=60.0) as client:
             for ht in hook_types:
                 track = _TRACK_BY_TYPE[ht]
                 try:
-                    extra_notes = (
-                        "Narrative Track A (16-18s total): 9.0s hook_window_sec pre-prepared visual template opener "
-                        "-> 0.25s silence_gap twist -> 6.5-7.0s product payoff from source cuts (payoff <= 45% of total runtime). "
-                        "Never mention product or category words before silence_gap."
-                        if ht == "A"
+                    name_tokens = [
+                        tok.strip()
+                        for tok in re.split(r"[\s,./()\-]+", str(product.get("name") or ""))
+                        if len(tok.strip()) >= 2
+                    ]
+                    forbidden_clause = (
+                        f" Strictly forbid these words before silence_gap: {', '.join(name_tokens)}."
+                        if name_tokens
                         else ""
                     )
+                    if ht == "A" and tpl_entry:
+                        tpl_dur = float(tpl_entry.get("duration_sec") or 9.88)
+                        tpl_summary = str(tpl_entry.get("visual_summary") or "").strip()
+                        extra_notes = (
+                            f"Narrative Track A (16-18s total): {tpl_dur:.2f}s hook_window_sec pre-prepared "
+                            f"3D physics template opener ({tpl_summary}) "
+                            "-> 0.25s silence_gap twist -> 6.5-7.0s product payoff from source cuts "
+                            "(payoff <= 45% of total runtime). "
+                            "Never mention product or category words before silence_gap."
+                            f"{forbidden_clause}"
+                        )
+                    elif ht == "A":
+                        extra_notes = (
+                            "Narrative Track A (16-18s total): 9.0s hook_window_sec pre-prepared visual template opener "
+                            "-> 0.25s silence_gap twist -> 6.5-7.0s product payoff from source cuts (payoff <= 45% of total runtime). "
+                            "Never mention product or category words before silence_gap."
+                            f"{forbidden_clause}"
+                        )
+                    else:
+                        extra_notes = ""
                     resp = client.post(
                         f"{settings.planner_base_url.rstrip('/')}/v1/plan",
                         json={
@@ -338,6 +400,9 @@ def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
 
                 data = resp.json()
                 spec = data.get("spec") or {}
+                if ht == "A" and tpl_entry:
+                    spec["track_a_template_id"] = str(tpl_entry.get("id") or "")
+                    spec["a_genre_archetype"] = str(tpl_entry.get("a_genre_archetype") or "mock_documentary")
                 caps = spec.get("captions") or []
                 tl = spec.get("timeline") or []
                 beats = [
@@ -473,8 +538,14 @@ def build_projects_router(
             )
         return proj
 
-    def _resolve_track_a_template() -> Optional[Path]:
-        """Resolve a pre-prepared Track A opener MP4 from configured URLs, dir, or backend/data/templates/track_a."""
+    def _resolve_track_a_template(template_id: Optional[str] = None) -> Optional[Path]:
+        """Resolve a pre-prepared Track A opener MP4 from manifest, URLs, dir, or defaults."""
+        manifest_entries = _load_track_a_manifest_entries(settings)
+        if template_id:
+            for entry in manifest_entries:
+                if entry.get("id") == template_id:
+                    return Path(entry["path"])
+
         raw_urls = [u.strip() for u in (settings.track_a_template_urls or "").split(",") if u.strip()]
         if raw_urls:
             cache_dir = Path("/tmp/napda_templates")
@@ -488,6 +559,9 @@ def build_projects_router(
                     dl.raise_for_status()
                     cached.write_bytes(dl.content)
             return cached
+
+        if manifest_entries:
+            return Path(manifest_entries[0]["path"])
 
         candidates: List[Path] = []
         if settings.track_a_template_dir and settings.track_a_template_dir.strip():
@@ -521,36 +595,39 @@ def build_projects_router(
                 return max(0.05, (float(seg["src_end"]) - float(seg["src_start"])) / max(spd, 0.01))
             return max(0.05, float(seg.get("duration") or 1.0))
 
+        tpl_dur, _, _ = _probe_local_video(str(staged_tpl))
+        if tpl_dur <= 0.0:
+            tpl_dur = 9.0
+
         spec = json.loads(json.dumps(raw_spec))
+        spec["mode"] = "narrative_master"
         spec["track_archetype"] = "A_bgrade_reversal"
         spec["source_video"] = str(staged_src)
         spec["source_duration"] = float(source_dur)
         spec["disclosure"] = "ai_assisted"
         spec["allow_static_intro"] = True
-        spec.setdefault("a_genre_archetype", "absurd_skit")
+        spec.setdefault("a_genre_archetype", "mock_documentary")
+        spec["caption_style"] = "reels_kinetic"
+        spec["caption_y"] = 1245
+        spec["highlight_color"] = "#FFE047"
 
+        target_pre = round(min(max(tpl_dur, 8.0), 10.5), 2) if tpl_dur >= 8.0 else round(max(tpl_dur, 5.0), 2)
+        pre_dur = round(min(target_pre, tpl_dur), 2)
         pre_segs: List[Dict[str, Any]] = [
             {
                 "id": "tpl_hook_1",
                 "type": "video",
                 "path": str(staged_tpl),
                 "src_start": 0.0,
-                "duration": 9.0,
+                "duration": pre_dur,
                 "framing": "full-bleed",
                 "audio_owner": "vo",
             }
         ]
-        pre_dur = 9.0
-        target_post = round(min(max(3.5, source_dur - 1.0), 7.0), 2)
-        if pre_dur + 0.25 + target_post < 15.2:
-            pre_dur = round(15.2 - 0.25 - target_post, 2)
-            pre_segs[0]["duration"] = pre_dur
 
-        s_start = 1.0 if source_dur >= 4.5 else 0.0
-        s_end = round(min(source_dur, s_start + target_post), 2)
-        if s_start < 1.0 and source_dur >= 5.0:
-            s_start = 1.0
-            s_end = round(min(source_dur, 1.0 + target_post), 2)
+        target_post = round(min(max(4.0, source_dur), 7.2), 2)
+        s_start = 0.0
+        s_end = round(min(max(source_dur, 0.5), target_post), 2)
         post_segs: List[Dict[str, Any]] = [
             {
                 "id": "payoff_1",
@@ -572,6 +649,43 @@ def build_projects_router(
         spec["timeline"] = pre_segs + [gap_seg] + post_segs
         spec["hook_window_sec"] = round(pre_dur, 2)
         total_dur = round(sum(_seg_dur(s) for s in spec["timeline"]), 2)
+
+        bgm_act1 = "/Library/Audio/Apple Loops/Apple/01 Hip Hop/Distant Memories Piano.caf"
+        bgm_act2 = "/Library/Audio/Apple Loops/Apple/09 Disco Funk/Sky Lounge Electric Piano 01.caf"
+        sfx_impact = "/Library/Audio/Apple Loops/Apple/Final Cut Pro Sound Effects/Impacts & Crashes/Impact Hit Reverb 03.caf"
+        if not spec.get("bgm_timeline") and os.path.exists(bgm_act1) and os.path.exists(bgm_act2):
+            spec["bgm_timeline"] = [
+                {
+                    "start": 0.0,
+                    "end": round(pre_dur, 2),
+                    "stems": [bgm_act1],
+                    "gain_db": -16.0,
+                    "fade_in": 0.05,
+                    "fade_out": 0.03,
+                    "stem_offset_sec": 0.0,
+                },
+                {
+                    "start": round(pre_dur + 0.25, 2),
+                    "end": total_dur,
+                    "stems": [bgm_act2],
+                    "gain_db": -15.0,
+                    "fade_in": 0.04,
+                    "fade_out": 0.45,
+                    "stem_offset_sec": 0.0,
+                },
+            ]
+        if not spec.get("sfx_events") and os.path.exists(sfx_impact):
+            spec["sfx_events"] = [
+                {
+                    "time": round(pre_dur, 2),
+                    "file": sfx_impact,
+                    "trim_start": 0.53,
+                    "duration": 0.26,
+                    "gain_db": -12.0,
+                    "fade_in": 0.005,
+                    "fade_out": 0.05,
+                }
+            ]
 
         orig_tl = list(raw_spec.get("timeline") or [])
         orig_gap_start = 0.0
@@ -618,6 +732,89 @@ def build_projects_router(
                     remapped.append(item)
             spec["captions"] = remapped
 
+        manifest_entries = _load_track_a_manifest_entries(settings)
+        tpl_id = spec.get("track_a_template_id")
+        matched_entry = next(
+            (e for e in manifest_entries if tpl_id and e.get("id") == tpl_id),
+            None,
+        )
+        raw_default_caps = list((matched_entry or {}).get("default_hook_captions") or [])
+        if raw_default_caps and (spec.get("reference_surface_taboo") or []):
+            tpl_caption_corpus = " ".join(str(x) for x in raw_default_caps).lower()
+            spec["reference_surface_taboo"] = [
+                kw
+                for kw in (spec.get("reference_surface_taboo") or [])
+                if str(kw).strip().lower() not in tpl_caption_corpus
+            ]
+
+        taboo_words = [
+            str(w).strip().lower()
+            for w in (
+                list(spec.get("product_taboo_keywords") or [])
+                + list(spec.get("category_taboo_keywords") or [])
+                + list(spec.get("reference_surface_taboo") or [])
+            )
+            if len(str(w).strip()) >= 2
+        ]
+        if taboo_words and (spec.get("captions") or []):
+            cur_caps = list(spec.get("captions") or [])
+            pre_caps = [c for c in cur_caps if float(c.get("start", 0.0)) < pre_dur]
+            post_caps = [c for c in cur_caps if float(c.get("start", 0.0)) >= pre_dur]
+
+            def _cue_surface_lower(cue: Dict[str, Any]) -> str:
+                plain_txt = re.sub(r"\*\*(.+?)\*\*", r"\1", str(cue.get("text") or ""))
+                return " ".join(
+                    p
+                    for p in (
+                        plain_txt,
+                        str(cue.get("pop_badge") or ""),
+                        str(cue.get("header_tag") or ""),
+                    )
+                    if p
+                ).lower()
+
+            has_taboo = any(
+                any(tw in _cue_surface_lower(c) for tw in taboo_words)
+                for c in pre_caps
+                if float(c.get("start", 0.0)) < pre_dur - 0.05
+            )
+            if has_taboo:
+                raw_defaults = raw_default_caps or [
+                    "1cm 도미노를 2배씩 키워\n**스무 개만** 세우면,",
+                    "마지막 조각은 **아파트 50층**\n높이가 됩니다",
+                    "지면에 닿는 순간, 반경 1km\n**지반이 흔들립니다**",
+                ]
+                sanitized_defaults: List[str] = []
+                for ln in raw_defaults:
+                    clean_ln = str(ln)
+                    for tw in taboo_words:
+                        clean_ln = re.sub(re.escape(tw), "", clean_ln, flags=re.IGNORECASE)
+                    clean_ln = re.sub(r"[ \t]{2,}", " ", clean_ln).strip()
+                    if clean_ln:
+                        sanitized_defaults.append(clean_ln)
+                if not sanitized_defaults:
+                    sanitized_defaults = ["상상을 뛰어넘는\n**놀라운 장면**"]
+                step_dur = pre_dur / max(1, len(sanitized_defaults))
+                badge_txt = "3D 물리 실험"
+                badge_safe = not any(tw in badge_txt.lower() for tw in taboo_words)
+                clean_pre_caps: List[Dict[str, Any]] = []
+                for idx_c, txt_c in enumerate(sanitized_defaults):
+                    s_c = round(idx_c * step_dur, 2)
+                    e_c = round(
+                        min(
+                            pre_dur,
+                            (idx_c + 1) * step_dur - (0.04 if idx_c < len(sanitized_defaults) - 1 else 0.0),
+                        ),
+                        2,
+                    )
+                    if e_c <= s_c:
+                        e_c = round(min(pre_dur, s_c + 0.4), 2)
+                    cap_item: Dict[str, Any] = {"start": s_c, "end": e_c, "text": txt_c}
+                    if idx_c == 0 and badge_safe:
+                        cap_item["pop_badge"] = badge_txt
+                    clean_pre_caps.append(cap_item)
+                spec["captions"] = clean_pre_caps + post_caps
+
         plain_lines = [
             re.sub(r"\*\*(.+?)\*\*", r"\1", str(c.get("text") or "")).replace("\n", " ").strip()
             for c in (spec.get("captions") or [])
@@ -629,13 +826,23 @@ def build_projects_router(
         spec["vo_audio"] = str(vo_wav)
         return spec, str(staged_src)
 
-    def _run_job_bg(req: CampaignRequest, jid: str) -> None:
+    def _run_job_bg(
+        req: CampaignRequest,
+        jid: str,
+        *,
+        user_id: Optional[str] = None,
+        refunded_credits: int = 0,
+    ) -> None:
         try:
             pipeline.run_campaign(req, job_id=jid)
         except Exception as exc:
             job = job_store.get_job(jid)
             if job and job.get("status") != "FAILED":
                 job_store.update_job(jid, status="FAILED", error=str(exc))
+        finally:
+            job = job_store.get_job(jid)
+            if job and job.get("status") == "FAILED" and user_id and refunded_credits > 0:
+                project_store.refund_wallet_credits(user_id, refunded_credits)
 
     def _run_track_a_template_bg(
         req: CampaignRequest,
@@ -643,6 +850,9 @@ def build_projects_router(
         template_mp4: Path,
         src_key: Optional[str],
         src_dur: float,
+        *,
+        user_id: Optional[str] = None,
+        refunded_credits: int = 0,
     ) -> None:
         try:
             src_path = Path(req.source_video) if (req.source_video and os.path.exists(req.source_video)) else None
@@ -671,6 +881,10 @@ def build_projects_router(
             job = job_store.get_job(jid)
             if job and job.get("status") != "FAILED":
                 job_store.update_job(jid, status="FAILED", error=str(exc))
+        finally:
+            job = job_store.get_job(jid)
+            if job and job.get("status") == "FAILED" and user_id and refunded_credits > 0:
+                project_store.refund_wallet_credits(user_id, refunded_credits)
 
     @router.post("/v1/auth/google", response_model=GoogleAuthResponse, tags=["Auth"])
     def auth_google(body: GoogleAuthRequest, response: Response) -> GoogleAuthResponse:
@@ -1081,6 +1295,20 @@ def build_projects_router(
                 "scenario_id 또는 skip_drafts + selected_type을 지정해 주세요.",
             )
 
+        tpl_path = (
+            _resolve_track_a_template(spec_data.get("track_a_template_id"))
+            if (chosen_type == "A" and not body.dry_run)
+            else None
+        )
+        deducted_credits = 0
+        if not body.dry_run and settings.credits_per_video > 0:
+            wallet = project_store.get_or_create_wallet(
+                user.user_id, default_free_videos=settings.initial_free_videos
+            )
+            if wallet["credits"] >= settings.credits_per_video:
+                if project_store.deduct_wallet_credits(user.user_id, settings.credits_per_video):
+                    deducted_credits = settings.credits_per_video
+
         jid = f"job_{uuid.uuid4().hex[:12]}"
         req = CampaignRequest(
             campaign_id=project_id,
@@ -1092,15 +1320,30 @@ def build_projects_router(
             resolution=body.resolution,
             clean_copy=True,
             dry_run=body.dry_run,
+            skip_cross_campaign_reskin=(tpl_path is not None),
         )
         job_store.create_job(jid, project_id, req.__dict__, status="QUEUED", stage="QUEUED")
         project_store.record_render_usage(user.user_id, project_id, jid)
         project_store.update_project(project_id, status="RENDERING", latest_job_id=jid)
-        tpl_path = _resolve_track_a_template() if (chosen_type == "A" and not body.dry_run) else None
         if tpl_path is not None:
-            executor.submit(_run_track_a_template_bg, req, jid, tpl_path, src_key, src_dur)
+            executor.submit(
+                _run_track_a_template_bg,
+                req,
+                jid,
+                tpl_path,
+                src_key,
+                src_dur,
+                user_id=user.user_id,
+                refunded_credits=deducted_credits,
+            )
         else:
-            executor.submit(_run_job_bg, req, jid)
+            executor.submit(
+                _run_job_bg,
+                req,
+                jid,
+                user_id=user.user_id,
+                refunded_credits=deducted_credits,
+            )
 
         est_cr = 12 if body.resolution == "360p" else 32
         return CreateRenderResponse(

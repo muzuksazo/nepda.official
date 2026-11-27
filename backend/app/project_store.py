@@ -682,6 +682,54 @@ class ProjectStore:
             ).fetchone()
         return self._row_to_wallet(row)  # type: ignore[arg-type]
 
+    def deduct_wallet_credits(self, user_id: str, amount: int) -> bool:
+        """Atomically deduct `amount` credits from user's wallet if balance is sufficient."""
+        amt = int(amount)
+        if amt <= 0:
+            return True
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            cur = conn.execute(
+                """
+                UPDATE credit_wallets
+                SET balance = balance - ?, updated_at = ?
+                WHERE user_id = ? AND balance >= ?
+                """,
+                (amt, now_iso, user_id, amt),
+            )
+        return cur.rowcount > 0
+
+    def refund_wallet_credits(
+        self, user_id: str, amount: int, *, default_free_videos: int = 0
+    ) -> Dict[str, Any]:
+        """Atomically refund `amount` credits back to user's wallet."""
+        amt = max(0, int(amount))
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO credit_wallets (
+                    user_id, balance, free_videos_remaining, created_at, updated_at
+                )
+                VALUES (?, 0, ?, ?, ?)
+                """,
+                (user_id, max(0, int(default_free_videos)), now_iso, now_iso),
+            )
+            if amt > 0:
+                conn.execute(
+                    """
+                    UPDATE credit_wallets
+                    SET balance = balance + ?, updated_at = ?
+                    WHERE user_id = ?
+                    """,
+                    (amt, now_iso, user_id),
+                )
+            row = conn.execute(
+                "SELECT * FROM credit_wallets WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+        return self._row_to_wallet(row)  # type: ignore[arg-type]
+
     @staticmethod
     def _row_to_billing_order(row: sqlite3.Row) -> Dict[str, Any]:
         return {
