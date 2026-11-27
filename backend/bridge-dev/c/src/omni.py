@@ -141,11 +141,11 @@ def generate(template: str, image_path: str | None, cache_dir: str, seconds: flo
     """첫 프레임 image_path 에서 시작하는 문제 장면 영상(mp4)을 만들어 경로를 돌려준다. 과금되는 호출이다."""
     if template not in veo.PROMPTS:
         raise OmniError(f"이 템플릿에는 프롬프트가 없습니다: {template} (사용 가능: {', '.join(veo.PROMPTS)})")
-    if not configured():
-        raise OmniError("GOOGLE_CLOUD_PROJECT 가 없습니다. c/.env 에 Google Cloud 프로젝트 ID 를 넣으세요.")
-    hit = cached(cache_dir, template, image_path, seconds)
+    hit = cached(cache_dir, template, image_path, seconds)          # 이미 만든 영상은 Google 설정이 없어도 쓴다
     if hit:
         return hit
+    if not configured():
+        raise OmniError("GOOGLE_CLOUD_PROJECT 가 없습니다. c/.env 에 Google Cloud 프로젝트 ID 를 넣으세요.")
     duration = pick_duration(seconds)
     prompt = veo.PROMPTS[template]
     token = veo.access_token()

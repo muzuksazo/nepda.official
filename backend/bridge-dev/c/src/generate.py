@@ -7,7 +7,7 @@ import time
 from typing import Callable
 
 from .check import check_scenario
-from .prompt import SYSTEM, build_user_prompt
+from .prompt import build_user_prompt, system_prompt
 from .schema import SCENARIO_SCHEMA, fact_ids, parse_worker_input, to_scenario_item
 
 DEFAULT_MODEL = "claude-opus-5-5"
@@ -62,7 +62,7 @@ def _call_claude(inp: dict, model: str, violations: list[str] | None) -> tuple[l
             max_tokens=16000,
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
-            system=SYSTEM,
+            system=system_prompt(),
             output_config={"effort": "high", "format": {"type": "json_schema", "schema": SCENARIO_SCHEMA}},
             messages=[{"role": "user", "content": build_user_prompt(inp, violations)}],
         )

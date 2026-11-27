@@ -4,8 +4,10 @@
   - 문제 장면(첫 장면): assets.problem_template 이 있으면 생성 영상, 없으면 다음 소재로.
       engine "omni"    Blender 가 렌더한 첫 프레임 → Google Gemini Omni 가 영상으로 생성, 3~15초 (omni.py)
       engine "veo"     같은 방식으로 Google Veo 가 생성, 4·6·8초 (veo.py)
+      (블록아웃 템플릿은 Veo·Omni 에 넘기기 전에 Nano Banana 가 첫 프레임을 같은 구도의 실사 사진으로 바꾼다. nanobanana.py)
+      engine "minimax" 같은 방식으로 MiniMax(Hailuo, MiniMax-H3 계열)가 생성, 4~15초 (minimax.py). MINIMAX_API_KEY 가 필요하다
       engine "blender" Blender 물리 시뮬레이션을 전 프레임 렌더
-      engine "auto"    GOOGLE_CLOUD_PROJECT 가 있으면 veo (C_GENERATOR=omni 면 omni), 없거나 실패하면 blender (기본)
+      engine "auto"    C_GENERATOR 로 고른 모델(기본 veo)의 설정이 있으면 그 모델, 없거나 실패하면 blender (기본)
   - 그 밖의 장면: assets.product_footage(실물 제품 영상)를 장면 길이 비율로 나눠 이어 쓴다. 증명은 실물만 보여 준다.
   - 소재가 없으면 자막만 있는 단색 카드.
 필요한 프로그램: ffmpeg(자막 번인용 libass 포함), 문제 장면 템플릿을 쓸 때는 Blender 4.2 이상.
@@ -20,6 +22,8 @@ import subprocess
 import sys
 from typing import Callable
 
+from . import minimax
+from . import nanobanana
 from . import omni
 from . import tts as tts_mod
 from . import veo
@@ -38,6 +42,10 @@ TEMPLATES = {
     "evaporate_diffuser": {"script": os.path.join(HERE, "blender_scene_evaporate.py"), "frames": 96, "impact_sec": None},
     # script 가 None 인 템플릿은 Blender 장면 없이 생성 모델(Veo · Gemini Omni)이 글만으로 만든다.
     "phone_distract": {"script": None, "frames": 0, "impact_sec": None},
+    # 같은 장면의 Blender 블록아웃. 회색 상자 수준이라 그대로 쓰는 화면이 아니고, 구도·카메라·동작 타이밍을 생성 모델에 넘기는 용도다.
+    "phone_distract_blockout": {"script": os.path.join(HERE, "blender_scene_desk.py"), "frames": 96, "impact_sec": None, "blockout": True},
+    # 같은 책상 장면의 실사용 첫 프레임 (손 없음). Google Veo 가 이 화면에서 이어 만든다.
+    "phone_distract_desk": {"script": os.path.join(HERE, "blender_scene_desk_real.py"), "frames": 96, "impact_sec": None},
     "closet_musty": {"script": os.path.join(HERE, "blender_scene_closet.py"), "frames": 96, "impact_sec": None, "still": 36},
     "drain_smell": {"script": os.path.join(HERE, "blender_scene_drain.py"), "frames": 240, "impact_sec": None, "sfx": [("spray", 4.5)], "still": 10},
 }
@@ -130,6 +138,44 @@ def first_frame(template: str, log: Callable[[str], None] = print) -> str:
     return _still_png(path)
 
 
+def refined_first_frame(template: str, image: str, log: Callable[[str], None] = print, *, generate: bool = True) -> str | None:
+    """블록아웃 첫 프레임을 Nano Banana 로 실사화한 720x1280 PNG. 실사화 지시가 없는 템플릿은 받은 화면을 그대로 돌려준다.
+
+    generate=False 면 과금 호출 없이 이미 만든 것만 찾고, 없으면 None.
+    """
+    prompt = nanobanana.REFINE.get(template)
+    if not prompt or os.environ.get("C_FIRST_FRAME_REFINE", "").strip().lower() in ("0", "off", "no", "false"):
+        return image
+    cache = os.path.join(assets_dir(), "cache", "nanobanana")
+    jpg = nanobanana.generate(prompt, image, cache, template, log=log) if generate else nanobanana.cached(prompt, image, cache, template)
+    if not jpg:
+        return None
+    png = jpg[:-4] + "_720.png"
+    if not (os.path.exists(png) and os.path.getmtime(png) >= os.path.getmtime(jpg)):
+        _run([_tool("ffmpeg", "FFMPEG_BIN"), "-v", "error", "-y", "-i", jpg, "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280", png])
+    return png
+
+
+def playblast_path(template: str) -> str:
+    return os.path.join(assets_dir(), "cache", TEMPLATES[template].get("cache", template), "playblast.mp4")
+
+
+def playblast(template: str, log: Callable[[str], None] = print) -> str:
+    """Blender 블록아웃의 플레이블라스트(720x1280 mp4). 생성 모델에 구도·동작 참조로 넘긴다. 한 번 만들면 다시 쓴다."""
+    path = playblast_path(template)
+    if not (os.path.exists(path) and os.path.getsize(path) > 10000):
+        frames = problem_frames(template, log)
+        _run([_tool("ffmpeg", "FFMPEG_BIN"), "-v", "error", "-y", "-framerate", str(FPS), "-i", os.path.join(frames, "p_%04d.jpg"),
+              "-vf", "scale=720:1280", "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", path])
+    return path
+
+
+def _has_audio(path: str) -> bool:
+    out = subprocess.run([_tool("ffprobe", "FFPROBE_BIN"), "-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", path],
+                         capture_output=True, text=True).stdout
+    return bool(out.strip())
+
+
 def _still_png(jpg: str) -> str:
     """생성 모델에 보낼 720x1280 PNG. Blender 가 낸 JPEG 을 그대로 보내면 Gemini Omni 가 "파일을 해석할 수 없다"며 실패했다."""
     png = jpg[:-4] + "_720.png"
@@ -140,14 +186,14 @@ def _still_png(jpg: str) -> str:
 
 def problem_engine(assets: dict) -> str:
     engine = str(assets.get("problem_engine") or os.environ.get("C_PROBLEM_ENGINE") or "auto").strip().lower()
-    if engine not in ("auto", "omni", "veo", "blender"):
-        raise RenderError(f"problem_engine 은 auto · omni · veo · blender 중 하나여야 합니다: {engine}")
+    if engine not in ("auto", "omni", "veo", "minimax", "blender"):
+        raise RenderError(f"problem_engine 은 auto · omni · veo · minimax · blender 중 하나여야 합니다: {engine}")
     return engine
 
 
-GENERATORS = {"omni": omni, "veo": veo}          # Google Cloud 영상 생성 모델
+GENERATORS = {"omni": omni, "veo": veo, "minimax": minimax}          # 영상 생성 모델 (Google Cloud 둘, MiniMax 하나)
 # auto 가 쓰는 모델. Veo 는 Google Cloud 무료 체험 계정에서도 생성됐고, Gemini Omni 는 "유료 결제 계정이 필요하다"로 거절됐다.
-# 유료 계정이면 C_GENERATOR=omni 로 바꾼다 (Omni 는 3~15초를 한 번에 만든다).
+# 유료 계정이면 C_GENERATOR=omni 로 바꾼다 (Omni 는 3~15초를 한 번에 만든다). MiniMax 로 만들려면 C_GENERATOR=minimax.
 DEFAULT_GENERATOR = os.environ.get("C_GENERATOR", "veo").strip().lower() if os.environ.get("C_GENERATOR", "veo").strip().lower() in GENERATORS else "veo"
 
 
@@ -157,23 +203,40 @@ def problem_source(src: dict, seconds: float, log: Callable[[str], None] = print
     generate=False 면 과금되는 생성 호출을 하지 않고, 이미 만든 영상이 있을 때만 그것을 쓴다 (콘티용).
     """
     template, engine = src["template"], src["engine"]
-    if engine in GENERATORS or (engine == "auto" and veo.configured()):
+    if engine in GENERATORS or (engine == "auto" and GENERATORS[DEFAULT_GENERATOR].configured()):
         name = engine if engine in GENERATORS else DEFAULT_GENERATOR
         gen = GENERATORS[name]
         cache = os.path.join(assets_dir(), "cache", name)
         try:
             image = first_frame(template, log) if TEMPLATES[template]["script"] else None
-            clip = gen.generate(template, image, cache, seconds, log=log) if generate else gen.cached(cache, template, image, seconds)
+            extra = {}
+            # MiniMax 는 블록아웃을 첫 프레임이 아니라 참조 영상으로 받는다 (첫 프레임으로 주면 회색 상자 화면이 그대로 이어진다).
+            if name == "minimax" and image and (TEMPLATES[template].get("blockout") or os.environ.get("C_MINIMAX_MODE", "").strip().lower() == "reference"):
+                ref = playblast(template, log) if generate else playblast_path(template)
+                extra = {"reference_video": ref} if os.path.exists(ref) else {"reference_video": None}
+            # Veo·Omni 는 첫 프레임에서 그대로 이어 만든다. 블록아웃이면 먼저 Nano Banana 로 같은 구도의 실사 사진으로 바꾼다.
+            if name != "minimax" and image:
+                image = refined_first_frame(template, image, log, generate=generate)
+            if (extra and extra["reference_video"] is None) or (TEMPLATES[template]["script"] and image is None):
+                clip = None                                   # 콘티 단계: 참조 영상이나 실사 첫 프레임이 아직 없으면 만든 영상도 없다
+            else:
+                clip = gen.generate(template, image, cache, seconds, log=log, **extra) if generate else gen.cached(cache, template, image, seconds, **extra)
             if clip:
-                return {"kind": "clip", "path": clip, "engine": f"{name}:{gen.model()}"}
-        except veo.VeoError as e:                 # OmniError 도 여기에 들어온다
+                return {"kind": "clip", "path": clip, "engine": f"{name}:{gen.model()}", "audio": bool(getattr(gen, "audio", lambda: False)())}
+        except veo.VeoError as e:                 # OmniError, MinimaxError 도 여기에 들어온다
             if engine in GENERATORS:
                 raise RenderError(str(e)) from e
             if not TEMPLATES[template]["script"]:
                 raise RenderError(str(e)) from e
             log(f"  {name} 를 쓰지 못해 Blender 렌더로 대신합니다: {e}")
     if not TEMPLATES[template]["script"]:
-        raise RenderError(f"템플릿 {template} 은 Blender 장면이 없습니다. GOOGLE_CLOUD_PROJECT 를 설정해 Gemini Omni 로 먼저 생성하세요.")
+        raise RenderError(f"템플릿 {template} 은 Blender 장면이 없습니다. GOOGLE_CLOUD_PROJECT(Veo·Omni) 나 MINIMAX_API_KEY(MiniMax) 를 설정해 먼저 생성하세요.")
+    if not generate and engine != "blender":
+        # 콘티 단계이고 생성 영상이 아직 없다. 전 프레임을 렌더하지 않고(수 분) 생성 모델에 넘길 첫 프레임 한 장만 쓴다.
+        spec = TEMPLATES[template]
+        done = len(glob.glob(os.path.join(assets_dir(), "cache", spec.get("cache", template), "p_*.jpg")))
+        if done < spec["frames"]:
+            return {"kind": "still", "path": first_frame(template, log), "engine": "blender"}
     return {"kind": "frames", "dir": problem_frames(template, log), "engine": "blender"}
 
 
@@ -371,6 +434,9 @@ def storyboard(scenario: dict, assets: dict, out_dir: str, log: Callable[[str], 
                 clip_len = _duration(got["path"])
                 inp = ["-ss", f"{min(clip_len - 0.1, at * _clip_speed(clip_len, src['span'])):.2f}", "-i", got["path"]]
                 pre = f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H}"
+            elif got["kind"] == "still":
+                inp = ["-i", got["path"]]
+                pre = f"scale={W}:{H}:flags=lanczos"
             else:
                 spec = TEMPLATES[src["template"]]
                 frame_no = min(spec["frames"], int(at * FPS) + 1)
@@ -553,6 +619,15 @@ def render_hook(scenario: dict, assets: dict, out_dir: str, *, tts: dict | None 
           f"[1:a]adelay={int((thud or 0) * 1000)}:all=1,volume={0.8 if thud is not None else 0}[th];"
           f"[2:a]adelay={int(max(0.0, t1 - 0.5) * 1000)}:all=1,volume=0.45[w];[3:a]adelay={int(cta_at * 1000)}:all=1[c];{extra_graph}"
           f"[0:a][th][w][c]{extra_pads}amix=inputs={4 + len(extra)}:normalize=0,atrim=0:{total}[a]", "-map", "[a]", "-ar", "48000", bed])
+
+    # 생성 영상에 소리가 들어 있으면(MiniMax, C_MINIMAX_AUDIO=1) 문제 장면 구간의 배경음에 섞는다.
+    if resolved.get("kind") == "clip" and resolved.get("audio") and _has_audio(resolved["path"]):
+        speed = _clip_speed(_duration(resolved["path"]), plan[0]["span"])
+        mixed = os.path.join(work, "bed_clip.wav")
+        _run([ffmpeg, "-v", "error", "-y", "-i", bed, "-i", resolved["path"], "-filter_complex",
+              f"[1:a]atempo={speed:.3f},atrim=0:{t1:.2f},afade=t=out:st={max(0.0, t1 - 0.3):.2f}:d=0.3,aresample=48000,volume=0.9[c];"
+              f"[0:a][c]amix=inputs=2:normalize=0,atrim=0:{total}[a]", "-map", "[a]", "-ar", "48000", mixed])
+        bed = mixed
 
     # 4) 합치기
     flash = f"eq=brightness='0.45*max(0,1-abs(t-{t1})/0.18)':eval=frame," if plan[0]["kind"] == "template" else ""

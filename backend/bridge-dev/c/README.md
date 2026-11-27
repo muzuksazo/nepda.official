@@ -29,6 +29,8 @@
 
 기준 문서: [`skills/shortform-ad-hooks-blueprint/SKILL.md`](../../../skills/shortform-ad-hooks-blueprint/SKILL.md)의 Track C(`C_direct_proof`).
 
+작업자 코드가 모델에 넘기는 규칙은 코드에 적혀 있지 않고 스킬 파일 [`skills/c-direct-proof-hook/SKILL.md`](skills/c-direct-proof-hook/SKILL.md)에 있습니다. `src/prompt.py` 가 실행할 때마다 이 파일의 본문을 읽으므로, 규칙을 바꾸려면 이 파일만 고치면 됩니다. 다른 파일을 쓰려면 `C_SKILL_PATH` 에 경로를 넣습니다. 특정 제품 이름이나 예시는 스킬에 넣지 않습니다.
+
 - **밝고 날것인 POV 문제 훅**으로 시작하고 곧바로 제품의 **가장 강한 실물 동작 증명**을 앞쪽에 둔다.
 - 검증된 장점 2~3개를 `verified_facts`에서 골라 근거 ID(`F01`…)와 함께 쓴다. 증명 장면은 실제 제품 동작만 보여 준다(없는 기능을 연출하지 않는다).
 - PAS(문제-자극-해결)·스펙 설득과 단일 CTA는 **C에만** 쓴다. A·B로 번지지 않게 한다.
@@ -125,6 +127,10 @@ python -m src.cli hook proj_piev01 <scenario_id>                                
 | `C_VEO_MODEL` | Veo 를 쓸 때만. 기본 `veo-3.1-fast-generate-001` |
 | `C_PROBLEM_ENGINE` | `auto`(기본) · `omni` · `veo` · `blender`. 입력의 `assets.problem_engine` 이나 `hook --engine` 으로도 정합니다 |
 
+- `minimax` 는 MiniMax(Hailuo, `MiniMax-H3` 계열)로 만듭니다. `c/.env` 에 `MINIMAX_API_KEY` 가 필요하고, 길이는 4~15초, 글만 있는 템플릿은 세로 9:16 으로, 첫 프레임이 있는 템플릿은 그 이미지 비율로 나옵니다. 모델과 해상도는 `C_MINIMAX_MODEL`(기본 `MiniMax-H3`), `C_MINIMAX_RESOLUTION`(기본 `768P`)로 바꿉니다. 키만 확인하려면 `python -m src.cli minimax <템플릿>`, 실제로 한 편 만들려면 `--generate` 를 붙입니다(과금). 실제 호출은 아직 해 보지 않았습니다.
+- **Blender 블록아웃 + MiniMax H3** (`problem_template: phone_distract_blockout`, `problem_engine: minimax`): `src/blender_scene_desk.py` 가 책상 POV 장면을 회색 상자 수준으로 만들어 구도·카메라·동작 타이밍을 정하고(Blender MCP 로 보면서 다듬은 뒤 같은 스크립트를 headless 로 실행), 그 4초 플레이블라스트를 MiniMax 에 참조 영상(`reference_video`)으로 넘겨 실사 영상으로 받습니다. `C_MINIMAX_AUDIO=1` 이면 소리가 들어간 영상을 받아 문제 장면 구간의 배경음에 섞습니다. MiniMax 규칙상 첫 프레임과 참조 영상은 한 요청에 같이 쓸 수 없어, 블록아웃 템플릿은 참조 방식만 씁니다. `problem_engine: blender` 로 두면 블록아웃이 그대로 들어간 프리비즈 훅이 나옵니다(과금 없음). 예시 입력: `examples/timer/03_worker-input.blender-minimax.json`.
+- **Blender 블록아웃 + Nano Banana + Omni(또는 Veo)** (`problem_template: phone_distract_blockout`, `problem_engine: omni` 또는 `veo`): Blender 블록아웃의 첫 프레임을 Nano Banana(`gemini-nano-banana-2.1`, `src/nanobanana.py`)가 같은 구도의 실사 사진으로 바꾸고, 그 사진에서 Omni·Veo 가 영상으로 이어 만듭니다. 실사화 지시문은 템플릿별로 `nanobanana.REFINE` 에 둡니다. `C_FIRST_FRAME_REFINE=off` 로 끌 수 있습니다. 세 모델 모두 Google Cloud 무료 체험 계정에서 생성되는 것을 2026-11-27 에 확인했습니다(Omni 는 전날 거절된 적이 있음). 예시 입력: `examples/timer/05_worker-input.blender-nanobanana-omni.json`.
+- `phone_distract_desk` 는 같은 책상 장면을 나무 책상·실내 조명으로 다듬고 손을 뺀 버전입니다. Nano Banana 없이 Blender 첫 프레임을 Veo 에 바로 넘길 때 씁니다.
 - `auto` 는 `GOOGLE_CLOUD_PROJECT` 가 있으면 Veo 를 쓰고(`C_GENERATOR=omni` 로 Omni 로 바꿀 수 있음), 없거나 호출이 실패하면 Blender 렌더(전 프레임)로 대신합니다. Veo 는 Google Cloud 무료 체험 계정에서도 생성되는 것을 확인했고, Omni 는 무료 체험 계정에서 "유료 결제 계정이 필요하다"로 거절됐습니다(가끔 통과). `omni` 와 `veo` 는 실패하면 오류로 끝납니다. 어느 쪽으로 만들었는지는 `hook` 결과의 `problem_engine` 에 나옵니다.
 - Omni 호출은 Interactions API(`…/locations/global/interactions`)로 접수한 뒤 끝날 때까지 확인하고, 응답에 담긴 영상을 저장합니다. 공식 예시는 입력 이미지를 Cloud Storage 주소로만 보여 주는데, 여기서는 인라인(base64)으로 보냅니다. 실제 호출로 확인했습니다: 인라인 이미지는 받지만 Blender 가 낸 JPEG 은 거절되어 720x1280 PNG 로 바꿔 보냅니다.
 - `--engine veo` 로 Veo 를 쓰면 4·6·8초로만 생성하므로 장면 길이를 덮는 가장 짧은 길이로 요청하고 장면 길이에 맞춰 속도를 조절합니다. 둘 다 초 단위로 과금됩니다.
@@ -265,12 +271,52 @@ C_PRODUCT_FOOTAGE=<실물 영상 경로> C_PROBLEM_TEMPLATE=drain_smell \
 C_SCENARIO_FILES=examples/piev/06_scenarios.round3.response.json python -m src.server
 # http://127.0.0.1:8080/?preset=piev          C 유형·실제 호출·피에브 제품 정보가 채워진 화면
 # http://127.0.0.1:8080/?preset=piev&run=1    열자마자 "처음부터 끝까지" 실행
+# http://127.0.0.1:8080/?preset=timer         뽀모도로 타이머. 프리셋 이름은 examples/ 의 폴더 이름입니다
 ```
 
 - 화면이 보내지 않는 값(실물 영상, 문제 장면 템플릿)은 환경변수로 받습니다.
 - 시나리오는 `ANTHROPIC_API_KEY` 가 있으면 Claude 로 생성하고, 없으면 `C_SCENARIO_FILES` 의 준비된 응답을 회차마다 돌려 쓰며, 그것도 없으면 오프라인 초안을 냅니다. 어느 쪽인지는 응답의 `scenario_source` 에 나옵니다.
 - 콘티 이미지와 훅 결과 파일은 로컬 모드에서 `/files/…`, R2 모드에서 임시 다운로드 URL로 내주고, 훅이 끝나면 화면 아래에 영상 재생기가 붙습니다.
 - 인증을 확인하지 않고 상태를 메모리에만 두는 개발용입니다. `backend/app` 과의 연결은 아닙니다.
+
+## 실제 프론트(frontend/)에 붙여 돌리기 (E2E-ABC-C)
+
+같은 서버가 실제 프론트 앱이 부르는 API도 받습니다. 프론트 코드는 고치지 않고, 개발 서버가 API 를 넘겨 줄 주소만 이 서버로 바꿉니다.
+
+```bash
+# 1) C 서버
+cd backend/bridge-dev/c
+C_SERVER_PORT=8093 C_PROBLEM_TEMPLATE=phone_distract C_PROBLEM_ENGINE=veo \
+C_SCENARIO_FILES=examples/timer/02_scenarios.response.json python -m src.server
+# 2) 프론트 (다른 터미널)
+cd frontend
+VITE_API_PROXY_TARGET=http://127.0.0.1:8093 npm run dev -- --port 5180
+# http://127.0.0.1:5180  → 영상 만들기 → 제품 정보 → C 유형 → 시나리오 → 그림 콘티 → 촬영 가이드 → 영상 올리기 → 영상 확인 → 썸네일
+```
+
+| 프론트가 부르는 API | 이 서버가 하는 일 |
+| --- | --- |
+| `GET /v1/auth/me`, `POST /v1/auth/logout` | 개발용 계정을 돌려줍니다. 로그인과 크레딧을 확인하지 않습니다. |
+| `GET /v1/projects`, `GET /v1/projects/{id}` | 메모리에 있는 프로젝트 목록과 상세 (이어하기용) |
+| `POST …/filming-guide` | 둘째 장면부터를 촬영 순서로 돌려줍니다. 첫 장면(문제)은 생성 영상이라 찍지 않습니다. |
+| `POST …/estimate` | 크레딧 0 (로컬 작업자는 크레딧을 쓰지 않습니다) |
+| `POST /v1/uploads/presign`, `PUT /dev-uploads/…`, `POST …/uploads/complete` | 올린 촬영 영상을 `OUTPUT_DIR/_uploads/` 에 받아, 그 프로젝트의 실물 영상(`product_footage`)으로 씁니다. |
+| `POST …/renders`, `GET …/deliverables` | 훅 영상을 만들고, 끝나면 영상·자막·썸네일(콘티 둘째 장) 주소를 `/dev-files/…` 로 돌려줍니다. |
+
+- 제품 소개 칸은 글 한 덩어리로 오므로 줄과 문장 단위로 나눠 검증된 사실 목록으로 씁니다.
+- C 유형이 아닌 유형을 고르면 422 로 거절합니다.
+- `backend/app` 을 거치지 않습니다. 코어가 작업자를 부르게 되면 이 대체 경로는 필요 없어집니다.
+
+### E2E 스크립트 (`test/e2e/`)
+
+Playwright(Edge)로 화면을 실제로 누르고 녹화합니다. `pip install playwright` 와 `python -m playwright install ffmpeg` 가 필요합니다.
+
+```bash
+# 실제 프론트(5180) + C 서버(8093): 제품 정보 → C 유형 → 시나리오 → 콘티 → 촬영 가이드 → 업로드 → 만드는 중 → 영상 확인 → 썸네일
+python test/e2e/e2e_front.py http://127.0.0.1:5180 <촬영 영상> <결과 폴더> "<제품 이름>" "<한 줄 소개>"
+# bridge-dev 더미 화면(index.html) + C 서버: 회차 반복, 결과 파일 내려받기, 오류 응답
+python test/e2e/e2e_bridge_page.py http://127.0.0.1:8093 timer <결과 폴더> 2
+```
 
 ## index.html로 테스트하기
 

@@ -82,6 +82,13 @@ PROMPTS = {
         "The camera flinches and pulls back from the smell, then holds on the drain. Bright, flat bathroom lighting."
     ),
 }
+PROMPTS["phone_distract_desk"] = (
+    "Handheld smartphone POV looking down at this bright study desk, casual and unpolished phone footage, slightly shaky. "
+    "A person's right hand in a light sweater sleeve reaches in from the bottom right, picks up the smartphone lying next to the open notebook, "
+    "lifts it toward the camera and starts scrolling with the thumb. The phone screen lights up showing only soft blurred colorful shapes. "
+    "The notebook and the pen stay untouched on the desk. Realistic, natural window light, vertical video."
+)
+PROMPTS["phone_distract_blockout"] = PROMPTS["phone_distract"]          # 같은 장면. Blender 블록아웃(blender_scene_desk.py)이 구도를 정한다
 NEGATIVE = "text, captions, subtitles, logos, watermark, brand names, faces, cartoon, slow motion"
 
 
@@ -193,11 +200,11 @@ def generate(template: str, image_path: str | None, cache_dir: str, seconds: flo
     """첫 프레임 image_path 에서 시작하는 문제 장면 영상(mp4)을 만들어 경로를 돌려준다. 과금되는 호출이다."""
     if template not in PROMPTS:
         raise VeoError(f"이 템플릿에는 Veo 프롬프트가 없습니다: {template} (사용 가능: {', '.join(PROMPTS)})")
-    if not configured():
-        raise VeoError("GOOGLE_CLOUD_PROJECT 가 없습니다. c/.env 에 Google Cloud 프로젝트 ID 를 넣으세요.")
-    hit = cached(cache_dir, template, image_path, seconds)
+    hit = cached(cache_dir, template, image_path, seconds)          # 이미 만든 영상은 Google 설정이 없어도 쓴다
     if hit:
         return hit
+    if not configured():
+        raise VeoError("GOOGLE_CLOUD_PROJECT 가 없습니다. c/.env 에 Google Cloud 프로젝트 ID 를 넣으세요.")
     duration = pick_duration(seconds)
     prompt = PROMPTS[template]
     token = access_token()

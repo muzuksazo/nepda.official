@@ -11,7 +11,7 @@ from . import omni, veo
 from .assets import assets_dir, fetch_all
 from .check import check_scenario
 from .generate import generate_scenarios
-from .render import RenderError, first_frame, render_hook, storyboard
+from .render import TEMPLATES, RenderError, first_frame, render_hook, storyboard
 from .schema import InputError, parse_worker_input
 from .storage import DeliveryStorage, StorageError, result_files
 from .tts import TtsError
@@ -30,7 +30,7 @@ USAGE = """사용법 (backend/bridge-dev/c 에서):
       저장소 설정·R2 읽기 권한 확인. 파일 업로드나 영상 생성 없음.
   python -m src.cli publish <project_id> <hook_id>
       이미 만든 결과 파일을 R2에 업로드하고 다운로드 링크 반환. 영상·TTS 재생성 없음.
-  python -m src.cli hook <project_id> <scenario_id> [--voice ID] [--no-tts] [--hook-id ID] [--engine auto|omni|veo|blender]
+  python -m src.cli hook <project_id> <scenario_id> [--voice ID] [--no-tts] [--hook-id ID] [--engine auto|omni|veo|minimax|blender]
       훅 영상 + TTS 생성 (FR-005). Inworld TTS 호출(과금).
       문제 장면: Blender 가 첫 프레임을 렌더하고 Google Gemini Omni(과금)가 영상으로 만든다.
       GOOGLE_CLOUD_PROJECT 가 없으면 Blender 렌더만으로 만든다. --engine veo 로 Veo 를 쓸 수도 있다.
@@ -224,6 +224,25 @@ def main() -> int:
                 return 0
             seconds = float(arg("--seconds") or 10)
             clip = omni.generate(template, first_frame(template, log), os.path.join(assets_dir(), "cache", "omni"), seconds, log=log)
+            print(f"생성됨: {clip}")
+            return 0
+        except veo.VeoError as e:
+            log(str(e))
+            return 1
+
+    if cmd == "minimax":
+        from . import minimax
+        template = args[1] if len(args) > 1 else "phone_distract"
+        print(f"모델: {minimax.model()}  해상도: {minimax.resolution()}  키: {'있음' if minimax.configured() else '없음 (MINIMAX_API_KEY)'}")
+        try:
+            if not minimax.configured():
+                raise minimax.MinimaxError("MINIMAX_API_KEY 가 없습니다. c/.env 에 MiniMax API 키를 넣으세요.")
+            if not has("--generate"):
+                print("여기까지는 과금이 없습니다. 실제로 한 편 만들어 보려면 --generate 를 붙이세요 (과금).")
+                return 0
+            seconds = float(arg("--seconds") or 4)
+            image = first_frame(template, log) if TEMPLATES[template]["script"] else None
+            clip = minimax.generate(template, image, os.path.join(assets_dir(), "cache", "minimax"), seconds, log=log)
             print(f"생성됨: {clip}")
             return 0
         except veo.VeoError as e:
