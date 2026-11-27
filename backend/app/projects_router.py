@@ -99,6 +99,8 @@ from .thumbnail_service import generate_project_thumbnail
 from .tts_service import build_tts_provider
 from .upload_service import validate_and_complete_uploads
 
+from hookpipe import HookPipeline, is_worker_scenario  # backend/hookpipe: 훅 영상 + 본편 붙이기
+
 GoogleTokenVerifier = Callable[[str, str], AuthenticatedUser]
 ScenarioGenerator = Callable[[Dict[str, Any], List[str], str], List[Dict[str, Any]]]
 StoryboardGenerator = Callable[[Dict[str, Any], Dict[str, Any], str], List[Dict[str, Any]]]
@@ -612,10 +614,12 @@ def build_projects_router(
     google_token_verifier: Optional[GoogleTokenVerifier] = None,
     scenario_generator: Optional[ScenarioGenerator] = None,
     storyboard_generator: Optional[StoryboardGenerator] = None,
+    hook_pipeline: Optional[HookPipeline] = None,
     paddle_client: Optional[PaddleApiClient] = None,
 ) -> APIRouter:
     """Build `/v1/auth/*`, `/v1/billing/*`, `/v1/hook-types`, and `/v1/projects/*` routes."""
     router = APIRouter()
+    hooks = hook_pipeline or HookPipeline(settings, project_store, job_store, storage)
     verify_google = google_token_verifier or verify_google_id_token
     gen_scenarios = scenario_generator or _default_scenario_generator(settings)
     gen_storyboard = storyboard_generator or _default_storyboard_generator(settings, storage)
@@ -1220,7 +1224,8 @@ def build_projects_router(
         seen_ids = {s["scenario_id"] for s in project_store.list_scenarios(project_id)}
         new_items: List[Dict[str, Any]] = []
         for _ in range(body.count):
-            batch = gen_scenarios(proj, target_types, body.provider)
+            # 이번 요청에서 먼저 만든 것도 "이전 시나리오"로 넘겨, 여러 개를 뽑을 때 같은 소재가 반복되지 않게 한다
+            batch = gen_scenarios({**proj, "pending_scenarios": list(new_items)}, target_types, body.provider)
             for item in batch:
                 cand = dict(item)
                 sid = str(cand.get("scenario_id") or f"scn_{cand.get('type', 'A')}_{uuid.uuid4().hex[:6]}")
@@ -1411,6 +1416,38 @@ def build_projects_router(
             if not scn:
                 raise _api_error(status.HTTP_404_NOT_FOUND, "SCENARIO_NOT_FOUND", "시나리오를 찾을 수 없습니다.")
             chosen_type = scn["type"]
+            if is_worker_scenario(scn):
+                # A·B·C 작업자 시나리오: 영상 모델 훅을 만들고(이미 있으면 재사용) 올린 본편을 뒤에 붙인다
+                jid = f"job_{uuid.uuid4().hex[:12]}"
+                job_store.create_job(
+                    jid,
+                    project_id,
+                    {
+                        "pipeline": "hookpipe",
+                        "scenario_id": scn_id,
+                        "voice_id": body.voice_id,
+                        "dry_run": body.dry_run,
+                    },
+                    status="QUEUED",
+                    stage="QUEUED",
+                )
+                project_store.record_render_usage(user.user_id, project_id, jid)
+                project_store.update_project(project_id, status="RENDERING", latest_job_id=jid)
+                if body.dry_run or hooks.is_dry_run():
+                    job_store.update_job(
+                        jid, status="DRY_RUN_READY", stage="DRY_RUN_READY", artifacts={"pipeline": "hookpipe"}
+                    )
+                else:
+                    executor.submit(hooks.process_render, project_id, jid, user.user_id, scn, body.voice_id)
+                return CreateRenderResponse(
+                    project_id=project_id,
+                    job_id=jid,
+                    status="QUEUED",
+                    selected_type=chosen_type,
+                    estimated_credits=12 if body.resolution == "360p" else 32,
+                    quota=_quota(user.user_id),
+                    expires_at=proj["expires_at"],
+                )
             spec_data = dict(scn.get("ad_spec") or {})
             if not spec_data:
                 spec_data = _build_default_ad_spec(
@@ -1584,51 +1621,6 @@ def build_projects_router(
             expires_at=proj["expires_at"],
         )
 
-    def _process_hook_bg(project_id: str, hook_id: str, scenario: Dict[str, Any], out_dir: Path) -> None:
-        try:
-            project_store.update_hook(hook_id, status="running")
-            out_dir.mkdir(parents=True, exist_ok=True)
-            scenario_file = out_dir / "scenario.json"
-            scenario_file.write_text(json.dumps(scenario, ensure_ascii=False, indent=2), encoding="utf-8")
-
-            srt_lines: List[str] = []
-            t_cur = 0.0
-            cap_idx = 1
-            for beat in scenario.get("beats") or []:
-                dur = float(beat.get("duration_sec") or 3.0)
-                cap_text = str(beat.get("caption") or beat.get("narration") or "").strip()
-                if cap_text:
-                    t_end = t_cur + dur
-                    s_h, s_m, s_s = int(t_cur // 3600), int((t_cur % 3600) // 60), t_cur % 60
-                    e_h, e_m, e_s = int(t_end // 3600), int((t_end % 3600) // 60), t_end % 60
-                    srt_lines.append(
-                        f"{cap_idx}\n"
-                        f"{s_h:02d}:{s_m:02d}:{s_s:06.3f}".replace(".", ",")
-                        + " --> "
-                        + f"{e_h:02d}:{e_m:02d}:{e_s:06.3f}".replace(".", ",")
-                        + f"\n{cap_text}\n"
-                    )
-                    cap_idx += 1
-                t_cur += dur
-            srt_file = out_dir / "subtitles.srt"
-            srt_file.write_text("\n".join(srt_lines), encoding="utf-8")
-
-            sb_urls = [
-                str(f["image_url"])
-                for f in (scenario.get("storyboard_frames") or [])
-                if isinstance(f, dict) and f.get("image_url")
-            ]
-            files_payload = HookFiles(
-                subtitles_srt="subtitles.srt",
-                scenario_json="scenario.json",
-                storyboard_images=sb_urls,
-            ).model_dump()
-            project_store.update_hook(hook_id, status="done", files=files_payload)
-            project_store.update_project(project_id, status="HOOK_READY")
-        except Exception as exc:
-            project_store.update_hook(hook_id, status="failed", error=str(exc))
-            project_store.update_project(project_id, status="FAILED")
-
     @router.post(
         "/v1/projects/{project_id}/hooks",
         status_code=status.HTTP_202_ACCEPTED,
@@ -1652,6 +1644,24 @@ def build_projects_router(
                 "선택된 시나리오만 훅 생성을 요청할 수 있습니다. 먼저 시나리오를 선택해 주세요.",
             )
 
+        tts_payload = body.tts.model_dump()
+        paid = hooks.uses_video_model(scn)
+        if paid:
+            # 영상 모델을 부르는 훅: 같은 시나리오·같은 목소리로 이미 만들었거나 만드는 중이면 그것을 돌려준다
+            existing = hooks.find_existing_hook(project_id, body.scenario_id, tts_payload, include_active=True)
+            if existing:
+                return CreateHookResponse(
+                    hook_id=existing["hook_id"], job_id=existing["job_id"], status=existing["status"]
+                )
+            quota_before = _quota(user.user_id)
+            if quota_before.remaining_today <= 0:
+                raise _api_error(
+                    status.HTTP_429_TOO_MANY_REQUESTS,
+                    "DAILY_QUOTA_EXCEEDED",
+                    f"무료 베타 일일 생성 한도({quota_before.daily_limit}회)를 모두 사용했습니다.",
+                    quota_before.model_dump(),
+                )
+
         hook_id = f"hook_{uuid.uuid4().hex[:10]}"
         job_id = f"job_{uuid.uuid4().hex[:12]}"
         out_dir = Path(settings.output_dir).resolve() / project_id / hook_id
@@ -1661,12 +1671,14 @@ def build_projects_router(
             user_id=user.user_id,
             scenario_id=body.scenario_id,
             job_id=job_id,
-            tts=body.tts.model_dump(),
+            tts=tts_payload,
             output_dir=str(out_dir),
             status="queued",
         )
+        if paid:
+            project_store.record_render_usage(user.user_id, project_id, job_id)
         project_store.update_project(project_id, status="HOOK_RENDERING", latest_job_id=job_id)
-        background_tasks.add_task(_process_hook_bg, project_id, hook_id, scn, out_dir)
+        background_tasks.add_task(hooks.process_hook, project_id, hook_id, scn, out_dir, tts_payload)
         return CreateHookResponse(hook_id=hook_id, job_id=job_id, status="queued")
 
     @router.get(

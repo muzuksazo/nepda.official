@@ -1,16 +1,18 @@
-"""API · Blender · ffmpeg 없이 도는 흐름 확인.  c/ 폴더에서: python -m test.mock_run"""
+"""API 없이 도는 흐름 확인.  c/ 폴더에서: python -m test.mock_run"""
 from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
+import types
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src import generate as gen                 # noqa: E402
 from src.check import check_scenario            # noqa: E402
 from src.generate import generate_scenarios     # noqa: E402
-from src.render import _caption_chunks, write_srt  # noqa: E402
 from src.schema import InputError, parse_worker_input  # noqa: E402
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -28,16 +30,13 @@ print("1. 입력 형태")
 inp = read("examples", "01_worker-input.scenarios.json")
 parsed = parse_worker_input(inp)
 expect("예시 입력을 읽는다", parsed["hook_type"] == "C" and parsed["count"] == 1)
-try:
-    parse_worker_input({**inp, "hook_type": "B"})
-    expect("다른 유형은 거절한다", False)
-except InputError:
-    expect("다른 유형은 거절한다", True)
-try:
-    parse_worker_input({**inp, "product_info": {"name": "x", "verified_facts": []}})
-    expect("사실이 없으면 거절한다", False)
-except InputError:
-    expect("사실이 없으면 거절한다", True)
+for bad_input, name in (({**inp, "hook_type": "B"}, "다른 유형은 거절한다"),
+                        ({**inp, "product_info": {"name": "x", "verified_facts": []}}, "사실이 없으면 거절한다")):
+    try:
+        parse_worker_input(bad_input)
+        expect(name, False)
+    except InputError:
+        expect(name, True)
 
 print("2. 오프라인 시나리오 생성 (API 호출 없음)")
 run = generate_scenarios({**inp, "count": 2}, offline=True)
@@ -47,164 +46,89 @@ expect("응답 round 와 항목 round 가 같다", all(s["round"] == run["respon
 expect("scenario_id 가 서로 다르다", len({s["scenario_id"] for s in scenarios}) == 2)
 for s, c in zip(scenarios, run["checks"]):
     expect(f"규칙 검사 통과: {s['scenario_id']}", not c["errors"], "; ".join(c["errors"]))
-    expect("장면 길이 합 = hook_duration_sec ≤ 15", abs(sum(b["duration_sec"] for b in s["beats"]) - s["hook_duration_sec"]) < 0.01 and s["hook_duration_sec"] <= 15)
+    expect("훅 길이 15~20초", 15 <= s["hook_duration_sec"] <= 20, str(s["hook_duration_sec"]))
+    expect("CTA 는 본편 뒤로", s["ad_spec"]["cta"]["placement"] == "after_body")
 
 print("3. 저장소 예시 응답 검사")
-example = read("examples", "02_scenarios.response.json")
-for s in example["scenarios"]:
+for s in read("examples", "02_scenarios.response.json")["scenarios"]:
     c = check_scenario(s, inp["product_info"])
     expect(f"예시 통과: {s['scenario_id']}", not c["errors"], "; ".join(c["errors"]))
 
 print("4. 규칙 위반을 잡는다")
-bad = json.loads(json.dumps(scenarios[0]))
-bad["beats"][1]["narration"] = "무소음이고 지금 50% 할인 중입니다."
-bad["beats"][0]["role"] = "장점"
-bad["ad_spec"]["claim_ids"] = ["F99"]
-errors = check_scenario(bad, inp["product_info"])["errors"]
-expect("미검증 표현(무소음)", any("무소음" in e for e in errors))
-expect("가격·할인", any("가격" in e for e in errors))
-expect("첫 장면이 문제가 아님", any("첫 장면" in e for e in errors))
-expect("없는 근거 ID", any("F99" in e for e in errors))
-long = json.loads(json.dumps(scenarios[0]))
-long["beats"][0]["duration_sec"] = 9.0
-long["hook_duration_sec"] = round(sum(b["duration_sec"] for b in long["beats"]), 2)
-expect("15초 초과", any("15" in e for e in check_scenario(long, inp["product_info"])["errors"]))
+base = scenarios[0]
 
-print("5. 자막")
-words = [("디퓨저,", 0.1, 0.5), ("또", 0.6, 0.8), ("쏟았어요.", 0.8, 1.7)]
-chunks = _caption_chunks(words, 0.0, 3.0, 0.07, 1.0, 0.12)
-expect("문장부호에서 끊는다", [c[2] for c in chunks] == ["디퓨저,", "또 쏟았어요."], str(chunks))
-expect("시간이 장면 안에 있다", all(0 <= a < b <= 3.0 for a, b, _ in chunks), str(chunks))
+
+def errors_of(change) -> list[str]:
+    s = json.loads(json.dumps(base))
+    change(s)
+    s["hook_duration_sec"] = round(sum(b["duration_sec"] for b in s["beats"]), 2)
+    return check_scenario(s, inp["product_info"])["errors"]
+
+
+def unverified(s):
+    s["beats"][1]["narration"] = "무소음이고 지금 50% 할인 중입니다."
+errs = errors_of(unverified)
+expect("미검증 표현(무소음)", any("무소음" in e for e in errs))
+expect("가격·할인", any("가격" in e for e in errs))
+expect("첫 장면이 문제가 아님", any("첫 장면" in e for e in errors_of(lambda s: s["beats"][0].update(role="장점"))))
+expect("없는 근거 ID", any("F99" in e for e in errors_of(lambda s: s["ad_spec"].update(claim_ids=["F99"]))))
+expect("20초 초과", any("15~20" in e for e in errors_of(lambda s: s["beats"][0].update(duration_sec=9.0))))
+expect("15초 미만", any("15~20" in e for e in errors_of(lambda s: s["beats"][2].update(duration_sec=1.0))))
+expect("자막 22자 초과는 오류", any("22자" in e for e in errors_of(lambda s: s["beats"][0].update(caption="가" * 23))))
+expect("나레이션이 너무 길면 오류",
+       any("나레이션이" in e for e in errors_of(lambda s: s["beats"][0].update(narration="가" * 40))))
+expect("훅 안의 CTA 장면은 오류",
+       any("CTA" in e for e in errors_of(lambda s: s["beats"][2].update(role="CTA"))))
+expect("훅 안의 댓글 유도는 오류",
+       any("댓글" in e for e in errors_of(lambda s: s["beats"][2].update(narration="댓글로 알려 주세요"))))
+
+print("5. Gemini 경로 (가짜 응답, 과금 없음)")
+calls = {}
+
+
+class FakeModels:
+    def generate_content(self, **kwargs):
+        calls.update(kwargs)
+        draft = gen.offline_drafts(parse_worker_input(inp))
+        return types.SimpleNamespace(text=json.dumps({"scenarios": draft}, ensure_ascii=False), usage_metadata=None)
+
+
+fake_google = types.ModuleType("google")
+fake_genai = types.ModuleType("google.genai")
+fake_types = types.ModuleType("google.genai.types")
+fake_genai.Client = lambda api_key, **kw: types.SimpleNamespace(models=FakeModels())
+fake_types.GenerateContentConfig = lambda **kw: kw
+fake_types.HttpOptions = lambda **kw: kw
+fake_types.HttpRetryOptions = lambda **kw: kw
+fake_genai.types = fake_types
+fake_google.genai = fake_genai
+saved = {k: sys.modules.get(k) for k in ("google", "google.genai", "google.genai.types")}
+sys.modules.update({"google": fake_google, "google.genai": fake_genai, "google.genai.types": fake_types})
+try:
+    grun = generate_scenarios(inp, model="gemini-4-hydrogen", gemini_api_key="dummy")
+finally:
+    for k, v in saved.items():
+        if v is None:
+            sys.modules.pop(k, None)
+        else:
+            sys.modules[k] = v
+expect("Gemini 로 부른다", calls.get("model") == "gemini-4-hydrogen")
+expect("같은 출력 스키마를 쓴다", calls["config"]["response_json_schema"]["required"] == ["scenarios"])
+expect("결과가 규칙을 통과한다", not grun["checks"][0]["errors"], "; ".join(grun["checks"][0]["errors"]))
+
+print("6. 명령 (계약 형식)")
 with tempfile.TemporaryDirectory() as d:
-    path = os.path.join(d, "hook.srt")
-    write_srt(path, scenarios[0]["beats"])
-    srt = open(path, encoding="utf-8").read()
-expect("SRT 는 장면당 한 개", srt.count("-->") == len(scenarios[0]["beats"]))
-expect("SRT 첫 장면은 0초부터", "00:00:00,000 --> 00:00:03,000" in srt, srt[:80])
-
-print("5-1. 소구포인트 입력")
-from src.prompt import build_user_prompt  # noqa: E402
-
-sp_inp = read("examples", "piev", "05_worker-input.round3.json")
-sp = parse_worker_input(sp_inp)
-expect("소구포인트를 읽는다", sp["selling_points"][0]["point"] == "탈취·악취 제거" and len(sp["selling_points"][0]["evidence"]) == 3)
-expect("문자열만 줘도 된다", parse_worker_input({**inp, "product_info": {**inp["product_info"], "selling_points": ["탈취"]}})
-       ["selling_points"] == [{"point": "탈취", "source": "", "evidence": []}])
-expect("없으면 빈 목록", parsed["selling_points"] == [])
-text = build_user_prompt(sp)
-expect("프롬프트에 소구포인트와 근거가 들어간다", "탈취·악취 제거" in text and "청량한 향기" in text)
-sp_run = generate_scenarios(sp_inp, offline=True)
-expect("시나리오에 겨냥한 소구포인트가 남는다", sp_run["response"]["scenarios"][0]["ad_spec"].get("selling_point") == "탈취·악취 제거")
-expect("소구포인트가 없으면 필드를 넣지 않는다", "selling_point" not in scenarios[0]["ad_spec"])
-
-print("6. Veo 문제 장면 (가짜 응답, 과금 없음)")
-import base64  # noqa: E402
-
-from src import veo  # noqa: E402
-
-calls: list[tuple[str, dict]] = []
-fake_mp4 = b"\x00" * 20000
-
-
-def fake_post(url: str, body: dict, token: str) -> dict:
-    calls.append((url, body))
-    if url.endswith(":predictLongRunning"):
-        return {"name": "projects/p/locations/us-central1/publishers/google/models/m/operations/op1"}
-    done = sum(1 for u, _ in calls if u.endswith(":fetchPredictOperation")) >= 2
-    return {"name": body["operationName"], "done": True,
-            "response": {"videos": [{"bytesBase64Encoded": base64.b64encode(fake_mp4).decode(), "mimeType": "video/mp4"}]}} if done \
-        else {"name": body["operationName"]}
-
-
-saved = {k: os.environ.get(k) for k in ("GOOGLE_CLOUD_PROJECT", "GOOGLE_ACCESS_TOKEN", "GOOGLE_CLOUD_LOCATION", "C_VEO_MODEL")}
-real_post = veo._post
-with tempfile.TemporaryDirectory() as d:
-    image = os.path.join(d, "first.jpg")
-    open(image, "wb").write(b"\xff\xd8fake-jpeg")
-    os.environ.pop("GOOGLE_CLOUD_PROJECT", None)
-    expect("프로젝트가 없으면 꺼져 있다", not veo.configured())
-    os.environ.update({"GOOGLE_CLOUD_PROJECT": "demo-project", "GOOGLE_ACCESS_TOKEN": "test-token"})
-    os.environ.pop("GOOGLE_CLOUD_LOCATION", None)
-    os.environ.pop("C_VEO_MODEL", None)
-    veo._post = fake_post
-    try:
-        clip = veo.generate("spill_diffuser", image, os.path.join(d, "cache"), 3.0, log=lambda m: None, poll_sec=0)
-        url, body = calls[0]
-        expect("Vertex AI 주소", url == "https://us-central1-aiplatform.googleapis.com/v1/projects/demo-project/locations/us-central1"
-                                    "/publishers/google/models/veo-3.1-fast-generate-001:predictLongRunning", url)
-        expect("첫 프레임 이미지를 보낸다", body["instances"][0]["image"]["mimeType"] == "image/jpeg"
-               and base64.b64decode(body["instances"][0]["image"]["bytesBase64Encoded"]) == b"\xff\xd8fake-jpeg")
-        expect("3초 장면은 4초·세로로 요청", body["parameters"]["durationSeconds"] == 4 and body["parameters"]["aspectRatio"] == "9:16")
-        expect("끝날 때까지 기다렸다 저장한다", open(clip, "rb").read() == fake_mp4 and len(calls) == 3, str(len(calls)))
-        veo.generate("spill_diffuser", image, os.path.join(d, "cache"), 3.0, log=lambda m: None, poll_sec=0)
-        expect("같은 요청은 캐시를 쓴다 (재과금 없음)", len(calls) == 3, str(len(calls)))
-        veo._post = lambda url, body, token: {"name": "op2", "done": True, "response": {"raiMediaFilteredCount": 1,
-                                                                                         "raiMediaFilteredReasons": ["blocked"]}}
-        try:
-            veo.generate("spill_diffuser", image, os.path.join(d, "cache2"), 3.0, log=lambda m: None, poll_sec=0)
-            expect("안전 필터에 걸리면 오류", False)
-        except veo.VeoError as e:
-            expect("안전 필터에 걸리면 오류", "blocked" in str(e), str(e))
-    finally:
-        veo._post = real_post
-        for k, v in saved.items():
-            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
-expect("장면 길이 → Veo 길이", [veo.pick_duration(x) for x in (3, 4, 4.5, 7, 12)] == [4, 4, 6, 8, 8])
-
-print("7. Gemini Omni 문제 장면 (가짜 응답, 과금 없음)")
-from src import omni  # noqa: E402
-from src import render as render_mod  # noqa: E402
-
-ocalls: list[tuple[str, str, dict | None]] = []
-
-
-def fake_call(method: str, url: str, body: dict | None, token: str) -> dict:
-    ocalls.append((method, url, body))
-    if method == "POST":
-        return {"id": "int_1", "status": "in_progress", "object": "interaction"}
-    if sum(1 for m, _, _ in ocalls if m == "GET") < 2:
-        return {"id": "int_1", "status": "in_progress"}
-    return {"id": "int_1", "status": "completed", "steps": [{"type": "thought"}, {"type": "model_output", "content": [
-        {"type": "video", "data": base64.b64encode(fake_mp4).decode(), "mime_type": "video/mp4"}]}]}
-
-
-saved = {k: os.environ.get(k) for k in ("GOOGLE_CLOUD_PROJECT", "GOOGLE_ACCESS_TOKEN", "C_OMNI_MODEL", "C_OMNI_RESOLUTION", "C_OMNI_API_VERSION",
-                                         "C_PROBLEM_ENGINE")}
-real_call = omni._call
-with tempfile.TemporaryDirectory() as d:
-    image = os.path.join(d, "first.jpg")
-    open(image, "wb").write(b"\xff\xd8fake-jpeg")
-    for k in saved:
-        os.environ.pop(k, None)
-    os.environ.update({"GOOGLE_CLOUD_PROJECT": "demo-project", "GOOGLE_ACCESS_TOKEN": "test-token"})
-    omni._call = fake_call
-    try:
-        clip = omni.generate("drain_smell", image, os.path.join(d, "cache"), 10.0, log=lambda m: None, poll_sec=0)
-        method, url, body = ocalls[0]
-        expect("Interactions 주소", url == "https://aiplatform.googleapis.com/v1beta1/projects/demo-project/locations/global/interactions", url)
-        expect("모델과 접수 방식", body["model"] == "gemini-omni-1.2-flash" and body["background"] is True)
-        expect("첫 프레임과 프롬프트를 보낸다", body["input"][0]["type"] == "text" and body["input"][1]["type"] == "image"
-               and base64.b64decode(body["input"][1]["data"]) == b"\xff\xd8fake-jpeg" and body["input"][1]["mime_type"] == "image/jpeg")
-        fmt = body["response_format"][0]
-        expect("10초·세로·인라인으로 요청", fmt == {"type": "video", "delivery": "inline", "aspect_ratio": "9:16", "resolution": "720p", "duration": "10s"},
-               str(fmt))
-        expect("이미지→영상 작업", body["generation_config"]["video_config"]["task"] == "image_to_video")
-        expect("끝날 때까지 확인하고 저장한다", open(clip, "rb").read() == fake_mp4 and [m for m, _, _ in ocalls] == ["POST", "GET", "GET"]
-               and ocalls[1][1].endswith("/interactions/int_1"), str([m for m, _, _ in ocalls]))
-        omni.generate("drain_smell", image, os.path.join(d, "cache"), 10.0, log=lambda m: None, poll_sec=0)
-        expect("같은 요청은 캐시를 쓴다 (재과금 없음)", len(ocalls) == 3, str(len(ocalls)))
-        omni._call = lambda method, url, body, token: {"id": "int_2", "status": "failed", "errors": [{"code": "x", "message": "blocked by policy"}]}
-        try:
-            omni.generate("drain_smell", image, os.path.join(d, "cache2"), 10.0, log=lambda m: None, poll_sec=0)
-            expect("실패하면 오류", False)
-        except omni.OmniError as e:
-            expect("실패하면 오류", "blocked by policy" in str(e), str(e))
-        expect("auto 는 omni 를 고른다", render_mod.problem_engine({}) == "auto" and render_mod.GENERATORS["omni"] is omni)
-    finally:
-        omni._call = real_call
-        for k, v in saved.items():
-            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
-expect("장면 길이 → Omni 길이", [omni.pick_duration(x) for x in (2, 3, 3.5, 10, 12.2, 20)] == [3, 3, 4, 10, 13, 15])
+    out = os.path.join(d, "scenarios_response.json")
+    proc = subprocess.run([sys.executable, "-m", "src.cli", "generate", "--input", "examples/01_worker-input.scenarios.json",
+                           "--out", out, "--offline"], cwd=HERE, capture_output=True, text=True, encoding="utf-8")
+    expect("generate --input --out 은 0 으로 끝난다", proc.returncode == 0, proc.stderr[-300:])
+    expect("결과 파일을 쓴다", os.path.exists(out))
+    proc = subprocess.run([sys.executable, "-m", "src.cli", "check", "--spec", out, "--input",
+                           "examples/01_worker-input.scenarios.json"], cwd=HERE, capture_output=True, text=True, encoding="utf-8")
+    expect("check --spec --input 은 0 으로 끝난다", proc.returncode == 0, proc.stderr[-300:])
+    proc = subprocess.run([sys.executable, "-m", "src.cli", "check", "--spec", "examples/01_worker-input.scenarios.json"],
+                          cwd=HERE, capture_output=True, text=True, encoding="utf-8")
+    expect("시나리오가 없는 파일을 주면 통과시키지 않는다", proc.returncode == 2, str(proc.returncode))
 
 print(f"\n{'모두 통과' if not failures else '실패 ' + str(len(failures)) + '건: ' + ', '.join(failures)}")
 sys.exit(1 if failures else 0)

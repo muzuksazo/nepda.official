@@ -1,4 +1,4 @@
-"""FR-003 시나리오 생성. 백엔드는 generate_scenarios(input) 를 import 해서 부른다."""
+"""FR-003 시나리오 생성. 백엔드(backend/hookpipe)는 generate_scenarios(input) 를 import 해서 부른다."""
 from __future__ import annotations
 
 import json
@@ -23,7 +23,6 @@ def _scenario_id(project_id: str, round_no: int, index: int) -> str:
 def offline_drafts(inp: dict) -> list[dict]:
     """API 없이 만드는 초안. 문구 품질이 아니라 흐름 확인용이며, 사실 문장을 그대로 읽는다."""
     facts = list(fact_ids(inp["product_info"]).items())
-    name = inp["product_info"]["name"]
     proof = facts[0]
     benefit = facts[1] if len(facts) > 1 else facts[0]
     short = lambda text: text if len(text) <= 22 else text[:21] + "…"
@@ -37,17 +36,56 @@ def offline_drafts(inp: dict) -> list[dict]:
             "claim_ids": sorted({proof[0], benefit[0]}),
             "cta_text": "여러분은 어떻게 쓰고 계세요?",
             "beats": [
-                {"order": 1, "role": "문제", "duration_sec": 3.0, "visual": "밝은 실내 POV 문제 상황",
+                {"order": 1, "role": "문제", "duration_sec": 4.0, "visual": "밝은 실내 POV 문제 상황",
                  "narration": "이거, 또 이렇게 됐어요.", "caption": "또 이렇게 됐어요"},
-                {"order": 2, "role": "가장 강한 증명", "duration_sec": 4.5, "visual": f"실물 제품 클로즈업 [{proof[0]}]",
-                 "narration": proof[1], "caption": short(proof[1])},
-                {"order": 3, "role": "장점", "duration_sec": 3.5, "visual": f"실물 제품 사용 장면 [{benefit[0]}]",
-                 "narration": benefit[1], "caption": short(benefit[1])},
-                {"order": 4, "role": "CTA", "duration_sec": 4.0, "visual": "실물 제품 풀샷",
-                 "narration": f"{name}. 여러분은 어떻게 쓰고 계세요?", "caption": "여러분은\n어떻게 쓰고 계세요?"},
+                {"order": 2, "role": "가장 강한 증명", "duration_sec": 6.0, "visual": f"실물 제품 클로즈업 [{proof[0]}]",
+                 "narration": "이렇게 쓰면 바로 해결돼요.", "caption": short(proof[1])},
+                {"order": 3, "role": "장점", "duration_sec": 6.0, "visual": f"실물 제품 사용 장면 [{benefit[0]}]",
+                 "narration": "쓰는 방법도 간단해요.", "caption": short(benefit[1])},
             ],
         })
     return drafts
+
+
+def _call_gemini(inp: dict, model: str, violations: list[str] | None, api_key: str | None) -> tuple[list[dict], dict]:
+    """Claude 와 같은 프롬프트·출력 스키마로 Gemini 를 부른다 (google-genai 필요)."""
+    from google import genai
+    from google.genai import types
+
+    key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if not key:
+        raise RuntimeError("GEMINI_API_KEY 가 없습니다 (Gemini 로 시나리오를 만들려면).")
+    started = time.time()
+    # 변수에 담아 둔다: 한 줄로 쓰면 요청 도중 클라이언트가 닫힌다.
+    # 503(사용량 폭주)·429·5xx 는 잠깐 쉬었다 다시 부르고, 응답 없는 요청은 3분에 끊는다.
+    client = genai.Client(
+        api_key=key,
+        http_options=types.HttpOptions(timeout=180_000, retry_options=types.HttpRetryOptions(attempts=4)),
+    )
+    response = client.models.generate_content(
+        model=model,
+        contents=build_user_prompt(inp, violations),
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM,
+            response_mime_type="application/json",
+            response_json_schema=SCENARIO_SCHEMA,
+        ),
+    )
+    text = getattr(response, "text", None) or ""
+    try:
+        drafts = json.loads(text)["scenarios"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise RuntimeError(f"Gemini 응답을 시나리오 JSON 으로 읽지 못했습니다: {text[:200]!r}") from exc
+    usage = getattr(response, "usage_metadata", None)
+    step = {
+        "step": "scenarios" if not violations else "scenarios(retry)",
+        "model": model,
+        "inputTokens": getattr(usage, "prompt_token_count", None),
+        "outputTokens": getattr(usage, "candidates_token_count", None),
+        "costUsd": None,
+        "ms": int((time.time() - started) * 1000),
+    }
+    return drafts, step
 
 
 def _call_claude(inp: dict, model: str, violations: list[str] | None) -> tuple[list[dict], dict]:
@@ -94,14 +132,16 @@ def _call_claude(inp: dict, model: str, violations: list[str] | None) -> tuple[l
     return drafts, step
 
 
-def generate_scenarios(data: dict, *, offline: bool = False, max_attempts: int = 2,
-                       log: Callable[[str], None] = lambda m: None) -> dict:
+def generate_scenarios(data: dict, *, offline: bool = False, max_attempts: int = 2, model: str | None = None,
+                       gemini_api_key: str | None = None, log: Callable[[str], None] = lambda m: None) -> dict:
     """입력(01_worker-input) → { response: {project_id, status, round, scenarios[]}, checks[], steps[] }.
 
-    offline=True 면 Claude 를 부르지 않고 사실 문장으로 초안을 만든다 (과금 없음, 흐름 확인용).
+    model: 글 모델. 비우면 C_MODEL → claude-opus-5-5. "gemini-…" 면 Gemini 로 부른다 (같은 프롬프트·스키마).
+    offline=True 면 모델을 부르지 않고 사실 문장으로 초안을 만든다 (과금 없음, 흐름 확인용).
     """
     inp = parse_worker_input(data)
-    model = os.environ.get("C_MODEL", DEFAULT_MODEL)
+    model = model or os.environ.get("C_MODEL", DEFAULT_MODEL)
+    use_gemini = model.lower().startswith("gemini")
     steps: list[dict] = []
     violations: list[str] | None = None
     scenarios: list[dict] = []
@@ -110,8 +150,11 @@ def generate_scenarios(data: dict, *, offline: bool = False, max_attempts: int =
         if offline:
             drafts = offline_drafts(inp)
         else:
-            log(f"Claude 호출 ({model}, 시도 {attempt})…")
-            drafts, step = _call_claude(inp, model, violations)
+            log(f"{'Gemini' if use_gemini else 'Claude'} 호출 ({model}, 시도 {attempt})…")
+            if use_gemini:
+                drafts, step = _call_gemini(inp, model, violations, gemini_api_key)
+            else:
+                drafts, step = _call_claude(inp, model, violations)
             steps.append(step)
         scenarios = [to_scenario_item(d, scenario_id=_scenario_id(inp["project_id"], inp["round"], i), round_no=inp["round"])
                      for i, d in enumerate(drafts[: inp["count"]])]
@@ -124,7 +167,6 @@ def generate_scenarios(data: dict, *, offline: bool = False, max_attempts: int =
         "response": {"project_id": inp["project_id"], "status": "SCENARIOS_READY", "round": inp["round"], "scenarios": scenarios},
         "checks": checks,
         "steps": steps,
-        "assets": inp["assets"],
         "product_name": inp["product_info"]["name"],
         "offline": offline,
     }

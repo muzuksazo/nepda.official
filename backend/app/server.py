@@ -32,12 +32,16 @@ from .projects_router import (
     GoogleTokenVerifier,
     ScenarioGenerator,
     StoryboardGenerator,
+    _default_scenario_generator,
     build_projects_router,
 )
 from .retention import recover_orphaned_jobs
 from .storage import LocalStorageBackend, StorageBackend, build_storage
 from .store import JobStore
 from .tts_service import TTSProvider
+
+from hookpipe import HookPipeline, make_scenario_generator  # backend/hookpipe: A·B·C 훅 영상 파이프라인
+from hookpipe import readiness as hookpipe_readiness
 
 
 class PresignRequest(BaseModel):
@@ -76,6 +80,7 @@ def create_app(
     google_token_verifier: Optional[GoogleTokenVerifier] = None,
     scenario_generator: Optional[ScenarioGenerator] = None,
     storyboard_generator: Optional[StoryboardGenerator] = None,
+    body_writer: Optional[Callable[..., Dict[str, Any]]] = None,
     paddle_client: Optional[PaddleApiClient] = None,
     tts_provider: Optional[TTSProvider] = None,
 ) -> FastAPI:
@@ -90,6 +95,14 @@ def create_app(
         provider_factory=provider_factory,
     )
     executor = ThreadPoolExecutor(max_workers=max(1, cfg.concurrency))
+    if scenario_generator is None:
+        # 유형별 작업자(bridge-dev/a·b·c)로 시나리오를 만들고, 작업자를 못 쓰면 기존 planner-api 로 넘어간다
+        scenario_generator = make_scenario_generator(
+            cfg, proj_store, fallback=_default_scenario_generator(cfg), storage=storage_backend
+        )
+    hook_pipeline = HookPipeline(
+        cfg, proj_store, job_store, storage_backend, provider_factory=provider_factory, body_writer=body_writer
+    )
 
     @asynccontextmanager
     async def _lifespan(_app: FastAPI):
@@ -152,7 +165,12 @@ def create_app(
                 job_store.update_job(jid, status="FAILED", error=str(exc))
 
     @app.get("/health")
-    def health() -> Dict[str, Any]:
+    def health(
+        deep: bool = Query(default=False, description="무료 외부 확인(모델 목록, A 템플릿 목록)까지"),
+        authorization: Optional[str] = Header(default=None),
+    ) -> Dict[str, Any]:
+        if deep:
+            require_bearer(authorization)  # 깊은 확인은 외부 호출을 하므로 내부 토큰이 있으면 요구한다
         scripts_dir = cfg.resolved_scripts_dir
         bold_candidates = [
             os.environ.get("SHORTFORM_FONT_BOLD", "").strip(),
@@ -177,6 +195,8 @@ def create_app(
             "ffprobe": shutil.which("ffprobe"),
             "font_resolved": resolved_font,
             "scripts_dir_exists": scripts_dir.exists(),
+            # 영상 한 편을 끝까지 만들 준비 (과금 없음, 키 값은 내보내지 않음)
+            "hookpipe": hookpipe_readiness.check(cfg, storage_backend, deep=deep),
         }
 
     def require_presign_auth(
@@ -289,6 +309,7 @@ def create_app(
             google_token_verifier=google_token_verifier,
             scenario_generator=scenario_generator,
             storyboard_generator=storyboard_generator,
+            hook_pipeline=hook_pipeline,
             paddle_client=paddle_client,
         )
     )

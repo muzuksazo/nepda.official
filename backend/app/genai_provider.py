@@ -139,6 +139,7 @@ def build_genai_client(settings: Settings) -> genai.Client:
             return genai.Client(
                 vertexai=True,
                 api_key=settings.google_vertex_api_key,
+                http_options=_http_options(settings),
             )
         if not settings.google_cloud_project:
             raise ValueError(
@@ -154,17 +155,28 @@ def build_genai_client(settings: Settings) -> genai.Client:
                 project=settings.google_cloud_project,
                 location=settings.google_cloud_location,
                 credentials=creds,
+                http_options=_http_options(settings),
             )
         return genai.Client(
             vertexai=True,
             project=settings.google_cloud_project,
             location=settings.google_cloud_location,
+            http_options=_http_options(settings),
         )
     if not settings.gemini_api_key:
         raise ValueError(
             "GEMINI_API_KEY is required unless GOOGLE_GENAI_USE_VERTEXAI=true"
         )
-    return genai.Client(api_key=settings.gemini_api_key)
+    return genai.Client(api_key=settings.gemini_api_key, http_options=_http_options(settings))
+
+
+def _http_options(settings: Settings) -> types.HttpOptions:
+    """요청 하나의 시간 제한 (밀리초). 2026-11-27 Modal 에서 이미지 호출 하나가 8분 넘게 답이 없어 훅이 멈췄다."""
+    # 같은 날 503(사용량 폭주)도 났다: 429·5xx 는 SDK 가 잠깐 쉬었다 다시 보낸다 (최대 4번).
+    return types.HttpOptions(
+        timeout=int(float(settings.genai_request_timeout_sec) * 1000),
+        retry_options=types.HttpRetryOptions(attempts=4),
+    )
 
 
 def _sanitize_gcp_label_value(raw: str) -> str:
@@ -342,6 +354,8 @@ class GenAIMediaProvider:
                 "mime_type": mime_type,
             },
             store=True,
+            # 재시도까지 합친 전체 상한. 2026-11-27 Modal 에서 이미지 호출이 응답 없이 멈추는 일이 반복됐다
+            timeout=float(getattr(self.settings, "reference_image_timeout_sec", 90.0)),
         )
         raw, _ = _extract_interaction_media(
             interaction, "image", api_key=self.settings.gemini_api_key

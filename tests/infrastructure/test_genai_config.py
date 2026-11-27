@@ -5,6 +5,8 @@ from tests.support.production import (
     build_genai_client,
     patch,
 )
+from unittest.mock import ANY
+
 from tests.support.tempdirs import temporary_directory
 
 
@@ -13,7 +15,7 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
         with patch("app.genai_provider.genai.Client") as m_client:
             s_key = Settings(_env_file=None, gemini_api_key="AIzaDummyKey", google_genai_use_vertexai=False)
             build_genai_client(s_key)
-            m_client.assert_called_once_with(api_key="AIzaDummyKey")
+            m_client.assert_called_once_with(api_key="AIzaDummyKey", http_options=ANY)
 
         with patch("app.genai_provider.genai.Client") as m_client:
             s_vtx = Settings(
@@ -27,6 +29,7 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
                 vertexai=True,
                 project="my-gcp-proj",
                 location="us-central1",
+                http_options=ANY,
             )
 
         with self.assertRaises(ValueError):
@@ -46,6 +49,7 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
             m_client.assert_called_once_with(
                 vertexai=True,
                 api_key="AQ.DummyVertexKey",
+                http_options=ANY,
             )
 
     def test_build_client_vercel_wif_credentials(self) -> None:
@@ -89,6 +93,7 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
                     vertexai=True,
                     project="my-gcp-project",
                     location="us-central1",
+                    http_options=ANY,
                 )
 
     def test_build_client_vercel_wif_from_request_header_context(self) -> None:
@@ -127,6 +132,7 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
                     vertexai=True,
                     project="my-gcp-project",
                     location="us-central1",
+                    http_options=ANY,
                 )
 
     def test_build_client_modal_oidc_wif_credentials(self) -> None:
