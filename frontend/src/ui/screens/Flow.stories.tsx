@@ -153,12 +153,8 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           onCreate={() => setStep('product')}
           onContinue={() => setStep('upload')}
           onDownloadAgain={() => setStep('thumbnail')}
-          onSeeAllInProgress={() => {
+          onSeeAllMyVideos={() => {
             setMyTab('inProgress');
-            setStep('myVideos');
-          }}
-          onSeeAllCompleted={() => {
-            setMyTab('completed');
             setStep('myVideos');
           }}
         />

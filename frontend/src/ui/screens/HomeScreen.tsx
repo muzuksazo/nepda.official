@@ -11,7 +11,6 @@ import {
   FeedPost,
   Mascot,
   MobileScreen,
-  PendingBadge,
   ProjectCard,
   SectionTitle,
   Stack,
@@ -45,10 +44,8 @@ export interface HomeScreenProps {
   /** 상단 이벤트 배너 (없으면 영역을 숨긴다) */
   banners?: BannerItem[];
   onBannerSelect?: (id: string) => void;
-  /** 진행 중 화살표 → 내 영상(진행 중 탭) */
-  onSeeAllInProgress?: () => void;
-  /** 완료 화살표 → 내 영상(완료 탭) */
-  onSeeAllCompleted?: () => void;
+  /** 내 영상 화살표 → 내 영상 탭 */
+  onSeeAllMyVideos?: () => void;
   /** 상단 크레딧 잔액 (못 불러왔으면 생략) */
   credits?: number;
   onCreditClick?: () => void;
@@ -89,8 +86,7 @@ export function HomeScreen({
   onCreate,
   onContinue,
   onDownloadAgain,
-  onSeeAllInProgress,
-  onSeeAllCompleted,
+  onSeeAllMyVideos,
   banners = [],
   onBannerSelect,
   credits,
@@ -173,11 +169,12 @@ export function HomeScreen({
         ) : null}
         {createButton}
 
-        {inProgress.length > 0 ? (
-          <Stack gap={12} as="section">
-            <SectionTitle title="진행 중" count={inProgress.length} onSeeAll={onSeeAllInProgress} />
-            <Carousel label="진행 중인 영상">
-              {inProgress.map((p) => (
+        {/* 내 영상: 진행 중(이어 할 것)을 앞에, 완료를 뒤에 한 줄로 */}
+        <Stack gap={12} as="section">
+          <SectionTitle title="내 영상" count={inProgress.length + completed.length} onSeeAll={onSeeAllMyVideos} />
+          <Carousel label="내 영상">
+            {[
+              ...inProgress.map((p) => (
                 <ProjectCard
                   key={p.id}
                   productName={p.productName}
@@ -187,18 +184,8 @@ export function HomeScreen({
                   actionLabel="이어하기"
                   onAction={() => onContinue?.(p.id)}
                 />
-              ))}
-            </Carousel>
-          </Stack>
-        ) : null}
-
-        {completed.length > 0 ? (
-          <Stack gap={12} as="section">
-            <SectionTitle title="완료" count={completed.length} onSeeAll={onSeeAllCompleted}>
-              <PendingBadge>보관 기간 미정 · OQ-012</PendingBadge>
-            </SectionTitle>
-            <Carousel label="완료한 영상">
-              {completed.map((p) => (
+              )),
+              ...completed.map((p) => (
                 <ProjectCard
                   key={p.id}
                   productName={p.productName}
@@ -206,10 +193,10 @@ export function HomeScreen({
                   actionLabel="다시 받기"
                   onAction={() => onDownloadAgain?.(p.id)}
                 />
-              ))}
-            </Carousel>
-          </Stack>
-        ) : null}
+              )),
+            ]}
+          </Carousel>
+        </Stack>
 
         {/* 다른 사장님들이 냅다로 만든 영상: 내리면서 계속 본다 */}
         {feed.length > 0 ? (

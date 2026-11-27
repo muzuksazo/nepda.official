@@ -56,14 +56,15 @@ export function ProjectCard({ productName, status, completedSteps, nextStep, act
           </Stack>
         </div>
 
-        {!isDone ? (
-          <div className="n-row" style={{ gap: 12 }}>
-            <ProgressBar label={`${productName} 진행`} value={completedSteps} max={FLOW_TOTAL_STEPS} />
-            <span className="n-small n-bold n-num">
-              {completedSteps}/{FLOW_TOTAL_STEPS}
-            </span>
-          </div>
-        ) : null}
+        {/* 진행 중은 "5/8", 완료는 꽉 찬 막대 + "완료" — 한 줄에 섞여 있어도 상태를 바로 알아보고 카드 높이도 같다 */}
+        <div className="n-row" style={{ gap: 12 }}>
+          <ProgressBar
+            label={isDone ? `${productName} 완료` : `${productName} 진행`}
+            value={isDone ? FLOW_TOTAL_STEPS : completedSteps}
+            max={FLOW_TOTAL_STEPS}
+          />
+          <span className="n-small n-bold n-num">{isDone ? '완료' : `${completedSteps}/${FLOW_TOTAL_STEPS}`}</span>
+        </div>
 
         {/* 다음 할 일(왼쪽)과 원형 아이콘 버튼(오른쪽)을 한 타일로 묶는다 */}
         <div className="n-card-action">

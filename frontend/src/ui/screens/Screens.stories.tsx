@@ -65,8 +65,7 @@ export const Home: Story = {
       onCreate={fn()}
       onContinue={fn()}
       onDownloadAgain={fn()}
-      onSeeAllInProgress={fn()}
-      onSeeAllCompleted={fn()}
+      onSeeAllMyVideos={fn()}
       credits={120}
       onCreditClick={fn()}
       unreadCount={SAMPLE_NOTIFICATIONS.filter((n) => !n.isRead).length}
