@@ -54,7 +54,7 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
     import uuid
 
     from app.config import Settings
-    from hookpipe.flux_caption import to_flux_caption
+    from hookpipe.flux_caption import motion_prompt_for_video, to_flux_caption
     from hookpipe.prompts import beat_prompt, ordered_beats, product_beat_orders, reference_image_prompt
     from hookpipe.workers import generate_with_worker
 
@@ -68,13 +68,19 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
         print(msg, flush=True)
         log.append(msg)
 
-    def still(spec: str, ref_b64: list, captioner: str, name: str = "") -> dict:
+    # 대표 컷을 참고로 넣으면 FLUX 가 구도까지 베꼈다(2026-11-27): 인물 디자인만 가져오라고 앞에 붙인다
+    STYLE_REF_LEAD = ("Use the reference image only for the character design, colors and materials. "
+                      "Build a completely new composition, pose, setting detail and camera angle as described: ")
+
+    def still(spec: str, ref_b64: list, captioner: str, name: str = "", style_ref: bool = False) -> dict:
         fixed = (fixed_captions or {}).get(name)
         if engine == "gemini":
             # 비교용: FLUX 때 쓴 장면 묘사를 그대로 주면 두 모델의 입력 글자가 같아진다
             return gemini_still(fixed or spec, ref_b64)
         t = time.time()
         cap = to_flux_caption(spec, provider=captioner, settings=settings)
+        if style_ref:
+            cap = STYLE_REF_LEAD + cap
         t_cap = time.time() - t
         res = flux.run_generate.remote({"prompt": cap, "reference_images": ref_b64, "width": W, "height": H,
                                         "seed": 1, "use_pup": False, "safety": True, "output_format": "png"})
@@ -129,7 +135,10 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
                 spec = beat_prompt(scenario, beat, i, len(beats), product=product, shows_product=shows,
                                    has_product_reference=use_product, has_style_reference=not use_product)
                 try:
-                    st = still(spec, product_refs if use_product else [ref["png"]], captioner, f"beat{i}")
+                    st = still(spec, product_refs if use_product else [ref["png"]], captioner, f"beat{i}",
+                               style_ref=not use_product)
+                    # 영상(MiniMax)용 움직임 묘사: 영어만, 글자를 부르는 말 없이 (Claude)
+                    st["motion"] = motion_prompt_for_video(spec) if engine == "flux" else ""
                 except Exception as exc:
                     note(f"[{hook_type}/{captioner}] 장면 {i} 실패: {exc}")
                     continue

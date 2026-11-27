@@ -66,6 +66,9 @@ def main() -> None:
     for s in result["stills"]:
         (out / f"{s['name']}.png").write_bytes(base64.b64decode(s["png"]))
     (out / "scenario.json").write_text(json.dumps(scenario, ensure_ascii=False, indent=2), encoding="utf-8")
+    (out / "prompts.json").write_text(json.dumps(
+        {s["name"]: {"frame": s.get("caption"), "motion": s.get("motion")} for s in result["stills"]},
+        ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[스틸컷] {len(stills)}장 {time.time() - t0:.0f}초", flush=True)
 
     # 3) 장면 클립 (장면마다 컨테이너가 동시에)
@@ -76,7 +79,9 @@ def main() -> None:
         if not st:
             continue
         seconds = float(beat.get("duration_sec") or 4.0) + 1.0  # 나레이션에 맞춰 장면이 늘어날 여유
-        calls.append((base64.b64decode(st["png"]), motion_from(st["spec"]), CLIP_W, CLIP_H, frames_for(seconds), 20, 1))
+        # Claude 가 쓴 영어 움직임 묘사(글자를 부르는 말 없음). 없을 때만 예전 방식
+        motion = st.get("motion") or motion_from(st["spec"])
+        calls.append((base64.b64decode(st["png"]), motion, CLIP_W, CLIP_H, frames_for(seconds), 20, 1))
         orders.append(int(beat.get("order") or i))
     t1 = time.time()
     with minimax_modal.app.run():
