@@ -2,22 +2,64 @@ html,
 body {
   margin: 0;
   padding: 0;
-  min-height: 100dvh;
+  height: 100%;
+  overflow: hidden;
   background: var(--bg-weak, #f5f5f5);
 }
 
 #root {
-  min-height: 100dvh;
+  height: 100dvh;
+  min-height: 0;
   display: flex;
   justify-content: center;
+  overflow: hidden;
 }
 
 .napda-app-shell {
   width: 100%;
   max-width: 430px;
-  min-height: 100dvh;
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+/* Keep one scroll area inside the app, between its header and actions. */
+.napda-app-shell > .napda-root {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.napda-app-shell .n-screen {
+  flex: 1;
+  min-height: 0;
+}
+
+.napda-app-shell .n-screen__header,
+.napda-app-shell .n-screen__footer,
+.napda-app-shell .n-screen__bottom {
+  flex-shrink: 0;
+}
+
+.napda-app-shell .n-screen__body {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+}
+
+.napda-app-shell .n-screen__body:focus-visible {
+  outline-offset: -2px;
+}
+
+.napda-app-shell .n-screen__body::-webkit-scrollbar {
+  display: none;
 }
 
 .napda-gis-slot {
