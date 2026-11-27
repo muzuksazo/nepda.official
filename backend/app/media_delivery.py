@@ -173,7 +173,7 @@ def resolve_media_url(
     if key is None:
         return val
 
-    if settings.storage_backend == "s3" and not isinstance(storage, LocalStorageBackend):
+    if settings.storage_backend in ("s3", "r2") and not isinstance(storage, LocalStorageBackend):
         return storage.presign_download(key, expires_sec=ttl)
 
     token = issue_media_token(
