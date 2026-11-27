@@ -76,6 +76,10 @@ class SelfHostedMediaTest(unittest.TestCase):
         self.assertEqual((flux.payloads[0]["width"], flux.payloads[0]["height"]), (576, 1024))
         self.assertEqual(frames[0]["png"], b"png1")
         self.assertEqual(frames[2]["motion_prompt"], "motion")
+        # 장면마다 촬영 크기가 다르게 배정된다 (참고 컷 구도를 베끼지 않게)
+        shots = [f["spec"].rsplit("SHOT SIZE: ", 1)[1] for f in frames]
+        self.assertEqual(len(set(shots)), 3)
+        self.assertIn("hero close-up of the product", shots[2])
 
     def test_clips_use_turbo_steps_and_17k_plus_5_frames(self) -> None:
         minimax = _MiniMax()

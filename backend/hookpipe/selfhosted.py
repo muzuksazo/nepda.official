@@ -33,6 +33,15 @@ STYLE_REF_LEAD = (
     "Build a completely new composition, pose, setting detail and camera angle as described: "
 )
 
+# 컷마다 달라 보이게 장면 순서마다 촬영 크기를 배정한다 (참고 컷 구도를 그대로 따라가 4장이 같은 그림이 됐다, 2026-11-27)
+SHOT_PLAN = [
+    "wide establishing shot that shows the whole place, subject small in the frame, seen from a high angle",
+    "medium shot from a low side angle, subject from the waist up, a different part of the place in the background",
+    "extreme close-up on the single key detail of the idea, shallow depth of field, background fully blurred",
+    "over-the-shoulder or top-down view of the action, a fresh angle not used before",
+]
+SHOT_PRODUCT = "hero close-up of the product filling the middle of the frame, eye level, clean background"
+
 
 def clip_frames(seconds: float) -> int:
     """MiniMax 공식 템플릿의 17k+5 프레임 규칙 (24fps)."""
@@ -114,6 +123,7 @@ class SelfHostedMedia:
             use_product = shows and bool(refs_b64)
             spec = beat_prompt(scenario, beat, i, len(beats), product=product, shows_product=shows,
                                has_product_reference=use_product, has_style_reference=not use_product and i > 1)
+            spec += "\nSHOT SIZE: " + (SHOT_PRODUCT if shows else SHOT_PLAN[(i - 1) % len(SHOT_PLAN)])
             plans.append((order, beat, use_product, spec))
 
         t0 = time.monotonic()

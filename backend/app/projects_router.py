@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import json
 import os
 import random
@@ -1657,6 +1658,14 @@ def build_projects_router(
             user_id=user.user_id,
             project_id=project_id,
         )
+        if getattr(settings, "hook_media_engine", "gemini") == "selfhosted" and set(target_types) - {"A"}:
+            # 시나리오를 쓰는 1분 동안 FLUX GPU 를 미리 깨운다 (기다리지 않음). 콘티 단계의 기동·적재 약 1분을 숨긴다
+            try:
+                from hookpipe.selfhosted import SelfHostedMedia
+
+                SelfHostedMedia(settings, caption_fn=str, motion_fn=str).warm_flux()
+            except Exception as exc:
+                logging.getLogger("hookpipe.selfhosted").warning("FLUX 미리 깨우기 실패: %s", exc)
         new_items: List[Dict[str, Any]] = []
         for _ in range(body.count):
             # 이번 요청에서 먼저 만든 것도 "이전 시나리오"로 넘겨, 여러 개를 뽑을 때 같은 소재가 반복되지 않게 한다
