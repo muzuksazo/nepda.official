@@ -80,7 +80,7 @@ interface CenteredStateProps {
 function CenteredState({ mascot, title, description, actionLabel, onAction }: CenteredStateProps) {
   return (
     <Stack gap={16} align="center" justify="center" style={{ flex: 1, textAlign: 'center', paddingBottom: 24 }}>
-      <Mascot src={mascot} width={140} />
+      <Mascot src={mascot} />
       <Stack gap={8} align="center">
         <h2 className="n-display">{title}</h2>
         <p className="n-muted">{description}</p>
@@ -162,7 +162,9 @@ export function CommunityScreen({
       />
     );
   } else if (isEmpty) {
-    body = <CenteredState mascot={brand.mascot.clapboard} title="아직 올라온 영상이 없어요" description="첫 주인공, 해볼래요?" />;
+    body = (
+      <CenteredState mascot={brand.mascot.clapboard} title="아직 올라온 영상이 없어요" description="첫 주인공, 해볼래요?" />
+    );
   } else {
     body = (
       <>

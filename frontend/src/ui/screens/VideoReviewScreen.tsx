@@ -1,6 +1,5 @@
 import { Play } from '../icons';
-import { Button, FlowHeader, IconButton, Mascot, MobileScreen, PendingBadge, ScreenTitle, Stack, VideoFrame } from '../components';
-import { brand } from '../brand';
+import { Button, FlowHeader, IconButton, MobileScreen, PendingBadge, ScreenTitle, Stack, VideoFrame } from '../components';
 
 /** 15칸 중 훅이 차지하는 칸 (길이 비율 미정 · OQ-002, 임시값) */
 const HOOK_SEGMENTS = 6;
@@ -37,17 +36,15 @@ export function VideoReviewScreen({
         />
       }
     >
-      <div className="n-row" style={{ gap: 12, justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <ScreenTitle
-          title={isRendering ? '잠시만요, 영상 굽는 중…' : errorMessage ? '영상 만들기에 실패했어요' : '짜잔, 영상 나왔어요'}
-          description={
-            isRendering
-              ? renderStatusText ?? '템플릿 훅이랑 본편 영상을 이어 붙이고 있어요.'
-              : errorMessage ?? '훅에서 본편까지 매끄러운지 봐 주세요.'
-          }
-        />
-        <Mascot src={isRendering || errorMessage ? brand.mascot.lying : brand.mascot.surprised} width={76} />
-      </div>
+      {/* 영상이 주인공인 화면이라 냅다곰은 두지 않는다 */}
+      <ScreenTitle
+        title={isRendering ? '잠시만요, 영상 굽는 중…' : errorMessage ? '영상 만들기에 실패했어요' : '짜잔, 영상 나왔어요'}
+        description={
+          isRendering
+            ? renderStatusText ?? '템플릿 훅이랑 본편 영상을 이어 붙이고 있어요.'
+            : errorMessage ?? '훅에서 본편까지 매끄러운지 봐 주세요.'
+        }
+      />
 
       <div className="n-row" style={{ justifyContent: 'center' }}>
         {videoUrl ? (

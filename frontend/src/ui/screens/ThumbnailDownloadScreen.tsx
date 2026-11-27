@@ -5,7 +5,6 @@ import {
   Card,
   ConfirmSheet,
   FlowHeader,
-  Mascot,
   MobileScreen,
   Note,
   PendingBadge,
@@ -16,7 +15,6 @@ import {
   ThumbnailPicker,
   type ThumbnailTemplate,
 } from '../components';
-import { brand } from '../brand';
 
 export interface ThumbnailDownloadScreenProps {
   /** 팀이 만든 썸네일 템플릿들 (캐러셀에 보여 줄 순서대로) */
@@ -90,10 +88,8 @@ export function ThumbnailDownloadScreen({
           </>
         }
       >
-        <div className="n-row" style={{ gap: 12, justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <ScreenTitle title="끝! 썸네일만 골라요" description="시안 하나 콕, 글자 한 줄이면 끝." />
-          <Mascot src={brand.mascot.happy} width={76} />
-        </div>
+        {/* 썸네일 시안이 주인공인 화면이라 냅다곰은 두지 않는다 */}
+        <ScreenTitle title="끝! 썸네일만 골라요" description="시안 하나 콕, 글자 한 줄이면 끝." />
 
         {/* 시안 → 글자 순서: 템플릿 미리보기는 팀이 만든 이미지라 입력한 글자가 반영되지 않는다 */}
         {templates.length > 0 ? (

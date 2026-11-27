@@ -26,7 +26,7 @@ export function ChargeResultScreen({ status, before, added, isResumingVideo = fa
       <div role="status" style={{ display: 'contents' }}>
         {isDone ? (
           <Stack gap={20} align="center" justify="center" style={{ flex: 1, textAlign: 'center', paddingBottom: 24 }}>
-            <Mascot src={brand.mascot.happy} width={150} />
+            <Mascot src={brand.mascot.happy} />
             <Stack gap={8} align="center">
               <h2 className="n-display">충전 완료!</h2>
               <p className="n-muted">{isResumingVideo ? '이제 냅다 만들어요.' : '든든하게 채웠어요.'}</p>

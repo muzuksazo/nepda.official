@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { formatCount } from '../format';
 import { Comment, Heart, Play, Share, Stars } from '../icons';
 import { Avatar } from './layout';
-import { Badge, Button } from './primitives';
 
 export interface FeedPostProps {
   creatorName: string;
@@ -77,7 +76,12 @@ export function FeedPost({
     <article className="n-post" aria-label={`${creatorName}의 ${productName} 영상`}>
       <header className="n-post__head">
         {onOpenCreator ? (
-          <button type="button" className="n-creator-link" onClick={onOpenCreator} aria-label={`${creatorName} 프로필 보기, ${productName}`}>
+          <button
+            type="button"
+            className="n-creator-link"
+            onClick={onOpenCreator}
+            aria-label={`${creatorName} 프로필 보기, ${productName}`}
+          >
             <Avatar name={creatorName} />
             <span className="n-post__who" aria-hidden="true">
               <span className="n-post__creator">{creatorName}</span>
@@ -93,7 +97,12 @@ export function FeedPost({
             </div>
           </>
         )}
-        <Badge tone="brand">{hookType} 유형</Badge>
+        <button type="button" className="n-post__remix" aria-label={`${hookType} 유형 훅으로 만들기`} onClick={onRemix}>
+          <span className="n-post__remix-type" aria-hidden="true">
+            {hookType}
+          </span>
+          만들기
+        </button>
       </header>
 
       <button type="button" className="n-post__media" onClick={onOpen} aria-label={`${caption ?? productName} 영상 크게 보기`}>
@@ -136,9 +145,6 @@ export function FeedPost({
             <Share size={24} />
           </button>
         ) : null}
-        <span style={{ marginLeft: 'auto' }}>
-          <Button label="이 훅으로 만들기" variant="secondary" size="sm" onClick={onRemix} />
-        </span>
       </div>
 
       <div className="n-post__body">

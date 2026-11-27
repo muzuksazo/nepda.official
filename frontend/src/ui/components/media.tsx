@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { MASCOT_META } from '../brand';
 
 /** 9:16 세로 영상 프레임 (검정 바탕) */
 export function VideoFrame({
@@ -41,7 +42,17 @@ export function MediaPlaceholder({
   );
 }
 
-/** 냅다곰 (장식, 화면당 한 마리) */
-export function Mascot({ src, width }: { src: string; width: number }) {
-  return <img className="n-mascot" src={src} width={width} alt="" aria-hidden="true" />;
+/**
+ * 냅다곰 크기 단계 = 보이는 높이(px). 화면마다 폭을 따로 정하지 않고 이 넷 중 하나만 쓴다.
+ * lg: 빈 상태·결과처럼 화면 가운데 한 마리 · md: 탭 안 빈 목록 · sm: 제목 옆 · xs: 한 줄 상태 글 옆
+ */
+const MASCOT_HEIGHT = { xs: 44, sm: 56, md: 80, lg: 100 } as const;
+export type MascotSize = keyof typeof MASCOT_HEIGHT;
+
+/** 냅다곰 (장식, 화면당 한 마리). 제목 글자보다 튀지 않게 높이를 단계로만 정한다 */
+export function Mascot({ src, size = 'lg' }: { src: string; size?: MascotSize }) {
+  const meta = MASCOT_META[src] ?? { ratio: 1, heightScale: 1 };
+  const height = Math.round(MASCOT_HEIGHT[size] * meta.heightScale);
+  const width = Math.round(height * meta.ratio);
+  return <img className="n-mascot" src={src} width={width} height={height} alt="" aria-hidden="true" />;
 }

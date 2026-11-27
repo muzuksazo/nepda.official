@@ -30,7 +30,8 @@ export function Stack({ gap = 0, direction = 'column', align, justify, wrap, sty
 
 export interface ButtonProps {
   label: string;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  /** tonal = 테두리 없는 회색 면 (1차 버튼 옆의 보조 행동) */
+  variant?: 'primary' | 'secondary' | 'tonal' | 'ghost';
   size?: 'lg' | 'md' | 'sm';
   isBlock?: boolean;
   isDisabled?: boolean;

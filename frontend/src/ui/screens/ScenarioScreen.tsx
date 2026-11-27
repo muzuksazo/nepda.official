@@ -44,7 +44,7 @@ export function ScenarioScreen({ hookType, scenario, onBack, onShootingGuide, on
           ) : (
             <Stack gap={16}>
               <div className="n-row" style={{ gap: 12 }} role="status">
-                <Mascot src={brand.mascot.lying} width={84} />
+                <Mascot src={brand.mascot.lying} size="xs" />
                 <span className="n-small n-muted">냅다곰이 머리 굴리는 중…</span>
               </div>
               <SkeletonText widths={[100, 94, 98, 72, 90, 48]} />

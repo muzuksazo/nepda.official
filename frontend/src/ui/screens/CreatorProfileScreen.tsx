@@ -74,7 +74,7 @@ export function CreatorProfileScreen({
     return (
       <MobileScreen header={header}>
         <Stack gap={16} align="center" justify="center" style={{ flex: 1, textAlign: 'center', paddingBottom: 24 }}>
-          <Mascot src={brand.mascot.surprised} width={140} />
+          <Mascot src={brand.mascot.surprised} />
           <Stack gap={8} align="center">
             <h2 className="n-display">사라진 프로필이에요</h2>
             <p className="n-muted">탈퇴했거나 찾을 수 없는 사람이에요.</p>

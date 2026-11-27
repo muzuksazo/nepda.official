@@ -320,10 +320,10 @@ export const BrandBits: Story = {
         </VideoFrame>
       </div>
       <div className="n-row" style={{ gap: 12, alignItems: 'flex-end' }}>
-        <Mascot src={brand.mascot.clapboard} width={80} />
-        <Mascot src={brand.mascot.lying} width={90} />
-        <Mascot src={brand.mascot.surprised} width={64} />
-        <Mascot src={brand.mascot.happy} width={70} />
+        <Mascot src={brand.mascot.clapboard} size="md" />
+        <Mascot src={brand.mascot.lying} size="md" />
+        <Mascot src={brand.mascot.surprised} size="md" />
+        <Mascot src={brand.mascot.happy} size="md" />
       </div>
       <SkeletonText widths={[100, 80, 56]} />
     </>
