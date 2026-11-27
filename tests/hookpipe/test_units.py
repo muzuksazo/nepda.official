@@ -235,6 +235,22 @@ class WorkerConnection(unittest.TestCase):
         gen(dict(project, pending_scenarios=[{"type": "B", "scenario_id": "just_made"}]), ["B"], "anthropic")
         self.assertEqual([s["scenario_id"] for s in seen[0]["previous_scenarios"]], ["just_made"])
 
+    def test_deadline_stops_waiting_for_a_hung_call(self) -> None:
+        import threading
+        import time
+
+        from hookpipe.render import _call_with_deadline
+
+        release = threading.Event()
+        started = time.monotonic()
+        with self.assertRaises(TimeoutError):
+            _call_with_deadline(lambda: release.wait(10), 0.2, "멈춘 호출")
+        self.assertLess(time.monotonic() - started, 2.0)
+        release.set()
+        self.assertEqual(_call_with_deadline(lambda: 7, 1.0, "보통 호출"), 7)
+        with self.assertRaises(ValueError):
+            _call_with_deadline(lambda: (_ for _ in ()).throw(ValueError("x")), 1.0, "오류")
+
     def test_types_run_at_the_same_time(self) -> None:
         import threading
 

@@ -22,6 +22,7 @@ import hashlib
 import json
 import logging
 import math
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
@@ -439,6 +440,31 @@ def _write_storyboards(plans: List[BeatPlan], out_dir: Path, tools: MediaTools) 
     return names
 
 
+def _call_with_deadline(fn: Callable[[], Any], seconds: float, label: str) -> Any:
+    """fn 을 따로 돌리고 seconds 안에 안 끝나면 기다리지 않는다 (TimeoutError).
+
+    2026-11-27 Modal 에서 이미지 모델 호출이 응답 없이 멈추는 일이 반복됐고, SDK 의 시간 제한은 재시도와 겹쳐
+    지켜지지 않았다. 멈춘 호출은 뒤에서 SDK 시간 제한에 걸려 스스로 끝난다 (daemon 스레드라 종료도 막지 않는다).
+    """
+    box: Dict[str, Any] = {}
+    done = threading.Event()
+
+    def run() -> None:
+        try:
+            box["value"] = fn()
+        except BaseException as exc:  # 호출한 쪽으로 그대로 넘긴다
+            box["error"] = exc
+        finally:
+            done.set()
+
+    threading.Thread(target=run, name=f"deadline:{label}", daemon=True).start()
+    if not done.wait(seconds):
+        raise TimeoutError(f"{label}: {seconds:.0f}초 안에 응답이 없었습니다.")
+    if "error" in box:
+        raise box["error"]
+    return box.get("value")
+
+
 def render_hook(
     scenario: Dict[str, Any],
     product: Dict[str, Any],
@@ -538,7 +564,13 @@ def render_hook(
         candidate = cache / f"style_{_digest(ref_prompt, getattr(settings, 'image_model', ''))}.jpg"
         try:
             if not _ready(candidate):
-                provider.generate_reference_image(ref_prompt, candidate, aspect_ratio="9:16", mime_type="image/jpeg")
+                _call_with_deadline(
+                    lambda: provider.generate_reference_image(
+                        ref_prompt, candidate, aspect_ratio="9:16", mime_type="image/jpeg"
+                    ),
+                    float(getattr(settings, "reference_image_timeout_sec", 90.0)),
+                    "톤 참고 이미지",
+                )
             if _ready(candidate):
                 style_ref = _normalize_reference(candidate, media)
         except Exception as exc:  # 참고 이미지는 품질 보조라, 실패해도 클립 생성은 계속한다
