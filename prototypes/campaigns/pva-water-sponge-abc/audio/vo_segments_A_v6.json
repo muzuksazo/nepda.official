@@ -1,0 +1,90 @@
+{
+  "mode": "manifest",
+  "output_wav": "/Users/yun-yeowon/workspace/ad-studio/pva-water-sponge-abc/audio/vo_master_A_v6.wav",
+  "total_duration": 21.14,
+  "segment_count": 9,
+  "lufs_i": -16.1,
+  "segments": [
+    {
+      "id": "VO_A1_v6_chain",
+      "text": "1cm 도미노를 2배씩 키워 스무 개만 세우면,",
+      "file": "/Users/yun-yeowon/workspace/ad-studio/pva-water-sponge-abc/audio/VO_A1_v6.mp4",
+      "start": 0.0,
+      "end": 3.321,
+      "duration": 3.321,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_A1_v6_50fl",
+      "text": "마지막 조각은 아파트 50층 높이가 됩니다.",
+      "file": "/Users/yun-yeowon/workspace/ad-studio/pva-water-sponge-abc/audio/VO_A1_v6.mp4",
+      "start": 3.461,
+      "end": 6.101,
+      "duration": 2.64,
+      "gap_after": 0.16
+    },
+    {
+      "id": "VO_A1_v6_land",
+      "text": "지면에 닿는 순간,",
+      "file": "/Users/yun-yeowon/workspace/ad-studio/pva-water-sponge-abc/audio/VO_A1_v6.mp4",
+      "start": 6.261,
+      "end": 7.389,
+      "duration": 1.127,
+      "gap_after": 0.1
+    },
+    {
+      "id": "VO_A1_v6_quake",
+      "text": "반경 1km 지반이 흔들립니다.",
+      "file": "/Users/yun-yeowon/workspace/ad-studio/pva-water-sponge-abc/audio/VO_A1_v6.mp4",
+      "start": 7.489,
+      "end": 9.876,
+      "duration": 2.388,
+      "gap_after": 0.26
+    },
+    {
+      "id": "VO_A2_v6_real",
+      "text": "물론 실제 크기는 이 1,000원짜리 대형 블록만 합니다.",
+      "file": "/Users/yun-yeowon/workspace/ad-studio/pva-water-sponge-abc/audio/VO_A2_v6.mp4",
+      "start": 10.136,
+      "end": 12.864,
+      "duration": 2.728,
+      "gap_after": 0.12
+    },
+    {
+      "id": "VO_A2_v6_cut",
+      "text": "너무 커서 작게 여러 조각 잘랐거든요.",
+      "file": "/Users/yun-yeowon/workspace/ad-studio/pva-water-sponge-abc/audio/VO_A2_v6.mp4",
+      "start": 12.984,
+      "end": 15.181,
+      "duration": 2.197,
+      "gap_after": 0.12
+    },
+    {
+      "id": "VO_A2_v6_wipe",
+      "text": "세면대 물기 쓱 밀고 꽉 짜면 끝.",
+      "file": "/Users/yun-yeowon/workspace/ad-studio/pva-water-sponge-abc/audio/VO_A2_v6.mp4",
+      "start": 15.301,
+      "end": 17.25,
+      "duration": 1.948,
+      "gap_after": 0.22
+    },
+    {
+      "id": "VO_A2_v6_sorry",
+      "text": "죄송해요, 이거 보여주려고",
+      "file": "/Users/yun-yeowon/workspace/ad-studio/pva-water-sponge-abc/audio/VO_A2_v6.mp4",
+      "start": 17.47,
+      "end": 19.397,
+      "duration": 1.927,
+      "gap_after": 0.14
+    },
+    {
+      "id": "VO_A2_v6_50fl_cb",
+      "text": "도미노 50층 쌓았습니다.",
+      "file": "/Users/yun-yeowon/workspace/ad-studio/pva-water-sponge-abc/audio/VO_A2_v6.mp4",
+      "start": 19.537,
+      "end": 21.14,
+      "duration": 1.603,
+      "gap_after": 0.0
+    }
+  ]
+}
