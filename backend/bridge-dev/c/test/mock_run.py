@@ -96,8 +96,10 @@ class FakeModels:
 fake_google = types.ModuleType("google")
 fake_genai = types.ModuleType("google.genai")
 fake_types = types.ModuleType("google.genai.types")
-fake_genai.Client = lambda api_key: types.SimpleNamespace(models=FakeModels())
+fake_genai.Client = lambda api_key, **kw: types.SimpleNamespace(models=FakeModels())
 fake_types.GenerateContentConfig = lambda **kw: kw
+fake_types.HttpOptions = lambda **kw: kw
+fake_types.HttpRetryOptions = lambda **kw: kw
 fake_genai.types = fake_types
 fake_google.genai = fake_genai
 saved = {k: sys.modules.get(k) for k in ("google", "google.genai", "google.genai.types")}
