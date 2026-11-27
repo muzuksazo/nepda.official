@@ -116,6 +116,13 @@ const ICONS = {
     cap: 'round',
     join: 'round',
   },
+  // search-01 · 101:2463 (돋보기 — 하단 내비게이션 커뮤니티 탭)
+  Search: {
+    d: 'M16.927 17.0401L20.4001 20.4001M19 11.4401C19 15.77 15.77 19 11.4401 19C7.1102 19 4 15.77 4 11.4401C4 7.1102 7.1102 4 11.4401 4C15.77 4 19 7.1102 19 11.4401Z',
+    kind: 'stroke',
+    cap: 'round',
+    join: 'round',
+  },
   // x-02 · 101:2576
   X: { d: 'M18 6L6 18M18 18L6 6', kind: 'stroke', cap: 'round' },
   // lightning-filled · 101:2342 (크레딧)
@@ -296,6 +303,7 @@ export const Plus = makeIcon('Plus');
 export const Upload = makeIcon('Upload');
 export const User = makeIcon('User');
 export const Users = makeIcon('Users');
+export const Search = makeIcon('Search');
 export const X = makeIcon('X');
 export const Lightning = makeIcon('Lightning');
 export const Bell = makeIcon('Bell');

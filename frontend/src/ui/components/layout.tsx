@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { Bell, ChevronLeft, ChevronRight, Folder, Home, Lightning, User, Users, type IconProps } from '../icons';
+import { Bell, ChevronLeft, ChevronRight, Folder, Home, Lightning, Search, User, type IconProps } from '../icons';
 import { brand } from '../brand';
 import { IconButton, ProgressBar } from './primitives';
 
@@ -42,11 +42,15 @@ export function MobileScreen({ header, children, footer, footerSummary, bottomNa
 
 export type NavTab = 'home' | 'myVideos' | 'community' | 'profile';
 
-const NAV_ITEMS: { value: NavTab; label: string; Icon: ComponentType<IconProps> }[] = [
-  { value: 'home', label: '홈', Icon: Home },
-  { value: 'myVideos', label: '내 영상', Icon: Folder },
-  { value: 'community', label: '커뮤니티', Icon: Users },
-  { value: 'profile', label: '프로필', Icon: User },
+/**
+ * activeLook — 현재 탭 표시. fill: 아이콘 면을 꽉 채운다 · bold: 선만 굵게 (돋보기는 채우면 렌즈가 까만 원이 돼 알아보기 어렵다)
+ */
+const NAV_ITEMS: { value: NavTab; label: string; Icon: ComponentType<IconProps>; activeLook: 'fill' | 'bold' }[] = [
+  { value: 'home', label: '홈', Icon: Home, activeLook: 'fill' },
+  { value: 'myVideos', label: '내 영상', Icon: Folder, activeLook: 'fill' },
+  // 커뮤니티 = 다른 사람 영상을 둘러보는 탐색 탭이라 돋보기
+  { value: 'community', label: '커뮤니티', Icon: Search, activeLook: 'bold' },
+  { value: 'profile', label: '프로필', Icon: User, activeLook: 'fill' },
 ];
 
 export interface BottomNavProps {
@@ -70,8 +74,12 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
             onClick={() => onNavigate?.(item.value)}
           >
             <span className="n-bottom-nav__icon" aria-hidden="true">
-              {/* 현재 탭: 아이콘을 글자색(라이트 검정·다크 흰색)으로 꽉 채운다. 나머지: 회색 선만 */}
-              <item.Icon size={24} strokeWidth={2} fill={isActive ? 'currentColor' : 'none'} />
+              {/* 현재 탭: 아이콘을 글자색(라이트 검정·다크 흰색)으로 꽉 채운다(돋보기는 선만 굵게). 나머지: 회색 선만 */}
+              <item.Icon
+                size={24}
+                strokeWidth={isActive && item.activeLook === 'bold' ? 2.75 : 2}
+                fill={isActive && item.activeLook === 'fill' ? 'currentColor' : 'none'}
+              />
             </span>
           </button>
         );

@@ -5,6 +5,7 @@ import type { ThemeSetting } from '../NapdaProvider';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
 import { setStorybookTheme } from '../storybook/themeGlobal';
 import { sampleShare } from '../storybook/sampleShare';
+import { useCreatorPeek } from '../storybook/useCreatorPeek';
 import { useSampleComments } from '../storybook/useSampleComments';
 import { ChargeResultScreen } from './ChargeResultScreen';
 import { CommunityScreen, type CommunityVideo } from './CommunityScreen';
@@ -66,34 +67,39 @@ type Story = StoryObj<typeof meta>;
 
 export const Home: Story = {
   name: '안3-1 홈',
-  render: () => (
-    <HomeScreen
-      banners={SAMPLE_BANNERS}
-      onBannerSelect={fn()}
-      inProgress={SAMPLE_IN_PROGRESS}
-      completed={SAMPLE_COMPLETED}
-      onCreate={fn()}
-      onContinue={fn()}
-      onDownloadAgain={fn()}
-      onSeeAllMyVideos={fn()}
-      credits={120}
-      onCreditClick={fn()}
-      unreadCount={SAMPLE_NOTIFICATIONS.filter((n) => !n.isRead).length}
-      onNotificationsClick={fn()}
-      profile={{ name: '냅다사장' }}
-      onProfileClick={fn()}
-      onNavigate={fn()}
-      feed={SAMPLE_COMMUNITY.slice(0, 4)}
-      feedHasMore
-      onLoadMoreFeed={fn()}
-      onOpenFeed={fn()}
-      onToggleFeedLike={fn()}
-      share={sampleShare(true)}
-      onOpenCreator={fn()}
-      onRemixFeed={fn()}
-      onSeeAllFeed={fn()}
-    />
-  ),
+  render: function Render() {
+    // 피드 게시물의 프로필 원·닉네임을 누르면 그 사람 프로필이 열린다
+    const peek = useCreatorPeek();
+    if (peek.profileScreen) return peek.profileScreen;
+    return (
+      <HomeScreen
+        banners={SAMPLE_BANNERS}
+        onBannerSelect={fn()}
+        inProgress={SAMPLE_IN_PROGRESS}
+        completed={SAMPLE_COMPLETED}
+        onCreate={fn()}
+        onContinue={fn()}
+        onDownloadAgain={fn()}
+        onSeeAllMyVideos={fn()}
+        credits={120}
+        onCreditClick={fn()}
+        unreadCount={SAMPLE_NOTIFICATIONS.filter((n) => !n.isRead).length}
+        onNotificationsClick={fn()}
+        profile={{ name: '냅다사장' }}
+        onProfileClick={fn()}
+        onNavigate={fn()}
+        feed={SAMPLE_COMMUNITY.slice(0, 4)}
+        feedHasMore
+        onLoadMoreFeed={fn()}
+        onOpenFeed={fn()}
+        onToggleFeedLike={fn()}
+        share={sampleShare(true)}
+        onOpenCreator={peek.onOpenCreator}
+        onRemixFeed={fn()}
+        onSeeAllFeed={fn()}
+      />
+    );
+  },
 };
 
 /** 공유 시트: 기기 공유 창이 있는 폰 — "카톡·인스타로 보내기" + 링크 복사 */
@@ -135,6 +141,8 @@ export const HomeFeed: Story = {
     const [count, setCount] = useState(4);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const commentProps = useSampleComments(SAMPLE_COMMENTS, SAMPLE_USER.name);
+    const peek = useCreatorPeek();
+    if (peek.profileScreen) return peek.profileScreen;
     return (
       <HomeScreen
         {...commentProps}
@@ -153,6 +161,7 @@ export const HomeFeed: Story = {
           }, 700);
         }}
         onOpenFeed={fn()}
+        onOpenCreator={peek.onOpenCreator}
         onRemixFeed={fn()}
         onSeeAllFeed={fn()}
       />
@@ -198,6 +207,8 @@ export const HomeComments: Story = {
   name: '안3-1 홈 · 피드 댓글',
   render: function Render() {
     const commentProps = useSampleComments(SAMPLE_COMMENTS, SAMPLE_USER.name);
+    const peek = useCreatorPeek();
+    if (peek.profileScreen) return peek.profileScreen;
     return (
       <HomeScreen
         {...commentProps}
@@ -206,6 +217,7 @@ export const HomeComments: Story = {
         credits={120}
         profile={{ name: SAMPLE_USER.name }}
         feed={SAMPLE_COMMUNITY.slice(0, 4)}
+        onOpenCreator={peek.onOpenCreator}
         initialCommentsFor="v01"
       />
     );
@@ -357,6 +369,8 @@ export const CommunityViewer: Story = {
   name: '안3-5 영상 보기',
   render: function Render() {
     const commentProps = useSampleComments(SAMPLE_COMMENTS, SAMPLE_USER.name);
+    const peek = useCreatorPeek();
+    if (peek.profileScreen) return peek.profileScreen;
     return (
       <CommunityViewerScreen
         {...commentProps}
@@ -365,7 +379,7 @@ export const CommunityViewer: Story = {
         onBack={fn()}
         onToggleLike={fn()}
         share={sampleShare(true)}
-        onOpenCreator={fn()}
+        onOpenCreator={peek.onOpenCreator}
         onReport={fn()}
         onRemix={fn()}
       />
