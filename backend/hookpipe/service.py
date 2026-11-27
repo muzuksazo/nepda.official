@@ -23,7 +23,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .body import attach_body
 from .media import MediaTools, find_tools
-from .render import HookRenderResult, extract_reference_frames, render_hook, write_scenario_and_srt
+from .body_edit import ScriptWriter, body_cache_key, make_body
+from .render import HookRenderResult, _subtitle_style, extract_reference_frames, render_hook, write_scenario_and_srt
 from .tts import InworldTts, MediaWithTts
 
 logger = logging.getLogger("hookpipe.service")
@@ -58,8 +59,10 @@ class HookPipeline:
         *,
         provider_factory: Optional[ProviderFactory] = None,
         tools: Optional[MediaTools] = None,
+        body_writer: Optional[ScriptWriter] = None,
     ) -> None:
         self.settings = settings
+        self._body_writer = body_writer
         self.project_store = project_store
         self.job_store = job_store
         self.storage = storage
@@ -205,6 +208,42 @@ class HookPipeline:
             except Exception as exc:
                 logger.warning("훅 파일을 저장소에 올리지 못했습니다 (%s): %s", key, exc)
         return keys
+
+    def _shared_body(self, project: Dict[str, Any], clips: List[Path], voice: Optional[str], job_id: str) -> Tuple[Path, Optional[Path], List[str]]:
+        """A·B·C 공용 본편. FR-009 결과(project.body)가 있으면 그것을, 없으면 촬영본으로 10초 본편을 만든다(한 번만)."""
+        body = project.get("body") or {}
+        given = body.get("video_path")
+        if not given and body.get("video_key"):
+            dest = Path(self.settings.output_dir).resolve() / str(project["project_id"]) / "_renders" / job_id / "body_in.mp4"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                self.storage.download_file(body["video_key"], dest)
+                given = str(dest)
+            except Exception as exc:
+                logger.warning("FR-009 본편을 내려받지 못해 직접 만듭니다 (%s): %s", body.get("video_key"), exc)
+        if given and Path(given).is_file():
+            return Path(given), self._body_srt(project, Path(given).parent), []
+        project_id = str(project["project_id"])
+        key = body_cache_key(clips, project.get("product") or {}, self.settings)
+        body_dir = Path(self.settings.output_dir).resolve() / project_id / "_body" / key
+        with self._lock(project_id, "_body"):
+            made = make_body(
+                clips,
+                project.get("product") or {},
+                body_dir,
+                provider=self._provider(),
+                settings=self.settings,
+                tools=self._media(),
+                writer=self._body_writer,
+                voice=voice,
+                subtitle_style=_subtitle_style(),
+            )
+        for name in ("body.mp4", "body.srt"):
+            try:
+                self.storage.upload_file(body_dir / name, f"projects/{project_id}/body/{key}/{name}")
+            except Exception as exc:
+                logger.warning("본편 파일을 저장소에 올리지 못했습니다 (%s): %s", name, exc)
+        return made.video, made.srt, made.warnings
 
     def _body_srt(self, project: Dict[str, Any], work_dir: Path) -> Optional[Path]:
         """FR-009 가 만든 본편 자막. project.body.srt_key(저장소 키) 또는 project.body.srt_path 가 있으면 쓴다."""
@@ -354,21 +393,20 @@ class HookPipeline:
                     self._publish_hook_files(project_id, hook_id, out_dir, result.files)
 
             store.update_job(job_id, status="RUNNING", stage="BODY")
-            guide = project.get("filming_guide") or {}
-            target_sec = float(guide.get("target_body_duration_sec") or 0.0)
-            body_max = float(self.settings.body_max_sec)
-            limit = min(body_max, target_sec) if target_sec > 0 else body_max
+            # 본편: A·B·C 공용 10초 편집본 (나레이션·자막 포함). 같은 프로젝트의 다른 유형 훅도 같은 본편을 쓴다
+            body_video, body_srt, body_warnings = self._shared_body(project, clips, voice, job_id)
             # 최종 파일은 작업마다 다른 폴더에 쓴다 (같은 훅으로 겹쳐 만들어도 서로 덮어쓰지 않는다)
             final_path = job_dir / "final.mp4"
             joined = attach_body(
                 out_dir / "hook.mp4",
-                clips,
+                [body_video],
                 final_path,
                 tools=self._media(),
-                limit_sec=limit,
+                limit_sec=float(self.settings.body_max_sec),
                 hook_srt=out_dir / "hook.srt",
-                body_srt=self._body_srt(project, job_dir / "uploads"),
+                body_srt=body_srt,
             )
+            joined.warnings = [*body_warnings, *joined.warnings]
 
             # 저장소 키 (팀 합의 2026-11-27): projects/{project_id}/renders/{job_id}/{master.mp4|clean.mp4|final.srt}
             # clean.mp4(자막 없는 판)는 아직 만들지 않는다. 그때까지는 master 를 같이 가리킨다.

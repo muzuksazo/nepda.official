@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from urllib.request import url2pathname
 from typing import Any, Dict, List
 
-from tests.support.hookpipe import FakeMediaProvider, make_video, tools_or_none, worker_scenario
+from tests.support.hookpipe import FakeMediaProvider, fake_body_writer, make_video, tools_or_none, worker_scenario
 from tests.support.projects_api import fake_google_verifier, login_client
 from tests.support.tempdirs import temporary_directory
 
@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.server import create_app
 from hookpipe.body import attach_body
+from hookpipe.body_edit import make_body
 from hookpipe.captions import parse_srt
 from hookpipe.media import probe
 from hookpipe.render import HookRenderError, extract_reference_frames, render_hook
@@ -268,6 +269,78 @@ class RenderHook(unittest.TestCase):
 
 
 @unittest.skipUnless(TOOLS, "ffmpeg (testsrc·loudnorm 필터 포함)가 필요합니다")
+class SharedBody(unittest.TestCase):
+    def test_body_is_exactly_ten_seconds_with_narration_captions_and_reused(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            clips = [make_video(TOOLS, root / "a.mp4", seconds=6.0, width=360, height=640),
+                     make_video(TOOLS, root / "b.mp4", seconds=3.0, width=640, height=360, audio=False)]
+            provider = FakeMediaProvider(TOOLS)
+            settings = _settings(body_target_sec=10.0)
+            prompts: List[str] = []
+
+            def writer(prompt: str, frames: Any) -> Dict[str, Any]:
+                prompts.append(prompt)
+                self.assertEqual(len(frames), 10)  # 클립마다 5장
+                return fake_body_writer(prompt, frames)
+
+            made = make_body(clips, PRODUCT, root / "body", provider=provider, settings=settings, tools=TOOLS,
+                             writer=writer)
+            info = probe(TOOLS, made.video)
+            self.assertEqual((info.width, info.height), (1080, 1920))
+            self.assertAlmostEqual(info.duration, 10.0, delta=0.15)
+            self.assertTrue(info.has_audio)
+            self.assertAlmostEqual(made.lufs, -14.0, delta=2.5)
+            self.assertEqual(len(provider.tts_calls), 2)
+            srt = made.srt.read_text(encoding="utf-8")
+            self.assertIn("한 손에 쥐는", srt)
+            self.assertIn("60분 비주얼 타이머", prompts[0])  # 제품 사실만으로 대본을 쓴다
+            self.assertEqual(provider.video_calls, [])  # 본편은 영상 모델을 쓰지 않는다
+
+            again = make_body(clips, PRODUCT, root / "body", provider=provider, settings=settings, tools=TOOLS,
+                              writer=writer)
+            self.assertTrue(again.reused)
+            self.assertEqual((len(prompts), len(provider.tts_calls)), (1, 2))
+
+    def test_b_and_c_hooks_of_one_project_share_one_body(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            provider = FakeMediaProvider(TOOLS)
+            calls: List[int] = []
+
+            def counting_writer(prompt: str, frames: Any) -> Dict[str, Any]:
+                calls.append(1)
+                return fake_body_writer(prompt, frames)
+
+            settings = Settings(
+                _env_file=None, gemini_api_key="dummy-key", google_client_id="dummy.apps.googleusercontent.com",
+                session_secret="test-session-secret-32bytes-minimum", work_root=str(root / "work"),
+                output_dir=str(root / "outputs"), db_path=str(root / "napda.db"), daily_render_limit=10,
+            )
+            app = create_app(settings=settings, google_token_verifier=fake_google_verifier,
+                             scenario_generator=lambda p, types, prov: [worker_scenario(t, f"sc_{t}_01") for t in types],
+                             provider_factory=lambda _s: provider, body_writer=counting_writer)
+            client = TestClient(app)
+            login_client(client)
+            pid = client.post("/v1/projects", json={"product": PRODUCT, "selected_types": ["B", "C"]}).json()["project_id"]
+            scenarios = client.post(f"/v1/projects/{pid}/scenarios", json={"count": 1}).json()["scenarios"]
+            footage = make_video(TOOLS, root / "shot.mp4", seconds=6.0)
+            client.post(f"/v1/projects/{pid}/uploads/complete",
+                        json={"clips": [{"shot_no": 1, "object_key": "uploads/shot.mp4", "local_path": str(footage)}]})
+            durations = []
+            for scenario in scenarios:
+                sid = scenario["scenario_id"]
+                client.post(f"/v1/projects/{pid}/scenarios/{sid}/select")
+                jid = client.post(f"/v1/projects/{pid}/renders", json={"scenario_id": sid}).json()["job_id"]
+                done = _wait(lambda: client.get(f"/v1/projects/{pid}/deliverables").json(),
+                             lambda d: d.get("job_id") == jid and d.get("status") in ("QC_READY", "FAILED"))
+                self.assertEqual(done["status"], "QC_READY", done)
+                durations.append(done["video"]["duration_sec"])
+            self.assertEqual(len(calls), 1)  # 본편 대본은 한 번만 만들었다 (B·C 공용)
+            self.assertTrue(all(abs(d - 19.0) < 0.5 for d in durations), durations)
+
+
+@unittest.skipUnless(TOOLS, "ffmpeg (testsrc·loudnorm 필터 포함)가 필요합니다")
 class AttachBody(unittest.TestCase):
     def test_joins_hook_with_portrait_and_silent_landscape_clips(self) -> None:
         with temporary_directory() as td:
@@ -325,6 +398,7 @@ def _client(root: Path, provider: Any, *, scenario_generator: Any = None, **over
         scenario_generator=scenario_generator
         or (lambda p, types, prov: [worker_scenario(t, f"sc_{t}_01") for t in types]),
         provider_factory=lambda _s: provider,
+        body_writer=fake_body_writer,
     )
     client = TestClient(app)
     login_client(client)
@@ -373,7 +447,8 @@ class ApiFlow(unittest.TestCase):
                 db_path=str(root / "napda.db"),
             )
             app = create_app(settings=settings, google_token_verifier=fake_google_verifier,
-                             scenario_generator=scenario_generator, provider_factory=provider_factory)
+                             scenario_generator=scenario_generator, provider_factory=provider_factory,
+                             body_writer=fake_body_writer)
             client = TestClient(app)
             login_client(client)
 
@@ -396,7 +471,7 @@ class ApiFlow(unittest.TestCase):
                          lambda d: d.get("status") in ("QC_READY", "FAILED"))
             self.assertEqual(done["status"], "QC_READY", done)
             video = done["video"]
-            self.assertAlmostEqual(video["duration_sec"], 15.0, delta=0.5)  # 훅 9초 + 본편 6초
+            self.assertAlmostEqual(video["duration_sec"], 19.0, delta=0.5)  # 훅 9초 + 공용 본편 10초
             self.assertTrue(video["stream_url"] and video["srt_url"])
             self.assertEqual(client.get(f"/v1/projects/{pid}").json()["status"], "DELIVERABLE_READY")
 
@@ -475,7 +550,8 @@ class ApiFlow(unittest.TestCase):
             ok = _wait(lambda: client.get(f"/v1/projects/{pid}/deliverables").json(),
                        lambda d: d.get("job_id") == jid2 and d.get("status") in ("QC_READY", "FAILED"))
             self.assertEqual(ok["status"], "QC_READY", ok)
-            self.assertEqual((len(provider.tts_calls), len(provider.image_calls)), (tts_bought, 1))
+            # 훅 나레이션은 다시 사지 않고, 새로 산 것은 공용 본편 나레이션 2문장뿐이다
+            self.assertEqual((len(provider.tts_calls), len(provider.image_calls)), (tts_bought + 2, 1))
 
     def test_planner_scenarios_and_dry_run_mode_never_call_paid_models(self) -> None:
         with temporary_directory() as td:

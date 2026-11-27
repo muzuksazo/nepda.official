@@ -67,6 +67,7 @@ def create_app(
     google_token_verifier: Optional[GoogleTokenVerifier] = None,
     scenario_generator: Optional[ScenarioGenerator] = None,
     storyboard_generator: Optional[StoryboardGenerator] = None,
+    body_writer: Optional[Callable[..., Dict[str, Any]]] = None,
 ) -> FastAPI:
     cfg = settings or Settings()
     job_store = store or JobStore(cfg.db_path)
@@ -85,7 +86,7 @@ def create_app(
             cfg, proj_store, fallback=_default_scenario_generator(cfg)
         )
     hook_pipeline = HookPipeline(
-        cfg, proj_store, job_store, storage_backend, provider_factory=provider_factory
+        cfg, proj_store, job_store, storage_backend, provider_factory=provider_factory, body_writer=body_writer
     )
 
     app = FastAPI(title="NAPDA Backend API", version="0.2.0")

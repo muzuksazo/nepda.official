@@ -96,6 +96,18 @@ class FakeMediaProvider:
         make_video(self.tools, Path(out_path), seconds=float(duration_sec), audio=False)
 
 
+def fake_body_writer(prompt: str, frames: Any) -> Dict[str, Any]:
+    """본편 대본·컷 고르기 대역: 문장 2개, 클립 1·2번 앞부분."""
+    clips = sorted({f["clip"] for f in frames})
+    second = clips[1] if len(clips) > 1 else clips[0]
+    return {"lines": [
+        {"narration": "물기제거 스펀지는 한 손에 쥐어지는 회색 스펀지입니다.", "caption": "한 손에 쥐는\n물기제거 스펀지",
+         "shots": [{"clip": clips[0], "start": 0.5, "end": 3.0}]},
+        {"narration": "적셔서 짠 뒤 가장자리 물기를 문질러 닦습니다.", "caption": "적셔 짜고\n쓱 닦기",
+         "shots": [{"clip": second, "start": 0.0, "end": 2.0}, {"clip": clips[0], "start": 2.0, "end": 4.0}]},
+    ]}
+
+
 def worker_scenario(hook_type: str = "B", scenario_id: str = "sc_demo_B1_01") -> Dict[str, Any]:
     """작업자가 돌려주는 모양의 시나리오 (ad_spec 에 timeline 이 없다)."""
     return {

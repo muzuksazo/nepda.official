@@ -15,7 +15,7 @@ def clean_visual(text: Any) -> str:
 COMMON_RULES = """RULES (apply to every shot):
 - Framing: vertical 9:16. Main subject in the UPPER two thirds of the frame. Keep the bottom third calm (subtitles go there).
 - Camera: one continuous shot with gentle movement. No cuts inside the clip.
-- FORBIDDEN: any readable text, letters, numbers or digits in the image; subtitles; watermarks; logos; real brand marks.
+- FORBIDDEN: any readable text, letters, words, numbers or digits anywhere in the frame (no subtitles, captions, speech bubbles, signs, labels, title cards); watermarks; logos; real brand marks. Subtitles are added later by the editor.
 - Keep the same look, palette and main character across all shots of this story."""
 
 STYLE_BY_TYPE: Dict[str, str] = {
@@ -136,7 +136,5 @@ def beat_prompt(
             )
     elif has_style_reference:
         lines.append("Keep the same main character, look and palette as the reference image.")
-    narration = str(beat.get("narration") or "").strip()
-    if narration:
-        lines.append(f"Narration heard over this shot (Korean, for context only, do NOT render as text): {narration}")
+    # 나레이션 문장은 넣지 않는다: '글자로 그리지 말라'고 해도 영상 모델이 문장을 깨진 한글 자막으로 그려 넣었다 (2026-11-27 실측)
     return "\n".join(lines)

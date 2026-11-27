@@ -128,6 +128,9 @@ class BodyAndPromptRules(unittest.TestCase):
         self.assertIn("60분형 아날로그 타이머", without)
         story = beat_prompt(scenario, ordered_beats(scenario)[0], 1, 3, product=product, shows_product=False)
         self.assertNotIn("60분 비주얼 타이머", story)
+        # 나레이션 문장은 영상 모델에 넘기지 않는다 (모델이 화면에 글자로 그려 넣는다)
+        self.assertNotIn(ordered_beats(scenario)[0]["narration"], story)
+        self.assertIn("Subtitles are added later", story)
 
     def test_worker_tags_are_not_sent_to_the_video_model(self) -> None:
         self.assertEqual(clean_visual("[포커스: 전체→시각화] 일곱 색 원이 사라진다"), "일곱 색 원이 사라진다")
