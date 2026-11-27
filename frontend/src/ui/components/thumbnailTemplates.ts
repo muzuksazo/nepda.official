@@ -18,7 +18,53 @@ export interface ThumbnailTemplate {
   previewUrl?: string;
 }
 
+import type { ThumbnailVariant } from '../thumbnails/presets';
+
 export const THUMBNAIL_TEMPLATE_PREVIEW_SIZE = { width: 540, height: 960 } as const;
 
 /** 썸네일 글자 수 한도 (임시값 — 정해진 규격이 없다) */
 export const THUMBNAIL_CAPTION_MAX = 24;
+
+/** Storybook Figma 릴스 커버 4가지 정규 템플릿 */
+export const FIGMA_THUMBNAIL_TEMPLATES: readonly (ThumbnailTemplate & { id: ThumbnailVariant })[] = [
+  { id: 'invert-box', name: '반전 박스', description: '화이트/블랙 반전 2줄 박스' },
+  { id: 'white-label', name: '화이트 라벨', description: '좌측정렬 화이트 라벨' },
+  { id: 'serif-outline', name: '명조 임팩트', description: '대형 명조 외곽선 임팩트' },
+  { id: 'pov-bar', name: '상단 POV', description: '상단 블랙 바 POV 밈형' },
+];
+
+/** 한 줄 캡션을 4종 Figma 템플릿에 어울리는 2줄 제목으로 자연스럽게 나눈다 */
+export function formatThumbnailHeadline(rawCaption: string): string {
+  const clean = rawCaption.trim();
+  if (!clean) return '';
+  if (clean.includes('\n')) {
+    return clean
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, 3)
+      .join('\n');
+  }
+  const chars = [...clean];
+  if (chars.length <= 8) return clean;
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    let bestIdx = 1;
+    let bestDiff = Infinity;
+    for (let i = 1; i < words.length; i += 1) {
+      const left = words.slice(0, i).join(' ');
+      const right = words.slice(i).join(' ');
+      const diff = Math.abs([...left].length - [...right].length);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestIdx = i;
+      }
+    }
+    return `${words.slice(0, bestIdx).join(' ')}\n${words.slice(bestIdx).join(' ')}`;
+  }
+  if (chars.length > 10) {
+    const mid = Math.ceil(chars.length / 2);
+    return `${chars.slice(0, mid).join('')}\n${chars.slice(mid).join('')}`;
+  }
+  return clean;
+}

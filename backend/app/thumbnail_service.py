@@ -28,6 +28,7 @@ EMOJI_RE = re.compile(
 )
 
 THUMBNAIL_STYLES: tuple[str, ...] = ("stroke_bold", "line_blocks", "panel_card")
+FIGMA_THUMBNAIL_STYLES: tuple[str, ...] = ("invert-box", "white-label", "serif-outline", "pov-bar")
 THUMBNAIL_STYLE_ALIASES: Dict[str, str] = {
     "stroke": "stroke_bold",
     "stroke_bold": "stroke_bold",
@@ -35,12 +36,31 @@ THUMBNAIL_STYLE_ALIASES: Dict[str, str] = {
     "line_blocks": "line_blocks",
     "card": "panel_card",
     "panel_card": "panel_card",
+    "invert-box": "invert-box",
+    "invert_box": "invert-box",
+    "white-label": "white-label",
+    "white_label": "white-label",
+    "serif-outline": "serif-outline",
+    "serif_outline": "serif-outline",
+    "pov-bar": "pov-bar",
+    "pov_bar": "pov-bar",
+}
+_FIGMA_TO_PILLOW_STYLE: Dict[str, str] = {
+    "invert-box": "line_blocks",
+    "white-label": "line_blocks",
+    "serif-outline": "stroke_bold",
+    "pov-bar": "panel_card",
 }
 
 
 def normalize_thumbnail_style(style: Optional[str]) -> str:
     raw = str(style or "").strip().lower()
     return THUMBNAIL_STYLE_ALIASES.get(raw, "stroke_bold")
+
+
+def _pillow_render_style(style: Optional[str]) -> str:
+    norm = normalize_thumbnail_style(style)
+    return _FIGMA_TO_PILLOW_STYLE.get(norm, norm if norm in THUMBNAIL_STYLES else "stroke_bold")
 
 
 def _build_thumb_spec_item(
@@ -52,7 +72,7 @@ def _build_thumb_spec_item(
     clean_badge: str,
     style: str,
 ) -> Dict[str, Any]:
-    valid_style = normalize_thumbnail_style(style)
+    valid_style = _pillow_render_style(style)
     line_entries = [
         {
             "text": ln,
@@ -236,11 +256,16 @@ def generate_project_thumbnail(
         if explicit is not None:
             local_candidates.append(explicit)
 
-    # Check rendered master video keyframes first
+    # Prefer clean_mp4 (subtitle/watermark-free) BEFORE master_mp4 for crisp cover keyframes
     rendered = ((job or {}).get("artifacts") or {}).get("rendered") or []
     if rendered and isinstance(rendered[0], dict):
-        v_ref = rendered[0].get("master_mp4") or rendered[0].get("clean_mp4")
-        v_local = _resolve_local_from_ref(v_ref, cand_dir / "master.mp4", storage)
+        v_local = None
+        for ref_key in ("clean_mp4", "master_mp4"):
+            cand_ref = rendered[0].get(ref_key)
+            if cand_ref:
+                v_local = _resolve_local_from_ref(cand_ref, cand_dir / f"{ref_key}.mp4", storage)
+                if v_local is not None:
+                    break
         if v_local is not None:
             local_candidates.extend(extract_video_keyframes(v_local, cand_dir / "master_kf"))
 
@@ -295,6 +320,7 @@ def generate_project_thumbnail(
 
     clean_badge = _strip_emojis(badge)[:18] if badge else ""
     valid_style = normalize_thumbnail_style(style)
+    render_style = _pillow_render_style(valid_style)
 
     thumb_items: List[Dict[str, Any]] = [
         _build_thumb_spec_item(
@@ -303,13 +329,13 @@ def generate_project_thumbnail(
             chosen_bg=chosen_bg,
             clean_lines=clean_lines,
             clean_badge=clean_badge,
-            style=valid_style,
+            style=render_style,
         )
     ]
     sibling_styles: List[str] = []
     if include_style_previews:
         for st in THUMBNAIL_STYLES:
-            if st == valid_style:
+            if st == render_style:
                 continue
             sibling_styles.append(st)
             thumb_items.append(
@@ -359,7 +385,9 @@ def generate_project_thumbnail(
     cover_key = thumbnail_object_key(project_id, thumb_id, "cover.png")
     storage.upload_file(cover_path, cover_key)
 
-    style_preview_keys: Dict[str, str] = {valid_style: cover_key}
+    style_preview_keys: Dict[str, str] = {render_style: cover_key}
+    if valid_style != render_style:
+        style_preview_keys[valid_style] = cover_key
     for st in sibling_styles:
         entry = rendered_by_id.get(f"preview_{st}")
         if entry and entry.get("path"):

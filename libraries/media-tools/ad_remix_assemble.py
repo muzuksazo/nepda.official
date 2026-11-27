@@ -1000,8 +1000,10 @@ def _render_variant_output(
     hi_rgb = _hex_to_rgb(spec.get("highlight_color", "#FFE047"), (255, 224, 71))
 
     stem = out_stem or f"ad_{vk}"
+    clean_mp4_path: Optional[str] = None
     if clean_copy:
-        shutil.copyfile(raw_joined, os.path.join(out_dir, f"{stem}_clean.mp4"))
+        clean_mp4_path = os.path.join(out_dir, f"{stem}_clean.mp4")
+        shutil.copyfile(raw_joined, clean_mp4_path)
 
     hide_disc_until = float(v.get("hide_disclosure_until_sec", 3.5 if (disc_mode == "own_brand" and v.get("archetype") == "absurd_twist") else 0.0))
     cues: List[Tuple[float, float, str, str, str, int, bool]] = []
@@ -1073,7 +1075,7 @@ def _render_variant_output(
     srt_path = os.path.join(out_dir, f"{stem}.srt")
     _write_srt(srt_cues, srt_path)
     final_info = ffprobe_info(final_mp4)
-    return {
+    out_meta: Dict[str, Any] = {
         "variant": vk,
         "short_tag": v.get("short_tag", spec.get("short_tag", "master")),
         "mp4": os.path.abspath(final_mp4),
@@ -1083,6 +1085,9 @@ def _render_variant_output(
         "height": final_info["height"],
         "lufs": lufs_info,
     }
+    if clean_mp4_path and os.path.exists(clean_mp4_path):
+        out_meta["clean_mp4"] = os.path.abspath(clean_mp4_path)
+    return out_meta
 
 
 def assemble(args: argparse.Namespace) -> None:

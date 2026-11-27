@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef } from 'react';
+import { useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Check, ImageIcon } from '../icons';
 import type { ThumbnailTemplate } from './thumbnailTemplates';
 
@@ -9,13 +9,15 @@ export interface ThumbnailPickerProps {
   /** 고른 템플릿 id */
   value: string | null;
   onChange: (id: string) => void;
+  /** 정적 이미지 대신 라이브 템플릿 미리보기를 그릴 때 넘긴다 */
+  renderPreview?: (template: ThumbnailTemplate) => ReactNode;
 }
 
 /**
  * 썸네일 시안 고르기 — 가로로 넘기는 캐러셀에서 하나만 고른다 (라디오 그룹).
  * 다음 시안이 오른쪽에 살짝 보여 넘길 수 있다는 걸 알려 준다. 고른 시안은 사진에 붙은 라임 테두리 + 체크.
  */
-export function ThumbnailPicker({ label, templates, value, onChange }: ThumbnailPickerProps) {
+export function ThumbnailPicker({ label, templates, value, onChange, renderPreview }: ThumbnailPickerProps) {
   const name = useId();
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -38,6 +40,8 @@ export function ThumbnailPicker({ label, templates, value, onChange }: Thumbnail
       <div ref={trackRef} className="n-thumb-picker__track">
         {templates.map((template) => {
           const descId = template.description ? `${name}-${template.id}-desc` : undefined;
+          const customPreview = renderPreview ? renderPreview(template) : null;
+          const hasPreview = Boolean(customPreview || template.previewUrl);
           return (
             <label key={template.id} className="n-thumb-option">
               <input
@@ -53,8 +57,10 @@ export function ThumbnailPicker({ label, templates, value, onChange }: Thumbnail
                   e.currentTarget.closest('.n-thumb-option')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
                 }}
               />
-              <span className={`n-thumb-option__frame${template.previewUrl ? '' : ' is-empty'}`}>
-                {template.previewUrl ? (
+              <span className={`n-thumb-option__frame${hasPreview ? '' : ' is-empty'}`}>
+                {customPreview ? (
+                  customPreview
+                ) : template.previewUrl ? (
                   <img src={template.previewUrl} alt="" loading="lazy" decoding="async" />
                 ) : (
                   <ImageIcon size={28} aria-hidden="true" />

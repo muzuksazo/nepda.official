@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AdminUsagePage } from './admin/AdminUsagePage';
 import { readScenarioAbOverride } from './api/abConfig';
@@ -41,12 +41,12 @@ import { GoogleSignInButton, useAuth } from './auth';
 import { openPaddleCheckout } from './billing';
 import { NapdaProvider, type ThemeSetting } from './ui/NapdaProvider';
 import {
+  formatThumbnailHeadline,
   InfoSheet,
   type AgreementDoc,
   type CreditPackage,
   type NavTab,
   type ShareHandlers,
-  type ThumbnailTemplate,
   type VideoComment,
 } from './ui/components';
 import {
@@ -73,7 +73,9 @@ import {
   UploadVideoScreen,
   VideoReviewScreen,
   type AppNotification,
+  type CommunityVideo,
   type CompletedProject,
+  type CreatorProfile,
   type CreditEntry,
   type HookType,
   type InProgressProject,
@@ -84,45 +86,70 @@ import {
 } from './ui/screens';
 import type { GuideScene } from './ui/screens/ShootingGuideScreen';
 import type { StoryboardScene } from './ui/screens/StoryboardScreen';
-import {
-  SAMPLE_COMMENTS,
-  SAMPLE_COMMUNITY,
-  SAMPLE_CREDIT_PACKAGES,
-  SAMPLE_CREDITS_PER_VIDEO,
-  SAMPLE_LOGIN_SHOWCASE,
-  filterCommunityByType,
-  sampleCreator,
-} from './ui/screens/sampleProjects';
+import { exportThumbnailPng } from './ui/thumbnails/exportThumbnailPng';
+import type { ThumbnailVariant } from './ui/thumbnails/presets';
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 const SUPPORT_EMAIL = 'dudnjsckrgo@gmail.com';
 const DEFAULT_AI_DISCLOSURE_GUIDE = "인스타그램 게시 시 'AI 정보' 라벨 활성화를 권장합니다.";
-
-type ThumbnailStyleId = 'stroke_bold' | 'line_blocks' | 'panel_card';
-
-const THUMBNAIL_STYLE_DEFS: readonly {
-  id: ThumbnailStyleId;
-  name: string;
-  description: string;
-}[] = [
-  { id: 'stroke_bold', name: '큼직', description: '굵은 글자를 가운데에 크게' },
-  { id: 'line_blocks', name: '띠지', description: '줄마다 띠를 깔아 또렷하게' },
-  { id: 'panel_card', name: '카드', description: '어두운 카드에 담아 차분하게' },
+const DEFAULT_CREDITS_PER_VIDEO = 12;
+const DEFAULT_CREDIT_PACKAGES: readonly CreditPackage[] = [
+  { id: 'c30', credits: 30, price: 4900 },
+  { id: 'c100', credits: 100, price: 12900, isPopular: true },
+  { id: 'c300', credits: 300, price: 33000 },
 ];
+const COMMUNITY_VIDEOS_QUERY_KEY = ['community', 'videos'] as const;
 
-function normalizeThumbnailStyle(id: string | null | undefined): ThumbnailStyleId {
-  if (id === 'line_blocks' || id === 'blocks') return 'line_blocks';
-  if (id === 'panel_card' || id === 'card') return 'panel_card';
-  return 'stroke_bold';
+function normalizeFigmaVariant(id: string | null | undefined): ThumbnailVariant {
+  if (id === 'invert-box' || id === 'white-label' || id === 'serif-outline' || id === 'pov-bar') {
+    return id;
+  }
+  if (id === 'line_blocks' || id === 'blocks') return 'white-label';
+  if (id === 'panel_card' || id === 'card') return 'pov-bar';
+  return 'invert-box';
 }
 
 interface DeliverableThumbnailState {
   imageUrl?: string;
   downloadUrl?: string;
-  style: ThumbnailStyleId;
-  stylePreviews: Partial<Record<ThumbnailStyleId, string>>;
+  style: ThumbnailVariant;
   candidateImageUrls: string[];
   candidateKeys: string[];
+}
+
+interface CommunityVideoApiItem {
+  id: string;
+  project_id: string;
+  hook_type: string;
+  title: string;
+  caption: string;
+  product_name: string;
+  creator_name: string;
+  thumbnail_url: string | null;
+  video_url: string | null;
+  like_count: number;
+  created_at: string;
+}
+
+function buildCreatorProfile(
+  name: string,
+  allVideos: CommunityVideo[],
+): { profile: CreatorProfile; videos: CommunityVideo[] } {
+  const videos = allVideos.filter((v) => v.creatorName === name);
+  const counts = new Map<HookType, number>();
+  for (const v of videos) {
+    counts.set(v.hookType, (counts.get(v.hookType) ?? 0) + 1);
+  }
+  const mainHookType = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  return {
+    profile: {
+      name,
+      videoCount: videos.length,
+      likeCount: videos.reduce((sum, v) => sum + v.likeCount, 0),
+      mainHookType,
+    },
+    videos,
+  };
 }
 
 interface InfoSheetState {
@@ -331,10 +358,11 @@ export function App() {
   const nicknameTimerRef = useRef<number | undefined>(undefined);
 
   // Notifications / Credit ledger / Community comments
-  const [commentsByVideo, setCommentsByVideo] = useState<Record<string, VideoComment[]>>(SAMPLE_COMMENTS);
+  const [commentsByVideo, setCommentsByVideo] = useState<Record<string, VideoComment[]>>({});
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [creditLedger, setCreditLedger] = useState<CreditEntry[]>([]);
   const [publicProjectIds, setPublicProjectIds] = useState<Record<string, boolean>>({});
+  const [publishedCaption, setPublishedCaption] = useState<string>('');
 
   // 8-step creation flow state
   const [creationStep, setCreationStep] = useState<CreationStep | null>(null);
@@ -393,6 +421,22 @@ export function App() {
     },
   });
 
+  const communityQuery = useQuery({
+    queryKey: [...COMMUNITY_VIDEOS_QUERY_KEY, communityHookType ?? 'all'],
+    queryFn: async () => {
+      const qs = communityHookType
+        ? `?hook_type=${encodeURIComponent(communityHookType)}&limit=50`
+        : '?limit=50';
+      const res = await customFetch<{
+        status: number;
+        data: { items: CommunityVideoApiItem[] };
+      }>(`/v1/community/videos${qs}`);
+      return res.data.items;
+    },
+    enabled: auth.status === 'authenticated',
+    retry: false,
+  });
+
   const billingConfigQuery = useGetBillingConfigV1BillingConfigGet({
     query: {
       retry: false,
@@ -413,11 +457,11 @@ export function App() {
     billingConfigQuery.data?.status === 200 ? billingConfigQuery.data.data : undefined;
   const wallet = walletQuery.data?.status === 200 ? walletQuery.data.data : undefined;
   const walletCredits = wallet?.credits ?? 0;
-  const creditsPerVideo = billingConfig?.credits_per_video ?? SAMPLE_CREDITS_PER_VIDEO;
+  const creditsPerVideo = billingConfig?.credits_per_video ?? DEFAULT_CREDITS_PER_VIDEO;
 
   const creditPackages = useMemo<CreditPackage[]>(() => {
     if (!billingConfig?.packages?.length) {
-      return SAMPLE_CREDIT_PACKAGES;
+      return [...DEFAULT_CREDIT_PACKAGES];
     }
     return billingConfig.packages.map((p) => ({
       id: p.id,
@@ -427,16 +471,21 @@ export function App() {
     }));
   }, [billingConfig]);
 
-  const projectThumbnailTemplates = useMemo<ThumbnailTemplate[]>(() => {
-    const fallbackPreview =
-      deliverableThumb?.imageUrl || deliverableThumb?.candidateImageUrls[0] || undefined;
-    return THUMBNAIL_STYLE_DEFS.map((def) => ({
-      id: def.id,
-      name: def.name,
-      description: def.description,
-      previewUrl: deliverableThumb?.stylePreviews[def.id] || fallbackPreview,
+  const communityVideos = useMemo<CommunityVideo[]>(() => {
+    const raw = communityQuery.data ?? [];
+    return raw.map((item) => ({
+      id: item.id,
+      productName: item.product_name,
+      creatorName: item.creator_name || '냅다사장',
+      hookType: (item.hook_type === 'A' || item.hook_type === 'B' || item.hook_type === 'C'
+        ? item.hook_type
+        : 'A') as HookType,
+      thumbnailUrl: item.thumbnail_url ?? undefined,
+      videoUrl: item.video_url ?? undefined,
+      caption: item.caption || item.title || item.product_name,
+      likeCount: item.like_count ?? 0,
     }));
-  }, [deliverableThumb]);
+  }, [communityQuery.data]);
 
   const shareHandlers = useMemo<ShareHandlers>(() => buildShareHandlers(), []);
 
@@ -565,22 +614,11 @@ export function App() {
     }
     const thumb = data.thumbnail;
     if (thumb) {
-      const style = normalizeThumbnailStyle(thumb.style);
-      const rawPreviews = thumb.style_previews ?? {};
-      const stylePreviews: Partial<Record<ThumbnailStyleId, string>> = {};
-      for (const [k, v] of Object.entries(rawPreviews)) {
-        if (typeof v === 'string' && v) {
-          stylePreviews[normalizeThumbnailStyle(k)] = v;
-        }
-      }
-      if (thumb.image_url && !stylePreviews[style]) {
-        stylePreviews[style] = thumb.image_url;
-      }
+      const style = normalizeFigmaVariant(thumb.style);
       setDeliverableThumb({
         imageUrl: thumb.image_url ?? undefined,
         downloadUrl: thumb.download_url ?? thumb.image_url ?? undefined,
         style,
-        stylePreviews,
         candidateImageUrls: Array.isArray(thumb.candidate_image_urls) ? thumb.candidate_image_urls : [],
         candidateKeys: Array.isArray(thumb.candidate_keys) ? thumb.candidate_keys : [],
       });
@@ -612,6 +650,7 @@ export function App() {
     setOverlayScreen(null);
     setProjectId(null);
     setProductInfo({});
+    setPublishedCaption('');
     setHookType(initialType);
     setSkippedDrafts(false);
     setScenarioId(null);
@@ -794,6 +833,11 @@ export function App() {
           name: proj.product.name,
           intro: (proj.product.verified_facts || []).join(', '),
         });
+        setPublicProjectIds((prev) => ({
+          ...prev,
+          [pid]: Boolean(proj.is_public),
+        }));
+        setPublishedCaption(proj.public_caption ?? '');
         const firstType = (proj.selected_types?.[0] as HookType | undefined) ?? 'A';
         setHookType(firstType);
         setStoryboardError(null);
@@ -1140,12 +1184,16 @@ export function App() {
   const handleDownloadThumbnail = useCallback(
     async (templateId: string | null, caption: string) => {
       if (!projectId) return;
-      const style = normalizeThumbnailStyle(templateId ?? deliverableThumb?.style);
-      const lines = caption
+      const variant = normalizeFigmaVariant(templateId ?? deliverableThumb?.style);
+      const formattedHeadline = formatThumbnailHeadline(
+        caption.trim() || productInfo.name || '지금 확인',
+      );
+      const lines = formattedHeadline
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean)
-        .slice(0, 2);
+        .slice(0, 3);
+      const sourceImageKey = deliverableThumb?.candidateKeys[0];
       setIsDownloadingThumb(true);
       setThumbError(null);
       try {
@@ -1155,7 +1203,6 @@ export function App() {
             download_url?: string | null;
             image_url?: string | null;
             style?: string | null;
-            style_previews?: Record<string, string>;
             candidate_image_urls?: string[];
             candidate_keys?: string[];
           };
@@ -1164,45 +1211,46 @@ export function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             headline_lines: lines.length > 0 ? lines : [productInfo.name || '지금 확인'],
-            style,
+            style: variant,
+            ...(sourceImageKey ? { source_image_key: sourceImageKey } : {}),
           }),
         });
         const newImageUrl = res.data?.image_url ?? undefined;
         const newDownloadUrl = res.data?.download_url || newImageUrl;
-        setDeliverableThumb((prev) => {
-          const mergedPreviews: Partial<Record<ThumbnailStyleId, string>> = {
-            ...(prev?.stylePreviews ?? {}),
-          };
-          if (res.data?.style_previews) {
-            for (const [k, v] of Object.entries(res.data.style_previews)) {
-              if (typeof v === 'string' && v) {
-                mergedPreviews[normalizeThumbnailStyle(k)] = v;
-              }
-            }
-          }
-          if (newImageUrl) {
-            mergedPreviews[style] = newImageUrl;
-          }
-          return {
-            imageUrl: newImageUrl ?? prev?.imageUrl,
-            downloadUrl: newDownloadUrl ?? prev?.downloadUrl,
-            style,
-            stylePreviews: mergedPreviews,
-            candidateImageUrls: Array.isArray(res.data?.candidate_image_urls)
-              ? res.data.candidate_image_urls
-              : (prev?.candidateImageUrls ?? []),
-            candidateKeys: Array.isArray(res.data?.candidate_keys)
-              ? res.data.candidate_keys
-              : (prev?.candidateKeys ?? []),
-          };
-        });
+        const nextCandidateUrls = Array.isArray(res.data?.candidate_image_urls)
+          ? res.data.candidate_image_urls
+          : (deliverableThumb?.candidateImageUrls ?? []);
+        const nextCandidateKeys = Array.isArray(res.data?.candidate_keys)
+          ? res.data.candidate_keys
+          : (deliverableThumb?.candidateKeys ?? []);
+
+        setDeliverableThumb((prev) => ({
+          imageUrl: newImageUrl ?? prev?.imageUrl,
+          downloadUrl: newDownloadUrl ?? prev?.downloadUrl,
+          style: variant,
+          candidateImageUrls: nextCandidateUrls,
+          candidateKeys: nextCandidateKeys,
+        }));
         void queryClient.invalidateQueries({
           queryKey: getListProjectsV1ProjectsGetQueryKey(),
         });
-        if (newDownloadUrl) {
-          triggerFileDownload(newDownloadUrl, 'cover.png');
-        } else {
-          setThumbError('썸네일 주소를 받지 못했어요. 다시 시도해 주세요.');
+        void queryClient.invalidateQueries({
+          queryKey: COMMUNITY_VIDEOS_QUERY_KEY,
+        });
+
+        const cleanBgUrl = nextCandidateUrls[0] || newImageUrl || deliverableThumb?.imageUrl;
+        try {
+          await exportThumbnailPng({
+            variant,
+            headline: formattedHeadline,
+            imageUrl: cleanBgUrl,
+          });
+        } catch {
+          if (newDownloadUrl) {
+            triggerFileDownload(newDownloadUrl, `napda-thumbnail-${variant}.png`);
+          } else {
+            throw new Error('썸네일 PNG를 저장하지 못했어요. 다시 시도해 주세요.');
+          }
         }
       } catch (err) {
         setThumbError(
@@ -1214,7 +1262,59 @@ export function App() {
         setIsDownloadingThumb(false);
       }
     },
-    [deliverableThumb?.style, productInfo.name, projectId, queryClient],
+    [
+      deliverableThumb,
+      productInfo.name,
+      projectId,
+      queryClient,
+    ],
+  );
+
+  const handleTogglePublish = useCallback(
+    async (nextIsPublic: boolean, caption?: string) => {
+      if (!projectId) return;
+      const trimmedCaption = caption?.trim() || productInfo.name || null;
+      setPublicProjectIds((prev) => ({ ...prev, [projectId]: nextIsPublic }));
+      if (trimmedCaption) {
+        setPublishedCaption(trimmedCaption);
+      }
+      try {
+        const res = await customFetch<{
+          status: number;
+          data: { project_id: string; is_public: boolean; caption: string | null };
+        }>(`/v1/projects/${projectId}/publish`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            is_public: nextIsPublic,
+            caption: trimmedCaption,
+          }),
+        });
+        setPublicProjectIds((prev) => ({
+          ...prev,
+          [projectId]: Boolean(res.data?.is_public),
+        }));
+        if (res.data?.caption !== undefined && res.data.caption !== null) {
+          setPublishedCaption(res.data.caption);
+        }
+        void queryClient.invalidateQueries({
+          queryKey: getListProjectsV1ProjectsGetQueryKey(),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: COMMUNITY_VIDEOS_QUERY_KEY,
+        });
+      } catch (err) {
+        setPublicProjectIds((prev) => ({ ...prev, [projectId]: !nextIsPublic }));
+        setInfoSheet({
+          title: '공개 설정을 바꾸지 못했어요',
+          description:
+            err instanceof Error
+              ? err.message
+              : '탐색 공개 상태를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.',
+        });
+      }
+    },
+    [productInfo.name, projectId, queryClient],
   );
 
   const pollOrderCompletion = useCallback(
@@ -1511,7 +1611,7 @@ export function App() {
         />
       ) : authEntryStep === 'login' ? (
         <LoginScreen
-          showcase={SAMPLE_LOGIN_SHOWCASE}
+          showcase={[]}
           isSigningIn={auth.isSubmitting}
           hasError={Boolean(auth.error)}
           signInSlot={<GoogleSignInButton theme={gisTheme} />}
@@ -1523,7 +1623,7 @@ export function App() {
   } else if (needsSignup && !termsAgreed) {
     screen = (
       <LoginScreen
-        showcase={SAMPLE_LOGIN_SHOWCASE}
+        showcase={[]}
         isTermsOpen
         onOpenDoc={openInfoDocument}
         onAgreeTerms={() => {
@@ -1770,20 +1870,30 @@ export function App() {
         />
       );
     } else if (creationStep === 'thumbnail') {
-      const currentPublic = Boolean(projectId && publicProjectIds[projectId]);
+      const summaryPublic =
+        projectId && projectsQuery.data?.status === 200
+          ? Boolean(
+              projectsQuery.data.data.projects.find((p) => p.project_id === projectId)?.is_public,
+            )
+          : false;
+      const currentPublic =
+        projectId && projectId in publicProjectIds ? publicProjectIds[projectId] : summaryPublic;
+      const cleanKeyframeUrl =
+        deliverableThumb?.candidateImageUrls[0] || deliverableThumb?.imageUrl;
       screen = (
         <ThumbnailDownloadScreen
-          templates={projectThumbnailTemplates}
-          initialTemplateId={deliverableThumb?.style ?? 'stroke_bold'}
-          initialCaption={productInfo.name || ''}
+          key={`thumb-${projectId ?? 'none'}`}
+          useFigmaTemplates
+          backgroundImageUrl={cleanKeyframeUrl}
+          initialTemplateId={deliverableThumb?.style ?? 'invert-box'}
+          initialCaption={publishedCaption || productInfo.name || ''}
           aiDisclosure={aiDisclosureGuide}
           isDownloadingThumbnail={isDownloadingThumb}
           thumbnailError={thumbError}
           initialIsPublic={currentPublic}
           needsPublishConsent={!currentPublic}
-          onPublicChange={(next) => {
-            if (!projectId) return;
-            setPublicProjectIds((prev) => ({ ...prev, [projectId]: next }));
+          onPublicChange={(next, caption) => {
+            void handleTogglePublish(next, caption);
           }}
           onBack={() => setCreationStep('review')}
           onDownloadVideo={() => {
@@ -1826,8 +1936,8 @@ export function App() {
     } else if (overlayScreen?.type === 'communityViewer') {
       const viewerItems =
         overlayScreen.from === 'creator'
-          ? sampleCreator(overlayScreen.creatorName || '').videos
-          : filterCommunityByType(SAMPLE_COMMUNITY, communityHookType);
+          ? buildCreatorProfile(overlayScreen.creatorName || '', communityVideos).videos
+          : communityVideos;
       screen = (
         <CommunityViewerScreen
           items={viewerItems}
@@ -1867,7 +1977,7 @@ export function App() {
         />
       );
     } else if (overlayScreen?.type === 'creator') {
-      const { profile, videos } = sampleCreator(overlayScreen.name);
+      const { profile, videos } = buildCreatorProfile(overlayScreen.name, communityVideos);
       screen = (
         <CreatorProfileScreen
           creator={profile}
@@ -1911,9 +2021,13 @@ export function App() {
     } else if (activeTab === 'community') {
       screen = (
         <CommunityScreen
-          items={filterCommunityByType(SAMPLE_COMMUNITY, communityHookType)}
+          items={communityVideos}
+          status={communityQuery.isLoading ? 'loading' : communityQuery.isError ? 'error' : 'ready'}
           hookType={communityHookType}
           onHookTypeChange={setCommunityHookType}
+          onRetry={() => {
+            void communityQuery.refetch();
+          }}
           onOpenVideo={(videoId) =>
             setOverlayScreen({ type: 'communityViewer', from: 'community', videoId })
           }

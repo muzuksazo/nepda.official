@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -225,3 +226,122 @@ class TestMediaDeliveryAndThumbnails(unittest.TestCase):
             # Deliverables reflects the latest selected style (panel_card)
             deliv_after = client.get(f"/v1/projects/{pid}/deliverables").json()
             self.assertEqual(deliv_after["thumbnail"]["style"], "panel_card")
+
+            # R2-02: all 4 canonical Figma style IDs accepted cleanly without 422
+            for figma_style in ("invert-box", "white-label", "serif-outline", "pov-bar"):
+                f_resp = client.post(
+                    f"/v1/projects/{pid}/thumbnail",
+                    json={"headline_lines": ["3초 만에 물기 순삭"], "style": figma_style},
+                )
+                self.assertEqual(f_resp.status_code, 200, (figma_style, f_resp.text))
+                fj = f_resp.json()
+                self.assertEqual(fj["style"], figma_style)
+                self.assertIn(figma_style, fj["style_previews"])
+
+    def test_thumbnail_service_prefers_clean_mp4_over_master_mp4(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            settings = Settings(
+                _env_file=None,
+                gemini_api_key="dummy-key",
+                google_client_id="dummy-client-id.apps.googleusercontent.com",
+                session_secret="test-session-secret-32bytes-minimum",
+                work_root=str(root / "work"),
+                output_dir=str(root / "outputs"),
+                db_path=str(root / "napda.db"),
+            )
+            job_store = JobStore(settings.db_path)
+            proj_store = ProjectStore(settings.db_path)
+            storage = LocalStorageBackend(Path(settings.work_root) / "_objects")
+            app = create_app(
+                settings=settings,
+                store=job_store,
+                project_store=proj_store,
+                storage=storage,
+                google_token_verifier=fake_google_verifier,
+            )
+            client = TestClient(app)
+            login_client(client)
+
+            clean_mp4 = root / "clean.mp4"
+            master_mp4 = root / "master.mp4"
+            # Distinct solid colors: green for clean_mp4, red for master_mp4
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=0x10C840:s=1080x1920:d=2:r=24",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", str(clean_mp4),
+                ],
+                capture_output=True,
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=0xE02020:s=1080x1920:d=2:r=24",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", str(master_mp4),
+                ],
+                capture_output=True,
+                check=True,
+            )
+
+            pid = client.post(
+                "/v1/projects",
+                json={
+                    "product": {"name": "초흡수 스펀지", "category": "living", "verified_facts": ["물기 순삭"]},
+                    "selected_types": ["A"],
+                },
+            ).json()["project_id"]
+
+            clean_uri = storage.upload_file(clean_mp4, f"projects/{pid}/renders/job_cln/clean.mp4")
+            master_uri = storage.upload_file(master_mp4, f"projects/{pid}/renders/job_cln/master.mp4")
+            job_store.create_job("job_cln", pid, {}, status="QC_READY", stage="QC_READY")
+            job_store.update_job(
+                "job_cln",
+                status="QC_READY",
+                stage="QC_READY",
+                artifacts={"rendered": [{"variant": "A", "duration": 2.0, "master_mp4": master_uri, "clean_mp4": clean_uri}]},
+            )
+            proj_store.update_project(pid, status="RENDERING", latest_job_id="job_cln")
+
+            deliv = client.get(f"/v1/projects/{pid}/deliverables")
+            self.assertEqual(deliv.status_code, 200, deliv.text)
+            cand_urls = deliv.json()["thumbnail"]["candidate_image_urls"]
+            self.assertGreaterEqual(len(cand_urls), 1)
+            kf_resp = client.get(cand_urls[0])
+            self.assertEqual(kf_resp.status_code, 200)
+            kf_path = root / "kf0.png"
+            kf_path.write_bytes(kf_resp.content)
+            with Image.open(kf_path) as im:
+                r, g, b = im.convert("RGB").getpixel((540, 960))
+                # Green dominant -> extracted from clean_mp4, NOT red master_mp4!
+                self.assertGreater(g, r + 60, f"Expected clean green frame, got RGB=({r},{g},{b})")
+
+    def test_upload_rendered_discovers_sibling_clean_mp4(self) -> None:
+        from app.pipeline import ProductionPipeline
+
+        with temporary_directory() as td:
+            root = Path(td)
+            settings = Settings(
+                _env_file=None,
+                work_root=str(root / "work"),
+                output_dir=str(root / "outputs"),
+                db_path=str(root / "napda.db"),
+            )
+            storage = LocalStorageBackend(root / "objects")
+            pipeline = ProductionPipeline(settings, JobStore(settings.db_path), storage=storage)
+
+            final_dir = root / "final"
+            final_dir.mkdir(parents=True, exist_ok=True)
+            mp4 = final_dir / "napda_test_A.mp4"
+            clean = final_dir / "napda_test_A_clean.mp4"
+            mp4.write_bytes(b"master-bytes")
+            clean.write_bytes(b"clean-bytes")
+
+            uploaded = pipeline._upload_rendered(
+                {"rendered": [{"variant": "A", "mp4": str(mp4), "duration": 10.0}]},
+                "prj_1",
+                "job_1",
+            )
+            self.assertEqual(len(uploaded), 1)
+            self.assertIn("master_mp4", uploaded[0])
+            self.assertIn("clean_mp4", uploaded[0])
+            self.assertTrue(uploaded[0]["clean_mp4"].endswith("napda_test_A_clean.mp4"))

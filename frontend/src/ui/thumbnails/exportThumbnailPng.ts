@@ -9,14 +9,38 @@ import {
 const SANS_FONT = "'Pretendard Variable', Pretendard, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 const SERIF_FONT = "'Bookk Myungjo', 'Noto Serif KR', serif";
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`이미지 로드 실패: ${src}`));
-    img.src = src;
-  });
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  let objectUrl: string | null = null;
+  let effectiveSrc = src;
+
+  if (!src.startsWith('data:') && !src.startsWith('blob:')) {
+    try {
+      const response = await fetch(src, { credentials: 'include' });
+      if (response.ok) {
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+        effectiveSrc = objectUrl;
+      }
+    } catch {
+      // Fall back to direct Image load below.
+    }
+  }
+
+  try {
+    return await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      if (!objectUrl) {
+        img.crossOrigin = 'anonymous';
+      }
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`이미지 로드 실패: ${src}`));
+      img.src = effectiveSrc;
+    });
+  } finally {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
 }
 
 function roundRectPath(
@@ -406,5 +430,7 @@ export async function exportThumbnailPng(
   const a = document.createElement('a');
   a.href = dataUrl;
   a.download = `napda-thumbnail-${props.variant}.png`;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
 }

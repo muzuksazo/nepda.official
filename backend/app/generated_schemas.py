@@ -222,6 +222,7 @@ class ProjectSummary(BaseModel):
     selected_scenario_id: str | None = Field(None, title="Selected Scenario Id")
     latest_job_id: str | None = Field(None, title="Latest Job Id")
     thumbnail_url: str | None = Field(None, title="Thumbnail Url")
+    is_public: bool | None = Field(False, title="Is Public")
     expires_at: str = Field(..., title="Expires At")
     created_at: str = Field(..., title="Created At")
     updated_at: str = Field(..., title="Updated At")
@@ -588,6 +589,8 @@ class ProjectDetailResponse(BaseModel):
     uploads: CompleteUploadsResponse | None = None
     latest_job_id: str | None = Field(None, title="Latest Job Id")
     latest_job: dict[str, Any] | None = Field(None, title="Latest Job")
+    is_public: bool | None = Field(False, title="Is Public")
+    public_caption: str | None = Field(None, title="Public Caption")
     quota: QuotaStatus
     expires_at: str = Field(..., title="Expires At")
     created_at: str = Field(..., title="Created At")

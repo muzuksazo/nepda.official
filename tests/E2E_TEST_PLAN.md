@@ -1,7 +1,7 @@
 # NAPDA Full-Stack E2E 테스트 계획 및 3인 개발자 분배표
 
 > **E2E 영상 & 도메인별 스크린샷 대시보드**: https://muzuksazo.github.io/nepda.official/ · [사용/업로드 가이드](./e2e_dashboard/README.md)  
-> 최종 업데이트: 2026-11-27 (`origin/main` @ `4fb986b`, PR #14 병합 + `GeneratingScreen`/크레딧 차감·환불 반영)  
+> 최종 업데이트: 2026-11-27 (`origin/main` @ `f8171e0` + Round 2 더미 제거·Storybook Figma 4종 썸네일·실DB 탐색 반영)  
 > 대상 서비스: `frontend/` (React 19 + Vite) ↔ `backend/` (FastAPI) ↔ `libraries/planner-api` (Node) ↔ `libraries/media-tools` (FFmpeg / Pillow)  
 > 3인 편성: **나** (**A안**) · **시우님** (**B안**, `FR-003, FR-004, FR-005, FR-010` 전담) · **상윤님** (**C안**)
 
@@ -120,21 +120,21 @@ npm --prefix frontend run lint && npm --prefix frontend run build
 
 ---
 
-## 5. 최신 실행 결과 기록 (2026-11-27 `ae95341` + BUG-01~09 하드닝 기준 · 6개 도메인 28장 스크린샷)
+## 5. 최신 실행 결과 기록 (2026-11-27 `f8171e0` + Round 2 `R2-01~07` 무더미 검증 기준 · 6개 도메인 28장 스크린샷)
 
 ![E2E 8개 기능 녹화 요약](./e2e_recordings/e2e_features_overview.png)
 
 | 기능 녹화 파일 | 도메인 | 대상 환경 | 재생 시간 / 크기 / 스크린샷 | 검증 결과 | 핵심 확인 사항 |
 |---|---|---|---|---|---|
-| [`01_local_onboarding_privacy.mp4`](./e2e_recordings/01_local_onboarding_privacy.mp4) | 인증 · 온보딩 | Local (`:15175` → `:18082`) | `10.08s` / 100 KB / 2장 | **PASS** | `/privacy.html` `200`, 비로그인 온보딩 화면·Google 로그인 슬롯, 에러 0건 |
-| [`02_local_home_my_videos.mp4`](./e2e_recordings/02_local_home_my_videos.mp4) | 홈 · 내 영상 · 탐색 | Local (`:15175` → `:18082`) | `9.44s` / 69 KB / 3장 | **PASS** | 통합 `내 영상 2` 캐러셀 실DB 시드 2건 표시 + 미읽은 배지 `0`·목업 배너/도마왕 미노출 + `내 영상` `진행 중`/`완료` 탭 전환 정상 |
-| [`03_local_community_filters.mp4`](./e2e_recordings/03_local_community_filters.mp4) | 홈 · 내 영상 · 탐색 | Local (`:15175` → `:18082`) | `12.96s` / 160 KB / 4장 | **PASS** | `탐색` 탭 그리드 + `전체`·`A`·`B`·`C 유형` 필터 전환 정상 |
-| [`04_local_profile_theme.mp4`](./e2e_recordings/04_local_profile_theme.mp4) | 프로필 · 테마 설정 | Local (`:15175` → `:18082`) | `10.20s` / 189 KB / 2장 | **PASS** | 크레딧 내역 빈 상태(`아직 텅 비었어요`), `개인정보 처리방침` `/privacy.html` 새 탭 오픈, 회원 탈퇴 고객지원 안내 시트 + `#1A1A1A` `다크`/`라이트`/`기기 설정` 테마 전환 정상 |
-| [`05_local_billing_paddle_webhook.mp4`](./e2e_recordings/05_local_billing_paddle_webhook.mp4) | 결제 · 크레딧 (Paddle) | Local (`:15175` → `:18082`) | `12.20s` / 118 KB / 3장 | **PASS** | 0크레딧 `POST /renders` `402 INSUFFICIENT_CREDITS` 가드 통과 + `POST /v1/billing/checkout`(`ord_1114fc35d14b`) + Paddle Sandbox 오버레이 + 실서명 웹훅 → 잔액 **`0 → 100`** |
-| [`abc_A_hook_e2e.mp4`](./e2e_recordings/abc_A_hook_e2e.mp4) (**나 담당 A안**) | 영상 제작 · 8단계 위저드 | Local (`:15175` → `:18082` + Track A) | `83.08s` / 744 KB / 9장 | **PASS** | 실제 앱 8단계 완주: `제품 정보` → `A 유형`(`시안 없이 냅다 만들기` 왕복 검증 포함) → `시나리오`(`6.5초` 정렬·내부ID 미노출) → **`4/8 그림 콘티`**(4컷 `/v1/media/` 실이미지) → `촬영 가이드` → 8.5초 MP4 `영상 올리기` → `GeneratingScreen` → Track A 실렌더(`7/8 영상 확인` `<video>`·MP4 `200`) → `8/8 썸네일·내려받기`(실 `/v1/media/` 3종 프리뷰 + `띠지`/`line_blocks` PNG `>10KB` 검증), HTTP `>=400`·에러 0건 |
-| [`06_local_logout.mp4`](./e2e_recordings/06_local_logout.mp4) | 인증 · 온보딩 | Local (`:15175` → `:18082`) | `14.40s` / 169 KB / 3장 | **PASS** | `POST /v1/auth/logout` `204` → `로그인이 풀렸어요` → 홈 온보딩 복귀 |
-| [`07_live_prod_smoke.mp4`](./e2e_recordings/07_live_prod_smoke.mp4) | 실서버 배포 스모크 | Live (`https://napda.vercel.app`) | `11.80s` / 103 KB / 2장 | **PASS** | `/health` `200`(`status: ok`), `/v1/billing/config` `200`(`paddle`/`sandbox`, 3종), `/v1/auth/me` `401`, `/privacy.html` `200`, `/` 온보딩 정상 |
+| [`01_local_onboarding_privacy.mp4`](./e2e_recordings/01_local_onboarding_privacy.mp4) | 인증 · 온보딩 | Local (`:15175` → `:18082`) | `10.32s` / 110 KB / 2장 | **PASS** | `/privacy.html` `200`, 비로그인 온보딩 화면·Google 로그인 슬롯, 에러 0건 |
+| [`02_local_home_my_videos.mp4`](./e2e_recordings/02_local_home_my_videos.mp4) | 홈 · 내 영상 · 탐색 | Local (`:15175` → `:18082`) | `9.32s` / 91 KB / 3장 | **PASS** | 통합 `내 영상 2` 캐러셀 실DB 시드 2건(진행 중 콘티·완료 커버 `/v1/media/` 실 썸네일, 플레이스홀더 큐브 0건) + 미읽은 배지 `0`·목업 배너/도마왕 미노출 + `내 영상` `진행 중`/`완료` 탭 전환 정상 |
+| [`03_local_community_filters.mp4`](./e2e_recordings/03_local_community_filters.mp4) | 홈 · 내 영상 · 탐색 | Local (`:15175` → `:18082`) | `12.44s` / 188 KB / 4장 | **PASS** | 실DB 공개 프로젝트(`GET /v1/community/videos`) 6건 실 `/v1/media/` 썸네일 렌더링(더미 `SAMPLE_COMMUNITY`·도마왕·`1.2만` 0건) + `전체`/`A`/`B`/`C 유형` 필터 정상 |
+| [`04_local_profile_theme.mp4`](./e2e_recordings/04_local_profile_theme.mp4) | 프로필 · 테마 설정 | Local (`:15175` → `:18082`) | `9.68s` / 200 KB / 2장 | **PASS** | 크레딧 내역 빈 상태(`아직 텅 비었어요`), `개인정보 처리방침` `/privacy.html` 새 탭 오픈, 회원 탈퇴 고객지원 안내 시트 + `#1A1A1A` `다크`/`라이트`/`기기 설정` 테마 전환 정상 |
+| [`05_local_billing_paddle_webhook.mp4`](./e2e_recordings/05_local_billing_paddle_webhook.mp4) | 결제 · 크레딧 (Paddle) | Local (`:15175` → `:18082`) | `13.32s` / 163 KB / 3장 | **PASS** | 0크레딧 `POST /renders` `402 INSUFFICIENT_CREDITS` 가드 + `POST /v1/billing/checkout`(`ord_ef45870b670e`) + Paddle Sandbox 결제창(`₩12,900`·`계속`) 완전 로드 + 실서명 웹훅 → 잔액 **`0 → 100`** |
+| [`abc_A_hook_e2e.mp4`](./e2e_recordings/abc_A_hook_e2e.mp4) (**나 담당 A안**) | 영상 제작 · 8단계 위저드 | Local (`:15175` → `:18082` + Track A) | `79.24s` / 879 KB / 9장 | **PASS** | 실제 앱 8단계 완주: `제품 정보` → `A 유형`(`시안 없이 냅다 만들기` 왕복 검증) → 3D 도미노 1:1 정렬 `시나리오`·**`4/8 그림 콘티`**(4컷 `/v1/media/` 실이미지, CTA 미노출) → `촬영 가이드` → 8.5초 스튜디오 시연 영상(`pva_sponge_demo.mp4`) 업로드 → `GeneratingScreen` → Track A 실렌더(`7/8 영상 확인` `<video>`·MP4 `200`) → `8/8` Storybook Figma 4종 템플릿(`반전 박스`·`화이트 라벨`·`명조 임팩트`·`상단 POV`) 무자막·무워터마크 클린 키프레임 라이브 미리보기 + `white-label` PNG(`>10KB`) + `탐색에도 올리기`(`PATCH /publish`) 영속성 검증 |
+| [`06_local_logout.mp4`](./e2e_recordings/06_local_logout.mp4) | 인증 · 온보딩 | Local (`:15175` → `:18082`) | `11.08s` / 165 KB / 3장 | **PASS** | `POST /v1/auth/logout` `204` → `로그인이 풀렸어요` → 홈 온보딩 복귀 |
+| [`07_live_prod_smoke.mp4`](./e2e_recordings/07_live_prod_smoke.mp4) | 실서버 배포 스모크 | Live (`https://napda.vercel.app`) | `8.80s` / 97 KB / 2장 | **PASS** | `/health` `200`(`status: ok`), `/v1/billing/config` `200`(`paddle`/`sandbox`, 3종), `/v1/auth/me` `401`, `/privacy.html` `200`, `/` 온보딩 정상 |
 | `E2E-P06` (API 보안 검증) | 결제 · 크레딧 (Paddle) | Live (`https://napda-api.vercel.app`) | — | **PASS** | 무서명 `401`, 변조 서명 `401`, 정상 HMAC-SHA256 `200` (`received: true`, `credited: false`) |
 
-- **오프라인 테스트 현황 (`4fb986b` 기준)**: Python **54/54 통과**, Node **7/7 통과** (`typecheck`/`build` 포함), Frontend `oxlint` 0 error & `vite build` 통과.
+- **오프라인 테스트 현황 (`f8171e0` + Round 2 기준)**: Python 타깃 영역 **41/41 통과** (`delivery` 6/6 · `integration` 2/2 포함, 전체 120/121 — macOS Homebrew ffmpeg `subtitles` 필터 미탑재 1건 제외), Node **7/7 통과**, Frontend `oxlint` 0 error & `vite build` 통과 (`SAMPLE_*` 누수 0건).
 - **남은 실서버 대화형 QA (실계정 Google 로그인 필요)**: `E2E-P03` (실계정 Google 로그인/쿠키 유지), `E2E-P05` (실서버 Paddle Sandbox 테스트 카드 결제).

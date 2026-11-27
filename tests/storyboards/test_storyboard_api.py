@@ -45,6 +45,14 @@ class TestStoryboardAPI(unittest.TestCase):
             detail = client.get(f"/v1/projects/{pid}").json()
             self.assertEqual(len(detail["scenarios"][0]["storyboard_frames"]), 2)
 
+            # R2-04: in-progress project past Step 4 falls back to storyboard_frames[0].image_url
+            listed = client.get("/v1/projects").json()["projects"]
+            summary = next(p for p in listed if p["project_id"] == pid)
+            self.assertEqual(
+                summary["thumbnail_url"],
+                detail["scenarios"][0]["storyboard_frames"][0]["image_url"],
+            )
+
     def test_track_a_storyboard_never_leaks_raw_segment_ids(self) -> None:
         with temporary_directory() as td:
             root = Path(td)
@@ -97,3 +105,65 @@ class TestStoryboardAPI(unittest.TestCase):
                 self.assertNotIn("payoff_1", frame["caption"])
                 self.assertNotIn("twist_gap", frame["caption"])
                 self.assertTrue(frame["image_url"].startswith("/v1/media/"))
+
+    def test_track_a_storyboard_excludes_post_gap_cta_from_pre_twist_frames(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            tpl_dir = root / "tpl_a"
+            tpl_dir.mkdir(parents=True, exist_ok=True)
+            tpl_mp4 = tpl_dir / "a_domino.mp4"
+            tpl_mp4.write_bytes(_make_sample_mp4_bytes(duration=4.0, w=540, h=960))
+            (tpl_dir / "manifest.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "id": "a_domino_test",
+                            "filename": "a_domino.mp4",
+                            "duration_sec": 4.0,
+                            "default_hook_captions": [
+                                "1cm 도미노를 2배씩 키워 스무 개만 세우면,",
+                                "마지막 조각은 아파트 50층 높이가 됩니다",
+                                "지면에 닿는 순간, 반경 1km 지반이 흔들립니다",
+                            ],
+                        }
+                    ],
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            settings = Settings(
+                _env_file=None,
+                work_root=str(root / "work"),
+                output_dir=str(root / "outputs"),
+                db_path=str(root / "napda.db"),
+                track_a_template_dir=str(tpl_dir),
+            )
+            storage = LocalStorageBackend(root / "objects")
+            gen = _default_storyboard_generator(settings, storage)
+            project = {"project_id": "prj_sb_r201", "user_id": "u1"}
+            scenario = {
+                "scenario_id": "scn_A_r201",
+                "type": "A",
+                "ad_spec": {"track_a_template_id": "a_domino_test"},
+                "beats": [
+                    {"order": 1, "role": "video", "caption": "1cm 도미노를 2배씩 키우면", "visual": "도미노 1"},
+                    {"order": 2, "role": "video", "caption": "마지막 조각은 아파트 50층 높이", "visual": "도미노 2"},
+                    {"order": 3, "role": "silence_gap", "caption": "", "visual": "반전 전환 구간"},
+                    {
+                        "order": 4,
+                        "role": "source",
+                        "caption": "물기 즉시 흡수, 댓글로 링크 받기",
+                        "visual": "제품 실물 시연",
+                    },
+                ],
+            }
+            frames = gen(project, scenario, "default")
+            self.assertEqual(len(frames), 4)
+            self.assertIn("도미노", frames[0]["caption"])
+            self.assertIn("50층", frames[1]["caption"])
+            # Frame 3 falls back to default_hook_captions[2], NEVER post-gap CTA!
+            self.assertIn("지반이 흔들립니다", frames[2]["caption"])
+            for f in frames:
+                self.assertNotIn("물기 즉시 흡수", f["caption"])
+                self.assertNotIn("댓글로 링크", f["caption"])
+            self.assertIn("반전", frames[3]["caption"])

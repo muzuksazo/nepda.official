@@ -29,7 +29,7 @@ from .auth import (
 from .config import Settings
 from .filming_guide_service import build_filming_guide
 from .genai_provider import GenAIMediaProvider
-from .media_delivery import resolve_media_url
+from .media_delivery import MediaTokenError, resolve_media_url, verify_media_token
 from .paddle_billing import (
     HttpxPaddleApiClient,
     PaddleApiClient,
@@ -45,6 +45,8 @@ from .project_schemas import (
     AuthUserResponse,
     BillingConfigResponse,
     BillingOrderStatusResponse,
+    CommunityVideoItem,
+    CommunityVideosResponse,
     CompleteUploadsRequest,
     CompleteUploadsResponse,
     CreateCheckoutRequest,
@@ -70,6 +72,7 @@ from .project_schemas import (
     GoogleAuthResponse,
     HookFiles,
     HookStatusResponse,
+    HookType,
     HookTypeMeta,
     HookTypesResponse,
     OutputItem,
@@ -81,6 +84,8 @@ from .project_schemas import (
     ProjectDetailResponse,
     ProjectListResponse,
     ProjectSummary,
+    PublishProjectRequest,
+    PublishProjectResponse,
     QuotaStatus,
     ScenarioBeat,
     ScenarioItem,
@@ -670,21 +675,31 @@ def _default_storyboard_generator(
         )
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        non_silence = [
-            b for b in (scenario.get("beats") or []) if b.get("role") != "silence_gap"
-        ]
-        raw_caps = [_safe_beat_caption(b) for b in non_silence]
+        all_beats = [b for b in (scenario.get("beats") or []) if isinstance(b, dict)]
+        gap_idx = next(
+            (i for i, b in enumerate(all_beats) if str(b.get("role") or "").lower() == "silence_gap"),
+            None,
+        )
+        if gap_idx is not None:
+            pre_gap_beats = all_beats[:gap_idx]
+        else:
+            pre_gap_beats = [
+                b
+                for b in all_beats
+                if str(b.get("role") or "").lower() not in {"silence_gap", "source", "payoff", "cta"}
+            ]
+        raw_pre_caps = [_safe_beat_caption(b) for b in pre_gap_beats]
         default_hook_caps = [
             _clean_caption_display(x) for x in (tpl_entry.get("default_hook_captions") or []) if str(x).strip()
         ]
         cut_captions: List[str] = []
         for idx in range(4):
-            if idx < len(raw_caps) and raw_caps[idx]:
-                cut_captions.append(raw_caps[idx])
+            if idx < len(raw_pre_caps) and raw_pre_caps[idx]:
+                cut_captions.append(raw_pre_caps[idx])
             elif idx < len(default_hook_caps) and default_hook_caps[idx]:
                 cut_captions.append(default_hook_caps[idx])
             elif idx == 3:
-                cut_captions.append("반전 후 실제 제품 핵심 효과가 이어집니다")
+                cut_captions.append("반전 직전 임팩트 · 실제 제품 효과 공개")
             else:
                 cut_captions.append(f"3D 물리 훅 장면 {idx + 1}")
 
@@ -1179,6 +1194,21 @@ def build_projects_router(
             project_store.refund_wallet_credits(user_id, deducted_credits)
             job_store.update_job(jid, refunded_credits=deducted_credits)
 
+    def _resign_media_ref(raw_ref: Optional[str]) -> Optional[str]:
+        if not raw_ref or not isinstance(raw_ref, str):
+            return None
+        val = raw_ref.strip()
+        if not val:
+            return None
+        if val.startswith("/v1/media/"):
+            tok = val[len("/v1/media/") :].split("?", 1)[0]
+            try:
+                obj_key, _ = verify_media_token(tok, settings.session_secret)
+                return resolve_media_url(obj_key, storage=storage, settings=settings) or val
+            except MediaTokenError:
+                return val
+        return resolve_media_url(val, storage=storage, settings=settings)
+
     def _project_thumbnail_url(proj: Dict[str, Any]) -> Optional[str]:
         stored_thumb = proj.get("thumbnail")
         if isinstance(stored_thumb, dict):
@@ -1190,7 +1220,26 @@ def build_projects_router(
             job = job_store.get_job(jid)
             thumbs = ((job or {}).get("artifacts") or {}).get("thumbnails") or []
             if thumbs and isinstance(thumbs[0], dict) and thumbs[0].get("url"):
-                return resolve_media_url(thumbs[0]["url"], storage=storage, settings=settings)
+                return _resign_media_ref(thumbs[0]["url"])
+        # R2-04 fallback: use first storyboard frame for in-progress projects past Step 4
+        pid = proj.get("project_id")
+        if pid:
+            sel_id = proj.get("selected_scenario_id")
+            candidate_scns: List[Dict[str, Any]] = []
+            if sel_id:
+                sel_scn = project_store.get_scenario(pid, sel_id)
+                if sel_scn:
+                    candidate_scns.append(sel_scn)
+            for s in project_store.list_scenarios(pid):
+                if not sel_id or s.get("scenario_id") != sel_id:
+                    candidate_scns.append(s)
+            for scn in candidate_scns:
+                frames = scn.get("storyboard_frames") or []
+                for frame in frames:
+                    if isinstance(frame, dict) and frame.get("image_url"):
+                        resolved = _resign_media_ref(str(frame["image_url"]))
+                        if resolved:
+                            return resolved
         return None
 
     def _run_hookpipe_render_bg(
@@ -1383,6 +1432,7 @@ def build_projects_router(
             selected_scenario_id=proj["selected_scenario_id"],
             latest_job_id=proj["latest_job_id"],
             thumbnail_url=_project_thumbnail_url(proj),
+            is_public=bool(proj.get("is_public", False)),
             expires_at=proj["expires_at"],
             created_at=proj["created_at"],
             updated_at=proj["updated_at"],
@@ -1407,6 +1457,7 @@ def build_projects_router(
                 selected_scenario_id=r["selected_scenario_id"],
                 latest_job_id=r["latest_job_id"],
                 thumbnail_url=_project_thumbnail_url(r),
+                is_public=bool(r.get("is_public", False)),
                 expires_at=r["expires_at"],
                 created_at=r["created_at"],
                 updated_at=r["updated_at"],
@@ -1447,11 +1498,98 @@ def build_projects_router(
             uploads=up,
             latest_job_id=proj.get("latest_job_id"),
             latest_job=latest_job,
+            is_public=bool(proj.get("is_public", False)),
+            public_caption=proj.get("public_caption"),
             quota=_quota(user.user_id),
             expires_at=proj["expires_at"],
             created_at=proj["created_at"],
             updated_at=proj["updated_at"],
         )
+
+    @router.patch(
+        "/v1/projects/{project_id}/publish",
+        response_model=PublishProjectResponse,
+        tags=["Projects"],
+    )
+    def publish_project(
+        project_id: str,
+        body: PublishProjectRequest,
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> PublishProjectResponse:
+        _ = _get_owned_project(project_id, user)
+        updated = project_store.set_project_public(
+            project_id,
+            body.is_public,
+            caption=body.caption,
+        )
+        if not updated:
+            raise _api_error(status.HTTP_404_NOT_FOUND, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.")
+        return PublishProjectResponse(
+            project_id=project_id,
+            is_public=bool(updated.get("is_public", False)),
+            caption=updated.get("public_caption"),
+        )
+
+    @router.get(
+        "/v1/community/videos",
+        response_model=CommunityVideosResponse,
+        tags=["Community"],
+    )
+    def list_community_videos(
+        hook_type: Optional[HookType] = Query(default=None),
+        limit: int = Query(default=50, ge=1, le=100),
+    ) -> CommunityVideosResponse:
+        rows = project_store.list_public_projects(hook_type=hook_type, limit=limit)
+        items: List[CommunityVideoItem] = []
+        for r in rows:
+            pid = r["project_id"]
+            sel_id = r.get("selected_scenario_id")
+            scn = project_store.get_scenario(pid, sel_id) if sel_id else None
+            if scn is None:
+                scns = project_store.list_scenarios(pid)
+                scn = scns[0] if scns else None
+            eff_type = str(
+                (scn or {}).get("type")
+                or ((r.get("selected_types") or ["A"])[0])
+            ).upper()
+            if eff_type not in {"A", "B", "C"}:
+                eff_type = "A"
+            if hook_type and eff_type != hook_type:
+                continue
+
+            video_url: Optional[str] = None
+            jid = r.get("latest_job_id")
+            if jid:
+                job = job_store.get_job(jid)
+                rendered = ((job or {}).get("artifacts") or {}).get("rendered") or []
+                if rendered and isinstance(rendered[0], dict):
+                    v_ref = rendered[0].get("master_mp4") or rendered[0].get("clean_mp4")
+                    video_url = resolve_media_url(v_ref, storage=storage, settings=settings)
+
+            thumb_url = _project_thumbnail_url(r)
+            product_name = str((r.get("product") or {}).get("name") or "내 제품")
+            title = str((scn or {}).get("hook_title") or product_name).strip() or product_name
+            raw_caption = str(r.get("public_caption") or "").strip()
+            if not raw_caption and isinstance(r.get("thumbnail"), dict):
+                hl = [str(x).strip() for x in (r["thumbnail"].get("headline_lines") or []) if str(x).strip()]
+                raw_caption = " ".join(hl)
+
+            items.append(
+                CommunityVideoItem(
+                    id=pid,
+                    project_id=pid,
+                    hook_type=eff_type,  # type: ignore[arg-type]
+                    title=title,
+                    caption=raw_caption,
+                    product_name=product_name,
+                    creator_name=str(r.get("creator_name") or "크리에이터"),
+                    thumbnail_url=thumb_url,
+                    video_url=video_url,
+                    like_count=0,
+                    created_at=r["created_at"],
+                )
+            )
+        return CommunityVideosResponse(items=items)
 
     @router.post(
         "/v1/projects/{project_id}/scenarios",

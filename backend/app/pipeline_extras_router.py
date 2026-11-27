@@ -59,7 +59,15 @@ class BodyBuildResponse(BaseModel):
 class CreateThumbnailRequest(BaseModel):
     headline_lines: Optional[List[str]] = Field(default=None, min_length=1, max_length=2)
     badge: Optional[str] = Field(default=None, max_length=24)
-    style: Literal["stroke_bold", "line_blocks", "panel_card"] = "stroke_bold"
+    style: Literal[
+        "stroke_bold",
+        "line_blocks",
+        "panel_card",
+        "invert-box",
+        "white-label",
+        "serif-outline",
+        "pov-bar",
+    ] = "stroke_bold"
     source_image_key: Optional[str] = None
 
     @field_validator("style", mode="before")
