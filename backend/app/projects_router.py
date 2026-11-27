@@ -23,8 +23,11 @@ from .auth import (
     verify_session_token,
 )
 from .config import Settings
+from .filming_guide_service import build_filming_guide
 from .genai_provider import GenAIMediaProvider
+from .media_delivery import resolve_media_url
 from .pipeline import CampaignRequest, ProductionPipeline
+from .product_enrichment import enrich_product_with_source_url
 from .project_schemas import (
     AIDisclosureInfo,
     AuthMeResponse,
@@ -72,8 +75,11 @@ from .project_schemas import (
     UploadWarning,
 )
 from .project_store import ProjectStore
+from .retention import is_project_expired, sync_project_status_with_job
 from .storage import StorageBackend
 from .store import JobStore
+from .thumbnail_service import generate_project_thumbnail
+from .upload_service import validate_and_complete_uploads
 
 GoogleTokenVerifier = Callable[[str, str], AuthenticatedUser]
 ScenarioGenerator = Callable[[Dict[str, Any], List[str], str], List[Dict[str, Any]]]
@@ -431,6 +437,12 @@ def build_projects_router(
                 "PROJECT_NOT_FOUND",
                 "프로젝트를 찾을 수 없거나 접근 권한이 없습니다.",
             )
+        if is_project_expired(proj):
+            raise _api_error(
+                status.HTTP_410_GONE,
+                "PROJECT_EXPIRED",
+                "보관 기간(7일)이 만료된 프로젝트입니다.",
+            )
         return proj
 
     def _run_job_bg(req: CampaignRequest, jid: str) -> None:
@@ -489,9 +501,13 @@ def build_projects_router(
         body: ProductInfoRequest,
         user: AuthenticatedUser = Depends(require_user),
     ) -> ProductInfoResponse:
+        enriched_product = enrich_product_with_source_url(
+            body.product.model_dump(),
+            body.source_url,
+        )
         entry = project_store.upsert_product_info_cache(
             user.user_id,
-            product=body.product.model_dump(),
+            product=enriched_product,
             source_url=body.source_url,
             ttl_sec=settings.product_info_cache_ttl_sec,
         )
@@ -590,7 +606,7 @@ def build_projects_router(
         project_id: str,
         user: AuthenticatedUser = Depends(require_user),
     ) -> ProjectDetailResponse:
-        proj = _get_owned_project(project_id, user)
+        proj = sync_project_status_with_job(_get_owned_project(project_id, user), job_store, project_store)
         scns = [ScenarioItem(**s) for s in project_store.list_scenarios(project_id)]
         latest_job = job_store.get_job(proj["latest_job_id"]) if proj.get("latest_job_id") else None
         fg = FilmingGuideResponse(**proj["filming_guide"]) if proj.get("filming_guide") else None
@@ -703,38 +719,9 @@ def build_projects_router(
         if not scn:
             raise _api_error(status.HTTP_404_NOT_FOUND, "SCENARIO_NOT_FOUND", "선택한 시나리오가 없습니다.")
 
-        facts = proj["product"].get("verified_facts") or ["핵심 시연"]
-        shots: List[Dict[str, Any]] = [
-            {
-                "shot_no": 1,
-                "title": f"{proj['product']['name']} 전체 외관 컷",
-                "duration_sec": 3.0,
-                "framing_tip": "세로 9:16, 밝은 실내 조명에서 손으로 제품을 보여주세요.",
-                "fact_ref": "F01",
-            },
-            {
-                "shot_no": 2,
-                "title": f"핵심 시연 — {facts[0][:28]}",
-                "duration_sec": 6.0,
-                "framing_tip": "사용 전후 변화를 한 호흡으로 흔들림 없이 찍어주세요.",
-                "fact_ref": "F01",
-            },
-            {
-                "shot_no": 3,
-                "title": f"마무리/추가 장점 — {(facts[1] if len(facts) > 1 else facts[0])[:28]}",
-                "duration_sec": 4.0,
-                "framing_tip": "제품 사용 후 결과 상태가 선명히 보이게 마무리해 주세요.",
-                "fact_ref": "F02" if len(facts) > 1 else "F01",
-            },
-        ]
-        target_dur = round(sum(s["duration_sec"] for s in shots), 2)
-        guide_payload = {
-            "project_id": project_id,
-            "status": "GUIDE_READY",
-            "selected_scenario_id": body.scenario_id,
-            "target_body_duration_sec": target_dur,
-            "shots": shots,
-        }
+        guide_payload = build_filming_guide(proj, scn)
+        target_dur = guide_payload["target_body_duration_sec"]
+        shots = guide_payload["shots"]
         project_store.update_project(
             project_id,
             status="GUIDE_READY",
@@ -785,84 +772,12 @@ def build_projects_router(
         user: AuthenticatedUser = Depends(require_user),
     ) -> CompleteUploadsResponse:
         proj = _get_owned_project(project_id, user)
-        warnings: List[UploadWarning] = []
-        meta_list: List[UploadClipMetadata] = []
-        total_dur = 0.0
-
-        for clip in body.clips:
-            size_bytes = clip.file_size_bytes
-            if size_bytes is None and clip.local_path and os.path.exists(clip.local_path):
-                size_bytes = os.path.getsize(clip.local_path)
-            if size_bytes is not None and size_bytes > settings.max_upload_file_bytes:
-                raise _api_error(
-                    status.HTTP_400_BAD_REQUEST,
-                    "INVALID_UPLOAD_LIMIT",
-                    f"파일 용량이 100MB 상한을 초과했습니다 (shot {clip.shot_no}).",
-                    {"max_bytes": settings.max_upload_file_bytes, "actual_bytes": size_bytes},
-                )
-
-            dur = clip.duration_sec
-            w = clip.width
-            h = clip.height
-            if (dur is None or w is None or h is None) and clip.local_path and os.path.exists(clip.local_path):
-                p_dur, p_w, p_h = _probe_local_video(clip.local_path)
-                dur = dur or p_dur
-                w = w or p_w
-                h = h or p_h
-
-            eff_dur = float(dur if dur is not None else 10.0)
-            eff_w = int(w if w is not None else 1080)
-            eff_h = int(h if h is not None else 1920)
-            total_dur += eff_dur
-
-            if eff_w > eff_h:
-                warnings.append(
-                    UploadWarning(
-                        shot_no=clip.shot_no,
-                        code="ASPECT_16_9",
-                        message="가로 영상이라 세로 블러 배경(blur-bleed)으로 자동 보정됩니다.",
-                    )
-                )
-
-            meta_list.append(
-                UploadClipMetadata(
-                    shot_no=clip.shot_no,
-                    object_key=clip.object_key,
-                    duration_sec=round(eff_dur, 2),
-                    width=eff_w,
-                    height=eff_h,
-                    recommended_framing=_recommended_framing(eff_w, eff_h),
-                )
-            )
-
-        if total_dur < settings.min_upload_total_sec or total_dur > settings.max_upload_total_sec:
-            raise _api_error(
-                status.HTTP_400_BAD_REQUEST,
-                "INVALID_UPLOAD_LIMIT",
-                f"업로드 영상 총 길이는 {settings.min_upload_total_sec:.0f}~{settings.max_upload_total_sec:.0f}초여야 합니다 (현재 {total_dur:.1f}초).",
-                {"min_sec": settings.min_upload_total_sec, "max_sec": settings.max_upload_total_sec, "total_sec": round(total_dur, 2)},
-            )
-
-        guide = proj.get("filming_guide") or {}
-        target_dur = float(guide.get("target_body_duration_sec") or 0.0)
-        if target_dur > 0 and abs(total_dur - target_dur) > max(5.0, target_dur * 0.45):
-            warnings.append(
-                UploadWarning(
-                    shot_no=1,
-                    code="DURATION_DIFFERS_FROM_GUIDE",
-                    message=f"촬영 가이드 권장 길이({target_dur:.1f}초)와 달라 주요 구간이 자동 편집됩니다.",
-                )
-            )
-
-        payload = {
-            "project_id": project_id,
-            "status": "UPLOADS_READY",
-            "upload_status": "WARNING" if warnings else "VALIDATED",
-            "total_duration_sec": round(total_dur, 2),
-            "warnings": [w_item.model_dump() for w_item in warnings],
-            "metadata": [m.model_dump() for m in meta_list],
-            "clips": [c.model_dump() for c in body.clips],
-        }
+        payload = validate_and_complete_uploads(
+            proj,
+            body.clips,
+            storage=storage,
+            settings=settings,
+        )
         project_store.update_project(project_id, status="UPLOADS_READY", uploads=payload)
         return CompleteUploadsResponse(**payload)
 
@@ -971,7 +886,7 @@ def build_projects_router(
         project_id: str,
         user: AuthenticatedUser = Depends(require_user),
     ) -> DeliverablesResponse:
-        proj = _get_owned_project(project_id, user)
+        proj = sync_project_status_with_job(_get_owned_project(project_id, user), job_store, project_store)
         jid = proj.get("latest_job_id")
         if not jid:
             raise _api_error(
@@ -983,22 +898,26 @@ def build_projects_router(
         if not job:
             raise _api_error(status.HTTP_404_NOT_FOUND, "JOB_NOT_FOUND", "작업 정보를 찾을 수 없습니다.")
 
-        if job["status"] == "QC_READY" and proj["status"] != "DELIVERABLE_READY":
-            project_store.update_project(project_id, status="DELIVERABLE_READY")
-        elif job["status"] == "FAILED" and proj["status"] != "FAILED":
-            project_store.update_project(project_id, status="FAILED")
-
         arts = job.get("artifacts") or {}
         rendered = arts.get("rendered") or []
         first_r = rendered[0] if rendered else None
         video = None
         if first_r:
             lufs_obj = first_r.get("lufs") or {}
+            master_ref = first_r.get("master_mp4")
+            clean_ref = first_r.get("clean_mp4")
+            srt_ref = first_r.get("srt")
             video = DeliverableVideo(
-                stream_url=first_r.get("master_mp4"),
-                download_url=first_r.get("master_mp4"),
-                clean_download_url=first_r.get("clean_mp4"),
-                srt_url=first_r.get("srt"),
+                stream_url=resolve_media_url(master_ref, storage=storage, settings=settings),
+                download_url=resolve_media_url(
+                    master_ref, storage=storage, settings=settings, download=True, filename="napda_master.mp4"
+                ),
+                clean_download_url=resolve_media_url(
+                    clean_ref, storage=storage, settings=settings, download=True, filename="napda_clean.mp4"
+                ),
+                srt_url=resolve_media_url(
+                    srt_ref, storage=storage, settings=settings, download=True, filename="napda_subtitles.srt"
+                ),
                 duration_sec=first_r.get("duration"),
                 width=1080,
                 height=1920,
@@ -1008,12 +927,38 @@ def build_projects_router(
         thumb = None
         if thumbs:
             t0 = thumbs[0]
+            t_ref = t0.get("url")
             thumb = DeliverableThumbnail(
-                image_url=t0.get("url"),
-                download_url=t0.get("url"),
+                image_url=resolve_media_url(t_ref, storage=storage, settings=settings),
+                download_url=resolve_media_url(
+                    t_ref, storage=storage, settings=settings, download=True, filename="cover.png"
+                ),
                 safe_zone_1_1_ok=t0.get("safe_zone_ok"),
-                headline_lines=[],
+                headline_lines=list(t0.get("headline_lines") or []),
             )
+        else:
+            stored_thumb = proj.get("thumbnail")
+            if stored_thumb is None and job["status"] == "QC_READY":
+                sel_id = proj.get("selected_scenario_id")
+                scn = project_store.get_scenario(project_id, sel_id) if sel_id else None
+                stored_thumb = generate_project_thumbnail(
+                    proj,
+                    storage=storage,
+                    settings=settings,
+                    scenario=scn,
+                    job=job,
+                )
+                project_store.update_project(project_id, thumbnail=stored_thumb)
+            if stored_thumb:
+                t_key = stored_thumb.get("object_key")
+                thumb = DeliverableThumbnail(
+                    image_url=resolve_media_url(t_key, storage=storage, settings=settings),
+                    download_url=resolve_media_url(
+                        t_key, storage=storage, settings=settings, download=True, filename="cover.png"
+                    ),
+                    safe_zone_1_1_ok=stored_thumb.get("safe_zone_1_1_ok"),
+                    headline_lines=list(stored_thumb.get("headline_lines") or []),
+                )
         return DeliverablesResponse(
             project_id=project_id,
             job_id=jid,

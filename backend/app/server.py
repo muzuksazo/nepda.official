@@ -7,16 +7,20 @@ import os
 import shutil
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from google import genai
 from pydantic import BaseModel, Field
 
+from .auth import SESSION_COOKIE_NAME, AuthenticationError, verify_session_token
 from .config import Settings
 from .genai_provider import GenAIMediaProvider
+from .media_delivery import sanitize_object_key
 from .pipeline import CampaignRequest, ProductionPipeline
+from .pipeline_extras_router import build_pipeline_extras_router
 from .project_store import ProjectStore
 from .projects_router import (
     GoogleTokenVerifier,
@@ -24,8 +28,10 @@ from .projects_router import (
     StoryboardGenerator,
     build_projects_router,
 )
+from .retention import recover_orphaned_jobs
 from .storage import StorageBackend, build_storage
 from .store import JobStore
+from .tts_service import TTSProvider
 
 
 class PresignRequest(BaseModel):
@@ -64,6 +70,7 @@ def create_app(
     google_token_verifier: Optional[GoogleTokenVerifier] = None,
     scenario_generator: Optional[ScenarioGenerator] = None,
     storyboard_generator: Optional[StoryboardGenerator] = None,
+    tts_provider: Optional[TTSProvider] = None,
 ) -> FastAPI:
     cfg = settings or Settings()
     job_store = store or JobStore(cfg.db_path)
@@ -77,7 +84,12 @@ def create_app(
     )
     executor = ThreadPoolExecutor(max_workers=max(1, cfg.concurrency))
 
-    app = FastAPI(title="NAPDA Backend API", version="0.2.0")
+    @asynccontextmanager
+    async def _lifespan(_app: FastAPI):
+        recover_orphaned_jobs(job_store, proj_store)
+        yield
+
+    app = FastAPI(title="NAPDA Backend API", version="0.2.0", lifespan=_lifespan)
     app.state.settings = cfg
     app.state.store = job_store
     app.state.project_store = proj_store
@@ -139,14 +151,51 @@ def create_app(
             "scripts_dir_exists": scripts_dir.exists(),
         }
 
-    @app.post("/v1/uploads/presign", dependencies=[Depends(require_bearer)])
-    def presign_upload(body: PresignRequest) -> Dict[str, str]:
+    def require_presign_auth(
+        request: Request,
+        authorization: Optional[str] = Header(default=None),
+    ) -> Optional[str]:
+        token: Optional[str] = None
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization[len("Bearer ") :].strip()
+        if not token:
+            token = request.cookies.get(SESSION_COOKIE_NAME)
+
+        if token:
+            try:
+                user = verify_session_token(token, cfg.session_secret)
+                return user.user_id
+            except AuthenticationError:
+                pass
+            if cfg.api_bearer_token and hmac.compare_digest(token, cfg.api_bearer_token):
+                return None
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid bearer or session token")
+
+        if cfg.api_bearer_token or cfg.google_client_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required for upload presign")
+        return None
+
+    @app.post("/v1/uploads/presign")
+    def presign_upload(
+        body: PresignRequest,
+        user_id: Optional[str] = Depends(require_presign_auth),
+    ) -> Dict[str, str]:
+        try:
+            clean_key = sanitize_object_key(body.object_key)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+        if user_id and clean_key.startswith("uploads/"):
+            parts = clean_key.split("/")
+            if len(parts) >= 3 and parts[1].startswith("user-") and parts[1] != user_id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot presign another user's upload key")
+
         url = storage_backend.presign_upload(
-            body.object_key,
+            clean_key,
             content_type=body.content_type,
             expires_sec=body.expires_sec,
         )
-        return {"object_key": body.object_key, "upload_url": url}
+        return {"object_key": clean_key, "upload_url": url}
 
     @app.post("/v1/jobs", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(require_bearer)])
     def create_job(body: CreateJobRequest) -> Dict[str, Any]:
@@ -204,6 +253,15 @@ def create_app(
             google_token_verifier=google_token_verifier,
             scenario_generator=scenario_generator,
             storyboard_generator=storyboard_generator,
+        )
+    )
+    app.include_router(
+        build_pipeline_extras_router(
+            cfg,
+            proj_store,
+            job_store,
+            storage_backend,
+            tts_provider=tts_provider,
         )
     )
 

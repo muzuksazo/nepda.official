@@ -67,6 +67,16 @@ class Settings(BaseSettings):
     s3_secret_access_key: Optional[str] = None
     s3_prefix: str = "shortform-ad-studio"
 
+    # Shared TTS, body pipeline, upload validation & media delivery
+    tts_provider: Literal["inworld", "gemini"] = "inworld"
+    inworld_api_key: Optional[str] = None
+    inworld_voice_id: str = "scarlet-mango-0605__gangsangyun"
+    inworld_model: str = "inworld-tts-2"
+    inworld_speaking_rate: float = 1.1
+    hook_burn_captions: bool = True
+    require_uploaded_object_exists: bool = False
+    media_url_ttl_sec: int = 3600
+
     @property
     def auth_mode(self) -> str:
         return "vertex_ai" if self.google_genai_use_vertexai else "ai_studio"

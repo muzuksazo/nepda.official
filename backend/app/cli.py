@@ -11,6 +11,9 @@ import uvicorn
 from .config import Settings
 from .genai_provider import GenAIMediaProvider, execute_jobs_file
 from .pipeline import CampaignRequest, ProductionPipeline
+from .project_store import ProjectStore
+from .retention import prune_expired_data
+from .storage import build_storage
 from .store import JobStore
 
 
@@ -44,6 +47,8 @@ def build_parser() -> argparse.ArgumentParser:
     sv = sub.add_parser("serve", help="Launch FastAPI production HTTP server")
     sv.add_argument("--host", default="0.0.0.0")
     sv.add_argument("--port", type=int, default=8080)
+
+    sub.add_parser("prune-expired", help="Delete 7-day expired projects, storage objects, and caches")
     return p
 
 
@@ -90,6 +95,14 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
 
     if args.cmd == "serve":
         uvicorn.run("app.server:app", host=args.host, port=args.port)
+        return
+
+    if args.cmd == "prune-expired":
+        proj_store = ProjectStore(settings.db_path)
+        job_store = JobStore(settings.db_path)
+        storage = build_storage(settings)
+        summary = prune_expired_data(proj_store, job_store, storage, settings)
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

@@ -124,6 +124,10 @@ class ProjectStore:
             cols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
             if "scenario_round" not in cols:
                 conn.execute("ALTER TABLE projects ADD COLUMN scenario_round INTEGER NOT NULL DEFAULT 0")
+            if "body_json" not in cols:
+                conn.execute("ALTER TABLE projects ADD COLUMN body_json TEXT")
+            if "thumbnail_json" not in cols:
+                conn.execute("ALTER TABLE projects ADD COLUMN thumbnail_json TEXT")
 
     def upsert_user(self, user: AuthenticatedUser) -> Dict[str, Any]:
         now_iso = _now_utc().isoformat()
@@ -157,6 +161,8 @@ class ProjectStore:
             "scenario_round": int(row["scenario_round"] or 0) if "scenario_round" in keys else 0,
             "filming_guide": json.loads(row["filming_guide_json"]) if row["filming_guide_json"] else None,
             "uploads": json.loads(row["uploads_json"]) if row["uploads_json"] else None,
+            "body": json.loads(row["body_json"]) if ("body_json" in keys and row["body_json"]) else None,
+            "thumbnail": json.loads(row["thumbnail_json"]) if ("thumbnail_json" in keys and row["thumbnail_json"]) else None,
             "latest_job_id": row["latest_job_id"],
             "expires_at": row["expires_at"],
             "created_at": row["created_at"],
@@ -238,6 +244,8 @@ class ProjectStore:
         selected_scenario_id: Optional[str] = None,
         filming_guide: Optional[Dict[str, Any]] = None,
         uploads: Optional[Dict[str, Any]] = None,
+        body: Optional[Dict[str, Any]] = None,
+        thumbnail: Optional[Dict[str, Any]] = None,
         latest_job_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         fields = ["updated_at = ?"]
@@ -254,6 +262,12 @@ class ProjectStore:
         if uploads is not None:
             fields.append("uploads_json = ?")
             vals.append(json.dumps(uploads, ensure_ascii=False))
+        if body is not None:
+            fields.append("body_json = ?")
+            vals.append(json.dumps(body, ensure_ascii=False))
+        if thumbnail is not None:
+            fields.append("thumbnail_json = ?")
+            vals.append(json.dumps(thumbnail, ensure_ascii=False))
         if latest_job_id is not None:
             fields.append("latest_job_id = ?")
             vals.append(latest_job_id)
@@ -262,6 +276,53 @@ class ProjectStore:
         with self._lock, self._connect() as conn:
             conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id = ?", vals)
         return self.get_project(project_id)  # type: ignore[return-value]
+
+    def list_projects_by_status(self, statuses: List[str] | Tuple[str, ...]) -> List[Dict[str, Any]]:
+        if not statuses:
+            return []
+        placeholders = ", ".join("?" for _ in statuses)
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM projects WHERE status IN ({placeholders}) ORDER BY updated_at ASC",
+                tuple(statuses),
+            ).fetchall()
+        return [self._row_to_project(r) for r in rows]
+
+    def list_expired_projects(self, now_iso: Optional[str] = None) -> List[Dict[str, Any]]:
+        cutoff = now_iso or _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM projects WHERE expires_at <= ? ORDER BY expires_at ASC",
+                (cutoff,),
+            ).fetchall()
+        return [self._row_to_project(r) for r in rows]
+
+    def delete_project_cascade(self, project_id: str) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM hooks WHERE project_id = ?", (project_id,))
+            conn.execute("DELETE FROM scenarios WHERE project_id = ?", (project_id,))
+            conn.execute("DELETE FROM render_usage WHERE project_id = ?", (project_id,))
+            conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+
+    def delete_expired_product_info_cache(self, now_iso: Optional[str] = None) -> int:
+        cutoff = now_iso or _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            cur = conn.execute(
+                "DELETE FROM product_info_cache WHERE expires_at <= ?",
+                (cutoff,),
+            )
+            return int(cur.rowcount or 0)
+
+    def list_hooks_by_status(self, statuses: List[str] | Tuple[str, ...]) -> List[Dict[str, Any]]:
+        if not statuses:
+            return []
+        placeholders = ", ".join("?" for _ in statuses)
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM hooks WHERE status IN ({placeholders}) ORDER BY created_at ASC",
+                tuple(statuses),
+            ).fetchall()
+        return [self._row_to_hook(r) for r in rows]
 
     def save_scenarios(self, project_id: str, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         now_iso = _now_utc().isoformat()
