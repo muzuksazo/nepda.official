@@ -157,7 +157,6 @@ export function NotificationsScreen({ items, status = 'ready', now, onBack, onOp
                       {item.body ? <span className="n-noti__body">{item.body}</span> : null}
                       <span className="n-noti__time">{time}</span>
                     </span>
-                    {item.isRead ? null : <span className="n-noti__dot" aria-hidden="true" />}
                   </button>
                 </li>
               );

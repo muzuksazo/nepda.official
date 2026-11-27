@@ -98,7 +98,10 @@ export function FeedPost({
           </>
         )}
         <button type="button" className="n-post__remix" aria-label={`${hookType} 유형 훅으로 만들기`} onClick={onRemix}>
-          {hookType} 만들기
+          <span className="n-post__remix-type" aria-hidden="true">
+            {hookType}
+          </span>
+          만들기
         </button>
       </header>
 
