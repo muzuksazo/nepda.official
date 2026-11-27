@@ -1783,6 +1783,231 @@ button.n-list-row:active {
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
 }
 
+/* ---------- 영상 만드는 중 ---------- */
+/* 냅다곰이 숨 쉬듯 천천히 오르내린다 (움직임 줄이기 설정이면 멈춘다) */
+/*
+ * 숨쉬기: 엎드린 곰의 등이 부풀었다 가라앉는다. 바닥(배)은 붙인 채, 머리 쪽(왼쪽)보다 등·엉덩이 쪽이 더 부푼다.
+ * 한 번에 3.6초 — 들숨 1.6초 → 날숨 1.5초 → 0.5초 쉼. 들숨·날숨 모두 사인 곡선이라 끝에서 부드럽게 멈춘다.
+ */
+/* 그림 아래 글줄 여백이 없어야 기준점(배)이 정확히 바닥에 붙는다 */
+.n-gen__mascot .n-mascot {
+  display: block;
+}
+
+.n-gen__mascot.is-working {
+  transform-origin: 30% 100%;
+  animation: n-gen-breathe 3.6s infinite;
+}
+
+@keyframes n-gen-breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+    animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1);
+  }
+  44% {
+    transform: scale(1.02, 1.045);
+    animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1);
+  }
+  86% {
+    transform: scale(1, 1);
+  }
+}
+
+.n-gen__meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.n-gen__meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.n-gen__percent {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 34px;
+  color: var(--text);
+}
+
+/* 진행 막대: 회색 판 위 라임 채움 (게이지는 라임을 쓰는 자리) */
+.n-gen__bar {
+  position: relative;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+}
+
+.n-gen__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent-fill);
+  transition: width 0.6s var(--ease-out);
+}
+
+/* 만드는 중에는 채움 위로 옅은 빛이 지나간다 */
+.n-gen__fill.is-moving {
+  background-image: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.55) 50%, transparent 100%);
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  background-color: var(--accent-fill);
+  animation: n-gen-shine 1.6s ease-in-out infinite;
+}
+
+@keyframes n-gen-shine {
+  from {
+    background-position: -120% 0;
+  }
+  to {
+    background-position: 220% 0;
+  }
+}
+
+/* 단계 목록 */
+.n-gen__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 16px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-weak);
+  list-style: none;
+}
+
+[data-theme='dark'] .n-gen__steps {
+  background: var(--surface-weak);
+}
+
+.n-gen__step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--text-3);
+}
+
+.n-gen__step.is-running,
+.n-gen__step.is-done {
+  color: var(--text);
+}
+
+.n-gen__step.is-running .n-gen__label {
+  font-weight: 700;
+}
+
+.n-gen__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+
+.n-gen__step.is-done .n-gen__dot {
+  border: 1.5px solid var(--accent-edge);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+/* 지금 단계: 라임 호가 도는 원 */
+.n-gen__step.is-running .n-gen__dot {
+  border-color: var(--surface-strong);
+  border-top-color: var(--text);
+  animation: n-spin 0.9s linear infinite;
+}
+
+/* 실패: 멈춘 단계는 진한 원 안 X (빨강은 입력 오류에만 쓰므로 쓰지 않는다) */
+.n-gen__step.is-stopped {
+  color: var(--text);
+}
+
+.n-gen__step.is-stopped .n-gen__label {
+  font-weight: 700;
+}
+
+.n-gen__step.is-stopped .n-gen__dot {
+  border-color: var(--inverse);
+  background: var(--inverse);
+  color: var(--on-inverse);
+}
+
+.n-gen__stopped {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+/* 돌려받은 크레딧: 실패 화면에서 돈 얘기를 먼저 */
+.n-gen__refund {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  box-shadow: var(--shadow-card);
+}
+
+[data-theme='dark'] .n-gen__refund {
+  background: var(--surface-weak);
+}
+
+.n-gen__refund-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
+.n-gen__refund-text b {
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--text);
+}
+
+.n-gen__refund-amount {
+  flex-shrink: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.n-gen__help {
+  display: flex;
+  justify-content: center;
+  margin-top: -8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .napda-root .n-gen__mascot.is-working,
+  .napda-root .n-gen__fill.is-moving {
+    animation: none !important;
+  }
+
+  .napda-root .n-gen__step.is-running .n-gen__dot {
+    animation: none !important;
+    border-color: var(--text);
+  }
+}
+
 /* ---------- 크레딧 잔액 카드 ---------- */
 .n-wallet {
   display: flex;

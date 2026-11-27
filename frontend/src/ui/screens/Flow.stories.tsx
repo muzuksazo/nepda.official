@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ThemeSetting } from '../NapdaProvider';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
@@ -9,6 +9,7 @@ import { ChargeResultScreen } from './ChargeResultScreen';
 import { CommunityScreen } from './CommunityScreen';
 import { CommunityViewerScreen } from './CommunityViewerScreen';
 import { CreditChargeScreen } from './CreditChargeScreen';
+import { GeneratingScreen } from './GeneratingScreen';
 import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
 import { LoginScreen } from './LoginScreen';
@@ -59,6 +60,7 @@ type Step =
   | 'storyboard'
   | 'guide'
   | 'upload'
+  | 'generating'
   | 'review'
   | 'thumbnail'
   | 'charge'
@@ -92,11 +94,69 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
   const [nicknameState, setNicknameState] = useState<'idle' | 'checking' | 'available' | 'taken'>('available');
   const nicknameTimer = useRef<number | undefined>(undefined);
   const [notifications, setNotifications] = useState<AppNotification[]>(SAMPLE_NOTIFICATIONS);
+  // 영상 만들기 잡 흉내: 잠깐 차례를 기다린 뒤 0→100%. 다른 화면에 가 있어도 계속 돌고, 끝나면 알림이 온다
+  // 두 번째로 만드는 영상은 "본편에 이어 붙이기"에서 일부러 실패시켜 실패 화면 → 크레딧 환불까지 따라가 볼 수 있다
+  const [job, setJob] = useState<{ status: 'queued' | 'running' | 'done' | 'failed'; progress: number; willFail?: boolean } | null>(null);
+  const jobCount = useRef(0);
+  const jobStatus = job?.status;
+  const jobRef = useRef(job);
+  useEffect(() => {
+    jobRef.current = job;
+  });
+  useEffect(() => {
+    if (!jobStatus || jobStatus === 'done' || jobStatus === 'failed') return;
+    const timer = window.setInterval(() => {
+      const prev = jobRef.current;
+      if (!prev) return;
+      let next: NonNullable<typeof prev>;
+      if (prev.status === 'queued') next = { ...prev, status: 'running', progress: 0 };
+      else {
+        const progress = Math.min(100, prev.progress + 3);
+        if (prev.willFail && progress >= 66) next = { ...prev, status: 'failed', progress };
+        else next = progress >= 100 ? { ...prev, status: 'done', progress: 100 } : { ...prev, progress };
+      }
+      jobRef.current = next;
+      setJob(next);
+      // 실패하면 쓴 크레딧을 바로 돌려준다
+      if (next.status === 'failed') setCredits((value) => value + SAMPLE_CREDITS_PER_VIDEO);
+    }, 300);
+    return () => window.clearInterval(timer);
+  }, [jobStatus]);
+  const startJob = () => {
+    jobCount.current += 1;
+    setCredits((value) => value - SAMPLE_CREDITS_PER_VIDEO);
+    setJob({ status: 'queued', progress: 0, willFail: jobCount.current === 2 });
+    setStep('generating');
+  };
+  // 잡이 끝난 순간 사용자가 어느 화면에 있는지 (만드는 중 화면을 보고 있으면 알림을 보내지 않는다)
+  const stepRef = useRef(step);
+  useEffect(() => {
+    stepRef.current = step;
+  });
+  useEffect(() => {
+    if ((jobStatus !== 'done' && jobStatus !== 'failed') || stepRef.current === 'generating') return;
+    const isFailed = jobStatus === 'failed';
+    setNotifications((prev) => [
+      {
+        id: `made-${prev.length}`,
+        kind: isFailed ? 'videoFailed' : 'videoReady',
+        title: isFailed ? '영상을 못 만들었어요' : '영상 나왔어요!',
+        body: isFailed ? `쓴 크레딧 ${SAMPLE_CREDITS_PER_VIDEO}는 돌려드렸어요. 다시 해 볼까요?` : '훅 붙여서 완성했어요. 썸네일만 고르면 끝.',
+        createdAt: new Date().toISOString(),
+        isRead: false,
+      },
+      ...prev,
+    ]);
+  }, [jobStatus]);
   // 알림을 누르면 읽음으로 바꾸고, 종류에 따라 그 화면으로 보낸다
   const openNotification = (target: AppNotification) => {
     setNotifications((prev) => prev.map((n) => (n.id === target.id ? { ...n, isRead: true } : n)));
     if (target.kind === 'videoReady') setStep('thumbnail');
-    if (target.kind === 'videoFailed') setStep('upload');
+    if (target.kind === 'videoFailed') {
+      // 지금 실패한 잡이 없으면(예시 알림) 예시 실패 상태로 연다
+      if (job?.status !== 'failed') setJob({ status: 'failed', progress: 66 });
+      setStep('generating');
+    }
     if (target.kind === 'expiring') {
       setMyTab('completed');
       setStep('myVideos');
@@ -315,9 +375,8 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           onBack={() => setStep('guide')}
           onReviewGuide={() => setStep('guide')}
           onCreate={() => {
-            setCredits((value) => value - SAMPLE_CREDITS_PER_VIDEO);
             setUploadFile(null);
-            setStep('review');
+            startJob();
           }}
           onCharge={(file, shortfall) => {
             // 충전하고 돌아오면 고른 영상이 그대로 남아 있게 들고 간다
@@ -363,6 +422,33 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           added={charge.added}
           isResumingVideo={charge.from === 'upload'}
           onDone={() => setStep(charge.from)}
+        />
+      );
+    case 'generating':
+      return (
+        <GeneratingScreen
+          status={job?.status ?? 'done'}
+          queuePosition={1}
+          progress={job?.status === 'running' ? job.progress : undefined}
+          stageIndex={job && job.progress >= 85 ? 2 : job && job.progress >= 55 ? 1 : 0}
+          remainingSeconds={job ? Math.round(((100 - job.progress) / 100) * 150) : undefined}
+          productName={productName}
+          refundedCredits={job?.status === 'failed' ? SAMPLE_CREDITS_PER_VIDEO : undefined}
+          credits={credits}
+          retryCost={SAMPLE_CREDITS_PER_VIDEO}
+          onBack={() => setStep('home')}
+          onWaitAtHome={() => setStep('home')}
+          onViewVideo={() => {
+            setJob(null);
+            setStep('review');
+          }}
+          onRetry={() => {
+            // 크레딧이 모자라면 충전부터
+            if (credits < SAMPLE_CREDITS_PER_VIDEO) openCharge('upload', SAMPLE_CREDITS_PER_VIDEO - credits);
+            else startJob();
+          }}
+          onReupload={() => setStep('upload')}
+          onReviewGuide={() => setStep('guide')}
         />
       );
     case 'review':

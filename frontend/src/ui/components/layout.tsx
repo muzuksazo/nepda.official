@@ -209,14 +209,16 @@ export interface FlowHeaderProps {
   title: string;
   step: number;
   onBack?: () => void;
+  /** 뒤로 버튼의 스크린 리더 이름 (기본 "이전") */
+  backLabel?: string;
 }
 
 /** 만들기 흐름 상단: [뒤로 · 제목 · 단계] 한 줄 + 바로 아래 진행 막대 */
-export function FlowHeader({ title, step, onBack }: FlowHeaderProps) {
+export function FlowHeader({ title, step, onBack, backLabel = '이전' }: FlowHeaderProps) {
   return (
     <header className="n-flow-header">
       <div className="n-row" style={{ gap: 4 }}>
-        <IconButton label="이전" icon={<ChevronLeft size={26} />} onClick={onBack} />
+        <IconButton label={backLabel} icon={<ChevronLeft size={26} />} onClick={onBack} />
         <h1 className="n-title">{title}</h1>
         <span className="n-flow-header__step n-num">
           <b>{step}</b> / {FLOW_TOTAL_STEPS}

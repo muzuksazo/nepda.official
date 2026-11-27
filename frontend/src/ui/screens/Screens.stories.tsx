@@ -10,6 +10,7 @@ import { CommunityScreen, type CommunityVideo } from './CommunityScreen';
 import { CreditChargeScreen } from './CreditChargeScreen';
 import type { HookType as HookKind } from './flowData';
 import { CommunityViewerScreen } from './CommunityViewerScreen';
+import { GeneratingScreen } from './GeneratingScreen';
 import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
 import { LoginScreen } from './LoginScreen';
@@ -509,6 +510,67 @@ export const ChargeConfirming: Story = {
 export const ChargeDone: Story = {
   name: '크레딧 충전 · 완료 (영상 만들다 옴)',
   render: () => <ChargeResultScreen status="done" before={5} added={30} isResumingVideo onDone={fn()} />,
+};
+
+/** 영상 만드는 중 스토리들이 함께 쓰는 콜백 */
+const generatingArgs = { productName: '실리콘 접이식 도마', onBack: fn(), onWaitAtHome: fn(), onViewVideo: fn() };
+
+export const GeneratingQueued: Story = {
+  name: '안1-7a 영상 만드는 중 · 차례 기다림',
+  render: () => <GeneratingScreen {...generatingArgs} status="queued" queuePosition={2} />,
+};
+
+export const Generating: Story = {
+  name: '안1-7a 영상 만드는 중',
+  render: () => <GeneratingScreen {...generatingArgs} status="running" progress={34} stageIndex={0} remainingSeconds={110} />,
+};
+
+export const GeneratingAlmost: Story = {
+  name: '안1-7a 영상 만드는 중 · 거의 다 됨',
+  render: () => <GeneratingScreen {...generatingArgs} status="running" progress={92} stageIndex={2} remainingSeconds={10} />,
+};
+
+export const GeneratingNoProgress: Story = {
+  name: '안1-7a 영상 만드는 중 · 진행률 모를 때',
+  render: () => <GeneratingScreen {...generatingArgs} status="running" stageIndex={1} />,
+};
+
+export const GeneratingFailed: Story = {
+  name: '안1-7a 영상 만들기 실패 · 일시적 오류',
+  render: () => (
+    <GeneratingScreen
+      {...generatingArgs}
+      status="failed"
+      stageIndex={1}
+      refundedCredits={12}
+      credits={105}
+      retryCost={12}
+      onRetry={fn()}
+      onContact={fn()}
+    />
+  ),
+};
+
+export const GeneratingFailedVideo: Story = {
+  name: '안1-7a 영상 만들기 실패 · 영상 문제',
+  render: () => (
+    <GeneratingScreen
+      {...generatingArgs}
+      status="failed"
+      stageIndex={0}
+      failure={{ kind: 'video', detail: '영상이 5초보다 짧아요. 조금만 더 길게 찍어 주세요.' }}
+      refundedCredits={12}
+      credits={105}
+      onReupload={fn()}
+      onReviewGuide={fn()}
+      onContact={fn()}
+    />
+  ),
+};
+
+export const GeneratingDone: Story = {
+  name: '안1-7a 영상 만드는 중 · 다 됨',
+  render: () => <GeneratingScreen {...generatingArgs} status="done" />,
 };
 
 export const VideoReview: Story = {
