@@ -36,6 +36,9 @@ def style_text(scenario: Dict[str, Any]) -> str:
     hook_type = str(scenario.get("type") or "C")
     base = STYLE_BY_TYPE.get(hook_type, STYLE_BY_TYPE["C"])
     own = str((scenario.get("ad_spec") or {}).get("visual_style") or "").strip()
+    # blender_3d_physics 같은 렌더러 이름은 영상 모델에 뜻이 없어 넘기지 않는다
+    if own.lower().startswith(("blender_", "flow_", "remotion", "three")):
+        own = ""
     if own:
         base = f"{base}\nSTYLE REQUESTED BY THE SCENARIO: {own}"
     return f"{base}\n{COMMON_RULES}"

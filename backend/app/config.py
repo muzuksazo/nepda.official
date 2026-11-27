@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # Default models (overridable via env vars)
     planner_model: str = "gemini-3.5-flash"
     image_model: str = "gemini-nano-banana-2.1"
-    video_model: str = "gemini-omni-1.2-flash"
+    video_model: str = "gemini-omni-flash-preview"  # AI Studio 키로 models.list 에서 확인한 이름 (2026-11-27)
     tts_model: str = "gemini-3.8-flash-tts"
     tts_default_voice: str = "Kore"
 
@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     hook_workers_dir: str = str(_PROD_ROOT / "bridge-dev")
     hook_assets_dir: str = str(_PROD_ROOT / "data" / "hook_assets")  # 미리 만든 훅 영상(prebuilt_clip)을 두는 곳
     hook_worker_timeout_sec: float = 900.0
+    # 시나리오 작업자의 글 모델을 Gemini 로 바꾼다 (예: gemini-4-hydrogen). 비우면 각 트랙 기본(Claude).
+    # B 는 B_LLM 스위치로, C 는 hookpipe 가 같은 프롬프트·스키마로 Gemini 를 부른다. A 는 Claude 전용이라 그대로.
+    hook_worker_llm: Optional[str] = None
     hook_render_mode: Literal["video_model", "dry_run"] = "video_model"  # dry_run: 과금 호출 없이 scenario.json·hook.srt 만
     hook_max_sec: float = 20.0
     hook_clip_resolution: str = "720p"

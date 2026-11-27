@@ -477,10 +477,11 @@ def render_hook(
     if any((not p.shows_product or not refs) and not p.hold and not p.prebuilt for p in plans):
         say("REFERENCE")
         ref_prompt = reference_image_prompt(scenario)
-        candidate = cache / f"style_{_digest(ref_prompt, getattr(settings, 'image_model', ''))}.png"
+        # 실제 호출로 통과한 형식(JPEG)으로 받는다 (B 의 gclips 기록)
+        candidate = cache / f"style_{_digest(ref_prompt, getattr(settings, 'image_model', ''))}.jpg"
         try:
             if not _ready(candidate):
-                provider.generate_reference_image(ref_prompt, candidate, aspect_ratio="9:16")
+                provider.generate_reference_image(ref_prompt, candidate, aspect_ratio="9:16", mime_type="image/jpeg")
             if _ready(candidate):
                 style_ref = candidate
         except Exception as exc:  # 참고 이미지는 품질 보조라, 실패해도 클립 생성은 계속한다

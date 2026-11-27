@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -87,20 +88,32 @@ def _node_command(worker_dir: Path) -> List[str]:
     return [node, "--env-file-if-exists=.env", "--import", "tsx", "src/cli.ts"]
 
 
-def _node_env() -> Dict[str, str]:
+def _node_env(extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
     """Node 작업자에게 넘길 환경. C 용으로 넣은 키가 A·B 의 자기 .env 를 가리지 않게 뺀다."""
     env = dict(os.environ)
     for key in _C_INJECTED:
         env.pop(key, None)
+    env.update(extra or {})
     return env
 
 
-def _run_node(cmd: List[str], worker_dir: Path, timeout: float, label: str) -> subprocess.CompletedProcess:
+def _gemini_llm(settings: Any) -> Optional[str]:
+    model = str(getattr(settings, "hook_worker_llm", "") or "").strip()
+    return model if model.lower().startswith("gemini") else None
+
+
+def _run_node(
+    cmd: List[str],
+    worker_dir: Path,
+    timeout: float,
+    label: str,
+    extra_env: Optional[Dict[str, str]] = None,
+) -> subprocess.CompletedProcess:
     try:
         proc = subprocess.run(
             cmd,
             cwd=str(worker_dir),
-            env=_node_env(),
+            env=_node_env(extra_env),
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -161,11 +174,13 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="hookpipe_b_") as tmp:
         in_path = Path(tmp) / "worker_input.json"
         in_path.write_text(json.dumps(worker_input, ensure_ascii=False), encoding="utf-8")
+        gemini = _gemini_llm(settings)
         proc = _run_node(
             [*cmd, "generate", str(in_path), "--force"],
             worker_dir,
             float(settings.hook_worker_timeout_sec),
             "B",
+            extra_env={"B_LLM": gemini} if gemini else None,  # B 의 모든 글 단계를 Gemini 로
         )
     data = _read_json(record, "B")
     response = data.get("response") if isinstance(data, dict) else None
@@ -228,10 +243,20 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
     _load_c_env(worker_dir)
     if not worker_input["product_info"].get("verified_facts"):
         raise WorkerError("C 작업자는 검증된 제품 사실(verified_facts)이 1개 이상 필요합니다.")
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    gemini = _gemini_llm(settings)
+    if not gemini and not os.environ.get("ANTHROPIC_API_KEY"):
         raise WorkerError("ANTHROPIC_API_KEY 가 없습니다 (C 작업자는 Claude 로 시나리오를 만듭니다).")
     try:
-        run = generate.generate_scenarios(worker_input, log=lambda m: logger.info("[C] %s", m))
+        if gemini:
+            with _C_LLM_LOCK:
+                original = generate._call_claude
+                generate._call_claude = _c_gemini_caller(settings, gemini)
+                try:
+                    run = generate.generate_scenarios(worker_input, log=lambda m: logger.info("[C] %s", m))
+                finally:
+                    generate._call_claude = original
+        else:
+            run = generate.generate_scenarios(worker_input, log=lambda m: logger.info("[C] %s", m))
     except ModuleNotFoundError as exc:
         raise WorkerError(f"C 작업자에 필요한 패키지가 없습니다: {exc.name} (bridge-dev/c/requirements.txt)") from exc
     except Exception as exc:
@@ -245,6 +270,53 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
             )
             item["rule_violations"] = errors
     return response
+
+
+_C_LLM_LOCK = threading.Lock()
+
+
+def _c_gemini_caller(settings: Any, model: str) -> Callable[..., Any]:
+    """C 작업자의 Claude 호출(_call_claude)과 같은 모양으로 Gemini 를 부른다.
+
+    프롬프트(SYSTEM, build_user_prompt)와 출력 스키마(SCENARIO_SCHEMA)는 C 코드의 것을 그대로 쓰고,
+    재시도·규칙 검사·ScenarioItem 변환도 C 의 generate_scenarios 가 그대로 한다.
+    """
+    prompt = importlib.import_module(f"{_C_PACKAGE}.prompt")
+    schema = importlib.import_module(f"{_C_PACKAGE}.schema")
+
+    def _call(inp: Dict[str, Any], _claude_model: str, violations: Optional[List[str]]) -> Any:
+        from google.genai import types  # 늦게 불러온다 (Claude 만 쓰는 환경에서도 이 모듈을 불러올 수 있게)
+
+        from app.genai_provider import build_genai_client
+
+        started = time.time()
+        client = build_genai_client(settings)
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt.build_user_prompt(inp, violations),
+            config=types.GenerateContentConfig(
+                system_instruction=prompt.SYSTEM,
+                response_mime_type="application/json",
+                response_json_schema=schema.SCENARIO_SCHEMA,
+            ),
+        )
+        text = getattr(response, "text", None) or ""
+        try:
+            drafts = json.loads(text)["scenarios"]
+        except (ValueError, KeyError, TypeError) as exc:
+            raise RuntimeError(f"Gemini 응답을 시나리오 JSON 으로 읽지 못했습니다: {text[:200]!r}") from exc
+        usage = getattr(response, "usage_metadata", None)
+        step = {
+            "step": "scenarios" if not violations else "scenarios(retry)",
+            "model": model,
+            "inputTokens": getattr(usage, "prompt_token_count", None),
+            "outputTokens": getattr(usage, "candidates_token_count", None),
+            "costUsd": None,
+            "ms": int((time.time() - started) * 1000),
+        }
+        return drafts, step
+
+    return _call
 
 
 WORKERS: Dict[str, WorkerFn] = {"A": run_worker_a, "B": run_worker_b, "C": run_worker_c}
