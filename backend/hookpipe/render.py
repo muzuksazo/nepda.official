@@ -78,6 +78,7 @@ class BeatPlan:
     clip_path: Optional[Path] = None
     hold: bool = False  # 앞 장면의 마지막 화면에서 멈춤 (A 유형의 '패턴 인터럽트' 같은 아주 짧은 무음 장면)
     prebuilt: bool = False  # 미리 만들어 둔 영상을 쓰는 장면 (영상 모델을 부르지 않는다)
+    first_frame_src: Optional[Path] = None  # 구도 참고 이미지 (Blender 블록아웃 등). 이 구도에서 시작하는 클립을 만든다
     prompt: str = ""
     reused: List[str] = field(default_factory=list)
 
@@ -189,19 +190,23 @@ def generate_clip_with_retries(
     clip_sec: int,
     resolution: str,
     reference_paths: Sequence[Path],
+    first_frame_path: Optional[Path] = None,
 ) -> tuple:
     """영상 모델로 클립 하나. INVALID_ARGUMENT 로 거절되면 (실패한 요청은 과금되지 않음) 조건을 낮춰 다시 보낸다:
-    1) 그대로  2) 참고 이미지 없이  3) 단면·해부 묘사를 바깥에서 본 장면으로 바꿔서.
+    1) 그대로  2) 첫 프레임 없이  3) 참고 이미지 없이  4) 단면·해부 묘사를 바깥에서 본 장면으로 바꿔서.
     2026-11-27 실측: 참고 이미지 원본 크기, '고래 입안 … 단면 시각화' 장면이 각각 거절됐다.
+    first_frame_path 가 있으면 그 화면에서 시작하는 클립을 요청한다 (구도 참고 이미지를 쓰는 장면).
     돌려주는 값: (다시 만든 방법 태그 또는 "", 실제로 쓴 프롬프트)
     """
-    attempts = [("", prompt, list(reference_paths))]
+    attempts = [("", prompt, list(reference_paths), first_frame_path)]
+    if first_frame_path is not None:
+        attempts.append(("retried_without_first_frame", prompt, list(reference_paths), None))
     if reference_paths:
-        attempts.append(("retried_without_reference", prompt, []))
+        attempts.append(("retried_without_reference", prompt, [], None))
     softened = soften_prompt(prompt)
     if softened != prompt:
-        attempts.append(("retried_outside_view", softened, []))
-    for position, (tag, prompt_text, refs_to_send) in enumerate(attempts):
+        attempts.append(("retried_outside_view", softened, [], None))
+    for position, (tag, prompt_text, refs_to_send, first_frame) in enumerate(attempts):
         try:
             provider.generate_video_clip(
                 prompt_text,
@@ -210,6 +215,7 @@ def generate_clip_with_retries(
                 duration_sec=clip_sec,
                 resolution=resolution,
                 reference_paths=refs_to_send,
+                **({"first_frame_path": first_frame} if first_frame is not None else {}),
             )
         except Exception as exc:
             if "INVALID_ARGUMENT" not in str(exc) or position == len(attempts) - 1:
@@ -217,6 +223,30 @@ def generate_clip_with_retries(
             continue
         return tag, prompt_text
     raise HookRenderError("영상 클립을 만들지 못했습니다.")
+
+
+def resolve_layout_reference(
+    ref: str, settings: Any, resolve_asset: Optional[Callable[[str], Optional[Path]]]
+) -> Optional[Path]:
+    """장면의 `first_frame_ref`(구도 참고 이미지) 위치. 작업자 폴더(HOOK_WORKERS_DIR) 아래의 상대 경로를 먼저 보고,
+    없으면 미리 만든 소재와 같은 방식(HOOK_ASSETS_DIR · 저장소 키)으로 찾는다. 폴더 밖을 가리키는 경로는 받지 않는다."""
+    workers = str(getattr(settings, "hook_workers_dir", "") or "")
+    if workers:
+        base = Path(workers).resolve()
+        try:
+            local = (base / ref).resolve()
+        except (OSError, ValueError):
+            local = None
+        if local is not None and local.is_relative_to(base) and local.is_file():
+            return local
+    if resolve_asset is not None:
+        try:
+            found = resolve_asset(ref)
+        except Exception:
+            found = None
+        if found is not None and _ready(Path(found)):
+            return Path(found)
+    return None
 
 
 def _plan_beats(scenario: Dict[str, Any], max_hook_sec: float) -> List[BeatPlan]:
@@ -251,6 +281,67 @@ def _plan_beats(scenario: Dict[str, Any], max_hook_sec: float) -> List[BeatPlan]
     for index, plan in enumerate(plans):
         plan.hold = index > 0 and plan.scenario_sec < HOLD_MAX_SEC and not plan.narration
     return plans
+
+
+# 구도 참고 이미지(회색 상자 블록아웃)를 실사 화면으로 바꿀 때의 기본 지시. 장면에 `first_frame_prompt` 가 있으면 그것을 쓴다.
+DEFAULT_FIRST_FRAME_PROMPT = (
+    "Turn this rough gray-box 3D blockout into a photorealistic photo taken with a smartphone, keeping exactly the same "
+    "camera angle, framing and layout of objects. Replace the blocky shapes with real objects and a real human hand, "
+    "realistic materials, natural daylight and soft shadows. No text overlays, no logos, no faces."
+)
+FIRST_FRAME_NOTE = (
+    "The clip starts from the provided first frame: keep its camera angle, layout, objects and lighting, and let the action begin from it."
+)
+
+
+def _first_frame_from_layout(
+    plan: BeatPlan,
+    provider: Any,
+    settings: Any,
+    cache: Path,
+    media: MediaTools,
+    record_usage: Callable[..., None],
+    warnings: List[str],
+    image_model_name: str,
+) -> Optional[Path]:
+    """구도 참고 이미지 → 같은 구도의 실사 첫 프레임. 장면에 `first_frame_refine: false` 가 있으면 고치지 않고 그대로 쓴다.
+    실패하면 None 을 돌려주고(경고만 남김) 그 장면은 보통 방식으로 만든다."""
+    import time
+
+    source = plan.first_frame_src
+    if source is None:
+        return None
+    if plan.beat.get("first_frame_refine") is False:
+        return _normalize_reference(source, media)
+    prompt = str(plan.beat.get("first_frame_prompt") or "").strip() or DEFAULT_FIRST_FRAME_PROMPT
+    candidate = cache / f"first_{_digest(prompt, getattr(settings, 'image_model', ''), _file_digest(source))}.jpg"
+    usage = dict(stage="ref_image", step_name=f"first_frame_{plan.order}", provider="google", model=image_model_name,
+                 media_unit="image", media_qty=1.0)
+    try:
+        if _ready(candidate):
+            plan.reused.append("first_frame")
+            record_usage(**usage, cache_hit=True, latency_ms=0)
+        else:
+            started = time.monotonic()
+            status = "ok"
+            try:
+                _call_with_deadline(
+                    lambda: provider.generate_reference_image(
+                        prompt, candidate, aspect_ratio="9:16", mime_type="image/jpeg", anchor_paths=[source]
+                    ),
+                    float(getattr(settings, "reference_image_timeout_sec", 90.0)),
+                    "첫 프레임 이미지",
+                )
+            except Exception:
+                status = "error"
+                raise
+            finally:
+                record_usage(**usage, cache_hit=False, latency_ms=int((time.monotonic() - started) * 1000), status=status)
+        if _ready(candidate):
+            return _normalize_reference(candidate, media)
+    except Exception as exc:  # 첫 프레임은 구도 보조라, 실패해도 클립 생성은 계속한다
+        warnings.append(f"장면 {plan.order} 의 첫 프레임 이미지를 만들지 못해 구도 참고 없이 진행했습니다: {exc}")
+    return None
 
 
 def _check_clip_budget(requested: int, limit: int) -> None:
@@ -520,6 +611,14 @@ def render_hook(
                 if not info.has_audio or info.duration <= 0:
                     raise HookRenderError(f"장면 {plan.order} 의 미리 만든 나레이션에 소리가 없습니다: {ref}")
                 prebuilt_audio[plan.order] = Path(found)
+        # 구도 참고 이미지: 없어도 훅은 만들 수 있으므로, 못 찾으면 알리고 보통 방식으로 간다
+        layout_ref = str(plan.beat.get("first_frame_ref") or "").strip()
+        if layout_ref and not plan.prebuilt:
+            layout = resolve_layout_reference(layout_ref, settings, resolve_asset)
+            if layout is None:
+                warnings.append(f"장면 {plan.order} 의 구도 참고 이미지를 찾지 못해 참고 없이 만들었습니다: {layout_ref}")
+            else:
+                plan.first_frame_src = layout
     # 과금 방어 1: 시나리오 길이만으로도 상한을 넘으면 나레이션을 사기 전에 멈춘다
     _check_clip_budget(
         sum(_clip_seconds(p.scenario_sec) for p in plans if not p.hold and not p.prebuilt), clip_limit
@@ -596,7 +695,7 @@ def render_hook(
     refs = [Path(p) for p in product_refs if Path(p).is_file()]
     style_ref: Optional[Path] = None
     image_model_name = str(getattr(settings, "image_model", "") or "unknown")
-    if any((not p.shows_product or not refs) and not p.hold and not p.prebuilt for p in plans):
+    if any((not p.shows_product or not refs) and not p.hold and not p.prebuilt and p.first_frame_src is None for p in plans):
         say("REFERENCE")
         ref_prompt = reference_image_prompt(scenario)
         # 실제 호출로 통과한 형식(JPEG)으로 받는다 (B 의 gclips 기록)
@@ -667,8 +766,25 @@ def render_hook(
             has_product_reference=use_product_refs,
             has_style_reference=style_ref is not None,
         )
-        reference_paths = refs if use_product_refs else ([style_ref] if style_ref else [])
-        key = _digest(plan.prompt, plan.clip_sec, resolution, video_model, *[_file_digest(p) for p in reference_paths])
+        # 구도 참고 이미지가 있는 장면: 이미지 모델이 같은 구도의 실사 화면으로 바꾸고, 영상 모델은 그 화면에서 시작한다
+        first_frame: Optional[Path] = None
+        if plan.first_frame_src is not None:
+            first_frame = _first_frame_from_layout(
+                plan, provider, settings, cache, media, record_usage, warnings, image_model_name
+            )
+        if first_frame is not None:
+            plan.prompt += "\n" + FIRST_FRAME_NOTE
+            reference_paths = refs if use_product_refs else []  # 화면의 톤은 첫 프레임이 정하므로 톤 참고 이미지는 넣지 않는다
+        else:
+            reference_paths = refs if use_product_refs else ([style_ref] if style_ref else [])
+        key = _digest(
+            plan.prompt,
+            plan.clip_sec,
+            resolution,
+            video_model,
+            *[_file_digest(p) for p in reference_paths],
+            *(["first_frame", _file_digest(first_frame)] if first_frame is not None else []),
+        )
         clip = cache / f"clip_{key}.mp4"
         if _ready(clip):
             plan.reused.append("clip")
@@ -687,7 +803,8 @@ def render_hook(
             clip_status = "ok"
             try:
                 tag, used_prompt = generate_clip_with_retries(
-                    provider, plan.prompt, clip, clip_sec=plan.clip_sec, resolution=resolution, reference_paths=reference_paths
+                    provider, plan.prompt, clip, clip_sec=plan.clip_sec, resolution=resolution,
+                    reference_paths=reference_paths, first_frame_path=first_frame,
                 )
             except Exception:
                 clip_status = "error"

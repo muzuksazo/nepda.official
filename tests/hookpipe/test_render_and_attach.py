@@ -20,7 +20,7 @@ from app.server import create_app
 from hookpipe.body import attach_body
 from hookpipe.body_edit import make_body
 from hookpipe.captions import parse_srt
-from hookpipe.media import probe
+from hookpipe.media import probe, run_ffmpeg
 from hookpipe.render import HookRenderError, extract_reference_frames, render_hook
 from hookpipe.service import HookPipeline
 
@@ -76,6 +76,83 @@ class RenderHook(unittest.TestCase):
             self.assertEqual({c["voice"] for c in provider.tts_calls}, {"Kore"})
             srt = (out / "hook.srt").read_text(encoding="utf-8")
             self.assertIn("00:00:03,000 --> 00:00:06,000\n두 개는 아가미로", srt)
+
+    def _layout_image(self, workers: Path) -> Path:
+        layout = workers / "c" / "blockouts" / "desk.png"
+        layout.parent.mkdir(parents=True, exist_ok=True)
+        run_ffmpeg(TOOLS, ["-f", "lavfi", "-i", "color=c=gray:s=360x640", "-frames:v", "1", str(layout)])
+        return layout
+
+    def test_layout_reference_becomes_the_first_frame_of_that_beat(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            layout = self._layout_image(root / "workers")
+            provider = FakeMediaProvider(TOOLS)
+            scenario = worker_scenario("B")
+            scenario["beats"][0]["first_frame_ref"] = "c/blockouts/desk.png"
+            scenario["beats"][0]["first_frame_prompt"] = "make this blockout photorealistic"
+            settings = _settings(hook_workers_dir=str(root / "workers"), image_model="fake-image")
+            result = render_hook(scenario, PRODUCT, root / "hook", provider=provider, settings=settings, tools=TOOLS)
+
+            # 이미지 모델이 구도 참고 이미지를 받아 첫 프레임을 만들고, 그 장면의 클립만 그 화면에서 시작한다
+            refined = [c for c in provider.image_calls if c.get("anchor_paths")]
+            self.assertEqual(len(refined), 1)
+            self.assertEqual(refined[0]["prompt"], "make this blockout photorealistic")
+            self.assertEqual([str(p) for p in refined[0]["anchor_paths"]], [str(layout.resolve())])
+            first, second = provider.video_calls[0], provider.video_calls[1]
+            self.assertTrue(Path(first["first_frame_path"]).name.startswith("first_"))
+            self.assertEqual(first["reference_paths"], [])
+            self.assertIn("starts from the provided first frame", first["prompt"])
+            self.assertIsNone(second["first_frame_path"])
+            self.assertTrue(Path(second["reference_paths"][0]).name.startswith("style_"))
+            self.assertFalse([w for w in result.warnings if "구도 참고" in w or "첫 프레임" in w])
+            self.assertTrue((root / "hook" / "hook.mp4").is_file())
+
+            # 같은 캐시로 다시 만들면 첫 프레임 이미지와 클립을 다시 사지 않는다
+            images, clips = len(provider.image_calls), len(provider.video_calls)
+            render_hook(scenario, PRODUCT, root / "hook2", provider=provider, settings=settings, tools=TOOLS,
+                        cache_dir=root / "hook" / "_work" / "cache")
+            self.assertEqual((len(provider.image_calls), len(provider.video_calls)), (images, clips))
+
+    def test_layout_reference_can_be_used_without_refining(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            self._layout_image(root / "workers")
+            provider = FakeMediaProvider(TOOLS)
+            scenario = worker_scenario("B")
+            scenario["beats"][0].update({"first_frame_ref": "c/blockouts/desk.png", "first_frame_refine": False})
+            render_hook(scenario, PRODUCT, root / "hook", provider=provider,
+                        settings=_settings(hook_workers_dir=str(root / "workers")), tools=TOOLS)
+            self.assertFalse([c for c in provider.image_calls if c.get("anchor_paths")])
+            self.assertTrue(Path(provider.video_calls[0]["first_frame_path"]).name.startswith("desk"))
+
+    def test_missing_or_escaping_layout_reference_falls_back_with_a_warning(self) -> None:
+        for ref in ("c/blockouts/nope.png", "../outside.png"):
+            with temporary_directory() as td:
+                root = Path(td)
+                self._layout_image(root / "workers")
+                run_ffmpeg(TOOLS, ["-f", "lavfi", "-i", "color=c=gray:s=360x640", "-frames:v", "1", str(root / "outside.png")])
+                provider = FakeMediaProvider(TOOLS)
+                scenario = worker_scenario("B")
+                scenario["beats"][0]["first_frame_ref"] = ref
+                result = render_hook(scenario, PRODUCT, root / "hook", provider=provider,
+                                     settings=_settings(hook_workers_dir=str(root / "workers")), tools=TOOLS)
+                self.assertIsNone(provider.video_calls[0]["first_frame_path"], ref)
+                self.assertTrue([w for w in result.warnings if "구도 참고 이미지를 찾지 못해" in w], ref)
+                self.assertTrue((root / "hook" / "hook.mp4").is_file())
+
+    def test_failed_first_frame_image_falls_back_to_the_plain_clip(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            self._layout_image(root / "workers")
+            provider = FakeMediaProvider(TOOLS, fail_image=True)
+            scenario = worker_scenario("B")
+            scenario["beats"][0]["first_frame_ref"] = "c/blockouts/desk.png"
+            result = render_hook(scenario, PRODUCT, root / "hook", provider=provider,
+                                 settings=_settings(hook_workers_dir=str(root / "workers")), tools=TOOLS)
+            self.assertIsNone(provider.video_calls[0]["first_frame_path"])
+            self.assertTrue([w for w in result.warnings if "첫 프레임 이미지를 만들지 못해" in w])
+            self.assertTrue((root / "hook" / "hook.mp4").is_file())
 
     def test_long_narration_extends_the_beat_instead_of_cutting_speech(self) -> None:
         with temporary_directory() as td:

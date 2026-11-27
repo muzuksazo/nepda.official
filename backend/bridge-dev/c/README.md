@@ -65,3 +65,7 @@ python -m test.mock_run
 | `src/check.py` | 유형 규칙 검사 |
 | `src/schema.py` | 입력 확인, 출력 스키마, `ScenarioItem` 변환 |
 | `src/cli.py` | 계약 CLI (`generate`, `check`) |
+
+## 첫 장면의 구도 참고 이미지 (Blender 블록아웃)
+
+첫 장면(문제)을 정해 둔 구도에서 시작하게 할 수 있습니다. `blockouts/catalog.json` 에 미리 렌더한 Blender 블록아웃을 등록해 두면, 글 모델이 첫 장면과 같은 상황인 것을 `problem_blockout` 으로 고르고, 그 장면에 `first_frame_ref`·`first_frame_prompt` 가 붙습니다. 훅을 만들 때 백엔드(`backend/hookpipe`)가 이미지 모델로 같은 구도의 실사 첫 프레임을 만들고 영상 모델이 그 화면에서 이어 만듭니다. 고르지 않으면 지금까지처럼 글만으로 만듭니다. 동작 순서, 새 구도 추가 방법, 비용, 확인 범위는 [blockouts/README.md](blockouts/README.md) 에 있습니다.

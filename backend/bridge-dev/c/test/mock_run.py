@@ -130,5 +130,29 @@ with tempfile.TemporaryDirectory() as d:
                           cwd=HERE, capture_output=True, text=True, encoding="utf-8")
     expect("시나리오가 없는 파일을 주면 통과시키지 않는다", proc.returncode == 2, str(proc.returncode))
 
+print("7. 구도 참고 이미지 (블록아웃)")
+from src.blockouts import load_catalog, prompt_lines  # noqa: E402
+from src.generate import offline_drafts  # noqa: E402
+from src.prompt import build_user_prompt  # noqa: E402
+from src.schema import to_scenario_item  # noqa: E402
+
+catalog = load_catalog()
+expect("목록을 읽는다", any(b["id"] == "phone_distract" for b in catalog))
+expect("목록의 이미지 파일이 저장소에 있다", all(os.path.isfile(os.path.join(os.path.dirname(HERE), b["image"])) for b in catalog))
+expect("프롬프트에 구도 목록이 들어간다", "phone_distract" in build_user_prompt(parsed))
+expect("목록이 비면 빈 문자열로 두라고 알린다", "빈 문자열" in prompt_lines([])[0])
+draft = offline_drafts(parsed)[0]
+picked = to_scenario_item({**draft, "problem_blockout": "phone_distract"}, scenario_id="sc_demo_C1_01", round_no=1)
+expect("고른 구도를 첫 장면에 붙인다", picked["beats"][0].get("first_frame_ref") == "c/blockouts/phone_distract.png"
+       and bool(picked["beats"][0].get("first_frame_prompt")) and picked["ad_spec"].get("problem_blockout") == "phone_distract")
+expect("다른 장면에는 붙이지 않는다", all("first_frame_ref" not in b for b in picked["beats"][1:]))
+expect("구도를 붙여도 규칙 검사를 통과한다", not check_scenario(picked, inp["product_info"])["errors"])
+for value, name in (("", "고르지 않으면 붙이지 않는다"), ("no_such_blockout", "목록에 없는 id 는 무시한다")):
+    item = to_scenario_item({**draft, "problem_blockout": value}, scenario_id="sc_demo_C1_02", round_no=1)
+    expect(name, "first_frame_ref" not in item["beats"][0] and "problem_blockout" not in item["ad_spec"])
+legacy = {k: v for k, v in draft.items() if k != "problem_blockout"}
+expect("problem_blockout 이 없는 초안도 받는다",
+       "first_frame_ref" not in to_scenario_item(legacy, scenario_id="sc_demo_C1_03", round_no=1)["beats"][0])
+
 print(f"\n{'모두 통과' if not failures else '실패 ' + str(len(failures)) + '건: ' + ', '.join(failures)}")
 sys.exit(1 if failures else 0)

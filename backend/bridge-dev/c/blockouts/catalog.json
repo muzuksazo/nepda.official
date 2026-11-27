@@ -1,0 +1,9 @@
+[
+  {
+    "id": "phone_distract",
+    "description": "책상에 앉은 사람의 시점(POV). 펼친 노트와 펜, 그 오른쪽에 스마트폰, 뒤쪽에 노트북과 머그잔. 오른손이 노트 위에 있다. 공부·업무를 하다가 옆의 폰으로 손이 가는 상황",
+    "image": "c/blockouts/phone_distract.png",
+    "source": "blender_scene_desk.py (1번 프레임)",
+    "refine_prompt": "Turn this rough gray-box 3D blockout into a photorealistic photo taken with a smartphone, keeping exactly the same camera angle, framing and layout. A light oak study desk in natural daylight. An open paper notebook with a few handwritten lines on the left page, a blue pen, a smartphone with a dark screen lying to the right of the notebook, a silver laptop and a white ceramic mug at the back, a plain white wall. A real human right hand in a cream knit sweater sleeve rests on the notebook where the blocky hand is. Realistic materials, soft shadows, shallow depth of field. No text overlays, no logos, no faces."
+  }
+]
