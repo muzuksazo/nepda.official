@@ -138,3 +138,92 @@ def beat_prompt(
         lines.append("Keep the same main character, look and palette as the reference image.")
     # 나레이션 문장은 넣지 않는다: '글자로 그리지 말라'고 해도 영상 모델이 문장을 깨진 한글 자막으로 그려 넣었다 (2026-11-27 실측)
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 자체 호스팅 모델용 (FLUX klein 첫 프레임 → MiniMax-H3 움직임). 규칙은 위와 같고 모양만 각 모델에 맞춘다.
+# FLUX 는 규칙 목록보다 '한 장면을 묘사한 문장'을 잘 따르고, MiniMax 는 첫 프레임에서 무엇이 움직이는지만 들으면 된다.
+# ---------------------------------------------------------------------------
+
+FRAME_LOOK_BY_TYPE: Dict[str, str] = {
+    "A": "A cinematic film still with strong moody lighting and shallow depth of field.",
+    "B": (
+        "A stylized handmade clay 3D diorama, like a tiny stage set: smooth matte clay surfaces with visible "
+        "hand-sculpted texture, soft warm window light, gentle pastel palette with exactly one vivid red accent "
+        "on the key detail. Not photorealistic."
+    ),
+    "C": (
+        "A realistic vertical smartphone photo taken at home in bright natural daylight: plain, honest, "
+        "believable hands and everyday props, slight phone-camera look, not glossy advertising."
+    ),
+}
+
+FRAME_LAYOUT = (
+    "Vertical 9:16 frame. The main subject sits in the upper two thirds; the bottom third is calm, simple "
+    "background with nothing important in it. No text, letters, numbers, captions, signs, labels, logos or watermarks anywhere."
+)
+
+MOTION_RULES = (
+    "One continuous shot that starts exactly from the given first frame, keeping the same look, characters, "
+    "colors and layout; no cuts, no scene change. Smooth, readable motion. Keep the bottom third of the frame calm. "
+    "No text or captions appear at any time. Sound: natural ambient sound effects only — no speech, no voice, no singing, no music."
+)
+
+
+def _look(scenario: Dict[str, Any]) -> str:
+    hook_type = str(scenario.get("type") or "C")
+    look = FRAME_LOOK_BY_TYPE.get(hook_type, FRAME_LOOK_BY_TYPE["C"])
+    own = str((scenario.get("ad_spec") or {}).get("visual_style") or "").strip()
+    if own and not own.lower().startswith(("blender_", "flow_", "remotion", "three")):
+        look = f"{look} Style notes: {own}."
+    return look
+
+
+def _motions(beat: Dict[str, Any]) -> List[str]:
+    scene3d = beat.get("scene3d") or {}
+    if not isinstance(scene3d, dict):
+        return []
+    moves = [m for m in (scene3d.get("motion") or []) if isinstance(m, dict) and m.get("action")]
+    return [str(m["action"]) for m in sorted(moves, key=lambda m: m.get("from", 0))]
+
+
+def first_frame_prompt(
+    scenario: Dict[str, Any],
+    beat: Dict[str, Any],
+    *,
+    product: Optional[Dict[str, Any]] = None,
+    shows_product: bool = False,
+    has_product_reference: bool = False,
+) -> str:
+    """FLUX 첫 프레임: 이 장면이 시작하는 순간 한 장. 장면 설명(한국어 그대로)과 유형별 화면 톤을 한 문단으로."""
+    parts = [
+        _look(scenario),
+        f"The opening moment of this shot: {clean_visual(beat.get('visual'))}.",
+    ]
+    fact = (beat.get("scene3d") or {}).get("fact_shown") if isinstance(beat.get("scene3d"), dict) else None
+    if fact:
+        parts.append(f"The image should make this clear at a glance: {fact}.")
+    if shows_product and product:
+        name = product.get("call_name") or product.get("name") or "the product"
+        if has_product_reference:
+            parts.append(
+                f"The product ({name}) from the reference photo appears large and clearly visible, with exactly the same "
+                "shape, color, size and surface as in the photo; do not redesign it. Everything around it follows the look above."
+            )
+        else:
+            facts = "; ".join(str(f) for f in (product.get("verified_facts") or [])[:4] if str(f).strip())
+            parts.append(f"The product ({name}) appears large and clearly visible." + (f" It is: {facts}." if facts else ""))
+    parts.append(FRAME_LAYOUT)
+    return " ".join(parts)
+
+
+def motion_prompt(scenario: Dict[str, Any], beat: Dict[str, Any], *, shows_product: bool = False) -> str:
+    """MiniMax 움직임: 첫 프레임에서 무엇이 어떻게 움직이는지. 나레이션 문장은 넣지 않는다 (말소리·자막이 생긴다)."""
+    parts = [_look(scenario), f"What happens in this shot: {clean_visual(beat.get('visual'))}."]
+    moves = _motions(beat)
+    if moves:
+        parts.append("Motion, in order: " + "; then ".join(moves) + ".")
+    if shows_product:
+        parts.append("The product keeps exactly the same shape and color as in the first frame and stays clearly visible.")
+    parts.append(MOTION_RULES)
+    return " ".join(parts)

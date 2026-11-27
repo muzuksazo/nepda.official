@@ -33,7 +33,8 @@ image = (
     .run_commands(f"git clone --depth 1 https://github.com/black-forest-labs/flux-3-image-klein {REPO_DIR}")
     .run_commands(f"pip install {REPO_DIR} --extra-index-url https://download.pytorch.org/whl/cu130")
     .pip_install("huggingface_hub")
-    .env({"WEIGHTS_DIR": str(WEIGHTS), "CUDA_HOME": "/usr/local/cuda"})
+    # vLLM 컴파일 결과를 볼륨에 남겨 두 번째 실행부터 준비 시간을 줄인다 (첫 실행 476초)
+    .env({"WEIGHTS_DIR": str(WEIGHTS), "CUDA_HOME": "/usr/local/cuda", "VLLM_CACHE_ROOT": f"{WEIGHTS}/.vllm_cache"})
 )
 
 app = modal.App("napda-flux", image=image)
@@ -74,6 +75,7 @@ def render(jobs: list, refs: dict) -> dict:
         out[job["name"]] = buf.getvalue()
         upsampled = (record or {}).get("prompt") if isinstance(record, dict) else None
         print(f"[{job['name']}] {time.time() - t1:.1f}초 {img.size} 보강된 프롬프트: {str(upsampled)[:300]}", flush=True)
+    weights.commit()  # vLLM 컴파일 캐시 저장
     return out
 
 

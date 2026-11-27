@@ -268,6 +268,26 @@ class WorkerConnection(unittest.TestCase):
         self.assertEqual(sent["model"], "claude-opus-5-5")
         self.assertEqual(sent["output_config"]["format"]["schema"], body_edit.BODY_SCRIPT_SCHEMA)
 
+    def test_selfhosted_prompts_follow_service_rules(self) -> None:
+        from hookpipe.prompts import first_frame_prompt, motion_prompt
+
+        scenario = {"type": "B", "ad_spec": {"visual_style": "blender_3d_physics"}}
+        beat = {"order": 1, "visual": "[포커스: 전체] 고래가 물을 삼킨다", "narration": "이 문장은 넣지 않는다"}
+        frame = first_frame_prompt(scenario, beat)
+        self.assertIn("clay 3D diorama", frame)
+        self.assertIn("bottom third", frame)
+        self.assertIn("No text", frame)
+        self.assertNotIn("[포커스", frame)
+        self.assertNotIn("blender", frame)
+        self.assertNotIn("이 문장은", frame)
+        with_product = first_frame_prompt(scenario, beat, product={"name": "스펀지"}, shows_product=True,
+                                          has_product_reference=True)
+        self.assertIn("reference photo", with_product)
+        motion = motion_prompt({"type": "C"}, beat)
+        self.assertIn("smartphone", motion)
+        self.assertIn("no speech", motion)
+        self.assertNotIn("이 문장은", motion)
+
     def test_types_run_at_the_same_time(self) -> None:
         import threading
 
