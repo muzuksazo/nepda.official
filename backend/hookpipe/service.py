@@ -24,6 +24,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from .body import attach_body
 from .media import MediaTools, find_tools
 from .render import HookRenderResult, extract_reference_frames, render_hook, write_scenario_and_srt
+from .tts import InworldTts, MediaWithTts
 
 logger = logging.getLogger("hookpipe.service")
 
@@ -71,10 +72,14 @@ class HookPipeline:
 
     def _provider(self) -> Any:
         if self._provider_factory is not None:
-            return self._provider_factory(self.settings)
-        from app.genai_provider import GenAIMediaProvider  # 늦게 불러와 순환 import 를 피한다
+            media = self._provider_factory(self.settings)
+        else:
+            from app.genai_provider import GenAIMediaProvider  # 늦게 불러와 순환 import 를 피한다
 
-        return GenAIMediaProvider(self.settings)
+            media = GenAIMediaProvider(self.settings)
+        if getattr(self.settings, "tts_provider", "gemini") == "inworld":
+            return MediaWithTts(media, InworldTts(self.settings))
+        return media
 
     def _media(self) -> MediaTools:
         if self._tools is None:

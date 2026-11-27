@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     video_model: str = "gemini-omni-flash-preview"  # AI Studio 키로 models.list 에서 확인한 이름 (2026-11-27)
     tts_model: str = "gemini-3.8-flash-tts"
     tts_default_voice: str = "Kore"
+    # 나레이션 공급자: gemini(위 TTS_MODEL) | inworld (B·C 트랙이 쓰던 Inworld TTS)
+    tts_provider: Literal["gemini", "inworld"] = "gemini"
+    inworld_api_key: Optional[str] = None
+    inworld_voice_id: Optional[str] = None
+    inworld_model: str = "inworld-tts-2"
+    inworld_speaking_rate: float = 1.1
 
     # Concurrency, polling & safety caps
     concurrency: int = 3

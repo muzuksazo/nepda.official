@@ -138,6 +138,25 @@ class BodyAndPromptRules(unittest.TestCase):
         self.assertFalse(is_worker_scenario(None))
 
 
+class TtsProviderSwitch(unittest.TestCase):
+    def test_inworld_maps_the_default_gemini_voice_and_keeps_explicit_voices(self) -> None:
+        from hookpipe.tts import InworldTts, MediaWithTts, TtsError
+
+        settings = SimpleNamespace(inworld_api_key="k", inworld_voice_id="iw_voice", tts_default_voice="Kore")
+        tts = InworldTts(settings)
+        self.assertEqual(tts.voice_for(None), "iw_voice")
+        self.assertEqual(tts.voice_for("Kore"), "iw_voice")
+        self.assertEqual(tts.voice_for("other__voice"), "other__voice")
+        with self.assertRaises(TtsError):
+            InworldTts(SimpleNamespace(inworld_api_key="", inworld_voice_id="v"))
+
+        media = SimpleNamespace(generate_video_clip=lambda *a, **k: "video")
+        both = MediaWithTts(media, tts)
+        self.assertEqual(both.generate_video_clip(), "video")
+        self.assertEqual(both.tts_extension, ".mp3")
+        self.assertTrue(both.tts_label.startswith("inworld:"))
+
+
 class WorkerConnection(unittest.TestCase):
     def test_worker_input_drops_empty_values_and_filters_previous_by_type(self) -> None:
         previous = [{"type": "A", "scenario_id": "a1"}, {"type": "B", "scenario_id": "b1"}]

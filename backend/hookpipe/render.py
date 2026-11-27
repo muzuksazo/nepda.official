@@ -449,6 +449,9 @@ def render_hook(
     if tts_enabled:
         say("TTS")
         voice_name = voice or getattr(settings, "tts_default_voice", None)
+        # 공급자가 정하는 파일 형식과 이름표 (Inworld 는 mp3). 공급자가 바뀌면 캐시도 따로 쓴다.
+        tts_ext = getattr(provider, "tts_extension", ".wav")
+        tts_label = getattr(provider, "tts_label", "") or getattr(settings, "tts_model", "")
         for plan in plans:
             wav = prebuilt_audio.get(plan.order)
             if wav is not None:
@@ -456,7 +459,7 @@ def render_hook(
             elif not plan.narration:
                 continue
             else:
-                wav = cache / f"tts_{_digest(plan.narration, voice_name, getattr(settings, 'tts_model', ''))}.wav"
+                wav = cache / f"tts_{_digest(plan.narration, voice_name, tts_label)}{tts_ext}"
                 if _ready(wav):
                     plan.reused.append("tts")
                 else:

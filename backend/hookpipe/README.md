@@ -74,6 +74,8 @@ A·B·C 세 트랙의 작업물을 하나의 길로 잇는 백엔드 코드입�
 | `HOOK_WORKER_MODE` | `auto` | `auto`: 작업자 호출 후 실패하면 planner-api. `off`: planner-api만. |
 | `HOOK_WORKERS_DIR` | `backend/bridge-dev` | 작업자 폴더 위치 |
 | `HOOK_WORKER_TIMEOUT_SEC` | `900` | A·B 작업자 한 번의 제한 시간 |
+| `TTS_PROVIDER` | `gemini` | 나레이션 공급자. `inworld` 면 `INWORLD_API_KEY`, `INWORLD_VOICE_ID`(필수), `INWORLD_SPEAKING_RATE`(기본 1.1)를 씁니다. 요청의 목소리가 기본값(`TTS_DEFAULT_VOICE`)이면 `INWORLD_VOICE_ID` 로 바꿉니다. |
+| `HOOK_WORKER_LLM` | 없음 | 시나리오 글 모델을 Gemini 로 (예: `gemini-4-hydrogen`). B·C 에만 적용, A 는 Claude 전용. |
 | `HOOK_ASSETS_DIR` | `backend/data/hook_assets` | 미리 만든 훅 영상을 두는 곳 |
 | `HOOK_RENDER_MODE` | `video_model` | `dry_run`이면 과금 호출 없이 scenario.json과 hook.srt만 씁니다. |
 | `HOOK_MAX_SEC` | `20` | 훅 길이 상한 |
