@@ -188,6 +188,41 @@ class HookPipeline:
             progress=progress,
         )
 
+    def _publish_hook_files(self, project_id: str, hook_id: str, out_dir: Path, files: Dict[str, Any]) -> Dict[str, str]:
+        """훅 결과를 저장소에 올린다. 키: projects/{project_id}/hooks/{hook_id}/{파일 이름} (팀 합의 2026-11-27).
+
+        콘티 이미지는 projects/{project_id}/storyboards/{scenario_id}/ 가 정본이라 여기서는 올리지 않는다.
+        실패해도 훅 자체는 서버 디스크에 있으므로 경고만 남긴다.
+        """
+        keys: Dict[str, str] = {}
+        for name in [files.get("hook_video"), files.get("tts_audio"), files.get("subtitles_srt"), files.get("scenario_json")]:
+            if not name or not (out_dir / name).is_file():
+                continue
+            key = f"projects/{project_id}/hooks/{hook_id}/{name}"
+            try:
+                self.storage.upload_file(out_dir / name, key)
+                keys[name] = key
+            except Exception as exc:
+                logger.warning("훅 파일을 저장소에 올리지 못했습니다 (%s): %s", key, exc)
+        return keys
+
+    def _body_srt(self, project: Dict[str, Any], work_dir: Path) -> Optional[Path]:
+        """FR-009 가 만든 본편 자막. project.body.srt_key(저장소 키) 또는 project.body.srt_path 가 있으면 쓴다."""
+        body = project.get("body") or {}
+        local = body.get("srt_path")
+        if local and Path(local).is_file():
+            return Path(local)
+        key = body.get("srt_key")
+        if not key:
+            return None
+        dest = work_dir / "body.srt"
+        try:
+            self.storage.download_file(key, dest)
+        except Exception as exc:
+            logger.warning("본편 자막을 내려받지 못했습니다 (%s): %s", key, exc)
+            return None
+        return dest if dest.is_file() else None
+
     # ---- 훅 재사용 ---------------------------------------------------
 
     def _is_active(self, hook: Dict[str, Any]) -> bool:
@@ -249,6 +284,7 @@ class HookPipeline:
                 with self._lock(project_id, str(scenario.get("scenario_id"))):
                     clips = self._upload_clip_paths(project, out_dir / "_work" / "uploads")
                     files.update(self._render(project, scenario, out_dir, tts or {}, clips).files)
+                self._publish_hook_files(project_id, hook_id, out_dir, files)
                 shutil.rmtree(out_dir / "_work" / "uploads", ignore_errors=True)
             self.project_store.update_hook(hook_id, status="done", files=files)
             self.project_store.update_project(project_id, status="HOOK_READY")
@@ -315,6 +351,7 @@ class HookPipeline:
                         self.project_store.update_hook(hook_id, status="failed", error=str(exc) or type(exc).__name__)
                         raise
                     self.project_store.update_hook(hook_id, status="done", files={**EMPTY_FILES, **result.files})
+                    self._publish_hook_files(project_id, hook_id, out_dir, result.files)
 
             store.update_job(job_id, status="RUNNING", stage="BODY")
             guide = project.get("filming_guide") or {}
@@ -324,9 +361,17 @@ class HookPipeline:
             # 최종 파일은 작업마다 다른 폴더에 쓴다 (같은 훅으로 겹쳐 만들어도 서로 덮어쓰지 않는다)
             final_path = job_dir / "final.mp4"
             joined = attach_body(
-                out_dir / "hook.mp4", clips, final_path, tools=self._media(), limit_sec=limit, hook_srt=out_dir / "hook.srt"
+                out_dir / "hook.mp4",
+                clips,
+                final_path,
+                tools=self._media(),
+                limit_sec=limit,
+                hook_srt=out_dir / "hook.srt",
+                body_srt=self._body_srt(project, job_dir / "uploads"),
             )
 
+            # 저장소 키 (팀 합의 2026-11-27): projects/{project_id}/renders/{job_id}/{master.mp4|clean.mp4|final.srt}
+            # clean.mp4(자막 없는 판)는 아직 만들지 않는다. 그때까지는 master 를 같이 가리킨다.
             prefix = f"projects/{project_id}/renders/{job_id}"
             entry: Dict[str, Any] = {
                 "id": hook_id,
@@ -334,12 +379,15 @@ class HookPipeline:
                 "hook_duration": joined.hook_sec,
                 "body_duration": joined.body_sec,
                 "lufs": {"final_lufs": joined.lufs},
-                "master_mp4": self.storage.upload_file(final_path, f"{prefix}/final.mp4"),
+                "master_key": f"{prefix}/master.mp4",
+                "master_mp4": self.storage.upload_file(final_path, f"{prefix}/master.mp4"),
             }
+            entry["clean_key"] = entry["master_key"]
             entry["clean_mp4"] = entry["master_mp4"]
             srt_path = final_path.with_suffix(".srt")
             if srt_path.is_file():
-                entry["srt"] = self.storage.upload_file(srt_path, f"{prefix}/final.srt")
+                entry["srt_key"] = f"{prefix}/final.srt"
+                entry["srt"] = self.storage.upload_file(srt_path, entry["srt_key"])
             store.update_job(
                 job_id,
                 status="QC_READY",

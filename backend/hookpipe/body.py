@@ -7,11 +7,11 @@
 from __future__ import annotations
 
 import logging
-import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Sequence
 
+from .captions import merge_srt, parse_srt, srt_timestamp
 from .media import (
     AUDIO_ENCODE_ARGS,
     AUDIO_RATE,
@@ -33,6 +33,12 @@ logger = logging.getLogger("hookpipe.body")
 
 MIN_SEGMENT_SEC = 1.0
 LANDSCAPE_RATIO = 0.92  # 가로/세로 비율이 이보다 크면 가로 영상으로 보고 흐린 배경 위에 얹는다
+
+
+def build_srt_raw(cues: Sequence[tuple]) -> str:
+    return "\n".join(
+        f"{i}\n{srt_timestamp(s)} --> {srt_timestamp(e)}\n{t}\n" for i, (s, e, t) in enumerate(cues, start=1) if e > s
+    )
 
 
 class BodyAttachError(RuntimeError):
@@ -211,8 +217,13 @@ def attach_body(
     tools: MediaTools,
     limit_sec: Optional[float] = None,
     hook_srt: Optional[str | Path] = None,
+    body_srt: Optional[str | Path] = None,
 ) -> BodyAttachResult:
-    """훅 뒤에 본편을 붙여 out_path 를 만든다. 자막 파일이 있으면 같은 이름의 .srt 로 복사한다(훅 구간 자막)."""
+    """훅 뒤에 본편을 붙여 out_path 를 만든다.
+
+    자막: hook.srt 와 (FR-009 가 준) body.srt 를 합쳐 같은 이름의 .srt 로 쓴다. 본편 자막은 실제 훅 길이만큼 뒤로 민다.
+    본편 길이를 줄였다면 그 뒤로 넘어간 본편 자막은 버린다.
+    """
     target = Path(out_path)
     if not Path(hook_mp4).is_file():
         raise BodyAttachError(f"훅 영상이 없습니다: {hook_mp4}")
@@ -224,6 +235,16 @@ def attach_body(
         raise BodyAttachError(str(exc)) from exc
     joined.segments = body.segments
     joined.warnings = body.warnings
+    parts = []
     if hook_srt and Path(hook_srt).is_file():
-        shutil.copyfile(hook_srt, target.with_suffix(".srt"))
+        parts.append((Path(hook_srt).read_text(encoding="utf-8-sig"), 0.0))
+    if body_srt and Path(body_srt).is_file():
+        kept = [
+            (start, min(end, joined.body_sec), text)
+            for start, end, text in parse_srt(Path(body_srt).read_text(encoding="utf-8-sig"))
+            if start < joined.body_sec - 0.05
+        ]
+        parts.append((build_srt_raw(kept), joined.hook_sec))
+    if parts:
+        target.with_suffix(".srt").write_text(merge_srt(parts), encoding="utf-8")
     return joined

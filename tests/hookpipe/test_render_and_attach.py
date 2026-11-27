@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.server import create_app
 from hookpipe.body import attach_body
+from hookpipe.captions import parse_srt
 from hookpipe.media import probe
 from hookpipe.render import HookRenderError, extract_reference_frames, render_hook
 from hookpipe.service import HookPipeline
@@ -276,7 +277,10 @@ class AttachBody(unittest.TestCase):
             portrait = make_video(TOOLS, root / "shot1.mp4", seconds=4.0, width=360, height=640)
             landscape = make_video(TOOLS, root / "shot2.mp4", seconds=4.0, width=640, height=360, audio=False)
 
-            result = attach_body(hook, [portrait, landscape], root / "final.mp4", tools=TOOLS, hook_srt=root / "hook.srt")
+            (root / "body.srt").write_text("1\n00:00:01,000 --> 00:00:02,500\n본편 자막\n\n2\n00:00:30,000 --> 00:00:31,000\n잘린 뒤 자막\n",
+                                           encoding="utf-8")
+            result = attach_body(hook, [portrait, landscape], root / "final.mp4", tools=TOOLS,
+                                 hook_srt=root / "hook.srt", body_srt=root / "body.srt")
             info = probe(TOOLS, root / "final.mp4")
             self.assertEqual((info.width, info.height), (1080, 1920))
             self.assertTrue(info.has_audio)
@@ -285,7 +289,12 @@ class AttachBody(unittest.TestCase):
             self.assertAlmostEqual(result.body_sec, 8.0, delta=0.25)
             self.assertEqual([s["landscape"] for s in result.segments], [False, True])
             self.assertEqual([s["has_audio"] for s in result.segments], [True, False])
-            self.assertTrue((root / "final.srt").is_file())
+            final_srt = (root / "final.srt").read_text(encoding="utf-8")
+            self.assertIn("훅 자막", final_srt)
+            self.assertIn("본편 자막", final_srt)
+            self.assertNotIn("잘린 뒤 자막", final_srt)  # 본편 길이(8초)를 넘는 자막은 버린다
+            body_cue = [c for c in parse_srt(final_srt) if c[2] == "본편 자막"][0]
+            self.assertAlmostEqual(body_cue[0], result.hook_sec + 1.0, delta=0.01)
 
     def test_body_longer_than_the_limit_is_shortened(self) -> None:
         with temporary_directory() as td:

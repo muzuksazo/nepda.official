@@ -10,7 +10,7 @@ from tests.support.hookpipe import BACKEND, worker_scenario
 
 from hookpipe.body import plan_body_segments
 from hookpipe.media import gain_to_target
-from hookpipe.captions import build_srt, srt_timestamp, wrap_caption
+from hookpipe.captions import build_srt, merge_srt, parse_srt, srt_timestamp, wrap_caption
 from hookpipe.prompts import beat_prompt, clean_visual, ordered_beats, product_beat_orders
 from hookpipe.service import is_worker_scenario
 from hookpipe.workers import (
@@ -64,6 +64,14 @@ class CaptionRules(unittest.TestCase):
         self.assertEqual(srt_timestamp(9.999999999999998), "00:00:10,000")
         self.assertEqual(srt_timestamp(2.9996), "00:00:03,000")
         self.assertEqual(srt_timestamp(3725.5), "01:02:05,500")
+
+    def test_body_srt_is_shifted_by_the_hook_length_and_renumbered(self) -> None:
+        hook = "1\n00:00:00,000 --> 00:00:03,000\n훅 자막\n"
+        body = "\ufeff1\r\n00:00:00,500 --> 00:00:02,000\r\n본편 첫 줄\r\n둘째 줄\r\n\r\n2\r\n00:00:02,000 --> 00:00:04,250\r\n본편 둘째\r\n"
+        self.assertEqual(parse_srt(body)[0], (0.5, 2.0, "본편 첫 줄\n둘째 줄"))
+        merged = merge_srt([(hook, 0.0), (body, 17.04)])
+        self.assertEqual([c[0] for c in parse_srt(merged)], [0.0, 17.54, 19.04])
+        self.assertIn("3\n00:00:19,040 --> 00:00:21,290\n본편 둘째", merged)
 
     def test_srt_skips_empty_captions_and_numbers_the_rest(self) -> None:
         srt = build_srt([(0.0, 3.0, "첫 줄"), (3.0, 6.0, ""), (6.0, 9.0, "셋째 줄")])

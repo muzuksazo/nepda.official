@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import List, Sequence, Tuple
 
 MAX_LINE_CHARS = 22
@@ -44,6 +45,40 @@ def srt_timestamp(seconds: float) -> str:
     minutes, rest = divmod(rest, 60_000)
     secs, ms = divmod(rest, 1000)
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{ms:03d}"
+
+
+_TIME_RE = re.compile(r"(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)")
+
+
+def _seconds(h: str, m: str, s: str, ms: str) -> float:
+    return int(h) * 3600 + int(m) * 60 + int(s) + int(ms.ljust(3, "0")[:3]) / 1000
+
+
+def parse_srt(text: str) -> List[Tuple[float, float, str]]:
+    """SRT 본문 → (시작초, 끝초, 글자) 목록. 번호·빈 줄·BOM 은 무시한다."""
+    cues: List[Tuple[float, float, str]] = []
+    for block in re.split(r"\r?\n\s*\r?\n", (text or "").lstrip("\ufeff").strip()):
+        lines = [line for line in block.splitlines() if line.strip()]
+        for index, line in enumerate(lines):
+            match = _TIME_RE.search(line)
+            if match:
+                g = match.groups()
+                body = "\n".join(lines[index + 1:]).strip()
+                if body:
+                    cues.append((_seconds(*g[:4]), _seconds(*g[4:]), body))
+                break
+    return cues
+
+
+def merge_srt(parts: Sequence[Tuple[str, float]]) -> str:
+    """(SRT 본문, 시작 위치 초) 들을 한 파일로. 줄바꿈은 원본 그대로 두고 번호만 다시 매긴다."""
+    blocks: List[str] = []
+    for text, offset in parts:
+        for start, end, body in parse_srt(text):
+            if end <= start:
+                continue
+            blocks.append(f"{len(blocks) + 1}\n{srt_timestamp(start + offset)} --> {srt_timestamp(end + offset)}\n{body}\n")
+    return "\n".join(blocks)
 
 
 def build_srt(cues: Sequence[Tuple[float, float, str]]) -> str:
