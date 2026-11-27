@@ -1266,7 +1266,7 @@ textarea.n-input {
   outline-offset: 0;
 }
 
-/* 라임 점은 흰 바탕과 대비가 낮아 라이트에서는 검정 외곽선을 두르고, 종과는 바탕색 2px 틈으로 떼어 둔다 */
+/* 안 읽은 알림 수: 테두리 없는 라임 점 + 검정 숫자. 종과는 바탕색 2px 틈으로 떼어 둔다 */
 .n-bell__count {
   position: absolute;
   top: 6px;
@@ -1274,14 +1274,13 @@ textarea.n-input {
   min-width: 18px;
   height: 18px;
   padding: 0 4px;
-  border: 1.5px solid var(--accent-edge);
   border-radius: var(--radius-full);
   background: var(--accent-fill);
   box-shadow: 0 0 0 2px var(--bg);
   color: var(--on-accent-fill);
   font-size: 11px;
   font-weight: 800;
-  line-height: 15px;
+  line-height: 18px;
   text-align: center;
 }
 
@@ -3990,4 +3989,21 @@ button.n-noti:focus-visible {
 /* 영상 보기 화면은 늘 검정 바탕이라 기기 막대를 흰색으로 */
 .n-device:has(.n-viewer) .n-device__home {
   background: #fff;
+}
+
+/* 실제 휴대폰으로 스토리북을 열었을 때: 가짜 틀을 없애고 화면에 꽉 채운다 (안전 영역은 기기 값) */
+@media (max-width: 500px) {
+  .n-device {
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    width: 100%;
+    height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .n-device__home {
+    display: none;
+  }
 }
