@@ -180,6 +180,7 @@ class ScenarioItem(BaseModel):
 class GenerateScenariosRequest(BaseModel):
     types: Optional[List[HookType]] = Field(default=None, min_length=1, max_length=3)
     provider: PlannerProvider = "anthropic"
+    model: Optional[str] = Field(default=None, max_length=120)
     count: int = Field(default=1, ge=1, le=5)
 
 

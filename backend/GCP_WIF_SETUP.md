@@ -141,10 +141,11 @@ GCP 콘솔 **IAM 및 관리자 → 워크로드 아이덴티티 제휴 → `verc
 - **발급자(URL)**: `https://oidc.modal.com`
 - **대상(Audiences)**: **`허용된 잠재고객`** 선택 → `oidc.modal.com`
 - **속성 매핑**:
-  - `google.subject` = `assertion.sub`
+  - `google.subject` = `assertion.workspace_id + ':' + assertion.container_id`
   - `attribute.workspace_id` = `assertion.workspace_id`
   - `attribute.app_name` = `assertion.app_name`
   - `attribute.environment_name` = `assertion.environment_name`
+  - *(주의: Modal 기본 `assertion.sub` 문자열은 약 145~155바이트로 GCP STS의 `google.subject` 최대 길이 127바이트 제한을 넘을 수 있으므로, `assertion.workspace_id + ':' + assertion.container_id` 약 55바이트를 사용합니다.)*
 - **속성 조건(CEL)**:
   ```cel
   assertion.workspace_id == '<MODAL_WORKSPACE_ID>'
@@ -163,8 +164,15 @@ gcloud iam workload-identity-pools providers create-oidc modal-<workspace> \
   --display-name="Modal NAPDA" \
   --issuer-uri="https://oidc.modal.com" \
   --allowed-audiences="oidc.modal.com" \
-  --attribute-mapping="google.subject=assertion.sub,attribute.workspace_id=assertion.workspace_id,attribute.app_name=assertion.app_name,attribute.environment_name=assertion.environment_name" \
+  --attribute-mapping="google.subject=assertion.workspace_id + ':' + assertion.container_id,attribute.workspace_id=assertion.workspace_id,attribute.app_name=assertion.app_name,attribute.environment_name=assertion.environment_name" \
   --attribute-condition="assertion.workspace_id == '<MODAL_WORKSPACE_ID>'"
+
+# 이미 assertion.sub 로 만든 기존 공급업체를 수정할 때:
+gcloud iam workload-identity-pools providers update-oidc modal-<workspace> \
+  --project="<GCP_PROJECT_ID>" \
+  --location="global" \
+  --workload-identity-pool="vercel-napda-pool" \
+  --attribute-mapping="google.subject=assertion.workspace_id + ':' + assertion.container_id,attribute.workspace_id=assertion.workspace_id,attribute.app_name=assertion.app_name,attribute.environment_name=assertion.environment_name"
 
 gcloud iam service-accounts add-iam-policy-binding \
   "napda-vercel-wif@<GCP_PROJECT_ID>.iam.gserviceaccount.com" \
@@ -335,3 +343,4 @@ const resp = await fetch(url, {
 | `IAM 403 iam.serviceAccounts.getAccessToken denied` | `workloadIdentityUser` 권한 바인딩(`subject` 또는 `workspace_id`) 누락, 또는 방금 추가한 정책 전파 중 | 풀에서 `+ 액세스 권한 부여`로 해당 `subject`/`workspace_id` 바인딩 확인 후 1~2분 뒤 재시도 |
 | `400 invalid_grant` / `iss` · `aud` 불일치 | Vercel OIDC Issuer Mode가 `Global`이거나 Modal 발급자/CEL 조건 불일치 | Vercel **Settings → Security → OIDC Federation**을 `Team`으로 설정; Modal Provider `iss=https://oidc.modal.com`, `aud=oidc.modal.com`, `workspace_id` 확인 |
 | `404 Publisher model ... not found` | 최신 Gemini 모델(`gemini-3.5-flash`, `gemini-4-hydrogen` 등)이 특정 리전(`us-central1`) 엔드포인트에 없음 | Vercel·Modal 환경변수 및 설정의 `GOOGLE_CLOUD_LOCATION`을 `global`로 지정 |
+| `invalid_request: The size of mapped attribute google.subject exceeds the 127 bytes limit` | Modal의 `assertion.sub` 전체 문자열이 GCP `google.subject` 상한(127바이트)을 초과 | GCP Provider 속성 매핑에서 `google.subject`를 `assertion.workspace_id + ':' + assertion.container_id`로 변경 |

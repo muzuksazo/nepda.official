@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
@@ -349,12 +350,52 @@ def _clean_caption_display(text: Any) -> str:
     return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
 
+def _resolve_ab_request(
+    settings: Settings,
+    body: GenerateScenariosRequest,
+    *,
+    user_id: str,
+    project_id: str,
+) -> Tuple[str, Dict[str, Any]]:
+    """Resolve per-request LLM provider & model override (explicit request > AB_CLAUDE_RATIO > settings default)."""
+    explicit_provider: Optional[str] = body.provider if "provider" in body.model_fields_set else None
+    explicit_model: Optional[str] = (body.model or "").strip() or None
+    if explicit_model and not explicit_provider:
+        explicit_provider = "google" if explicit_model.lower().startswith("gemini") else "anthropic"
+    if explicit_provider or explicit_model:
+        chosen = explicit_provider or body.provider
+        return chosen, {
+            "provider": explicit_provider,
+            "model": explicit_model,
+            "explicit": True,
+            "source": "request",
+        }
+    if settings.ab_claude_ratio is not None:
+        digest = hashlib.sha256(f"{settings.ab_salt}:{user_id}:{project_id}".encode("utf-8")).hexdigest()
+        bucket = int(digest[:8], 16) / 0xFFFFFFFF
+        ratio = max(0.0, min(1.0, float(settings.ab_claude_ratio)))
+        chosen = "anthropic" if bucket < ratio else "google"
+        return chosen, {
+            "provider": chosen,
+            "model": None,
+            "explicit": True,
+            "source": "ab_ratio",
+        }
+    return body.provider, {
+        "provider": None,
+        "model": None,
+        "explicit": False,
+        "source": "default",
+    }
+
+
 def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
     def _generate(project: Dict[str, Any], hook_types: List[str], provider: str) -> List[Dict[str, Any]]:
         product = project["product"]
         facts_md = _product_to_facts_md(product)
         manifest_entries = _load_track_a_manifest_entries(settings)
         tpl_entry = manifest_entries[0] if manifest_entries else None
+        model_override = str((project.get("_ab_override") or {}).get("model") or "").strip() or None
         scenarios: List[Dict[str, Any]] = []
         with httpx.Client(timeout=60.0) as client:
             for ht in hook_types:
@@ -394,6 +435,7 @@ def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
                         f"{settings.planner_base_url.rstrip('/')}/v1/plan",
                         json={
                             "provider": provider,
+                            **({"modelId": model_override} if model_override else {}),
                             "request": {
                                 "projectId": f"{project['project_id']}-{ht}",
                                 "productFacts": facts_md,
@@ -1222,10 +1264,20 @@ def build_projects_router(
         proj = _get_owned_project(project_id, user)
         target_types = list(dict.fromkeys(body.types or proj["selected_types"]))
         seen_ids = {s["scenario_id"] for s in project_store.list_scenarios(project_id)}
+        effective_provider, ab_override = _resolve_ab_request(
+            settings,
+            body,
+            user_id=user.user_id,
+            project_id=project_id,
+        )
         new_items: List[Dict[str, Any]] = []
         for _ in range(body.count):
             # 이번 요청에서 먼저 만든 것도 "이전 시나리오"로 넘겨, 여러 개를 뽑을 때 같은 소재가 반복되지 않게 한다
-            batch = gen_scenarios({**proj, "pending_scenarios": list(new_items)}, target_types, body.provider)
+            batch = gen_scenarios(
+                {**proj, "pending_scenarios": list(new_items), "_ab_override": ab_override},
+                target_types,
+                effective_provider,
+            )
             for item in batch:
                 cand = dict(item)
                 sid = str(cand.get("scenario_id") or f"scn_{cand.get('type', 'A')}_{uuid.uuid4().hex[:6]}")
