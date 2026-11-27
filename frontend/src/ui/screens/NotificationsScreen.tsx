@@ -116,7 +116,7 @@ export function NotificationsScreen({ items, status = 'ready', now, onBack, onOp
     return (
       <MobileScreen header={header}>
         <Stack gap={16} align="center" justify="center" style={{ flex: 1, textAlign: 'center', paddingBottom: 24 }}>
-          <Mascot src={brand.mascot.lying} width={150} />
+          <Mascot src={brand.mascot.lying} />
           <Stack gap={8} align="center">
             <h2 className="n-display">아직 조용해요</h2>
             <p className="n-muted">영상이 다 되면 여기서 바로 알려 드려요.</p>

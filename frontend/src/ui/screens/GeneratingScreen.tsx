@@ -159,7 +159,7 @@ export function GeneratingScreen({
     >
       <Stack gap={20} align="center" style={{ textAlign: 'center', paddingTop: 8 }}>
         <div className={`n-gen__mascot${isDone || isFailed ? '' : ' is-working'}`}>
-          <Mascot src={mascot} width={isDone || isFailed ? 150 : 170} />
+          <Mascot src={mascot} />
         </div>
         <Stack gap={6} align="center">
           <h2 className="n-display">{title}</h2>

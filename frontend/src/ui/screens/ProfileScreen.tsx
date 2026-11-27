@@ -138,7 +138,7 @@ export function ProfileScreen({
     body = (
       <>
         <Stack gap={16} align="center" justify="center" style={{ flex: 1, textAlign: 'center', padding: '24px 0' }}>
-          <Mascot src={brand.mascot.lying} width={150} />
+          <Mascot src={brand.mascot.lying} />
           <Stack gap={8} align="center">
             <h2 className="n-display">로그인이 풀렸어요</h2>
             <p className="n-muted">다시 로그인하면 만들던 영상이 그대로 있어요.</p>

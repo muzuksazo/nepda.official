@@ -158,7 +158,7 @@ export function HomeScreen({
     return (
       <MobileScreen header={header} footer={createButton} bottomNav={bottomNav}>
         <Stack gap={16} align="center" justify="center" style={{ flex: 1, textAlign: 'center', paddingBottom: 24 }}>
-          <Mascot src={brand.mascot.clapboard} width={140} />
+          <Mascot src={brand.mascot.clapboard} />
           <Stack gap={8} align="center">
             <h2 className="n-display">
               첫 광고, <span className="n-mark">냅다</span> 만들어 볼까요?
