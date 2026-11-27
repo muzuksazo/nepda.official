@@ -10,6 +10,7 @@ import { CommunityViewerScreen } from './CommunityViewerScreen';
 import { CreditChargeScreen } from './CreditChargeScreen';
 import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
+import { NotificationsScreen, type AppNotification } from './NotificationsScreen';
 import type { HookType } from './flowData';
 import { OnboardingScreen } from './OnboardingScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
@@ -24,6 +25,8 @@ import {
   SAMPLE_CREDITS_PER_VIDEO,
   SAMPLE_GUIDE_SCENES,
   SAMPLE_IN_PROGRESS,
+  SAMPLE_NOTIFICATIONS,
+  SAMPLE_NOW,
   SAMPLE_STORYBOARD,
   SAMPLE_THUMBNAIL_CAPTION,
   SAMPLE_THUMBNAIL_TEMPLATES,
@@ -52,7 +55,8 @@ type Step =
   | 'review'
   | 'thumbnail'
   | 'charge'
-  | 'chargeResult';
+  | 'chargeResult'
+  | 'notifications';
 
 /** 충전 화면으로 들어온 곳 (충전이 끝나면 여기로 돌아간다) */
 type ChargeFrom = 'home' | 'profile' | 'upload';
@@ -71,6 +75,22 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
   const [credits, setCredits] = useState(5);
   const [hasFreeVideo, setHasFreeVideo] = useState(true);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [notifications, setNotifications] = useState<AppNotification[]>(SAMPLE_NOTIFICATIONS);
+  // 알림을 누르면 읽음으로 바꾸고, 종류에 따라 그 화면으로 보낸다
+  const openNotification = (target: AppNotification) => {
+    setNotifications((prev) => prev.map((n) => (n.id === target.id ? { ...n, isRead: true } : n)));
+    if (target.kind === 'videoReady') setStep('thumbnail');
+    if (target.kind === 'videoFailed') setStep('upload');
+    if (target.kind === 'expiring') {
+      setMyTab('completed');
+      setStep('myVideos');
+    }
+    if (target.kind === 'creditCharged') setStep('profile');
+    if (target.kind === 'communityLike') {
+      setViewerId(target.targetId);
+      setStep('communityViewer');
+    }
+  };
   const [charge, setCharge] = useState<{ from: ChargeFrom; shortfall?: number; before: number; added: number; isDone: boolean }>({
     from: 'home',
     before: 0,
@@ -101,6 +121,8 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
         <HomeScreen
           credits={credits}
           onCreditClick={() => openCharge('home')}
+          unreadCount={notifications.filter((n) => !n.isRead).length}
+          onNotificationsClick={() => setStep('notifications')}
           profile={{ name: SAMPLE_USER.name }}
           onProfileClick={() => setStep('profile')}
           onNavigate={navigate}
@@ -254,6 +276,16 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
               setCharge((prev) => ({ ...prev, isDone: true }));
             }, 1500);
           }}
+        />
+      );
+    case 'notifications':
+      return (
+        <NotificationsScreen
+          items={notifications}
+          now={SAMPLE_NOW}
+          onBack={() => setStep('home')}
+          onOpen={openNotification}
+          onMarkAllRead={() => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
         />
       );
     case 'chargeResult':

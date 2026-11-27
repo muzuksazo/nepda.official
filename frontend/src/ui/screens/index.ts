@@ -11,6 +11,8 @@ export type { CompletedProject, HomeScreenProps, InProgressProject } from './Hom
 export { HookTypeScreen } from './HookTypeScreen';
 export { HOOK_TYPES, PRODUCT_CATEGORIES } from './flowData';
 export type { HookType } from './flowData';
+export { NotificationsScreen } from './NotificationsScreen';
+export type { AppNotification, NotificationKind, NotificationsScreenProps } from './NotificationsScreen';
 export { OnboardingScreen } from './OnboardingScreen';
 export { ProductInfoScreen } from './ProductInfoScreen';
 export { MyVideosScreen } from './MyVideosScreen';

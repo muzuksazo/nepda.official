@@ -171,7 +171,7 @@ export function ProfileScreen({
 
         {isLoading ? (
           <div className="n-card n-wallet n-wallet--loading" aria-hidden="true">
-            <SkeletonText widths={[28, 44, 72]} />
+            <SkeletonText widths={[28, 44]} />
           </div>
         ) : (
           <CreditBalanceCard credits={credits} hasFreeVideo={hasFreeVideo} onChargeClick={onChargeClick} />

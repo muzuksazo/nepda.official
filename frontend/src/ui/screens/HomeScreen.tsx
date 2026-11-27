@@ -47,6 +47,9 @@ export interface HomeScreenProps {
   /** 상단 크레딧 잔액 (못 불러왔으면 생략) */
   credits?: number;
   onCreditClick?: () => void;
+  /** 상단 알림 종: 안 읽은 알림 수 */
+  unreadCount?: number;
+  onNotificationsClick?: () => void;
   /** 상단 프로필 (사진이 없으면 닉네임 첫 글자) */
   profile?: { name?: string; imageUrl?: string };
   onProfileClick?: () => void;
@@ -67,6 +70,8 @@ export function HomeScreen({
   onBannerSelect,
   credits,
   onCreditClick,
+  unreadCount,
+  onNotificationsClick,
   profile,
   onProfileClick,
   onNavigate,
@@ -78,6 +83,8 @@ export function HomeScreen({
         <AppHeaderActions
           credits={credits}
           onCreditClick={onCreditClick}
+          unreadCount={unreadCount}
+          onNotificationsClick={onNotificationsClick}
           profile={profile}
           onProfileClick={onProfileClick}
         />

@@ -4,7 +4,7 @@ import { fn } from 'storybook/test';
 import { Bell, Download, FileText, Help, Logout, Play } from '../icons';
 import { brand } from '../brand';
 import { CreditBalanceCard, HookTypeCard, ProjectCard, StatTile, TimeEstimate, VideoTile } from './cards';
-import { AppHeaderActions, Avatar, BottomNav, CreditBadge, FlowHeader, ProfileButton, StepNumber, type NavTab } from './layout';
+import { AppHeaderActions, Avatar, BottomNav, CreditBadge, FlowHeader, NotificationButton, ProfileButton, StepNumber, type NavTab } from './layout';
 import { ListGroup, ListRow } from './list';
 import { Mascot, VideoFrame } from './media';
 import { ConfirmSheet } from './Sheet';
@@ -109,11 +109,24 @@ export const Credit: Story = {
 };
 
 export const HeaderActions: Story = {
-  name: '상단 GNB 묶음 · 프로필',
+  name: '상단 GNB 묶음 · 알림 · 프로필',
   render: () => (
     <>
       <div className="n-row" style={{ justifyContent: 'flex-end', paddingRight: 6 }}>
-        <AppHeaderActions credits={120} profile={{ name: '냅다사장' }} onCreditClick={fn()} onProfileClick={fn()} />
+        <AppHeaderActions
+          credits={120}
+          unreadCount={3}
+          profile={{ name: '냅다사장' }}
+          onCreditClick={fn()}
+          onNotificationsClick={fn()}
+          onProfileClick={fn()}
+        />
+      </div>
+      {/* 안 읽은 알림: 없음 · 1개 · 12개("9+") */}
+      <div className="n-row" style={{ gap: 8 }}>
+        <NotificationButton />
+        <NotificationButton unreadCount={1} />
+        <NotificationButton unreadCount={12} />
       </div>
       <div className="n-row" style={{ gap: 8 }}>
         <ProfileButton name="냅다사장" />

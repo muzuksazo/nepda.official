@@ -146,7 +146,6 @@ export interface CreditBalanceCardProps {
 export function CreditBalanceCard({ credits, hasFreeVideo, onChargeClick }: CreditBalanceCardProps) {
   const titleId = useId();
   const shownCredits = credits === undefined ? '—' : credits.toLocaleString('ko-KR');
-  const isOut = credits === 0 && !hasFreeVideo;
   return (
     <section className="n-card n-wallet" aria-labelledby={titleId}>
       <h2 id={titleId} className="n-wallet__label">
@@ -161,7 +160,6 @@ export function CreditBalanceCard({ credits, hasFreeVideo, onChargeClick }: Cred
         </p>
         <Button label="충전하기" size="md" onClick={onChargeClick} />
       </div>
-      <p className="n-wallet__hint">{isOut ? '크레딧이 없어요. 충전하면 바로 만들 수 있어요.' : '횟수 제한 없이, 충전한 만큼 만들 수 있어요.'}</p>
       {hasFreeVideo ? (
         <p className="n-wallet__free">
           <Badge tone="brand">무료</Badge>

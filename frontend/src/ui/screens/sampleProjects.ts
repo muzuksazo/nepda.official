@@ -22,6 +22,7 @@ import type { BannerItem, CreditPackage, ThumbnailTemplate } from '../components
 import type { CommunityVideo } from './CommunityScreen';
 import type { HookType } from './flowData';
 import type { CompletedProject, InProgressProject } from './HomeScreen';
+import type { AppNotification } from './NotificationsScreen';
 import type { ProfileUser } from './ProfileScreen';
 import type { GuideScene } from './ShootingGuideScreen';
 import type { StoryboardScene } from './StoryboardScreen';
@@ -91,6 +92,19 @@ export const SAMPLE_CREDIT_PACKAGES: CreditPackage[] = [
   { id: 'c30', credits: 30, price: 4900 },
   { id: 'c100', credits: 100, price: 12900, isPopular: true },
   { id: 'c300', credits: 300, price: 33000 },
+];
+
+/** 예시 알림의 기준 시각 (스토리에서 "3시간 전" 같은 표시를 고정한다) */
+export const SAMPLE_NOW = new Date('2026-11-26T15:00:00+09:00');
+
+/** 예시: 알림 (최신순). 알림 목록·읽음 API가 아직 없다 */
+export const SAMPLE_NOTIFICATIONS: AppNotification[] = [
+  { id: 'n1', kind: 'videoReady', title: '영상 나왔어요!', body: '실리콘 접이식 도마 · 훅 붙여서 완성했어요. 썸네일만 고르면 끝.', createdAt: '2026-11-26T14:52:00+09:00', isRead: false, targetId: 'p1' },
+  { id: 'n2', kind: 'communityLike', title: '도마왕님 외 23명이 좋아해요', body: '"이 도마, 미쳤다" 영상', createdAt: '2026-11-26T12:10:00+09:00', isRead: false, targetId: 'v01' },
+  { id: 'n3', kind: 'creditCharged', title: '100 크레딧 충전 완료', body: '이제 영상 8편쯤 만들 수 있어요.', createdAt: '2026-11-26T09:30:00+09:00', isRead: false },
+  { id: 'n4', kind: 'expiring', title: '내일 지워져요', body: '무선 미니 가습기 영상, 보관 7일이 거의 끝났어요. 내려받아 두세요.', createdAt: '2026-11-25T18:00:00+09:00', isRead: true, targetId: 'c2' },
+  { id: 'n5', kind: 'videoFailed', title: '영상을 못 만들었어요', body: '스테인리스 텀블러 · 쓴 크레딧 12는 돌려드렸어요. 다시 해 볼까요?', createdAt: '2026-11-23T11:20:00+09:00', isRead: true, targetId: 'p3' },
+  { id: 'n6', kind: 'notice', title: '첫 영상은 무료로 냅다!', body: '가입하면 영상 한 편을 무료로 만들 수 있어요.', createdAt: '2026-11-12T10:00:00+09:00', isRead: true },
 ];
 
 /** 예시: 내 정보 (GET /v1/auth/me) */

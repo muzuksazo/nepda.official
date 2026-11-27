@@ -1191,6 +1191,54 @@ textarea.n-input {
   outline-offset: 0;
 }
 
+/* 상단 GNB 알림 종: 44px 누르는 자리, 안 읽은 알림이 있으면 오른쪽 위 라임 숫자 점 */
+.n-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-bell:hover {
+  background: var(--surface-weak);
+}
+
+.n-bell:active svg {
+  transform: scale(0.92);
+}
+
+.n-bell:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 0;
+}
+
+/* 라임 점은 흰 바탕과 대비가 낮아 라이트에서는 검정 외곽선을 두르고, 종과는 바탕색 2px 틈으로 떼어 둔다 */
+.n-bell__count {
+  position: absolute;
+  top: 6px;
+  right: 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1.5px solid var(--accent-edge);
+  border-radius: var(--radius-full);
+  background: var(--accent-fill);
+  box-shadow: 0 0 0 2px var(--bg);
+  color: var(--on-accent-fill);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+}
+
 /* 상단 GNB 크레딧 잔액: 회색 알약 + 작은 라임 번개 원(라임은 이 원에만) */
 .n-credit {
   position: relative;
@@ -1645,7 +1693,7 @@ button.n-list-row:active {
 
 /* 불러오는 중에도 실제 카드와 같은 높이를 잡아 둬서, 내용이 들어올 때 아래가 밀리지 않는다 */
 .n-wallet--loading {
-  min-height: 133px;
+  min-height: 104px;
 }
 
 .n-wallet__label {
@@ -1960,6 +2008,134 @@ button.n-list-row:active {
   50% {
     opacity: 0.4;
   }
+}
+
+/* ---------- 알림 ---------- */
+.n-noti-group + .n-noti-group {
+  margin-top: 8px;
+}
+
+.n-noti-group__title {
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  color: var(--text-3);
+}
+
+.n-noti-list {
+  display: flex;
+  flex-direction: column;
+  /* 한 줄 전체가 눌리는 자리라 화면 좌우 여백까지 넓힌다 */
+  margin-inline: -20px;
+}
+
+.n-noti {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 14px 20px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+button.n-noti:hover {
+  background: var(--bg-weak);
+}
+
+button.n-noti:active {
+  background: var(--surface-weak);
+}
+
+button.n-noti:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* 안 읽은 알림: 옅은 종이 톤 면 + 오른쪽 라임 점 + 굵은 제목 (라임 면이 여러 줄 이어지지 않게) */
+.n-noti.is-unread {
+  background: var(--bg-weak);
+}
+
+.n-noti__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--surface-weak);
+  color: var(--text-2);
+}
+
+/* 영상 완성만 라임 틴트 원으로 살짝 구분한다 (기다리던 소식) */
+.n-noti__icon--videoReady {
+  background: var(--tint);
+  color: var(--on-tint);
+}
+
+.n-noti__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-noti__title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.n-noti.is-unread .n-noti__title {
+  font-weight: 800;
+}
+
+.n-noti__body {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-2);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.n-noti__time {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-3);
+}
+
+.n-noti__dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border: 1.5px solid var(--accent-edge);
+  border-radius: 50%;
+  background: var(--accent-fill);
+}
+
+.n-noti--skeleton {
+  cursor: default;
+}
+
+.n-noti__bar {
+  display: block;
+  height: 14px;
+  margin-block: 4px;
+  border-radius: var(--radius-sm);
 }
 
 /* ---------- 숫자 타일 ---------- */

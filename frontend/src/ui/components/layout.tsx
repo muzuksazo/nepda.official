@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Folder, Home, Lightning, User, Users, type IconProps } from '../icons';
+import { Bell, ChevronLeft, ChevronRight, Folder, Home, Lightning, User, Users, type IconProps } from '../icons';
 import { brand } from '../brand';
 import { IconButton, ProgressBar } from './primitives';
 
@@ -151,18 +151,55 @@ export function ProfileButton({ name, imageUrl, onClick }: ProfileButtonProps) {
   );
 }
 
+export interface NotificationButtonProps {
+  /** 안 읽은 알림 수. 0이면 표시 없음, 10개부터는 "9+" */
+  unreadCount?: number;
+  onClick?: () => void;
+}
+
+/** 상단 GNB 알림 종: 안 읽은 알림이 있으면 오른쪽 위에 숫자 점이 붙는다 */
+export function NotificationButton({ unreadCount = 0, onClick }: NotificationButtonProps) {
+  const shown = unreadCount > 9 ? '9+' : String(unreadCount);
+  return (
+    <button
+      type="button"
+      className="n-bell"
+      onClick={onClick}
+      aria-label={unreadCount > 0 ? `알림, 안 읽은 알림 ${unreadCount}개` : '알림'}
+    >
+      <Bell size={24} aria-hidden="true" />
+      {unreadCount > 0 ? (
+        <span className="n-bell__count n-num" aria-hidden="true">
+          {shown}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 export interface AppHeaderActionsProps {
   credits?: number;
   onCreditClick?: () => void;
+  /** 안 읽은 알림 수 */
+  unreadCount?: number;
+  onNotificationsClick?: () => void;
   profile?: { name?: string; imageUrl?: string };
   onProfileClick?: () => void;
 }
 
-/** 홈 상단 오른쪽 묶음: 크레딧 · 프로필 */
-export function AppHeaderActions({ credits, onCreditClick, profile, onProfileClick }: AppHeaderActionsProps) {
+/** 홈 상단 오른쪽 묶음: 크레딧 · 알림 · 프로필 */
+export function AppHeaderActions({
+  credits,
+  onCreditClick,
+  unreadCount,
+  onNotificationsClick,
+  profile,
+  onProfileClick,
+}: AppHeaderActionsProps) {
   return (
     <div className="n-header-actions">
       <CreditBadge credits={credits} onClick={onCreditClick} />
+      <NotificationButton unreadCount={unreadCount} onClick={onNotificationsClick} />
       <ProfileButton name={profile?.name} imageUrl={profile?.imageUrl} onClick={onProfileClick} />
     </div>
   );
@@ -237,18 +274,21 @@ export interface PageHeaderProps {
   title: string;
   count?: number;
   onBack?: () => void;
+  /** 오른쪽 끝 행동 (예: "모두 읽음") */
+  endContent?: ReactNode;
   /** 탭 최상위 화면(하단 내비게이션으로 들어온 화면)은 뒤로 버튼 없이 제목만 */
   isTabRoot?: boolean;
 }
 
 /** 일반 페이지 상단: 뒤로 · 제목 · 개수 (진행 막대 없음) */
-export function PageHeader({ title, count, onBack, isTabRoot }: PageHeaderProps) {
+export function PageHeader({ title, count, onBack, isTabRoot, endContent }: PageHeaderProps) {
   return (
     <header className={`n-flow-header${isTabRoot ? ' n-flow-header--root' : ''}`}>
       <div className="n-row" style={{ gap: 4, minHeight: 44 }}>
         {isTabRoot ? null : <IconButton label="이전" icon={<ChevronLeft size={26} />} onClick={onBack} />}
         <h1 className="n-title">{title}</h1>
         {count !== undefined ? <span className="n-title n-muted" style={{ marginLeft: 4 }}>{count}</span> : null}
+        {endContent ? <div style={{ marginLeft: 'auto' }}>{endContent}</div> : null}
       </div>
     </header>
   );

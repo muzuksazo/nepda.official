@@ -11,6 +11,7 @@ import type { HookType as HookKind } from './flowData';
 import { CommunityViewerScreen } from './CommunityViewerScreen';
 import { HomeScreen } from './HomeScreen';
 import { HookTypeScreen } from './HookTypeScreen';
+import { NotificationsScreen } from './NotificationsScreen';
 import { OnboardingScreen } from './OnboardingScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
 import { ProfileScreen, type ProfileScreenProps } from './ProfileScreen';
@@ -24,6 +25,8 @@ import {
   SAMPLE_CREDITS_PER_VIDEO,
   SAMPLE_GUIDE_SCENES,
   SAMPLE_IN_PROGRESS,
+  SAMPLE_NOTIFICATIONS,
+  SAMPLE_NOW,
   SAMPLE_STORYBOARD,
   SAMPLE_THUMBNAIL_CAPTION,
   SAMPLE_THUMBNAIL_TEMPLATES,
@@ -64,11 +67,47 @@ export const Home: Story = {
       onSeeAllCompleted={fn()}
       credits={120}
       onCreditClick={fn()}
+      unreadCount={SAMPLE_NOTIFICATIONS.filter((n) => !n.isRead).length}
+      onNotificationsClick={fn()}
       profile={{ name: '냅다사장' }}
       onProfileClick={fn()}
       onNavigate={fn()}
     />
   ),
+};
+
+/** 알림 화면 스토리들이 함께 쓰는 기준 시각·콜백 */
+const notificationArgs = { now: SAMPLE_NOW, onBack: fn(), onOpen: fn(), onMarkAllRead: fn() };
+
+export const Notifications: Story = {
+  name: '알림',
+  render: function Render() {
+    // 눌러 보면 읽음으로 바뀌고, "모두 읽음"이 동작한다
+    const [items, setItems] = useState(SAMPLE_NOTIFICATIONS);
+    return (
+      <NotificationsScreen
+        {...notificationArgs}
+        items={items}
+        onOpen={(target) => setItems((prev) => prev.map((n) => (n.id === target.id ? { ...n, isRead: true } : n)))}
+        onMarkAllRead={() => setItems((prev) => prev.map((n) => ({ ...n, isRead: true })))}
+      />
+    );
+  },
+};
+
+export const NotificationsAllRead: Story = {
+  name: '알림 · 모두 읽음',
+  render: () => <NotificationsScreen {...notificationArgs} items={SAMPLE_NOTIFICATIONS.map((n) => ({ ...n, isRead: true }))} />,
+};
+
+export const NotificationsEmpty: Story = {
+  name: '알림 · 없음',
+  render: () => <NotificationsScreen {...notificationArgs} items={[]} />,
+};
+
+export const NotificationsLoading: Story = {
+  name: '알림 · 불러오는 중',
+  render: () => <NotificationsScreen {...notificationArgs} items={[]} status="loading" />,
 };
 
 export const MyVideos: Story = {
