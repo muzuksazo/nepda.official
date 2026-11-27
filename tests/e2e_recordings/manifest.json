@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-11-28",
-  "commit": "942b9b8",
+  "commit": "c11b5c0",
   "repoUrl": "https://github.com/muzuksazo/nepda.official",
   "planDocPath": "tests/E2E_TEST_PLAN.md",
   "overviewImage": "./recordings/e2e_features_overview.png",
@@ -294,12 +294,22 @@
       "title": "실서버 Paddle Sandbox 테스트 카드 결제 E2E",
       "owner": "me",
       "env": "live",
-      "status": "todo",
+      "status": "pass",
       "fr": "FR-006",
-      "expectedVideo": "10_live_paddle_checkout.mp4",
+      "durationSec": 9.2,
+      "sizeKb": 132,
+      "video": "./recordings/10_live_paddle_checkout.mp4",
+      "poster": "./recordings/shots/10_live_paddle_checkout/03_live_paddle_paid.webp",
+      "screenshots": [
+        { "label": "실서버 크레딧 충전 (0)", "src": "./recordings/shots/10_live_paddle_checkout/01_live_charge_screen.webp" },
+        { "label": "Paddle Sandbox 테스트 카드", "src": "./recordings/shots/10_live_paddle_checkout/02_live_paddle_sandbox.webp" },
+        { "label": "Paddle Sandbox 결제 완료", "src": "./recordings/shots/10_live_paddle_checkout/03_live_paddle_paid.webp" },
+        { "label": "실서버 잔액 +100 적립", "src": "./recordings/shots/10_live_paddle_checkout/04_live_credits_credited.webp" }
+      ],
       "checks": [
-        "실계정 로그인 상태에서 테스트 카드로 결제 완료 후 실웹훅/잔액 증가 확인",
-        "실서버 환경 변수 대기(Blocker): frontend/vercel.json 리라이트 대상(dltldn333--napda-backend-api.modal.run)의 Modal Secret(napda-backend)에 PADDLE_* 환경변수 미설정 → GET /v1/billing/config enabled:false(client_token/paddle_price_id null) · POST /v1/billing/checkout HTTP 503"
+        "Modal Secret(napda-backend)에 Paddle Sandbox 7종 환경변수 추가 후 GET https://napda.vercel.app/v1/billing/config enabled:true(sandbox, c30/c100/c300) 확인",
+        "실계정 로그인(잔액 0) 상태에서 c100(12,900원) 선택 → POST /v1/billing/checkout 200 → Paddle Sandbox(Test Mode) 공식 테스트 카드(4242…) 결제 성공 확인 (432×932, 개인 이메일 마스킹 적용)",
+        "실결제 완료 후 https://napda.vercel.app 홈 헤더 및 GET /v1/billing/wallet 잔액 0 → 100 크레딧 실시간 적립 확인"
       ]
     },
     {
