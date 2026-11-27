@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     max_video_credits_per_job: int = 180
     poll_interval_sec: float = 5.0
     video_timeout_sec: float = 600.0
+    # Gemini 요청 하나의 최대 대기 시간 (초). 응답 없는 호출이 작업 전체를 멈추지 않게 한다
+    genai_request_timeout_sec: float = 180.0
 
     # Local filesystem paths & object storage
     work_root: str = str(_DEFAULT_DATA_ROOT / "jobs")
