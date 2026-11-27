@@ -44,7 +44,7 @@ SHOT_PLAN = [
 ]
 SHOT_PRODUCT = "hero close-up of the product filling the middle of the frame, eye level, clean background"
 # 뒤에 둔 Secret 이 같은 이름을 덮는다: 이 실행에서만 글 모델을 Claude 로
-_override = {"HOOK_WORKER_LLM": "claude-opus-5-5"}
+_override = {"HOOK_WORKER_LLM": "claude-opus-5-5", "BODY_LLM": "claude-opus-5-5"}
 # STILL_GEMINI_VIA=apikey: Gemini 를 Vertex(WIF) 대신 AI Studio 키로 부른다 (모델 이름이 Vertex 에 없을 때 비교용)
 import os as _os
 
@@ -157,36 +157,34 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
             t1 = time.time()
             with ThreadPoolExecutor(max_workers=12, thread_name_prefix="caption") as pool:
                 flux_mode = engine == "flux"
-                ref_cap = pool.submit(to_flux_caption, reference_image_prompt(scenario), provider=captioner,
-                                      settings=settings) if flux_mode else None
                 caps = {i: pool.submit(to_flux_caption, spec, provider=captioner, settings=settings)
                         for i, _, spec in plans_} if flux_mode else {}
                 # 영상(MiniMax)용 움직임 묘사: 영어만, 글자를 부르는 말 없이 (Claude)
                 motions = {i: pool.submit(motion_prompt_for_video, spec) for i, _, spec in plans_} if flux_mode else {}
-                # 그림은 켜진 GPU 한 대에서 순서대로 (동시에 부르면 GPU 를 새로 켜서 더 느리고 비싸다)
-                try:
-                    ref = still(reference_image_prompt(scenario), [], captioner, "ref", caption=ref_cap)
-                except Exception as exc:
-                    note(f"[{hook_type}/{captioner}] 대표 컷 실패: {exc}")
-                    continue
-                out["stills"].append({"type": hook_type, "captioner": captioner, "name": "ref", **ref})
+                # 그림은 켜진 GPU 한 대에서 순서대로 (동시에 부르면 GPU 를 새로 켜서 더 느리고 비싸다).
+                # 대표 컷을 따로 만들지 않고 장면 1 을 먼저 그려 나머지 장면의 참고로 쓴다: 이야기에 특정 인물이 없을 때
+                # 대표 컷이 캐릭터를 지어내 장면마다 끼어들었다 (2026-11-28)
+                first = None
                 for i, use_product, spec in plans_:
+                    refs_for = product_refs if use_product else ([first] if first else [])
                     try:
-                        st = still(spec, product_refs if use_product else [ref["png"]], captioner, f"beat{i}",
-                                   style_ref=not use_product, caption=caps.get(i))
+                        st = still(spec, refs_for, captioner, f"beat{i}", style_ref=bool(first) and not use_product,
+                                   caption=caps.get(i))
                         st["motion"] = motions[i].result() if i in motions else ""
                     except Exception as exc:
                         note(f"[{hook_type}/{captioner}] 장면 {i} 실패: {exc}")
                         continue
+                    if first is None and not use_product:
+                        first = st["png"]
                     out["stills"].append({"type": hook_type, "captioner": captioner, "name": f"beat{i}",
                                           "product": use_product, "spec": spec, **st})
-            note(f"[{hook_type}/{captioner}] 스틸컷 {1 + len(beats)}장 완료 {time.time() - t1:.0f}초")
+            note(f"[{hook_type}/{captioner}] 스틸컷 {len(beats)}장 완료 {time.time() - t1:.0f}초")
     return out
 
 
 # 조립은 1080x1920 인코딩이 대부분이라 CPU 를 늘린다 (2코어에서 2분 걸렸다)
 @app.function(image=image, secrets=[modal.Secret.from_name("napda-backend"), override], cpu=8.0, memory=8192, timeout=1800)
-def assemble(scenario: dict, product: dict, clips: dict) -> dict:
+def assemble(scenario: dict, product: dict, clips: dict, footage: dict | None = None) -> dict:
     """장면별 클립(이미 만든 것)으로 훅 조립: 나레이션 TTS + 자막 + 소리 맞춤. 영상 모델은 부르지 않는다."""
     import sys as _sys
 
@@ -215,7 +213,32 @@ def assemble(scenario: dict, product: dict, clips: dict) -> dict:
     result = render_hook(sc, product, work / "out", provider=provider, settings=settings, tts_enabled=True,
                          resolve_asset=lambda ref: work / ref)
     out_dir = work / "out"
+    final_bytes, body_sec, body_warn = None, None, []
+    if footage:
+        # 공용 본편: 촬영본 → Claude 가 컷·대사를 골라 약 10초 (서버 _shared_body 와 같은 make_body), 훅 뒤에 붙인다
+        from hookpipe.body import attach_body
+        from hookpipe.body_edit import make_body
+        from hookpipe.media import find_tools
+        from hookpipe.render import _subtitle_style
+
+        tools = find_tools()
+        shots = []
+        for name, data in sorted(footage.items()):
+            shots.append(work / "footage" / name)
+            shots[-1].parent.mkdir(exist_ok=True)
+            shots[-1].write_bytes(data)
+        tb = time.time()
+        made = make_body(shots, product, work / "body", provider=provider, settings=settings, tools=tools,
+                         subtitle_style=_subtitle_style())
+        joined = attach_body(out_dir / "hook.mp4", [made.video], work / "final.mp4", tools=tools,
+                             limit_sec=float(settings.body_max_sec), hook_srt=out_dir / "hook.srt", body_srt=made.srt)
+        final_bytes = (work / "final.mp4").read_bytes()
+        body_sec, body_warn = made.duration_sec, list(made.warnings or [])
+        print(f"[본편] {made.duration_sec}초 {time.time() - tb:.0f}초", flush=True)
     return {
+        "final_mp4": final_bytes,
+        "body_sec": body_sec,
+        "body_warnings": body_warn,
         "hook_mp4": (out_dir / "hook.mp4").read_bytes(),
         "srt": (out_dir / "hook.srt").read_text(encoding="utf-8") if (out_dir / "hook.srt").exists() else "",
         "seconds": round(time.time() - t, 1),

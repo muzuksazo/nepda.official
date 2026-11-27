@@ -41,6 +41,7 @@ def main() -> None:
     ap.add_argument("--ref", action="append", default=[])
     ap.add_argument("--scenario", help="저장된 cycle.json 의 시나리오 재사용")
     ap.add_argument("--steps", type=int, default=8, help="MiniMax 단계 수 (8 이하면 터보 LoRA)")
+    ap.add_argument("--footage", action="append", default=[], help="촬영본 (주면 공용 본편 약 10초를 훅 뒤에 붙인다)")
     args = ap.parse_args()
 
     import modal
@@ -103,8 +104,12 @@ def main() -> None:
     # 4) 나레이션·자막 조립 (서버 훅 조립 코드)
     t2 = time.time()
     with still_cycle.app.run():
-        hook = still_cycle.assemble.remote(scenario, product, clips)
+        footage = {Path(p).name: Path(p).read_bytes() for p in args.footage} or None
+        hook = still_cycle.assemble.remote(scenario, product, clips, footage)
     (out / "hook.mp4").write_bytes(hook["hook_mp4"])
+    if hook.get("final_mp4"):
+        (out / "final.mp4").write_bytes(hook["final_mp4"])
+        print(f"[본편] {hook['body_sec']}초 붙임 → final.mp4, 경고={hook['body_warnings']}", flush=True)
     (out / "hook.srt").write_text(hook["srt"], encoding="utf-8")
     t_asm = time.time() - t2
     print(f"[조립] {hook['duration']}초짜리 훅, {t_asm:.0f}초, 경고={hook['warnings']}", flush=True)
