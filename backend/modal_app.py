@@ -25,6 +25,8 @@ image = modal.Image.from_dockerfile(ROOT / "backend" / "Dockerfile", context_dir
         "HOOK_ASSETS_DIR": "/app/data/hook_assets",
         # 콘티·장면 클립을 자체 모델(FLUX·MiniMax, 같은 워크스페이스 Modal 앱)로 만든다
         "HOOK_MEDIA_ENGINE": "selfhosted",
+        # 크레딧 정책이 정해지기 전까지 렌더 무료 (결제 연결 뒤 이 줄을 뺀다)
+        "CREDITS_PER_VIDEO": "0",
     }
 )
 data = modal.Volume.from_name("napda-data", create_if_missing=True)
