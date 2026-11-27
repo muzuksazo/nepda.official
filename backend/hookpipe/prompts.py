@@ -72,6 +72,17 @@ def product_beat_orders(scenario: Dict[str, Any]) -> List[int]:
     return [orders[-1]]
 
 
+_INSIDE_RE = re.compile(r"(내부\s*)?(단면도?|절개|해부)(\s*시각화)?|cross[- ]?section|cutaway|anatom\w*", re.IGNORECASE)
+_OUTSIDE_RULE = "Show everything from the outside: no cutaway, cross-section, x-ray or anatomical interior view."
+
+
+def soften_prompt(prompt: str) -> str:
+    """영상 모델이 거절한 장면용: 몸속 단면·해부 묘사를 바깥에서 본 장면으로 바꾼다. 바꿀 것이 없으면 그대로."""
+    if not _INSIDE_RE.search(prompt):
+        return prompt
+    return _INSIDE_RE.sub("바깥에서 본 모습", prompt) + "\n" + _OUTSIDE_RULE
+
+
 def _story(scenario: Dict[str, Any]) -> str:
     spec = scenario.get("ad_spec") or {}
     return str(spec.get("story_seed") or scenario.get("hook_title") or "")

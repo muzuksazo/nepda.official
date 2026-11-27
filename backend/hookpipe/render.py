@@ -41,11 +41,14 @@ from .media import (
     probe,
     run_ffmpeg,
 )
-from .prompts import beat_prompt, ordered_beats, product_beat_orders, reference_image_prompt
+from .prompts import beat_prompt, ordered_beats, product_beat_orders, reference_image_prompt, soften_prompt
 
 logger = logging.getLogger("hookpipe.render")
 
 MIN_CLIP_SEC, MAX_CLIP_SEC = 3, 15
+# 영상 모델에 보내는 참고 이미지 규격: 긴 변 1280 이하 JPEG.
+# 이미지 모델이 준 768x1376 원본을 그대로 붙이면 INVALID_ARGUMENT 로 거절된 일이 있었다 (2026-11-27 실측).
+REF_SCALE = "scale='if(gt(iw,ih),1280,-2)':'if(gt(iw,ih),-2,1280)'"
 NARRATION_TAIL_SEC = 0.15  # 나레이션이 끝난 뒤 다음 장면으로 넘어가기 전 숨 고르는 시간
 HOLD_MAX_SEC = 1.0  # 이보다 짧고 나레이션이 없는 장면은 클립을 사지 않고 앞 장면의 마지막 화면을 멈춰 둔다
 NORMAL_TEMPO_MAX = 1.3
@@ -136,7 +139,7 @@ def extract_reference_frames(
             run_ffmpeg(
                 tools,
                 ["-ss", f"{info.duration * spot:.3f}", "-i", str(video), "-frames:v", "1",
-                 "-vf", "scale=-2:1280", "-q:v", "3", str(target)],
+                 "-vf", REF_SCALE, "-q:v", "3", str(target)],
                 timeout=120.0,
             )
         except MediaError as exc:
@@ -145,6 +148,19 @@ def extract_reference_frames(
         if target.is_file() and target.stat().st_size > 0:
             frames.append(target)
     return frames
+
+
+def _normalize_reference(source: Path, tools: MediaTools) -> Path:
+    """참고 이미지를 긴 변 1280 이하 JPEG 으로 다시 저장한다. 실패하면 원본을 그대로 쓴다."""
+    target = source.with_name(f"{source.stem}_ref.jpg")
+    if _ready(target):
+        return target
+    try:
+        run_ffmpeg(tools, ["-i", str(source), "-vf", REF_SCALE, "-q:v", "3", str(target)], timeout=60.0)
+    except MediaError as exc:
+        logger.warning("참고 이미지 규격 맞추기 실패, 원본을 씁니다: %s", exc)
+        return source
+    return target if _ready(target) else source
 
 
 def _digest(*parts: Any) -> str:
@@ -486,7 +502,7 @@ def render_hook(
             if not _ready(candidate):
                 provider.generate_reference_image(ref_prompt, candidate, aspect_ratio="9:16", mime_type="image/jpeg")
             if _ready(candidate):
-                style_ref = candidate
+                style_ref = _normalize_reference(candidate, media)
         except Exception as exc:  # 참고 이미지는 품질 보조라, 실패해도 클립 생성은 계속한다
             warnings.append(f"톤 참고 이미지를 만들지 못해 참고 이미지 없이 진행했습니다: {exc}")
 
@@ -519,14 +535,35 @@ def render_hook(
         if _ready(clip):
             plan.reused.append("clip")
         else:
-            provider.generate_video_clip(
-                plan.prompt,
-                clip,
-                aspect_ratio="9:16",
-                duration_sec=plan.clip_sec,
-                resolution=resolution,
-                reference_paths=reference_paths,
-            )
+            # 영상 모델이 INVALID_ARGUMENT 로 거절하면 (실패한 요청은 과금되지 않음) 조건을 낮춰 다시 보낸다:
+            #   1) 그대로  2) 참고 이미지 없이  3) 단면·해부 묘사를 바깥에서 본 장면으로 바꿔서
+            # 2026-11-27 실측: 참고 이미지 원본 크기, '고래 입안 … 단면 시각화' 장면이 각각 거절됐다.
+            attempts = [("", plan.prompt, reference_paths)]
+            if reference_paths:
+                attempts.append(("retried_without_reference", plan.prompt, []))
+            softened = soften_prompt(plan.prompt)
+            if softened != plan.prompt:
+                attempts.append(("retried_outside_view", softened, []))
+            for position, (tag, prompt_text, refs_to_send) in enumerate(attempts):
+                try:
+                    provider.generate_video_clip(
+                        prompt_text,
+                        clip,
+                        aspect_ratio="9:16",
+                        duration_sec=plan.clip_sec,
+                        resolution=resolution,
+                        reference_paths=refs_to_send,
+                    )
+                except Exception as exc:
+                    if "INVALID_ARGUMENT" not in str(exc) or position == len(attempts) - 1:
+                        raise
+                    continue
+                if tag:
+                    plan.reused.append(tag)
+                    plan.prompt = prompt_text
+                    what = "참고 이미지 없이" if tag == "retried_without_reference" else "단면 묘사를 바깥 장면으로 바꿔"
+                    warnings.append(f"장면 {plan.order}: 영상 모델이 요청을 거절해 {what} 다시 만들었습니다.")
+                break
         info = probe(media, clip)
         if not info.has_video or info.duration <= 0:
             raise HookRenderError(f"장면 {plan.order} 클립에 영상이 없습니다.")

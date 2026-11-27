@@ -130,6 +130,15 @@ class BodyAndPromptRules(unittest.TestCase):
         self.assertIn("THIS SHOT (1/3): 바닷속 문어 한 마리", prompt)
         self.assertNotIn("포커스", prompt)
 
+    def test_soften_prompt_replaces_cross_sections_only_when_present(self) -> None:
+        from hookpipe.prompts import soften_prompt
+
+        soft = soften_prompt("THIS SHOT: 고래 입안의 빗살 사이로 물이 나가는 단면 시각화")
+        self.assertNotIn("단면", soft)
+        self.assertIn("no cutaway", soft)
+        self.assertEqual(soften_prompt("THIS SHOT: 바닷속 고래"), "THIS SHOT: 바닷속 고래")
+        self.assertNotIn("cutaway", soften_prompt("style: blender_3d_cutaway").split("\n")[0])
+
     def test_only_scenarios_without_a_timeline_use_hookpipe(self) -> None:
         self.assertTrue(is_worker_scenario(worker_scenario()))
         legacy = worker_scenario()

@@ -69,6 +69,7 @@ class RenderHook(unittest.TestCase):
             self.assertEqual([c["duration_sec"] for c in provider.video_calls], [3, 3, 3])
             self.assertEqual(provider.video_calls[2]["reference_paths"], [str(p) for p in refs])
             self.assertTrue(Path(provider.video_calls[0]["reference_paths"][0]).name.startswith("style_"))
+            self.assertTrue(Path(provider.video_calls[0]["reference_paths"][0]).name.endswith("_ref.jpg"))
             self.assertTrue(result.captions_burned)
             self.assertEqual({c["voice"] for c in provider.tts_calls}, {"Kore"})
             srt = (out / "hook.srt").read_text(encoding="utf-8")
@@ -192,6 +193,45 @@ class RenderHook(unittest.TestCase):
                     render_hook(broken, PRODUCT, root / "bad", provider=fresh, settings=_settings(),
                                 tools=TOOLS, resolve_asset=resolve)
                 self.assertEqual((fresh.tts_calls, fresh.image_calls, fresh.video_calls), ([], [], []), bad)
+
+    def test_clip_rejected_with_reference_is_retried_once_without_it(self) -> None:
+        with temporary_directory() as td:
+            provider = FakeMediaProvider(TOOLS)
+            real_clip = provider.generate_video_clip
+
+            def picky(prompt: str, out_path: Any, **kwargs: Any) -> None:
+                if kwargs.get("reference_paths"):
+                    provider.video_calls.append({"rejected": True, **kwargs})
+                    raise RuntimeError("ended with status='failed', errors=[Error(code='INVALID_ARGUMENT')]")
+                real_clip(prompt, out_path, **kwargs)
+
+            provider.generate_video_clip = picky  # type: ignore[method-assign]
+            result = render_hook(worker_scenario("A"), PRODUCT, Path(td) / "hook", provider=provider,
+                                 settings=_settings(), tools=TOOLS)
+            self.assertTrue(all("retried_without_reference" in b["reused"] for b in result.beats))
+
+            # 참고 이미지 없이도 거절되는 단면 장면은 바깥에서 본 장면으로 바꿔 한 번 더 보낸다
+            fresh = FakeMediaProvider(TOOLS)
+            plain = fresh.generate_video_clip
+
+            def no_cross_sections(prompt: str, out_path: Any, **kwargs: Any) -> None:
+                if "단면" in prompt:
+                    fresh.video_calls.append({"rejected": True})
+                    raise RuntimeError("errors=[Error(code='INVALID_ARGUMENT')]")
+                plain(prompt, out_path, **kwargs)
+
+            fresh.generate_video_clip = no_cross_sections  # type: ignore[method-assign]
+            cut = worker_scenario("B")
+            cut["beats"][1]["visual"] = "심장 세 개가 뛰는 단면 시각화"
+            again = render_hook(cut, PRODUCT, Path(td) / "cut", provider=fresh, settings=_settings(), tools=TOOLS)
+            self.assertIn("retried_outside_view", again.beats[1]["reused"])
+            self.assertNotIn("단면", again.beats[1]["prompt"])
+            self.assertEqual(sum(1 for c in fresh.video_calls if c.get("rejected")), 2)
+            self.assertEqual(sum(1 for c in provider.video_calls if c.get("rejected")), 3)
+            self.assertTrue(any("참고 이미지 없이" in w for w in result.warnings))
+            # 참고 이미지는 긴 변 1280 이하 JPEG 으로 다시 저장해서 보낸다
+            sent = [c["reference_paths"][0] for c in provider.video_calls if c.get("rejected")]
+            self.assertTrue(all(Path(p).name.endswith("_ref.jpg") for p in sent), sent)
 
     def test_rerender_buys_only_what_changed(self) -> None:
         with temporary_directory() as td:
