@@ -166,6 +166,27 @@ def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
         return _mark_violation(_read_json(out_path, "A"), proc)
 
 
+def _worker_vertex_env(settings: Any) -> Dict[str, str]:
+    """Settings(또는 .env)의 Vertex AI / WIF 설정을 Node 작업자 하위 프로세스에 넘긴다."""
+    extra: Dict[str, str] = {}
+    if getattr(settings, "google_genai_use_vertexai", False) and not os.environ.get("GOOGLE_GENAI_USE_VERTEXAI"):
+        extra["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
+    mappings = (
+        ("google_cloud_project", "GOOGLE_CLOUD_PROJECT"),
+        ("google_cloud_location", "GOOGLE_CLOUD_LOCATION"),
+        ("gcp_workload_identity_provider", "GCP_WORKLOAD_IDENTITY_PROVIDER"),
+        ("gcp_service_account_email", "GCP_SERVICE_ACCOUNT_EMAIL"),
+        ("google_vertex_api_key", "GOOGLE_VERTEX_API_KEY"),
+    )
+    for attr, env_name in mappings:
+        if os.environ.get(env_name, "").strip():
+            continue
+        val = str(getattr(settings, attr, "") or "").strip()
+        if val:
+            extra[env_name] = val
+    return extra
+
+
 def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
     """B 는 결과를 `b/out/<project_id>/round-<n>.json` 에 회차 기록으로 남긴다 (response 키가 계약 응답)."""
     worker_dir = Path(settings.hook_workers_dir) / "b"
@@ -175,12 +196,15 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
         in_path = Path(tmp) / "worker_input.json"
         in_path.write_text(json.dumps(worker_input, ensure_ascii=False), encoding="utf-8")
         gemini = _gemini_llm(settings)
+        extra_env = _worker_vertex_env(settings)
+        if gemini:
+            extra_env["B_LLM"] = gemini  # B 의 모든 글 단계를 Gemini 로
         proc = _run_node(
             [*cmd, "generate", str(in_path), "--force"],
             worker_dir,
             float(settings.hook_worker_timeout_sec),
             "B",
-            extra_env={"B_LLM": gemini} if gemini else None,  # B 의 모든 글 단계를 Gemini 로
+            extra_env=extra_env or None,
         )
     data = _read_json(record, "B")
     response = data.get("response") if isinstance(data, dict) else None
@@ -246,14 +270,21 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
     gemini = _gemini_llm(settings)
     if not gemini and not os.environ.get("ANTHROPIC_API_KEY"):
         raise WorkerError("ANTHROPIC_API_KEY 가 없습니다 (C 작업자는 Claude 로 시나리오를 만듭니다).")
+    gemini_client = None
+    if gemini and getattr(settings, "google_genai_use_vertexai", False):
+        from app.genai_provider import build_genai_client
+
+        gemini_client = build_genai_client(settings)
     try:
         # 글 모델: HOOK_WORKER_LLM 이 gemini-… 면 C 가 Gemini 로 (같은 프롬프트·스키마), 아니면 C 기본(Claude)
-        run = generate.generate_scenarios(
-            worker_input,
-            model=gemini,
-            gemini_api_key=getattr(settings, "gemini_api_key", None) or None,
-            log=lambda m: logger.info("[C] %s", m),
-        )
+        kwargs: Dict[str, Any] = {
+            "model": gemini,
+            "gemini_api_key": getattr(settings, "gemini_api_key", None) or None,
+            "log": lambda m: logger.info("[C] %s", m),
+        }
+        if gemini_client is not None:
+            kwargs["gemini_client"] = gemini_client
+        run = generate.generate_scenarios(worker_input, **kwargs)
     except ModuleNotFoundError as exc:
         raise WorkerError(f"C 작업자에 필요한 패키지가 없습니다: {exc.name} (bridge-dev/c/requirements.txt)") from exc
     except Exception as exc:

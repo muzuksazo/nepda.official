@@ -8,7 +8,8 @@ import {
   type ModelResolver,
   type PlanRequest,
 } from "./planner.js";
-import type { PlannerProviderName } from "./providers.js";
+import { resolvePlannerModel, type PlannerProviderName } from "./providers.js";
+import { getActiveOidcToken } from "./wif.js";
 
 function sendJson(res: ServerResponse, statusCode: number, body: unknown): void {
   const raw = JSON.stringify(body);
@@ -49,18 +50,39 @@ export function createPlannerServer(deps: PlannerServerDeps = {}): http.Server {
     const method = (req.method ?? "GET").toUpperCase();
 
     try {
+      const rawOidc = req.headers["x-vercel-oidc-token"];
+      const reqOidcToken =
+        typeof rawOidc === "string"
+          ? rawOidc.trim()
+          : Array.isArray(rawOidc)
+            ? rawOidc[0]?.trim()
+            : undefined;
+      const effectiveResolver: ModelResolver | undefined =
+        deps.modelResolver ??
+        (reqOidcToken
+          ? (p, m) => resolvePlannerModel(p, { modelId: m, config: cfg, oidcToken: reqOidcToken })
+          : undefined);
+      const hasWifConfig = Boolean(
+        cfg.googleCloudProject &&
+          cfg.gcpWorkloadIdentityProvider &&
+          cfg.gcpServiceAccountEmail &&
+          getActiveOidcToken({ requestToken: reqOidcToken })
+      );
+
       if (method === "GET" && url.pathname === "/health") {
         return sendJson(res, 200, {
           status: "ok",
           providers: {
             anthropic: Boolean(cfg.anthropicApiKey),
-            google: Boolean(cfg.googleVertexApiKey || cfg.googleApiKey),
+            google: Boolean(hasWifConfig || cfg.googleVertexApiKey || cfg.googleApiKey),
           },
-          googleAuthMode: cfg.googleVertexApiKey
-            ? "vertex_api_key"
-            : cfg.googleApiKey
-              ? "ai_studio"
-              : "none",
+          googleAuthMode: hasWifConfig
+            ? "vertex_wif"
+            : cfg.googleVertexApiKey
+              ? "vertex_api_key"
+              : cfg.googleApiKey
+                ? "ai_studio"
+                : "none",
           models: {
             anthropic: cfg.anthropicModel,
             google: cfg.googleModel,
@@ -82,7 +104,7 @@ export function createPlannerServer(deps: PlannerServerDeps = {}): http.Server {
           provider,
           modelId: typeof body.modelId === "string" ? body.modelId : undefined,
           config: cfg,
-          modelResolver: deps.modelResolver,
+          modelResolver: effectiveResolver,
         });
         return sendJson(res, 200, result);
       }
@@ -99,7 +121,7 @@ export function createPlannerServer(deps: PlannerServerDeps = {}): http.Server {
           anthropicModel: typeof body.anthropicModel === "string" ? body.anthropicModel : undefined,
           googleModel: typeof body.googleModel === "string" ? body.googleModel : undefined,
           config: cfg,
-          modelResolver: deps.modelResolver,
+          modelResolver: effectiveResolver,
         });
         return sendJson(res, 200, compared);
       }
@@ -117,7 +139,7 @@ export function createPlannerServer(deps: PlannerServerDeps = {}): http.Server {
           provider,
           modelId: typeof body.modelId === "string" ? body.modelId : undefined,
           config: cfg,
-          modelResolver: deps.modelResolver,
+          modelResolver: effectiveResolver,
         });
         const job = await submitJobToWorker(
           {

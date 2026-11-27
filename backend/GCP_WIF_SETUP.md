@@ -94,7 +94,7 @@ Vercel 대시보드(`napda-api` → Settings → Environment Variables, **Produc
 | --- | --- |
 | `GOOGLE_GENAI_USE_VERTEXAI` | `true` |
 | `GOOGLE_CLOUD_PROJECT` | `<GCP_PROJECT_ID>` |
-| `GOOGLE_CLOUD_LOCATION` | `us-central1` |
+| `GOOGLE_CLOUD_LOCATION` | `global` *(권장)* |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/<GCP_PROJECT_NUMBER>/locations/global/workloadIdentityPools/vercel-napda-pool/providers/vercel-napda-api` |
 | `GCP_SERVICE_ACCOUNT_EMAIL` | `napda-vercel-wif@<GCP_PROJECT_ID>.iam.gserviceaccount.com` |
 
@@ -105,7 +105,7 @@ for env_name in production preview; do
   [ "$env_name" = "preview" ] && BRANCH_ARG=("")
   vercel env add GOOGLE_GENAI_USE_VERTEXAI "$env_name" "${BRANCH_ARG[@]}" --value "true" --force --yes --non-interactive
   vercel env add GOOGLE_CLOUD_PROJECT "$env_name" "${BRANCH_ARG[@]}" --value "<GCP_PROJECT_ID>" --force --yes --non-interactive
-  vercel env add GOOGLE_CLOUD_LOCATION "$env_name" "${BRANCH_ARG[@]}" --value "us-central1" --force --yes --non-interactive
+  vercel env add GOOGLE_CLOUD_LOCATION "$env_name" "${BRANCH_ARG[@]}" --value "global" --force --yes --non-interactive
   vercel env add GCP_WORKLOAD_IDENTITY_PROVIDER "$env_name" "${BRANCH_ARG[@]}" --value "projects/<GCP_PROJECT_NUMBER>/locations/global/workloadIdentityPools/vercel-napda-pool/providers/vercel-napda-api" --force --yes --non-interactive
   vercel env add GCP_SERVICE_ACCOUNT_EMAIL "$env_name" "${BRANCH_ARG[@]}" --value "napda-vercel-wif@<GCP_PROJECT_ID>.iam.gserviceaccount.com" --force --yes --non-interactive
 done
@@ -180,11 +180,11 @@ Modal 대시보드 **Secrets → `napda-backend` → Edit**에서 아래 5개 �
 | --- | --- |
 | `GOOGLE_GENAI_USE_VERTEXAI` | `true` |
 | `GOOGLE_CLOUD_PROJECT` | `<GCP_PROJECT_ID>` |
-| `GOOGLE_CLOUD_LOCATION` | `us-central1` |
+| `GOOGLE_CLOUD_LOCATION` | `global` *(권장)* |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/<GCP_PROJECT_NUMBER>/locations/global/workloadIdentityPools/vercel-napda-pool/providers/modal-<workspace>` |
 | `GCP_SERVICE_ACCOUNT_EMAIL` | `napda-vercel-wif@<GCP_PROJECT_ID>.iam.gserviceaccount.com` |
 
-> **중요**: Modal 컨테이너는 `MODAL_IDENTITY_TOKEN_FILE`(주기적 자동 갱신)과 `MODAL_IDENTITY_TOKEN`을 자동 주입합니다. `napda-backend` 앱을 배포할 때는 `MODAL_IDENTITY_TOKEN_FILE`/`MODAL_IDENTITY_TOKEN`을 읽는 최신 [`app/genai_provider.py`](./app/genai_provider.py) 포함 버전으로 배포해야 합니다.
+> **중요**: Modal 컨테이너는 `MODAL_IDENTITY_TOKEN_FILE`(주기적 자동 갱신)과 `MODAL_IDENTITY_TOKEN`을 자동 주입합니다. `backend/modal_app.py`, `backend/hookpipe`(`body_edit.py`, `a_templates.py`, `render.py`), `backend/bridge-dev/b`(`llm.ts`/`wif.ts`), `backend/bridge-dev/c`(`generate.py`) 모두 `MODAL_IDENTITY_TOKEN_FILE`/`MODAL_IDENTITY_TOKEN` WIF를 지원하므로 `GEMINI_API_KEY` 없이 Vertex AI 추론이 동작합니다.
 
 ---
 
@@ -269,14 +269,47 @@ def generate_text(prompt: str) -> str:
     client = genai.Client(
         vertexai=True,
         project=os.environ["GOOGLE_CLOUD_PROJECT"],
-        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
         credentials=creds,
     )
     resp = client.models.generate_content(model="gemini-3.5-flash", contents=prompt)
     return resp.text or ""
 ```
 
-### 8-3. Vercel Node Serverless (`api/_gcp_wif.js`)에서 REST 추론 호출
+### 8-3. Vercel AI SDK (`@ai-sdk/google-vertex` / `@napda/planner-api`) WIF 추론 호출
+플래너 패키지([`libraries/planner-api/src/providers.ts`](../libraries/planner-api/src/providers.ts), [`wif.ts`](../libraries/planner-api/src/wif.ts))도 동일한 OIDC 우선순위(`x-vercel-oidc-token` → `VERCEL_OIDC_TOKEN` → `MODAL_IDENTITY_TOKEN_FILE` → `MODAL_IDENTITY_TOKEN`)로 WIF 액세스 토큰을 받아 `@ai-sdk/google-vertex`에 연결합니다.
+
+```ts
+import { generateText } from "ai";
+import { resolvePlannerModel } from "@napda/planner-api";
+
+// GOOGLE_CLOUD_PROJECT, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT_EMAIL + OIDC 토큰이 있으면
+// 정적 API 키(GOOGLE_VERTEX_API_KEY / GEMINI_API_KEY) 없이 자동으로 WIF 모드로 연결됩니다.
+const { model } = resolvePlannerModel("google", { modelId: "gemini-3.5-flash" });
+const { text } = await generateText({
+  model,
+  prompt: "한 줄 훅 카피를 제안해줘.",
+});
+```
+
+직접 `@ai-sdk/google-vertex`에 연결할 때는 `createWifAuthClient`를 `googleAuthOptions.authClient`로 전달합니다:
+```ts
+import { createGoogleVertex } from "@ai-sdk/google-vertex";
+import { createWifAuthClient } from "@napda/planner-api";
+
+const authClient = createWifAuthClient({
+  provider: process.env.GCP_WORKLOAD_IDENTITY_PROVIDER!,
+  serviceAccountEmail: process.env.GCP_SERVICE_ACCOUNT_EMAIL!,
+});
+const vertex = createGoogleVertex({
+  apiKey: "", // 프로세스에 GOOGLE_VERTEX_API_KEY가 남아 있어도 WIF를 강제
+  project: process.env.GOOGLE_CLOUD_PROJECT!,
+  location: process.env.GOOGLE_CLOUD_LOCATION || "global",
+  googleAuthOptions: { authClient: authClient as never },
+});
+```
+
+### 8-4. Vercel Node Serverless (`api/_gcp_wif.js`)에서 REST 추론 호출
 Node 서버리스 함수에서는 [`api/_gcp_wif.js`](../api/_gcp_wif.js) 헬퍼로 액세스 토큰을 캐시해 호출합니다:
 ```js
 const { getGcpAccessToken, buildVertexUrl, withVertexLabels } = require("../api/_gcp_wif");
@@ -294,10 +327,11 @@ const resp = await fetch(url, {
 });
 ```
 
-### 8-4. 자주 겪는 WIF 오류 트러블슈팅
+### 8-5. 자주 겪는 WIF 오류 트러블슈팅
 
 | 증상 | 원인 | 해결 방법 |
 | --- | --- | --- |
 | `STS 400 invalid_target` | `vercel-napda-pool` 풀 상태 토글 꺼짐(일시 정지) 또는 Provider 경로·프로젝트 번호 불일치 | GCP **워크로드 아이덴티티 제휴 → `vercel-napda-pool` → 풀 상태 토글 ON(사용 설정)** 확인 |
 | `IAM 403 iam.serviceAccounts.getAccessToken denied` | `workloadIdentityUser` 권한 바인딩(`subject` 또는 `workspace_id`) 누락, 또는 방금 추가한 정책 전파 중 | 풀에서 `+ 액세스 권한 부여`로 해당 `subject`/`workspace_id` 바인딩 확인 후 1~2분 뒤 재시도 |
 | `400 invalid_grant` / `iss` · `aud` 불일치 | Vercel OIDC Issuer Mode가 `Global`이거나 Modal 발급자/CEL 조건 불일치 | Vercel **Settings → Security → OIDC Federation**을 `Team`으로 설정; Modal Provider `iss=https://oidc.modal.com`, `aud=oidc.modal.com`, `workspace_id` 확인 |
+| `404 Publisher model ... not found` | 최신 Gemini 모델(`gemini-3.5-flash`, `gemini-4-hydrogen` 등)이 특정 리전(`us-central1`) 엔드포인트에 없음 | Vercel·Modal 환경변수 및 설정의 `GOOGLE_CLOUD_LOCATION`을 `global`로 지정 |

@@ -4,7 +4,8 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Callable
+from pathlib import Path
+from typing import Any, Callable
 
 from .check import check_scenario
 from .prompt import SYSTEM, build_user_prompt
@@ -47,21 +48,115 @@ def offline_drafts(inp: dict) -> list[dict]:
     return drafts
 
 
-def _call_gemini(inp: dict, model: str, violations: list[str] | None, api_key: str | None) -> tuple[list[dict], dict]:
+def _active_oidc_token() -> str | None:
+    """Vercel / Modal OIDC JWT 를 환경변수 또는 토큰 파일에서 읽는다."""
+    for env_key in ("VERCEL_OIDC_TOKEN", "MODAL_IDENTITY_TOKEN"):
+        val = os.environ.get(env_key, "").strip()
+        if val:
+            return val
+    modal_file = os.environ.get("MODAL_IDENTITY_TOKEN_FILE", "").strip()
+    if modal_file:
+        try:
+            file_tok = Path(modal_file).read_text(encoding="utf-8").strip()
+            if file_tok:
+                return file_tok
+        except OSError:
+            pass
+    return None
+
+
+def _build_vertex_client(http_options: Any) -> Any:
+    """GOOGLE_GENAI_USE_VERTEXAI=true 일 때 Modal/Vercel WIF, Express API 키, 또는 ADC로 Client를 만든다."""
+    from google import genai
+
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "").strip()
+    location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global").strip() or "global"
+    provider = os.environ.get("GCP_WORKLOAD_IDENTITY_PROVIDER", "").strip()
+    sa_email = os.environ.get("GCP_SERVICE_ACCOUNT_EMAIL", "").strip()
+    vertex_api_key = os.environ.get("GOOGLE_VERTEX_API_KEY", "").strip()
+    oidc_token = _active_oidc_token()
+
+    if project and provider and sa_email and oidc_token:
+        from google.auth import exceptions as google_auth_exceptions
+        from google.auth import identity_pool
+
+        class _OidcSupplier(identity_pool.SubjectTokenSupplier):
+            def get_subject_token(self, context: Any, request: Any) -> str:
+                tok = _active_oidc_token()
+                if not tok:
+                    raise google_auth_exceptions.RefreshError(
+                        "OIDC token is not set for GCP WIF exchange."
+                    )
+                return tok
+
+        audience = (
+            provider
+            if provider.startswith("//iam.googleapis.com/")
+            else f"//iam.googleapis.com/{provider.lstrip('/')}"
+        )
+        creds = identity_pool.Credentials(
+            audience=audience,
+            subject_token_type="urn:ietf:params:oauth:token-type:jwt",
+            token_url="https://sts.googleapis.com/v1/token",
+            subject_token_supplier=_OidcSupplier(),
+            service_account_impersonation_url=(
+                "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/"
+                f"{sa_email}:generateAccessToken"
+            ),
+            scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        )
+        return genai.Client(
+            vertexai=True,
+            project=project,
+            location=location,
+            credentials=creds,
+            http_options=http_options,
+        )
+    if vertex_api_key:
+        return genai.Client(
+            vertexai=True,
+            api_key=vertex_api_key,
+            http_options=http_options,
+        )
+    if not project:
+        raise RuntimeError(
+            "GOOGLE_CLOUD_PROJECT 또는 GOOGLE_VERTEX_API_KEY 가 필요합니다 (Vertex AI)."
+        )
+    return genai.Client(
+        vertexai=True,
+        project=project,
+        location=location,
+        http_options=http_options,
+    )
+
+
+def _call_gemini(
+    inp: dict,
+    model: str,
+    violations: list[str] | None,
+    api_key: str | None,
+    client: Any = None,
+) -> tuple[list[dict], dict]:
     """Claude 와 같은 프롬프트·출력 스키마로 Gemini 를 부른다 (google-genai 필요)."""
     from google import genai
     from google.genai import types
 
-    key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    if not key:
-        raise RuntimeError("GEMINI_API_KEY 가 없습니다 (Gemini 로 시나리오를 만들려면).")
     started = time.time()
     # 변수에 담아 둔다: 한 줄로 쓰면 요청 도중 클라이언트가 닫힌다.
     # 503(사용량 폭주)·429·5xx 는 잠깐 쉬었다 다시 부르고, 응답 없는 요청은 3분에 끊는다.
-    client = genai.Client(
-        api_key=key,
-        http_options=types.HttpOptions(timeout=180_000, retry_options=types.HttpRetryOptions(attempts=4)),
-    )
+    http_options = types.HttpOptions(timeout=180_000, retry_options=types.HttpRetryOptions(attempts=4))
+    if client is None:
+        use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").strip().lower() in {"1", "true", "yes"}
+        if use_vertex:
+            client = _build_vertex_client(http_options)
+        else:
+            key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+            if not key:
+                raise RuntimeError("GEMINI_API_KEY 가 없습니다 (Gemini 로 시나리오를 만들려면).")
+            client = genai.Client(
+                api_key=key,
+                http_options=http_options,
+            )
     response = client.models.generate_content(
         model=model,
         contents=build_user_prompt(inp, violations),
@@ -133,7 +228,8 @@ def _call_claude(inp: dict, model: str, violations: list[str] | None) -> tuple[l
 
 
 def generate_scenarios(data: dict, *, offline: bool = False, max_attempts: int = 2, model: str | None = None,
-                       gemini_api_key: str | None = None, log: Callable[[str], None] = lambda m: None) -> dict:
+                       gemini_api_key: str | None = None, gemini_client: Any = None,
+                       log: Callable[[str], None] = lambda m: None) -> dict:
     """입력(01_worker-input) → { response: {project_id, status, round, scenarios[]}, checks[], steps[] }.
 
     model: 글 모델. 비우면 C_MODEL → claude-opus-5-5. "gemini-…" 면 Gemini 로 부른다 (같은 프롬프트·스키마).
@@ -152,7 +248,7 @@ def generate_scenarios(data: dict, *, offline: bool = False, max_attempts: int =
         else:
             log(f"{'Gemini' if use_gemini else 'Claude'} 호출 ({model}, 시도 {attempt})…")
             if use_gemini:
-                drafts, step = _call_gemini(inp, model, violations, gemini_api_key)
+                drafts, step = _call_gemini(inp, model, violations, gemini_api_key, client=gemini_client)
             else:
                 drafts, step = _call_claude(inp, model, violations)
             steps.append(step)
