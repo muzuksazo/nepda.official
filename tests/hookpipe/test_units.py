@@ -226,13 +226,28 @@ class WorkerConnection(unittest.TestCase):
         items = gen(project, ["A", "B"], "anthropic")
         self.assertEqual([(i["type"], i["ad_spec"]["worker_scenario_id"]) for i in items], [("A", "sc_A"), ("B", "sc_B")])
         self.assertEqual([w["round"] for w in seen], [3, 3])
-        self.assertEqual(len(seen[0]["previous_scenarios"]), 1)
-        self.assertEqual(seen[1]["previous_scenarios"], [])
+        by_type = {w["hook_type"]: w for w in seen}  # 유형끼리 동시에 돌아 호출 순서는 정해져 있지 않다
+        self.assertEqual(len(by_type["A"]["previous_scenarios"]), 1)
+        self.assertEqual(by_type["B"]["previous_scenarios"], [])
 
         # 한 요청에서 여러 개를 뽑을 때: 방금 만든 것도 이전 시나리오로 작업자에게 넘어간다
         seen.clear()
         gen(dict(project, pending_scenarios=[{"type": "B", "scenario_id": "just_made"}]), ["B"], "anthropic")
         self.assertEqual([s["scenario_id"] for s in seen[0]["previous_scenarios"]], ["just_made"])
+
+    def test_types_run_at_the_same_time(self) -> None:
+        import threading
+
+        both_started = threading.Barrier(2, timeout=5)  # 하나씩 돌면 두 번째가 오지 않아 BrokenBarrierError
+
+        def waits_for_the_other(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
+            both_started.wait()
+            ht = worker_input["hook_type"]
+            return {"scenarios": [worker_scenario(ht, f"sc_{ht}")]}
+
+        gen = make_scenario_generator(_settings(), _Store(), workers={"B": waits_for_the_other, "C": waits_for_the_other})
+        items = gen(PROJECT, ["C", "B"], "anthropic")
+        self.assertEqual([i["type"] for i in items], ["C", "B"])  # 결과는 요청한 순서대로
 
     def test_one_failed_type_does_not_discard_the_types_already_generated(self) -> None:
         def ok(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:

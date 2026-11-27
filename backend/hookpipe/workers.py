@@ -20,7 +20,8 @@ import tempfile
 import threading
 import uuid
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
 
@@ -392,16 +393,13 @@ def make_scenario_generator(
         project_id = str(project["project_id"])
         previous = [*project_store.list_scenarios(project_id), *(project.get("pending_scenarios") or [])]
         round_no = int(project.get("scenario_round") or 0) + 1
-        out: List[Dict[str, Any]] = []
-        failed: List[Any] = []
-        for hook_type in hook_types:
+        def _one(hook_type: str) -> Tuple[List[Dict[str, Any]], Optional[HTTPException]]:
             if getattr(settings, "hook_worker_mode", "auto") == "off":
                 if fallback is None:
                     raise _unavailable(hook_type, "작업자 호출이 꺼져 있고(HOOK_WORKER_MODE=off) 대체 생성기도 없습니다.")
-                out.extend(fallback(project, [hook_type], provider))
-                continue
+                return list(fallback(project, [hook_type], provider)), None
             try:
-                out.extend(
+                return (
                     generate_with_worker(
                         hook_type,
                         project,
@@ -409,25 +407,36 @@ def make_scenario_generator(
                         round_no=round_no,
                         previous_scenarios=previous,
                         workers=workers,
-                    )
+                    ),
+                    None,
                 )
-                continue
             except WorkerError as exc:
                 worker_error = str(exc)
                 logger.warning("%s 작업자 실패 → 대체 생성기로 넘어갑니다: %s", hook_type, worker_error)
             except Exception as exc:  # 작업자 쪽의 예상 못 한 오류도 요청 전체를 죽이지 않고 대체 경로로 보낸다
                 worker_error = f"예상하지 못한 오류 ({type(exc).__name__})"
                 logger.exception("%s 작업자에서 예상하지 못한 오류 → 대체 생성기로 넘어갑니다", hook_type)
-            failure: Optional[HTTPException] = None
             if fallback is None:
-                failure = _unavailable(hook_type, worker_error)
-            else:
-                try:
-                    out.extend(fallback(project, [hook_type], provider))
-                except HTTPException as exc:
-                    detail = exc.detail if isinstance(exc.detail, dict) else {}
-                    planner_msg = (detail.get("error") or {}).get("message") or str(exc.detail)
-                    failure = _unavailable(hook_type, f"{worker_error} / 대체 생성기도 실패: {planner_msg}")
+                return [], _unavailable(hook_type, worker_error)
+            try:
+                return list(fallback(project, [hook_type], provider)), None
+            except HTTPException as exc:
+                detail = exc.detail if isinstance(exc.detail, dict) else {}
+                planner_msg = (detail.get("error") or {}).get("message") or str(exc.detail)
+                return [], _unavailable(hook_type, f"{worker_error} / 대체 생성기도 실패: {planner_msg}")
+
+        # 유형마다 작업자가 따로 외부 모델을 기다리므로 동시에 돌린다 (B·C 각 1분이면 합쳐 2분 → 1분).
+        # 결과는 요청한 유형 순서대로 모은다.
+        types_in_order = list(hook_types)
+        if len(types_in_order) > 1:
+            with ThreadPoolExecutor(max_workers=len(types_in_order), thread_name_prefix="hook-worker") as pool:
+                results = list(pool.map(_one, types_in_order))
+        else:
+            results = [_one(t) for t in types_in_order]
+        out: List[Dict[str, Any]] = []
+        failed: List[Any] = []
+        for hook_type, (made, failure) in zip(types_in_order, results):
+            out.extend(made)
             if failure is not None:
                 failed.append((hook_type, failure))
         if failed and not out:
