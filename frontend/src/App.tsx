@@ -920,7 +920,6 @@ export function App() {
           initialFile={uploadFile}
           cost={billingConfig?.credits_per_video ?? SAMPLE_CREDITS_PER_VIDEO}
           credits={wallet?.credits}
-          isFreeVideo={wallet?.has_free_video}
           onBack={() => setCreationStep('guide')}
           onReviewGuide={() => setCreationStep('guide')}
           onCreate={(file) => {
@@ -993,7 +992,6 @@ export function App() {
         <ProfileScreen
           user={profileUser}
           credits={wallet?.credits}
-          hasFreeVideo={wallet?.has_free_video}
           retentionDays={7}
           videoCounts={{ inProgress: inProgress.length, completed: completed.length }}
           themeMode={themeMode}
@@ -1030,12 +1028,8 @@ export function App() {
             void openExistingProject(id, 'download');
           }}
           onNavigate={handleNavigate}
-          onSeeAllInProgress={() => {
+          onSeeAllMyVideos={() => {
             setMyTab('inProgress');
-            setActiveTab('myVideos');
-          }}
-          onSeeAllCompleted={() => {
-            setMyTab('completed');
             setActiveTab('myVideos');
           }}
         />

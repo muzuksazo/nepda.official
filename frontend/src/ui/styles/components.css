@@ -241,6 +241,52 @@
   box-shadow: 0 0 0 1px var(--border-strong);
 }
 
+.n-input.is-invalid,
+.n-input.is-invalid:hover {
+  border-color: var(--danger);
+}
+
+.n-input.is-invalid:focus-visible {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
+/* 입력 아래 한 줄: 왼쪽 안내·오류, 오른쪽 글자 수 */
+.n-field__foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 18px;
+  margin-top: -2px;
+}
+
+.n-field__msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
+.n-field__msg--success {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.n-field__msg--error {
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.n-field__count {
+  flex-shrink: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
 textarea.n-input {
   resize: vertical;
 }
@@ -725,7 +771,7 @@ textarea.n-input {
   aspect-ratio: 9 / 16;
   overflow: hidden;
   border-radius: var(--radius-xl);
-  background: #000;
+  background: #1a1a1a;
   color: #fff;
 }
 
@@ -1191,6 +1237,54 @@ textarea.n-input {
   outline-offset: 0;
 }
 
+/* 상단 GNB 알림 종: 44px 누르는 자리, 안 읽은 알림이 있으면 오른쪽 위 라임 숫자 점 */
+.n-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-bell:hover {
+  background: var(--surface-weak);
+}
+
+.n-bell:active svg {
+  transform: scale(0.92);
+}
+
+.n-bell:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 0;
+}
+
+/* 라임 점은 흰 바탕과 대비가 낮아 라이트에서는 검정 외곽선을 두르고, 종과는 바탕색 2px 틈으로 떼어 둔다 */
+.n-bell__count {
+  position: absolute;
+  top: 6px;
+  right: 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1.5px solid var(--accent-edge);
+  border-radius: var(--radius-full);
+  background: var(--accent-fill);
+  box-shadow: 0 0 0 2px var(--bg);
+  color: var(--on-accent-fill);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+}
+
 /* 상단 GNB 크레딧 잔액: 회색 알약 + 작은 라임 번개 원(라임은 이 원에만) */
 .n-credit {
   position: relative;
@@ -1636,6 +1730,284 @@ button.n-list-row:active {
   margin-top: -12px;
 }
 
+/* ---------- 로그인 ---------- */
+/* Google 공식 버튼(GIS) 자리: 가운데에 두고, 버튼이 뜨기 전에도 높이를 잡아 둔다 */
+.n-login__google {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+/* 버튼 아래 한 줄: 가입과 로그인이 같은 버튼이라는 것만 알려 준다 */
+.n-login__note {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+/* 냅다로 만든 릴스 세 장을 부채꼴로 */
+.n-login__showcase {
+  position: relative;
+  width: 260px;
+  height: 230px;
+}
+
+.n-login__card {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  width: 116px;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border: 3px solid var(--bg);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+
+.n-login__card--0 {
+  transform: translateX(-112%) rotate(-10deg);
+}
+
+.n-login__card--1 {
+  z-index: 1;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.n-login__card--2 {
+  transform: translateX(12%) rotate(10deg);
+}
+
+[data-theme='dark'] .n-login__card {
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+
+/* ---------- 영상 만드는 중 ---------- */
+/* 냅다곰이 숨 쉬듯 천천히 오르내린다 (움직임 줄이기 설정이면 멈춘다) */
+/*
+ * 숨쉬기: 엎드린 곰의 등이 부풀었다 가라앉는다. 바닥(배)은 붙인 채, 머리 쪽(왼쪽)보다 등·엉덩이 쪽이 더 부푼다.
+ * 한 번에 3.6초 — 들숨 1.6초 → 날숨 1.5초 → 0.5초 쉼. 들숨·날숨 모두 사인 곡선이라 끝에서 부드럽게 멈춘다.
+ */
+/* 그림 아래 글줄 여백이 없어야 기준점(배)이 정확히 바닥에 붙는다 */
+.n-gen__mascot .n-mascot {
+  display: block;
+}
+
+.n-gen__mascot.is-working {
+  transform-origin: 30% 100%;
+  animation: n-gen-breathe 3.6s infinite;
+}
+
+@keyframes n-gen-breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+    animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1);
+  }
+  44% {
+    transform: scale(1.02, 1.045);
+    animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1);
+  }
+  86% {
+    transform: scale(1, 1);
+  }
+}
+
+.n-gen__meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.n-gen__meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.n-gen__percent {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 34px;
+  color: var(--text);
+}
+
+/* 진행 막대: 회색 판 위 라임 채움 (게이지는 라임을 쓰는 자리) */
+.n-gen__bar {
+  position: relative;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+}
+
+.n-gen__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent-fill);
+  transition: width 0.6s var(--ease-out);
+}
+
+/* 만드는 중에는 채움 위로 옅은 빛이 지나간다 */
+.n-gen__fill.is-moving {
+  background-image: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.55) 50%, transparent 100%);
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  background-color: var(--accent-fill);
+  animation: n-gen-shine 1.6s ease-in-out infinite;
+}
+
+@keyframes n-gen-shine {
+  from {
+    background-position: -120% 0;
+  }
+  to {
+    background-position: 220% 0;
+  }
+}
+
+/* 단계 목록 */
+.n-gen__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 16px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-weak);
+  list-style: none;
+}
+
+[data-theme='dark'] .n-gen__steps {
+  background: var(--surface-weak);
+}
+
+.n-gen__step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--text-3);
+}
+
+.n-gen__step.is-running,
+.n-gen__step.is-done {
+  color: var(--text);
+}
+
+.n-gen__step.is-running .n-gen__label {
+  font-weight: 700;
+}
+
+.n-gen__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+
+.n-gen__step.is-done .n-gen__dot {
+  border: 1.5px solid var(--accent-edge);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+/* 지금 단계: 라임 호가 도는 원 */
+.n-gen__step.is-running .n-gen__dot {
+  border-color: var(--surface-strong);
+  border-top-color: var(--text);
+  animation: n-spin 0.9s linear infinite;
+}
+
+/* 실패: 멈춘 단계는 진한 원 안 X (빨강은 입력 오류에만 쓰므로 쓰지 않는다) */
+.n-gen__step.is-stopped {
+  color: var(--text);
+}
+
+.n-gen__step.is-stopped .n-gen__label {
+  font-weight: 700;
+}
+
+.n-gen__step.is-stopped .n-gen__dot {
+  border-color: var(--inverse);
+  background: var(--inverse);
+  color: var(--on-inverse);
+}
+
+.n-gen__stopped {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+/* 돌려받은 크레딧: 실패 화면에서 돈 얘기를 먼저 */
+.n-gen__refund {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-weak);
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  box-shadow: var(--shadow-card);
+}
+
+[data-theme='dark'] .n-gen__refund {
+  background: var(--surface-weak);
+}
+
+.n-gen__refund-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
+.n-gen__refund-text b {
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--text);
+}
+
+.n-gen__refund-amount {
+  flex-shrink: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.n-gen__help {
+  display: flex;
+  justify-content: center;
+  margin-top: -8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .napda-root .n-gen__mascot.is-working,
+  .napda-root .n-gen__fill.is-moving {
+    animation: none !important;
+  }
+
+  .napda-root .n-gen__step.is-running .n-gen__dot {
+    animation: none !important;
+    border-color: var(--text);
+  }
+}
+
 /* ---------- 크레딧 잔액 카드 ---------- */
 .n-wallet {
   display: flex;
@@ -1645,7 +2017,7 @@ button.n-list-row:active {
 
 /* 불러오는 중에도 실제 카드와 같은 높이를 잡아 둬서, 내용이 들어올 때 아래가 밀리지 않는다 */
 .n-wallet--loading {
-  min-height: 133px;
+  min-height: 104px;
 }
 
 .n-wallet__label {
@@ -1687,27 +2059,188 @@ button.n-list-row:active {
   color: var(--text-3);
 }
 
-/* 온보딩 무료 제작 1회가 남아 있을 때만 */
-.n-wallet__free {
+.n-wallet__head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+}
+
+/* "내역 >" — 글자 링크지만 손가락으로 누르기 쉽게 자리를 넓게 잡는다(44px) */
+.n-wallet__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin: -12px -8px -12px 0;
+  padding: 0 4px 0 12px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.n-wallet__link:active {
+  color: var(--text);
+}
+
+.n-wallet__note {
   margin-top: 14px;
-  padding-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid var(--border-weak);
+}
+
+/* ---------- 크레딧 내역 ---------- */
+.n-ledger-expiring {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
   line-height: 20px;
+  color: var(--text-2);
 }
 
-.n-wallet__free-text {
-  flex: 1;
-  min-width: 0;
-  font-weight: 600;
-}
-
-.n-wallet__free-count {
+.n-ledger-expiring svg {
   flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.n-ledger-expiring b {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.n-ledger-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 8px;
+}
+
+.n-ledger-group__title {
+  margin-bottom: 2px;
+  font-size: 14px;
   font-weight: 700;
+  line-height: 20px;
+  color: var(--text-3);
+}
+
+.n-ledger {
+  display: flex;
+  flex-direction: column;
+}
+
+.n-ledger__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.n-ledger__row + .n-ledger__row {
+  border-top: 1px solid var(--border-weak);
+}
+
+.n-ledger__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--surface-weak);
+  color: var(--text-2);
+}
+
+.n-ledger__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-ledger__title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.n-ledger__sub {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n-ledger__expiry {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-weak);
+}
+
+.n-ledger__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+/* 들어온 것은 진하고 굵게, 나간 것은 한 단계 옅게 — 색이 아니라 +/− 기호로 먼저 구분한다 */
+.n-ledger__amount {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 22px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.n-ledger__amount.is-in {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.n-ledger__balance {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-weak);
+  white-space: nowrap;
+}
+
+/* 기간 지나 사라진 크레딧: 줄 전체를 한 단계 낮춘다 */
+.n-ledger__row--expire .n-ledger__title {
+  color: var(--text-3);
+}
+
+.n-ledger__bar {
+  display: block;
+  height: 14px;
+  margin-block: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.n-ledger-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 40px 0 32px;
+  text-align: center;
+}
+
+.n-ledger-empty__title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
 }
 
 /* ---------- 크레딧 충전 ---------- */
@@ -1962,6 +2495,513 @@ button.n-list-row:active {
   }
 }
 
+/* ---------- 홈 피드 (인스타그램 홈 형식) ---------- */
+.n-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.n-post {
+  display: flex;
+  flex-direction: column;
+}
+
+.n-post__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+}
+
+.n-post__who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.n-post__creator {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.n-post__product {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 영상은 화면 좌우 끝까지, 4:5로 가운데를 잘라 보여 준다 (원본은 9:16) */
+.n-post__media {
+  position: relative;
+  display: block;
+  margin-inline: -20px;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: var(--napda-black);
+  cursor: pointer;
+}
+
+.n-post__media img,
+.n-post__media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.n-post__media:focus-visible {
+  outline: 2px solid #1a1a1a;
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 4px #fff;
+}
+
+.n-post__fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* 커뮤니티 영상에는 늘 AI 라벨을 붙인다 */
+.n-post__ai {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 움직이는 영상이라는 표시 */
+.n-post__kind {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+}
+
+.n-post__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 6px;
+  margin-left: -10px;
+}
+
+.n-post__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-post__action:active svg {
+  transform: scale(0.88);
+}
+
+.n-post__action:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.n-post__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.n-post__likes {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.n-post__caption {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-2);
+}
+
+.n-post__caption b {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.n-post__comments {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 14px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.n-post__comments:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.n-post--skeleton .n-post__media {
+  cursor: default;
+}
+
+/* ---------- 댓글 시트 ---------- */
+/* .n-sheet 기본 안쪽 여백을 덮어쓴다 (머리·목록·입력 줄이 각자 여백을 갖는다) */
+.n-sheet.n-comments {
+  display: flex;
+  flex-direction: column;
+  height: min(72dvh, 620px);
+  padding: 8px 0 0;
+}
+
+/* 위 손잡이 */
+.n-comments::before {
+  content: '';
+  align-self: center;
+  width: 36px;
+  height: 4px;
+  margin-bottom: 4px;
+  border-radius: 2px;
+  background: var(--surface-strong);
+}
+
+.n-comments__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 4px 20px;
+  border-bottom: 1px solid var(--border-weak);
+}
+
+.n-comments__title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.n-comments__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-comments__close:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.n-comments__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  margin: 0;
+  padding: 16px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.n-comments__empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.n-comments__empty .n-bold {
+  margin-top: 6px;
+  color: var(--text);
+}
+
+.n-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.n-comment__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-comment__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.n-comment__time {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.n-comment__text {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+/* 내 댓글 지우기: 글자 버튼이지만 누르는 자리는 44px */
+.n-comment__delete {
+  flex-shrink: 0;
+  min-width: 44px;
+  height: 44px;
+  margin: -12px -8px 0 0;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.n-comment__delete:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -4px;
+  border-radius: var(--radius-sm);
+}
+
+/* 맨 아래 입력 줄: 안전 영역 위에 붙는다 */
+.n-comments__composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px max(12px, calc(var(--safe-bottom) + 4px)) 20px;
+  border-top: 1px solid var(--border-weak);
+}
+
+.n-comments__input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.n-comments__input::placeholder {
+  color: var(--text-weak);
+}
+
+.n-comments__input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+.n-comments__send {
+  flex-shrink: 0;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.n-comments__send:disabled {
+  color: var(--text-weak);
+  cursor: default;
+}
+
+.n-comments__send:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -4px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- 알림 ---------- */
+.n-noti-group + .n-noti-group {
+  margin-top: 8px;
+}
+
+.n-noti-group__title {
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  color: var(--text-3);
+}
+
+.n-noti-list {
+  display: flex;
+  flex-direction: column;
+  /* 한 줄 전체가 눌리는 자리라 화면 좌우 여백까지 넓힌다 */
+  margin-inline: -20px;
+}
+
+.n-noti {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 14px 20px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+button.n-noti:hover {
+  background: var(--bg-weak);
+}
+
+button.n-noti:active {
+  background: var(--surface-weak);
+}
+
+button.n-noti:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* 안 읽은 알림: 옅은 종이 톤 면 + 오른쪽 라임 점 + 굵은 제목 (라임 면이 여러 줄 이어지지 않게) */
+.n-noti.is-unread {
+  background: var(--bg-weak);
+}
+
+.n-noti__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--surface-weak);
+  color: var(--text-2);
+}
+
+/* 영상 완성만 라임 틴트 원으로 살짝 구분한다 (기다리던 소식) */
+.n-noti__icon--videoReady {
+  background: var(--tint);
+  color: var(--on-tint);
+}
+
+.n-noti__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-noti__title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.n-noti.is-unread .n-noti__title {
+  font-weight: 800;
+}
+
+.n-noti__body {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-2);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.n-noti__time {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-3);
+}
+
+.n-noti__dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border: 1.5px solid var(--accent-edge);
+  border-radius: 50%;
+  background: var(--accent-fill);
+}
+
+.n-noti--skeleton {
+  cursor: default;
+}
+
+.n-noti__bar {
+  display: block;
+  height: 14px;
+  margin-block: 4px;
+  border-radius: var(--radius-sm);
+}
+
 /* ---------- 숫자 타일 ---------- */
 .n-stat-grid {
   display: grid;
@@ -2074,6 +3114,275 @@ button.n-list-row:active {
   flex-direction: column;
   gap: 8px;
   margin-top: 24px;
+}
+
+/* ---------- 공유 시트 ---------- */
+.n-sheet.n-share {
+  padding-top: 24px;
+}
+
+.n-share__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.n-share__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin: -8px -12px -8px 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-share__close:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* 링크 미리보기 카드: 썸네일 + 제목 · 만든 사람 · 주소 */
+.n-share__card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-weak);
+  border-radius: 16px;
+  background: var(--bg-weak);
+}
+
+.n-share__thumb {
+  flex-shrink: 0;
+  width: 54px;
+  height: 72px;
+  border-radius: 10px;
+  background: var(--tint);
+  object-fit: cover;
+}
+
+.n-share__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-share__title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 21px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.n-share__sub,
+.n-share__url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n-share__sub {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+
+.n-share__url {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-weak);
+}
+
+.n-share__hint {
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+/* ---------- 약관 동의 시트 ---------- */
+.n-sheet.n-terms {
+  padding-top: 24px;
+}
+
+.n-terms__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.n-terms__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin: -10px -12px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-terms__close:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* 체크 줄 하나: 줄 전체가 눌리는 자리 (최소 44px) */
+.n-agree {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.n-agree input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 체크 원: 비어 있으면 회색 테두리, 체크하면 라임 원 + 검정 체크 (선택 카드와 같은 모양) */
+.n-agree__box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.n-agree input:checked + .n-agree__box {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+/* 일부만 체크: 반쯤 찬 표시(라임 테두리) */
+.n-agree input:indeterminate + .n-agree__box {
+  border-color: var(--selected-border);
+}
+
+.n-agree input:focus-visible + .n-agree__box {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.n-agree__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.n-agree__label {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22px;
+  color: var(--text);
+}
+
+.n-agree__tag {
+  margin-right: 6px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.n-agree__tag--optional {
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.n-agree__hint {
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-3);
+}
+
+/* "모두 동의해요": 종이 톤 판 위에 굵게 */
+.n-agree--all {
+  flex: none;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-weak);
+}
+
+[data-theme='dark'] .n-agree--all {
+  background: var(--surface);
+}
+
+.n-agree--all .n-agree__label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.n-agree-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 0 0 14px;
+  list-style: none;
+}
+
+.n-agree-list__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.n-agree__view {
+  flex-shrink: 0;
+  min-width: 44px;
+  height: 44px;
+  margin-right: -8px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.n-agree__view:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -4px;
+  border-radius: var(--radius-sm);
 }
 
 @keyframes n-sheet-up {
@@ -2245,13 +3554,99 @@ button.n-list-row:active {
 
 /* 어떤 썸네일 위에서도 보이게: 바깥 검정 선 + 안쪽 흰 선 */
 .napda-root .n-video-tile:focus-visible {
-  outline: 2px solid #000;
+  outline: 2px solid #1a1a1a;
   outline-offset: -2px;
   box-shadow: inset 0 0 0 4px #fff;
 }
 
 .n-video-tile--skeleton {
   cursor: default;
+}
+
+/* ---------- 만든 사람 프로필 ---------- */
+.n-creator {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 4px 0 8px;
+}
+
+.n-creator .n-avatar--lg {
+  width: 72px;
+  height: 72px;
+  font-size: 28px;
+}
+
+.n-creator__stats {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+/* 숫자를 위에 크게: 읽는 순서(dt → dd)는 그대로 두고 보이는 순서만 바꾼다 */
+.n-creator__stat {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.n-creator__stat dd {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 26px;
+  white-space: nowrap;
+}
+
+.n-creator__stat dt {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.n-creator__bar {
+  display: block;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+
+.n-creator__empty {
+  padding: 40px 0 24px;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+/* 피드·영상 보기의 "프로필 원 + 닉네임" 누르는 자리 */
+.n-creator-link {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  margin: -6px 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.n-creator-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* ---------- 영상 보기 (커뮤니티) — 늘 어두운 바탕 ---------- */
@@ -2264,7 +3659,7 @@ button.n-list-row:active {
   height: 100dvh;
   margin-inline: auto;
   overflow: hidden;
-  background: #000;
+  background: #1a1a1a;
   color: var(--text);
 }
 
@@ -2361,7 +3756,8 @@ button.n-list-row:active {
   aspect-ratio: 9 / 16;
   overflow: hidden;
   border-radius: var(--radius-xl);
-  background: #111;
+  /* 영상 보기 바탕(#1A1A1A)보다 한 단계 밝게: 영상이 뜨기 전에도 영상 자리가 보인다 */
+  background: var(--surface-weak);
 }
 
 .n-viewer__media img,
