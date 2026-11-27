@@ -29,12 +29,16 @@ export interface InProgressProject {
   status: string;
   completedSteps: number;
   nextStep: string;
+  /** 9:16 썸네일 (올린 본편의 첫 장면 등). 없으면 제품 아이콘 칸 */
+  thumbnailUrl?: string;
 }
 
 export interface CompletedProject {
   id: string;
   productName: string;
   status: string;
+  /** 9:16 썸네일 (완성 영상의 썸네일). 없으면 제품 아이콘 칸 */
+  thumbnailUrl?: string;
 }
 
 export interface HomeScreenProps {
@@ -192,6 +196,7 @@ export function HomeScreen({
                   status={p.status}
                   completedSteps={p.completedSteps}
                   nextStep={p.nextStep}
+                  thumbnailUrl={p.thumbnailUrl}
                   actionLabel="이어하기"
                   onAction={() => onContinue?.(p.id)}
                 />
@@ -201,6 +206,7 @@ export function HomeScreen({
                   key={p.id}
                   productName={p.productName}
                   status={p.status}
+                  thumbnailUrl={p.thumbnailUrl}
                   actionLabel="다시 받기"
                   onAction={() => onDownloadAgain?.(p.id)}
                 />

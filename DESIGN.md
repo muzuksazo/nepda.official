@@ -239,7 +239,7 @@ components:
     backgroundColor: "{colors.bg-base}"
     borderColor: "{colors.border-weak}"
     rounded: "{rounded.radius-xl}"
-    padding: 16px
+    padding: 12px
   badge-neutral:
     backgroundColor: "{colors.surface-base}"
     textColor: "{colors.text-secondary}"
@@ -511,9 +511,16 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 
 ### project-card
 
-홈·내 영상의 진행 중·완료 프로젝트. 흰 면, 1px `{colors.border-weak}`, radius 20px, `{elevation.shadow-card}`, 안쪽 16px. 위에 제품 썸네일(52px)·제품명·상태, 가운데에 점선 게이지 — 진행 중은 "5/8", 완료는 **꽉 찬 게이지 + "완료"**. 진행 중과 완료가 한 줄에 섞여도 상태를 바로 알아보고 카드 높이가 같다.
+홈·내 영상의 진행 중·완료 프로젝트. 흰 면, 1px `{colors.border-weak}`, radius 20px, `{elevation.shadow-card}`, 안쪽 12px. **왼쪽에 릴스 크기(9:16) 썸네일**(폭 104px, radius 12px), 오른쪽에 제품명(16px Bold, 두 줄까지)·상태, 그 아래 **진행 표시**(`project-meter`). 진행 중과 완료가 한 줄에 섞여도 상태를 바로 알아보고 카드 높이가 같다(썸네일 높이가 카드 높이를 정한다).
 
-맨 아래는 **행동 타일**(`card-action`)이다. 카드 폭 전체를 쓰는 56px 높이의 `{colors.surface-weak}` 타일(radius 14px) 왼쪽에 무엇을 할지, 오른쪽에 원형 아이콘 버튼(`round-btn`)을 둔다. 버튼은 보이는 원 32px(흰 면 + 1px `{colors.border-weak}` 테두리 + 아주 옅은 그림자, 검정 아이콘 18px), 누르는 영역은 44px이다. 검정 원은 쓰지 않는다 — 위의 "영상 만들기"와 시선을 다투고 타일을 무겁게 만든다. 버튼에는 글자 없이 아이콘만 둔다.
+- 진행 표시: 위 줄 왼쪽에 이름(12px SemiBold tertiary "진행 단계"), 오른쪽에 숫자 "**5** / 8"(현재 값 15px ExtraBold, "/ 8"은 13px tertiary). 아래에 칸을 끊지 않은 **한 줄 막대**(높이 6px, 끝 둥글게, 길 `{colors.surface}` + 라임 채움). 막대 옆에 숫자를 붙이던 예전 배치는 좁은 오른쪽 칸에서 막대를 짧게 만들어 숫자를 막대 위 줄로 올렸다. 완료는 **막대와 숫자 없이** 18px 라임 원 + 검정 체크 + "완료"(13px SemiBold 본문색) 한 줄만 둔다 — 끝난 일에 다 찬 막대는 정보가 없고 카드만 무겁게 한다. 카드 높이는 썸네일이 정해서 진행 중 카드와 같다. 진행 중은 스크린 리더에 progressbar로 "진행 단계 5 / 8"을 알린다.
+- 이 막대는 프로젝트 카드 전용이다. 만들기 흐름 머리의 단계 게이지(`progress`)는 칸을 끊은 점선 그대로 둔다.
+
+- 썸네일: 완성 영상은 영상 썸네일 + 왼쪽 아래 24px 반투명 검정 재생 원. 진행 중은 올린 본편의 첫 장면 등을 쓰고, 아직 없으면 옅은 라임 틴트(`{colors.tint}`) 칸 + 제품 아이콘. 흰 썸네일이 흰 카드에 묻히지 않게 그림 위에 8% 검정 안쪽 선을 얹는다.
+- 썸네일 주소는 아직 API(`ProjectSummary`)에 없다. 화면은 받을 준비만 해 두었고, 지금 앱에서는 틴트 칸이 보인다.
+- 레퍼런스: [골프존](https://uibowl.io/name/%EA%B3%A8%ED%94%84%EC%A1%B4?patterns=%EB%A9%94%EC%9D%B8&imgId=cmunkfpcz003cjv04knjd712g)의 세로 영상 카드 캐러셀, [인터파크티켓](https://uibowl.io/name/%EC%9D%B8%ED%84%B0%ED%8C%8C%ED%81%AC%ED%8B%B0%EC%BC%93?patterns=%EA%B2%80%EC%83%89&imgId=cjgdmfn8bgbuppwhe01ijc3v)의 "영상 + 정보" 카드.
+
+오른쪽 맨 아래(썸네일 아래 끝선)는 **행동 타일**(`card-action`)이다. 오른쪽 칸 폭 전체를 쓰는 56px 높이의 `{colors.surface-weak}` 타일(radius 14px) 왼쪽에 무엇을 할지, 오른쪽에 원형 아이콘 버튼(`round-btn`)을 둔다. 버튼은 보이는 원 32px(흰 면 + 1px `{colors.border-weak}` 테두리 + 아주 옅은 그림자, 검정 아이콘 18px), 누르는 영역은 44px이다. 검정 원은 쓰지 않는다 — 위의 "영상 만들기"와 시선을 다투고 타일을 무겁게 만든다. 버튼에는 글자 없이 아이콘만 둔다.
 - 진행 중: 왼쪽 "다음 단계 / 찍은 영상 올리기", 버튼 → (화살표)
 - 완료: 왼쪽 "영상 + 썸네일", 버튼 ⤓ (내려받기)
 

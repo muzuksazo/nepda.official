@@ -1,9 +1,9 @@
 import { useId, type ReactNode } from 'react';
 import { formatCount } from '../format';
-import { ArrowRight, ChevronRight, Clock, Download, Heart, Lightning, Package, Play } from '../icons';
+import { ArrowRight, Check, ChevronRight, Clock, Download, Heart, Lightning, Package, Play } from '../icons';
 import { FLOW_TOTAL_STEPS } from './layout';
 import { MediaPlaceholder } from './media';
-import { Button, Card, CheckMark, ProgressBar, SelectCard, Stack } from './primitives';
+import { Button, Card, CheckMark, SelectCard, Stack } from './primitives';
 
 export interface HookTypeCardProps {
   type: string;
@@ -36,53 +36,81 @@ export interface ProjectCardProps {
   /** 끝낸 단계 수. 없으면 완료 카드 */
   completedSteps?: number;
   nextStep?: string;
+  /** 9:16 릴스 썸네일 (완성 영상의 썸네일, 진행 중이면 올린 본편의 첫 장면 등). 없으면 제품 아이콘 칸 */
+  thumbnailUrl?: string;
   actionLabel: string;
   onAction?: () => void;
 }
 
-/** 홈 프로젝트 카드: 정보 → 진행 → 행동 순서. 막대 옆에 "5/8"을 붙인다(근접성) */
-export function ProjectCard({ productName, status, completedSteps, nextStep, actionLabel, onAction }: ProjectCardProps) {
+/**
+ * 홈·내 영상의 프로젝트 카드: 왼쪽 9:16 릴스 썸네일 + 오른쪽 정보 → 진행 → 행동.
+ * 막대 옆에 "5/8"을 붙인다(근접성).
+ */
+export function ProjectCard({ productName, status, completedSteps, nextStep, thumbnailUrl, actionLabel, onAction }: ProjectCardProps) {
   const isDone = completedSteps === undefined;
   return (
-    <Card>
-      <Stack gap={16}>
-        <div className="n-row" style={{ gap: 12 }}>
-          <MediaPlaceholder ratio="1" width={52}>
-            <Package size={22} aria-hidden="true" />
-          </MediaPlaceholder>
-          <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
-            <span className="n-bold">{productName}</span>
+    <Card padding={12}>
+      <div className="n-project">
+        <div className={`n-project__thumb${thumbnailUrl ? '' : ' is-empty'}`} aria-hidden="true">
+          {thumbnailUrl ? <img src={thumbnailUrl} alt="" loading="lazy" decoding="async" /> : <Package size={24} />}
+          {isDone && thumbnailUrl ? (
+            <span className="n-project__play">
+              <Play size={12} fill="currentColor" />
+            </span>
+          ) : null}
+        </div>
+
+        <div className="n-project__body">
+          <Stack gap={2}>
+            <span className="n-project__name">{productName}</span>
             <span className="n-small n-muted">{status}</span>
           </Stack>
-        </div>
 
-        {/* 진행 중은 "5/8", 완료는 꽉 찬 막대 + "완료" — 한 줄에 섞여 있어도 상태를 바로 알아보고 카드 높이도 같다 */}
-        <div className="n-row" style={{ gap: 12 }}>
-          <ProgressBar
-            label={isDone ? `${productName} 완료` : `${productName} 진행`}
-            value={isDone ? FLOW_TOTAL_STEPS : completedSteps}
-            max={FLOW_TOTAL_STEPS}
-          />
-          <span className="n-small n-bold n-num">{isDone ? '완료' : `${completedSteps}/${FLOW_TOTAL_STEPS}`}</span>
-        </div>
+          {/* 완료는 막대 없이 "✓ 완료"만, 진행 중은 위에 "진행 단계 · 5 / 8" + 아래 이어진 한 줄 막대 */}
+          {isDone ? (
+            <span className="n-meter__label n-meter__label--done">
+              <Check size={14} strokeWidth={3} className="n-meter__check" aria-hidden="true" />
+              완료
+            </span>
+          ) : (
+            <div
+              className="n-meter"
+              role="progressbar"
+              aria-label={`${productName} 진행 단계`}
+              aria-valuemin={0}
+              aria-valuemax={FLOW_TOTAL_STEPS}
+              aria-valuenow={completedSteps}
+            >
+              <span className="n-meter__head" aria-hidden="true">
+                <span className="n-meter__label">진행 단계</span>
+                <span className="n-meter__count n-num">
+                  <b>{completedSteps}</b> / {FLOW_TOTAL_STEPS}
+                </span>
+              </span>
+              <span className="n-meter__track" aria-hidden="true">
+                <span className="n-meter__fill" style={{ width: `${(completedSteps / FLOW_TOTAL_STEPS) * 100}%` }} />
+              </span>
+            </div>
+          )}
 
-        {/* 다음 할 일(왼쪽)과 원형 아이콘 버튼(오른쪽)을 한 타일로 묶는다 */}
-        <div className="n-card-action">
-          <span className="n-card-action__info">
-            {isDone ? (
-              <span className="n-small n-semibold">영상 + 썸네일</span>
-            ) : (
-              <>
-                <span className="n-caption n-muted">다음 단계</span>
-                <span className="n-small n-semibold">{nextStep}</span>
-              </>
-            )}
-          </span>
-          <button type="button" className="n-round-btn" aria-label={`${productName} ${actionLabel}`} onClick={onAction}>
-            {isDone ? <Download size={18} aria-hidden="true" /> : <ArrowRight size={18} aria-hidden="true" />}
-          </button>
+          {/* 다음 할 일(왼쪽)과 원형 아이콘 버튼(오른쪽)을 한 타일로 묶어 카드 아래에 붙인다 */}
+          <div className="n-card-action n-project__action">
+            <span className="n-card-action__info">
+              {isDone ? (
+                <span className="n-small n-semibold">영상 + 썸네일</span>
+              ) : (
+                <>
+                  <span className="n-caption n-muted">다음 단계</span>
+                  <span className="n-small n-semibold n-project__next">{nextStep}</span>
+                </>
+              )}
+            </span>
+            <button type="button" className="n-round-btn" aria-label={`${productName} ${actionLabel}`} onClick={onAction}>
+              {isDone ? <Download size={18} aria-hidden="true" /> : <ArrowRight size={18} aria-hidden="true" />}
+            </button>
+          </div>
         </div>
-      </Stack>
+      </div>
     </Card>
   );
 }

@@ -63,6 +63,7 @@ export function MyVideosScreen({
                       status={p.status}
                       completedSteps={p.completedSteps}
                       nextStep={p.nextStep}
+                      thumbnailUrl={p.thumbnailUrl}
                       actionLabel="이어하기"
                       onAction={() => onContinue?.(p.id)}
                     />
@@ -81,6 +82,7 @@ export function MyVideosScreen({
                     key={p.id}
                     productName={p.productName}
                     status={p.status}
+                    thumbnailUrl={p.thumbnailUrl}
                     actionLabel="다시 받기"
                     onAction={() => onDownloadAgain?.(p.id)}
                   />
