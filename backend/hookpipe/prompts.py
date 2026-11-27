@@ -147,10 +147,12 @@ def beat_prompt(
 
 FRAME_LOOK_BY_TYPE: Dict[str, str] = {
     "A": "A cinematic film still with strong moody lighting and shallow depth of field.",
+    # 2026-11-27: '손으로 빚은 점토'를 쓰면 FLUX 가 지나치게 점토 인형처럼 그렸다 → 매끈한 3D 애니메이션 톤으로
     "B": (
-        "A stylized handmade clay 3D diorama, like a tiny stage set: smooth matte clay surfaces with visible "
-        "hand-sculpted texture, soft warm window light, gentle pastel palette with exactly one vivid red accent "
-        "on the key detail. Not photorealistic."
+        "A polished stylized 3D animation still, like a frame from a high-end animated feature film: clean smooth "
+        "surfaces with soft subsurface shading (not clay, no fingerprints or sculpting marks), a small diorama-like "
+        "set, soft warm light, calm natural palette. The one part that explains the idea is highlighted in vivid red; "
+        "do not add any other red objects. Not photorealistic."
     ),
     "C": (
         "A realistic vertical smartphone photo taken at home in bright natural daylight: plain, honest, "
