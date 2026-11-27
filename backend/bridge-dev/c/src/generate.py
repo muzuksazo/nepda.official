@@ -56,7 +56,12 @@ def _call_gemini(inp: dict, model: str, violations: list[str] | None, api_key: s
     if not key:
         raise RuntimeError("GEMINI_API_KEY 가 없습니다 (Gemini 로 시나리오를 만들려면).")
     started = time.time()
-    client = genai.Client(api_key=key)  # 변수에 담아 둔다: 한 줄로 쓰면 요청 도중 클라이언트가 닫힌다
+    # 변수에 담아 둔다: 한 줄로 쓰면 요청 도중 클라이언트가 닫힌다.
+    # 503(사용량 폭주)·429·5xx 는 잠깐 쉬었다 다시 부르고, 응답 없는 요청은 3분에 끊는다.
+    client = genai.Client(
+        api_key=key,
+        http_options=types.HttpOptions(timeout=180_000, retry_options=types.HttpRetryOptions(attempts=4)),
+    )
     response = client.models.generate_content(
         model=model,
         contents=build_user_prompt(inp, violations),

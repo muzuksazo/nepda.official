@@ -154,7 +154,11 @@ def build_genai_client(settings: Settings) -> genai.Client:
 
 def _http_options(settings: Settings) -> types.HttpOptions:
     """요청 하나의 시간 제한 (밀리초). 2026-11-27 Modal 에서 이미지 호출 하나가 8분 넘게 답이 없어 훅이 멈췄다."""
-    return types.HttpOptions(timeout=int(float(settings.genai_request_timeout_sec) * 1000))
+    # 같은 날 503(사용량 폭주)도 났다: 429·5xx 는 SDK 가 잠깐 쉬었다 다시 보낸다 (최대 4번).
+    return types.HttpOptions(
+        timeout=int(float(settings.genai_request_timeout_sec) * 1000),
+        retry_options=types.HttpRetryOptions(attempts=4),
+    )
 
 
 def _sanitize_gcp_label_value(raw: str) -> str:
