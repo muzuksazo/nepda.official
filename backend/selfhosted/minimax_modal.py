@@ -23,6 +23,10 @@ FILES = {
     "vae": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
     "vae_audio": "vae/minimax_h3_audio_vae_fp32.safetensors",
 }
+# 터보 모드: 공식 8단계 LoRA (공식 템플릿의 turbo 스위치가 쓰는 파일). 단계 수가 TURBO_MAX_STEPS 이하면 붙인다
+TURBO_REPO = "lightx2v/Minimax-h3-Turbo"
+TURBO_LORA = "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
+TURBO_MAX_STEPS = 8
 MODELS = PurePosixPath("/models")  # 이 파일은 Windows 에서도 읽히므로 리눅스 경로로 고정
 COMFY = PurePosixPath("/opt/ComfyUI")  # /root 는 Modal 이 실행 스크립트를 올리며 가린다
 
@@ -54,24 +58,40 @@ def download() -> None:
         hf_hub_download(REPO, name, local_dir=str(MODELS))
         print("받음", name, f"{target.stat().st_size / 1e9:.1f}GB {time.time() - t0:.0f}초", flush=True)
         models.commit()
+    lora = Path(str(MODELS / "loras" / TURBO_LORA))
+    if lora.exists() and lora.stat().st_size > 0:
+        print("있음", TURBO_LORA, f"{lora.stat().st_size / 1e9:.2f}GB", flush=True)
+    else:
+        t0 = time.time()
+        hf_hub_download(TURBO_REPO, TURBO_LORA, local_dir=str(MODELS / "loras"))
+        print("받음", TURBO_LORA, f"{lora.stat().st_size / 1e9:.2f}GB {time.time() - t0:.0f}초", flush=True)
+        models.commit()
 
 
 def _link_models() -> None:
     missing = [n for n in FILES.values() if not Path(str(MODELS / n)).exists()]
     if missing:
         raise RuntimeError(f"모델 파일 없음(다운로드 다시 필요): {missing}")
-    for sub in ("diffusion_models", "text_encoders", "vae"):
+    for sub in ("diffusion_models", "text_encoders", "vae", "loras"):
         dst = Path(str(COMFY)) / "models" / sub
         dst.mkdir(parents=True, exist_ok=True)
-        for f in Path(str(MODELS / sub)).glob("*.safetensors"):
+        src = Path(str(MODELS / sub))
+        if not src.exists():
+            continue
+        for f in src.glob("*.safetensors"):
             link = dst / f.name
             if not link.exists():
                 link.symlink_to(f)
 
 
 def _graph(image_name: str, prompt: str, width: int, height: int, length: int, steps: int, seed: int) -> dict:
-    """공식 템플릿(video_minimax_h3_i2v.json) 서브그래프를 API 형식으로 옮긴 것 (turbo 끔)."""
-    return {
+    """공식 템플릿(video_minimax_h3_i2v.json) 서브그래프를 API 형식으로 옮긴 것.
+
+    steps 가 TURBO_MAX_STEPS 이하면 공식 터보 LoRA 를 붙인다 (템플릿의 turbo 스위치와 같은 구성).
+    """
+    turbo = steps <= TURBO_MAX_STEPS
+    model_node = "16" if turbo else "1"
+    graph = {
         "1": {"class_type": "UNETLoader", "inputs": {"unet_name": Path(FILES["diffusion_models"]).name, "weight_dtype": "default"}},
         "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": Path(FILES["text_encoders"]).name, "type": "minimax", "device": "default"}},
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": Path(FILES["vae"]).name}},
@@ -82,8 +102,8 @@ def _graph(image_name: str, prompt: str, width: int, height: int, length: int, s
             "prompt": prompt, "width": width, "height": height, "length": length}},
         "7": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
         "8": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "res_multistep"}},
-        "9": {"class_type": "BasicScheduler", "inputs": {"model": ["1", 0], "scheduler": "simple", "steps": steps, "denoise": 1.0}},
-        "10": {"class_type": "BasicGuider", "inputs": {"model": ["1", 0], "conditioning": ["6", 0]}},
+        "9": {"class_type": "BasicScheduler", "inputs": {"model": [model_node, 0], "scheduler": "simple", "steps": steps, "denoise": 1.0}},
+        "10": {"class_type": "BasicGuider", "inputs": {"model": [model_node, 0], "conditioning": ["6", 0]}},
         "11": {"class_type": "SamplerCustomAdvanced", "inputs": {
             "noise": ["7", 0], "guider": ["10", 0], "sampler": ["8", 0], "sigmas": ["9", 0], "latent_image": ["6", 1]}},
         "12": {"class_type": "VAEDecode", "inputs": {"samples": ["11", 0], "vae": ["3", 0]}},
@@ -91,6 +111,10 @@ def _graph(image_name: str, prompt: str, width: int, height: int, length: int, s
         "14": {"class_type": "CreateVideo", "inputs": {"images": ["12", 0], "audio": ["13", 0], "fps": 24}},
         "15": {"class_type": "SaveVideo", "inputs": {"video": ["14", 0], "filename_prefix": "napda/clip", "format": "auto", "codec": "auto"}},
     }
+    if turbo:
+        graph["16"] = {"class_type": "LoraLoaderModelOnly",
+                       "inputs": {"model": ["1", 0], "lora_name": TURBO_LORA, "strength_model": 1.0}}
+    return graph
 
 
 def _call(path: str, body: dict | None = None) -> dict:
@@ -117,7 +141,8 @@ def _wait_prompt(pid: str, proc: "subprocess.Popen") -> None:
 
 # 서비스 형태: 컨테이너가 뜰 때 ComfyUI 를 한 번 띄우고, 첫 생성 때 올라간 모델(약 40GB)을 다음 요청에 그대로 쓴다.
 # 콘티 확인 화면이 뜨면 warm 으로 미리 켜 두고, 확인 뒤 render 로 바로 만든다 (2026-11-27: 클립마다 적재 1분+).
-@app.cls(gpu="H100", volumes={str(MODELS): models}, memory=65536, timeout=1800, scaledown_window=180, max_containers=4)
+# 켜두는 시간 2분: 콘티 확인 대부분을 덮고, 노는 GPU 비용을 줄인다 (2026-11-28).
+@app.cls(gpu="H100", volumes={str(MODELS): models}, memory=65536, timeout=1800, scaledown_window=120, max_containers=4)
 class MiniMax:
     @modal.enter()
     def start(self) -> None:

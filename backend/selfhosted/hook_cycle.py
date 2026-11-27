@@ -40,6 +40,7 @@ def main() -> None:
     ap.add_argument("--type", default="B")
     ap.add_argument("--ref", action="append", default=[])
     ap.add_argument("--scenario", help="저장된 cycle.json 의 시나리오 재사용")
+    ap.add_argument("--steps", type=int, default=8, help="MiniMax 단계 수 (8 이하면 터보 LoRA)")
     args = ap.parse_args()
 
     import modal
@@ -82,7 +83,7 @@ def main() -> None:
         seconds = float(beat.get("duration_sec") or 4.0) + 1.0  # 나레이션에 맞춰 장면이 늘어날 여유
         # Claude 가 쓴 영어 움직임 묘사(글자를 부르는 말 없음). 없을 때만 예전 방식
         motion = st.get("motion") or motion_from(st["spec"])
-        calls.append((base64.b64decode(st["png"]), motion, CLIP_W, CLIP_H, frames_for(seconds), 20, 1))
+        calls.append((base64.b64decode(st["png"]), motion, CLIP_W, CLIP_H, frames_for(seconds), args.steps, 1))
         orders.append(int(beat.get("order") or i))
     with minimax_modal.app.run():
         service = minimax_modal.MiniMax()
