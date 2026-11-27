@@ -2010,6 +2010,385 @@ button.n-list-row:active {
   }
 }
 
+/* ---------- 홈 피드 (인스타그램 홈 형식) ---------- */
+.n-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.n-post {
+  display: flex;
+  flex-direction: column;
+}
+
+.n-post__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+}
+
+.n-post__who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.n-post__creator {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.n-post__product {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 영상은 화면 좌우 끝까지, 4:5로 가운데를 잘라 보여 준다 (원본은 9:16) */
+.n-post__media {
+  position: relative;
+  display: block;
+  margin-inline: -20px;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: var(--napda-black);
+  cursor: pointer;
+}
+
+.n-post__media img,
+.n-post__media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.n-post__media:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 4px #fff;
+}
+
+.n-post__fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* 커뮤니티 영상에는 늘 AI 라벨을 붙인다 */
+.n-post__ai {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 움직이는 영상이라는 표시 */
+.n-post__kind {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+}
+
+.n-post__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 6px;
+  margin-left: -10px;
+}
+
+.n-post__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-post__action:active svg {
+  transform: scale(0.88);
+}
+
+.n-post__action:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.n-post__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.n-post__likes {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.n-post__caption {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-2);
+}
+
+.n-post__caption b {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.n-post__comments {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 14px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.n-post__comments:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.n-post--skeleton .n-post__media {
+  cursor: default;
+}
+
+/* ---------- 댓글 시트 ---------- */
+/* .n-sheet 기본 안쪽 여백을 덮어쓴다 (머리·목록·입력 줄이 각자 여백을 갖는다) */
+.n-sheet.n-comments {
+  display: flex;
+  flex-direction: column;
+  height: min(72dvh, 620px);
+  padding: 8px 0 0;
+}
+
+/* 위 손잡이 */
+.n-comments::before {
+  content: '';
+  align-self: center;
+  width: 36px;
+  height: 4px;
+  margin-bottom: 4px;
+  border-radius: 2px;
+  background: var(--surface-strong);
+}
+
+.n-comments__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 4px 20px;
+  border-bottom: 1px solid var(--border-weak);
+}
+
+.n-comments__title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.n-comments__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-comments__close:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.n-comments__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  margin: 0;
+  padding: 16px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.n-comments__empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.n-comments__empty .n-bold {
+  margin-top: 6px;
+  color: var(--text);
+}
+
+.n-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.n-comment__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.n-comment__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.n-comment__time {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.n-comment__text {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+/* 내 댓글 지우기: 글자 버튼이지만 누르는 자리는 44px */
+.n-comment__delete {
+  flex-shrink: 0;
+  min-width: 44px;
+  height: 44px;
+  margin: -12px -8px 0 0;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.n-comment__delete:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -4px;
+  border-radius: var(--radius-sm);
+}
+
+/* 맨 아래 입력 줄: 안전 영역 위에 붙는다 */
+.n-comments__composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px max(12px, calc(var(--safe-bottom) + 4px)) 20px;
+  border-top: 1px solid var(--border-weak);
+}
+
+.n-comments__input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.n-comments__input::placeholder {
+  color: var(--text-weak);
+}
+
+.n-comments__input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+.n-comments__send {
+  flex-shrink: 0;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.n-comments__send:disabled {
+  color: var(--text-weak);
+  cursor: default;
+}
+
+.n-comments__send:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -4px;
+  border-radius: var(--radius-sm);
+}
+
 /* ---------- 알림 ---------- */
 .n-noti-group + .n-noti-group {
   margin-top: 8px;

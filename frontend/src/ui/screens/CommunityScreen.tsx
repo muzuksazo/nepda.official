@@ -30,6 +30,8 @@ export interface CommunityVideo {
   caption?: string;
   likeCount: number;
   isLiked?: boolean;
+  /** 서버가 알려 준 댓글 수 (댓글 목록을 아직 안 불러왔을 때) */
+  commentCount?: number;
 }
 
 export interface CommunityScreenProps {

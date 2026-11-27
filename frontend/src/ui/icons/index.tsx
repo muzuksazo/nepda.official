@@ -165,9 +165,15 @@ const ICONS = {
     kind: 'stroke',
     join: 'round',
   },
-  // share · 101:2479 (공유)
+  // send-01 · 101:4832 (공유 — 종이비행기)
   Share: {
-    d: 'M3.6001 15.2197V18.9256C3.6001 19.4873 3.82135 20.0259 4.21517 20.423C4.609 20.8202 5.14314 21.0433 5.7001 21.0433H18.3001C18.8571 21.0433 19.3912 20.8202 19.785 20.423C20.1788 20.0259 20.4001 19.4872 20.4001 18.9256V15.2197M12.0435 14.9565V2.95654M16.8434 7.54169L12.0435 2.95654L7.24346 7.54169',
+    d: 'M21.0703 2.92961L10.4063 13.5936M3.271 8.23529L19.8769 2.47406C20.8995 2.11927 21.8807 3.1004 21.5259 4.12303L15.7646 20.7289C15.37 21.8665 13.7725 21.8977 13.3337 20.7764L10.6968 14.0377C10.5651 13.7011 10.2988 13.4348 9.96226 13.3031L3.22354 10.6662C2.10219 10.2275 2.13338 8.62997 3.271 8.23529Z',
+    kind: 'stroke',
+    cap: 'round',
+  },
+  // message-circle · 101:4729 (댓글)
+  Comment: {
+    d: 'M20.9983 12C20.9983 13.2938 20.7253 14.5238 20.2338 15.6356L21 20.9991L16.4039 19.85C15.1019 20.5823 13.5993 21 11.9991 21C7.02906 21 3 16.9706 3 12C3 7.02944 7.02906 3 11.9991 3C16.9692 3 20.9983 7.02944 20.9983 12Z',
     kind: 'stroke',
     cap: 'round',
     join: 'round',
@@ -281,6 +287,7 @@ export const Stars = makeIcon('Stars');
 export const Logout = makeIcon('Logout');
 export const Heart = makeIcon('Heart');
 export const Share = makeIcon('Share');
+export const Comment = makeIcon('Comment');
 export const Alert = makeIcon('Alert');
 export const SoundOn = makeIcon('SoundOn');
 export const SoundOff = makeIcon('SoundOff');

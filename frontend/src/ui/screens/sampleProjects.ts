@@ -18,7 +18,7 @@ import templateStroke from '../../assets/samples/thumbnail/template-stroke.webp'
 import event1 from '../../assets/events/event1.webp';
 import event2 from '../../assets/events/event2.webp';
 import event3 from '../../assets/events/event3.webp';
-import type { BannerItem, CreditPackage, ThumbnailTemplate } from '../components';
+import type { BannerItem, CreditPackage, ThumbnailTemplate, VideoComment } from '../components';
 import type { CommunityVideo } from './CommunityScreen';
 import type { HookType } from './flowData';
 import type { CompletedProject, InProgressProject } from './HomeScreen';
@@ -106,6 +106,20 @@ export const SAMPLE_NOTIFICATIONS: AppNotification[] = [
   { id: 'n5', kind: 'videoFailed', title: '영상을 못 만들었어요', body: '스테인리스 텀블러 · 쓴 크레딧 12는 돌려드렸어요. 다시 해 볼까요?', createdAt: '2026-11-23T11:20:00+09:00', isRead: true, targetId: 'p3' },
   { id: 'n6', kind: 'notice', title: '첫 영상은 무료로 냅다!', body: '가입하면 영상 한 편을 무료로 만들 수 있어요.', createdAt: '2026-11-12T10:00:00+09:00', isRead: true },
 ];
+
+/** 예시: 영상별 댓글 (오래된 것부터). 댓글 API가 아직 없다 */
+export const SAMPLE_COMMENTS: Record<string, VideoComment[]> = {
+  v01: [
+    { id: 'c1', authorName: '자취9년차', text: '도마 접히는 거 실화냐 ㅋㅋㅋ 바로 삼', createdAt: '2026-11-26T10:12:00+09:00' },
+    { id: 'c2', authorName: '텀블러수집가', text: '훅 B 유형 이렇게 쓰는 거구나… 배워 갑니다', createdAt: '2026-11-26T11:40:00+09:00' },
+    { id: 'c3', authorName: '책상정리단', text: '마지막에 서랍 닫는 거 개운하다', createdAt: '2026-11-26T13:05:00+09:00' },
+  ],
+  v02: [{ id: 'c4', authorName: '도마왕', text: '가습기 등장 타이밍 미쳤어요', createdAt: '2026-11-25T21:30:00+09:00' }],
+  v03: [
+    { id: 'c5', authorName: '설거지장인', text: '던지는 장면 몇 번 찍으셨어요?', createdAt: '2026-11-24T09:00:00+09:00' },
+    { id: 'c6', authorName: '냅다사장', text: '저도 이거 보고 만들어 봤어요!', createdAt: '2026-11-26T08:20:00+09:00', isMine: true },
+  ],
+};
 
 /** 예시: 내 정보 (GET /v1/auth/me) */
 export const SAMPLE_USER: ProfileUser = { name: '냅다사장', email: 'napda.sajang@example.com' };

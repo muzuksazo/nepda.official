@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Avatar, Badge, Button, ConfirmSheet } from '../components';
+import { Avatar, Badge, Button, CommentSheet, ConfirmSheet, type VideoComment } from '../components';
 import { formatCount } from '../format';
-import { Alert, ChevronLeft, Heart, Play, Share, SoundOff, SoundOn, Stars } from '../icons';
+import { Alert, ChevronLeft, Comment, Heart, Play, Share, SoundOff, SoundOn, Stars } from '../icons';
 import type { CommunityVideo } from './CommunityScreen';
 
 export interface CommunityViewerScreenProps {
@@ -19,6 +19,12 @@ export interface CommunityViewerScreenProps {
   onActiveChange?: (id: string) => void;
   /** 처음부터 신고 확인 시트를 열어 둔다 (스토리·테스트용) */
   initialIsReporting?: boolean;
+  /** 영상별 댓글 (불러온 것만) */
+  comments?: Record<string, VideoComment[]>;
+  /** 댓글 입력 줄에 보일 내 닉네임 */
+  myName?: string;
+  onAddComment?: (videoId: string, text: string) => void;
+  onDeleteComment?: (videoId: string, commentId: string) => void;
 }
 
 /** 내려받기 API의 AI 라벨 문구(label_text). 커뮤니티에서는 모든 영상에 항상 붙인다 */
@@ -38,12 +44,19 @@ export function CommunityViewerScreen({
   onRemix,
   onActiveChange,
   initialIsReporting = false,
+  comments = {},
+  myName,
+  onAddComment,
+  onDeleteComment,
 }: CommunityViewerScreenProps) {
   const [activeId, setActiveId] = useState<string | undefined>(initialId ?? items[0]?.id);
   const [likeOverrides, setLikeOverrides] = useState<Record<string, boolean>>({});
   const [isMuted, setIsMuted] = useState(true);
   const [pausedId, setPausedId] = useState<string | null>(null);
   const [isReporting, setIsReporting] = useState(initialIsReporting);
+  const [isCommenting, setIsCommenting] = useState(false);
+  // 시트(신고·댓글)가 떠 있으면 뒤 화면을 잠그고 영상을 멈춘다
+  const isSheetOpen = isReporting || isCommenting;
   const [toast, setToast] = useState<string | null>(null);
 
   const feedRef = useRef<HTMLDivElement>(null);
@@ -102,14 +115,14 @@ export function CommunityViewerScreen({
   useEffect(() => {
     videoRefs.current.forEach((video, id) => {
       video.muted = isMuted;
-      if (id === activeId && pausedId !== id && !isReporting) {
+      if (id === activeId && pausedId !== id && !isSheetOpen) {
         // 자동 재생이 막히면(브라우저 정책) 멈춘 채로 두고, 사용자가 눌러 재생한다
         video.play().catch(() => setPausedId(id));
       } else {
         video.pause();
       }
     });
-  }, [activeId, pausedId, isMuted, isReporting, items]);
+  }, [activeId, pausedId, isMuted, isSheetOpen, items]);
 
   useEffect(() => {
     if (!toast) return;
@@ -132,7 +145,7 @@ export function CommunityViewerScreen({
 
   return (
     <div className="n-viewer" data-theme="dark">
-      <div className="n-viewer__top" inert={isReporting}>
+      <div className="n-viewer__top" inert={isSheetOpen}>
         <button type="button" className="n-viewer__icon-btn" aria-label="뒤로" onClick={onBack}>
           <ChevronLeft size={26} />
         </button>
@@ -144,7 +157,7 @@ export function CommunityViewerScreen({
         </button>
       </div>
 
-      <div ref={feedRef} className="n-viewer__feed" role="group" aria-label="커뮤니티 영상. 위아래로 넘겨요" tabIndex={0} inert={isReporting}>
+      <div ref={feedRef} className="n-viewer__feed" role="group" aria-label="커뮤니티 영상. 위아래로 넘겨요" tabIndex={0} inert={isSheetOpen}>
         {items.map((video, index) => {
           const isActive = video.id === activeId;
           const wasLiked = video.isLiked ?? false;
@@ -222,6 +235,17 @@ export function CommunityViewerScreen({
                         {formatCount(likeCount)}
                       </span>
                     </button>
+                    <button
+                      type="button"
+                      className="n-viewer__action"
+                      aria-label={`댓글 ${comments[video.id]?.length ?? video.commentCount ?? 0}개`}
+                      onClick={() => setIsCommenting(true)}
+                    >
+                      <Comment size={22} />
+                      <span className="n-viewer__action-count n-num" aria-hidden="true">
+                        {formatCount(comments[video.id]?.length ?? video.commentCount ?? 0)}
+                      </span>
+                    </button>
                     <button type="button" className="n-viewer__action" aria-label="공유" onClick={() => onShare?.(video.id)}>
                       <Share size={22} />
                     </button>
@@ -270,6 +294,15 @@ export function CommunityViewerScreen({
           setToast('신고를 접수했어요');
         }}
         onClose={() => setIsReporting(false)}
+      />
+
+      <CommentSheet
+        isOpen={isCommenting}
+        comments={activeId ? (comments[activeId] ?? []) : []}
+        myName={myName}
+        onSubmit={(text) => activeId && onAddComment?.(activeId, text)}
+        onDelete={(id) => activeId && onDeleteComment?.(activeId, id)}
+        onClose={() => setIsCommenting(false)}
       />
     </div>
   );

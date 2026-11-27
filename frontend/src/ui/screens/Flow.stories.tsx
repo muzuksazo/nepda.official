@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ThemeSetting } from '../NapdaProvider';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
 import { setStorybookTheme } from '../storybook/themeGlobal';
+import { useSampleComments } from '../storybook/useSampleComments';
 import type { NavTab } from '../components';
 import { ChargeResultScreen } from './ChargeResultScreen';
 import { CommunityScreen } from './CommunityScreen';
@@ -19,6 +20,7 @@ import { MyVideosScreen, type MyVideosTab } from './MyVideosScreen';
 import {
   filterCommunityByType,
   SAMPLE_BANNERS,
+  SAMPLE_COMMENTS,
   SAMPLE_COMMUNITY,
   SAMPLE_COMPLETED,
   SAMPLE_CREDIT_PACKAGES,
@@ -69,6 +71,10 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
   const [productName, setProductName] = useState('[제품 이름]');
   const [communityType, setCommunityType] = useState<HookType | null>(null);
   const [viewerId, setViewerId] = useState<string>();
+  // 영상 보기에서 뒤로 가면 돌아갈 곳 (홈 피드 · 커뮤니티)
+  const [viewerFrom, setViewerFrom] = useState<'home' | 'community'>('community');
+  const [feedCount, setFeedCount] = useState(4);
+  const commentProps = useSampleComments(SAMPLE_COMMENTS, SAMPLE_USER.name);
   const communityItems = filterCommunityByType(SAMPLE_COMMUNITY, communityType);
   // 크레딧: 첫 영상은 무료, 그다음부터 영상 한 편에 SAMPLE_CREDITS_PER_VIDEO씩 쓴다.
   // 잔액을 일부러 적게 잡아 두 번째 영상에서 "모자람 → 충전 → 다시 만들기"를 따라가 볼 수 있다
@@ -123,6 +129,21 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           onCreditClick={() => openCharge('home')}
           unreadCount={notifications.filter((n) => !n.isRead).length}
           onNotificationsClick={() => setStep('notifications')}
+          feed={SAMPLE_COMMUNITY.slice(0, feedCount)}
+          feedHasMore={feedCount < SAMPLE_COMMUNITY.length}
+          onLoadMoreFeed={() => setFeedCount((value) => Math.min(SAMPLE_COMMUNITY.length, value + 4))}
+          onOpenFeed={(id) => {
+            setCommunityType(null);
+            setViewerId(id);
+            setViewerFrom('home');
+            setStep('communityViewer');
+          }}
+          onRemixFeed={(video) => {
+            setHookType(video.hookType);
+            setStep('product');
+          }}
+          onSeeAllFeed={() => setStep('community')}
+          {...commentProps}
           profile={{ name: SAMPLE_USER.name }}
           onProfileClick={() => setStep('profile')}
           onNavigate={navigate}
@@ -162,6 +183,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           onHookTypeChange={setCommunityType}
           onOpenVideo={(id) => {
             setViewerId(id);
+            setViewerFrom('community');
             setStep('communityViewer');
           }}
           onCreate={() => setStep('product')}
@@ -171,9 +193,11 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
     case 'communityViewer':
       return (
         <CommunityViewerScreen
+          {...commentProps}
+          myName={SAMPLE_USER.name}
           items={communityItems}
           initialId={viewerId}
-          onBack={() => setStep('community')}
+          onBack={() => setStep(viewerFrom)}
           // "이 훅으로 만들기": 같은 훅 유형을 고른 채로 만들기 흐름을 시작한다
           onRemix={(video) => {
             setHookType(video.hookType);

@@ -4,6 +4,7 @@ import { fn } from 'storybook/test';
 import type { ThemeSetting } from '../NapdaProvider';
 import { withDeviceFrame } from '../storybook/DeviceFrame';
 import { setStorybookTheme } from '../storybook/themeGlobal';
+import { useSampleComments } from '../storybook/useSampleComments';
 import { ChargeResultScreen } from './ChargeResultScreen';
 import { CommunityScreen, type CommunityVideo } from './CommunityScreen';
 import { CreditChargeScreen } from './CreditChargeScreen';
@@ -19,6 +20,7 @@ import { MyVideosScreen } from './MyVideosScreen';
 import {
   filterCommunityByType,
   SAMPLE_BANNERS,
+  SAMPLE_COMMENTS,
   SAMPLE_COMMUNITY,
   SAMPLE_COMPLETED,
   SAMPLE_CREDIT_PACKAGES,
@@ -72,8 +74,48 @@ export const Home: Story = {
       profile={{ name: '냅다사장' }}
       onProfileClick={fn()}
       onNavigate={fn()}
+      feed={SAMPLE_COMMUNITY.slice(0, 4)}
+      feedHasMore
+      onLoadMoreFeed={fn()}
+      onOpenFeed={fn()}
+      onToggleFeedLike={fn()}
+      onShareFeed={fn()}
+      onRemixFeed={fn()}
+      onSeeAllFeed={fn()}
     />
   ),
+};
+
+export const HomeFeed: Story = {
+  name: '안3-1 홈 · 피드 내려 보기',
+  render: function Render() {
+    // 맨 아래에 닿으면 4개씩 더 불러온다 (예시 12개까지)
+    const [count, setCount] = useState(4);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const commentProps = useSampleComments(SAMPLE_COMMENTS, SAMPLE_USER.name);
+    return (
+      <HomeScreen
+        {...commentProps}
+        inProgress={SAMPLE_IN_PROGRESS}
+        completed={SAMPLE_COMPLETED}
+        credits={120}
+        profile={{ name: '냅다사장' }}
+        feed={SAMPLE_COMMUNITY.slice(0, count)}
+        feedHasMore={count < SAMPLE_COMMUNITY.length}
+        isFeedLoadingMore={isLoadingMore}
+        onLoadMoreFeed={() => {
+          setIsLoadingMore(true);
+          window.setTimeout(() => {
+            setCount((value) => Math.min(SAMPLE_COMMUNITY.length, value + 4));
+            setIsLoadingMore(false);
+          }, 700);
+        }}
+        onOpenFeed={fn()}
+        onRemixFeed={fn()}
+        onSeeAllFeed={fn()}
+      />
+    );
+  },
 };
 
 /** 알림 화면 스토리들이 함께 쓰는 기준 시각·콜백 */
@@ -108,6 +150,39 @@ export const NotificationsEmpty: Story = {
 export const NotificationsLoading: Story = {
   name: '알림 · 불러오는 중',
   render: () => <NotificationsScreen {...notificationArgs} items={[]} status="loading" />,
+};
+
+export const HomeComments: Story = {
+  name: '안3-1 홈 · 피드 댓글',
+  render: function Render() {
+    const commentProps = useSampleComments(SAMPLE_COMMENTS, SAMPLE_USER.name);
+    return (
+      <HomeScreen
+        {...commentProps}
+        inProgress={SAMPLE_IN_PROGRESS}
+        completed={SAMPLE_COMPLETED}
+        credits={120}
+        profile={{ name: SAMPLE_USER.name }}
+        feed={SAMPLE_COMMUNITY.slice(0, 4)}
+        initialCommentsFor="v01"
+      />
+    );
+  },
+};
+
+export const HomeCommentsEmpty: Story = {
+  name: '안3-1 홈 · 피드 댓글 없음',
+  render: () => (
+    <HomeScreen
+      inProgress={SAMPLE_IN_PROGRESS}
+      completed={SAMPLE_COMPLETED}
+      credits={120}
+      profile={{ name: SAMPLE_USER.name }}
+      feed={SAMPLE_COMMUNITY.slice(3, 6)}
+      initialCommentsFor="v04"
+      onAddComment={fn()}
+    />
+  ),
 };
 
 export const MyVideos: Story = {
@@ -245,9 +320,21 @@ const viewerItems = SAMPLE_COMMUNITY;
 /** 첫 영상에는 예시 영상이 있어 자동 재생(소리 꺼짐)·일시정지·소리 켜기를 볼 수 있다. 위아래로 넘기면 다음 영상 */
 export const CommunityViewer: Story = {
   name: '안3-5 영상 보기',
-  render: () => (
-    <CommunityViewerScreen items={viewerItems} onBack={fn()} onToggleLike={fn()} onShare={fn()} onReport={fn()} onRemix={fn()} />
-  ),
+  render: function Render() {
+    const commentProps = useSampleComments(SAMPLE_COMMENTS, SAMPLE_USER.name);
+    return (
+      <CommunityViewerScreen
+        {...commentProps}
+        myName={SAMPLE_USER.name}
+        items={viewerItems}
+        onBack={fn()}
+        onToggleLike={fn()}
+        onShare={fn()}
+        onReport={fn()}
+        onRemix={fn()}
+      />
+    );
+  },
 };
 
 export const CommunityViewerReport: Story = {
