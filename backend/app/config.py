@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -11,6 +12,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _PROD_ROOT = Path(__file__).resolve().parents[1]
 _REPO_ROOT = _PROD_ROOT.parent
 _DEFAULT_SCRIPTS = _REPO_ROOT / "libraries" / "media-tools"
+_IS_VERCEL = bool(os.environ.get("VERCEL"))
+_DEFAULT_DATA_ROOT = Path("/tmp/napda") if _IS_VERCEL else (_PROD_ROOT / "data")
 
 
 class Settings(BaseSettings):
@@ -28,12 +31,17 @@ class Settings(BaseSettings):
     google_genai_use_vertexai: bool = False
     google_cloud_project: Optional[str] = None
     google_cloud_location: str = "us-central1"
+    gcp_workload_identity_provider: Optional[str] = None
+    gcp_service_account_email: Optional[str] = None
+    gcp_billing_app_label: str = "napda"
     api_bearer_token: Optional[str] = None
 
     # End-user Google One Tap auth, daily beta quota & upload/retention guardrails
     google_client_id: Optional[str] = None
     session_secret: str = "dev-insecure-change-me"
     session_ttl_days: int = 7
+    session_cookie_secure: bool = False
+    cors_origins: str = "https://napda.vercel.app,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173"
     retention_ttl_days: int = 7
     daily_render_limit: int = 3
     max_upload_file_bytes: int = 100 * 1024 * 1024
@@ -48,12 +56,7 @@ class Settings(BaseSettings):
     video_model: str = "gemini-omni-flash-preview"  # AI Studio 키로 models.list 에서 확인한 이름 (2026-11-27)
     tts_model: str = "gemini-3.8-flash-tts"
     tts_default_voice: str = "Kore"
-    # 나레이션 공급자: gemini(위 TTS_MODEL) | inworld (B·C 트랙이 쓰던 Inworld TTS)
-    tts_provider: Literal["gemini", "inworld"] = "gemini"
-    inworld_api_key: Optional[str] = None
-    inworld_voice_id: Optional[str] = None
-    inworld_model: str = "inworld-tts-2"
-    inworld_speaking_rate: float = 1.1
+    # 나레이션 공급자(tts_provider, inworld_*)는 아래 'Shared TTS' 에 있다 (app/tts_service.py 와 hookpipe 가 같이 쓴다)
 
     # Concurrency, polling & safety caps
     concurrency: int = 3
@@ -62,11 +65,12 @@ class Settings(BaseSettings):
     video_timeout_sec: float = 600.0
 
     # Local filesystem paths & object storage
-    work_root: str = str(_PROD_ROOT / "data" / "jobs")
-    output_dir: str = str(_PROD_ROOT / "data" / "outputs")
-    db_path: str = str(_PROD_ROOT / "data" / "jobs.db")
+    work_root: str = str(_DEFAULT_DATA_ROOT / "jobs")
+    output_dir: str = str(_DEFAULT_DATA_ROOT / "outputs")
+    db_path: str = str(_DEFAULT_DATA_ROOT / "jobs.db")
     scripts_dir: str = str(_DEFAULT_SCRIPTS)
 
+    # Object storage
     # local | s3 | r2 (r2 는 s3 와 같다: Cloudflare R2 도 S3 방식으로 접속한다. S3_* 값에 R2 엔드포인트와 키를 넣는다)
     storage_backend: Literal["local", "s3", "r2"] = "local"
     # 환경변수 이름은 S3_… 와 R2_… 둘 다 받는다 (예: R2_BUCKET 또는 S3_BUCKET)
@@ -94,13 +98,36 @@ class Settings(BaseSettings):
     hook_render_mode: Literal["video_model", "dry_run"] = "video_model"  # dry_run: 과금 호출 없이 scenario.json·hook.srt 만
     hook_max_sec: float = 20.0
     hook_clip_resolution: str = "720p"
-    hook_burn_captions: bool = True
     hook_max_clip_sec_per_hook: int = 45  # 훅 하나에서 영상 모델에 요청하는 클립 길이 합 상한(과금 방어)
     body_max_sec: float = 60.0
     body_target_sec: float = 10.0  # A·B·C 공용 본편 길이 (팀 결정 2026-11-27)
     body_llm: str = "gemini-4-hydrogen"  # 본편 대본·컷 고르기 (촬영본 프레임을 보는 글 모델)
     ffmpeg_bin: Optional[str] = None
     ffprobe_bin: Optional[str] = None
+
+    # Paddle Billing (Sandbox by default)
+    paddle_environment: Literal["sandbox", "production"] = "sandbox"
+    paddle_api_base_url: Optional[str] = None
+    paddle_api_key: Optional[str] = None
+    paddle_client_token: Optional[str] = None
+    paddle_webhook_secret: Optional[str] = None
+    paddle_account_email: str = "dudnjsckrgo@gmail.com"
+    paddle_price_c30: Optional[str] = None
+    paddle_price_c100: Optional[str] = None
+    paddle_price_c300: Optional[str] = None
+    paddle_webhook_tolerance_sec: int = 300
+    credits_per_video: int = 12
+    initial_free_videos: int = 1
+
+    # Shared TTS, body pipeline, upload validation & media delivery
+    tts_provider: Literal["inworld", "gemini"] = "inworld"
+    inworld_api_key: Optional[str] = None
+    inworld_voice_id: str = "scarlet-mango-0605__gangsangyun"
+    inworld_model: str = "inworld-tts-2"
+    inworld_speaking_rate: float = 1.1
+    hook_burn_captions: bool = True
+    require_uploaded_object_exists: bool = False
+    media_url_ttl_sec: int = 3600
 
     @property
     def auth_mode(self) -> str:
@@ -109,3 +136,13 @@ class Settings(BaseSettings):
     @property
     def resolved_scripts_dir(self) -> Path:
         return Path(self.scripts_dir).expanduser().resolve()
+
+    @property
+    def resolved_paddle_api_base_url(self) -> str:
+        if self.paddle_api_base_url and self.paddle_api_base_url.strip():
+            return self.paddle_api_base_url.strip().rstrip("/")
+        return (
+            "https://sandbox-api.paddle.com"
+            if self.paddle_environment == "sandbox"
+            else "https://api.paddle.com"
+        )

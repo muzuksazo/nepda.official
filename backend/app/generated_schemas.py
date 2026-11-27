@@ -368,6 +368,77 @@ class OutputsResponse(BaseModel):
     outputs: list[OutputItem] = Field(..., title="Outputs")
 
 
+class Environment(StrEnum):
+    sandbox = "sandbox"
+    production = "production"
+
+
+class PackageId(StrEnum):
+    c30 = "c30"
+    c100 = "c100"
+    c300 = "c300"
+
+
+class Status8(StrEnum):
+    pending = "pending"
+    completed = "completed"
+    failed = "failed"
+    canceled = "canceled"
+
+
+class CreateCheckoutRequest(BaseModel):
+    package_id: PackageId = Field(..., title="Package Id")
+
+
+class PaddleEnvironment(StrEnum):
+    sandbox = "sandbox"
+    production = "production"
+
+
+class CreateCheckoutResponse(BaseModel):
+    order_id: str = Field(..., title="Order Id")
+    package_id: PackageId = Field(..., title="Package Id")
+    credits: int = Field(..., title="Credits")
+    amount_krw: int = Field(..., title="Amount Krw")
+    currency: str | None = Field("KRW", title="Currency")
+    paddle_environment: PaddleEnvironment = Field(..., title="Paddle Environment")
+    paddle_client_token: str = Field(..., title="Paddle Client Token")
+    paddle_price_id: str = Field(..., title="Paddle Price Id")
+    paddle_transaction_id: str = Field(..., title="Paddle Transaction Id")
+    checkout_url: str | None = Field(None, title="Checkout Url")
+    customer_email: str | None = Field(None, title="Customer Email")
+    status: Status8 = Field(..., title="Status")
+
+
+class Id(StrEnum):
+    c30 = "c30"
+    c100 = "c100"
+    c300 = "c300"
+
+
+class CreditPackageResponse(BaseModel):
+    id: Id = Field(..., title="Id")
+    credits: int = Field(..., title="Credits")
+    price: int = Field(..., title="Price")
+    currency: str | None = Field("KRW", title="Currency")
+    is_popular: bool | None = Field(False, title="Is Popular")
+    paddle_price_id: str | None = Field(None, title="Paddle Price Id")
+
+
+class PaddleWebhookAckResponse(BaseModel):
+    received: bool | None = Field(True, title="Received")
+    event_id: str | None = Field(None, title="Event Id")
+    event_type: str | None = Field(None, title="Event Type")
+    credited: bool | None = Field(False, title="Credited")
+    order_id: str | None = Field(None, title="Order Id")
+
+
+class WalletResponse(BaseModel):
+    credits: int = Field(..., title="Credits")
+    has_free_video: bool = Field(..., title="Has Free Video")
+    free_videos_remaining: int = Field(..., title="Free Videos Remaining")
+
+
 class AuthMeResponse(BaseModel):
     user: AuthUserResponse
     quota: QuotaStatus
@@ -466,6 +537,26 @@ class ScenarioItem(BaseModel):
         description="[v0.2 수기 추가 — FastAPI 자동 생성 결과가 아니며 백엔드 구현 전 계약입니다] 이 시나리오가 만들어진 회차(response.round와 동일)",
         title="Round",
     )
+
+
+class BillingConfigResponse(BaseModel):
+    provider: Literal["paddle"] = Field("paddle", title="Provider")
+    environment: Environment | None = Field("sandbox", title="Environment")
+    enabled: bool | None = Field(False, title="Enabled")
+    client_token: str | None = Field(None, title="Client Token")
+    credits_per_video: int | None = Field(12, title="Credits Per Video")
+    packages: list[CreditPackageResponse] = Field(..., title="Packages")
+
+
+class BillingOrderStatusResponse(BaseModel):
+    order_id: str = Field(..., title="Order Id")
+    package_id: PackageId = Field(..., title="Package Id")
+    credits: int = Field(..., title="Credits")
+    amount_krw: int = Field(..., title="Amount Krw")
+    status: Status8 = Field(..., title="Status")
+    paddle_transaction_id: str | None = Field(None, title="Paddle Transaction Id")
+    wallet: WalletResponse
+    completed_at: str | None = Field(None, title="Completed At")
 
 
 class GenerateScenariosResponse(BaseModel):

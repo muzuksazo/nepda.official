@@ -314,7 +314,9 @@ class SharedBody(unittest.TestCase):
 
             settings = Settings(
                 _env_file=None, gemini_api_key="dummy-key", google_client_id="dummy.apps.googleusercontent.com",
-                session_secret="test-session-secret-32bytes-minimum", work_root=str(root / "work"),
+                session_secret="test-session-secret-32bytes-minimum",
+        tts_provider="gemini",  # 나레이션은 대역 공급자로 (기본값 inworld 는 실제 키가 필요)
+                work_root=str(root / "work"),
                 output_dir=str(root / "outputs"), db_path=str(root / "napda.db"), daily_render_limit=10,
             )
             app = create_app(settings=settings, google_token_verifier=fake_google_verifier,
@@ -386,6 +388,7 @@ def _client(root: Path, provider: Any, *, scenario_generator: Any = None, **over
         gemini_api_key="dummy-key",
         google_client_id="dummy-client-id.apps.googleusercontent.com",
         session_secret="test-session-secret-32bytes-minimum",
+        tts_provider="gemini",  # 나레이션은 대역 공급자로 (기본값 inworld 는 실제 키가 필요)
         work_root=str(root / "work"),
         output_dir=str(root / "outputs"),
         db_path=str(root / "napda.db"),
@@ -442,6 +445,7 @@ class ApiFlow(unittest.TestCase):
                 gemini_api_key="dummy-key",
                 google_client_id="dummy-client-id.apps.googleusercontent.com",
                 session_secret="test-session-secret-32bytes-minimum",
+        tts_provider="gemini",  # 나레이션은 대역 공급자로 (기본값 inworld 는 실제 키가 필요)
                 work_root=str(root / "work"),
                 output_dir=str(root / "outputs"),
                 db_path=str(root / "napda.db"),

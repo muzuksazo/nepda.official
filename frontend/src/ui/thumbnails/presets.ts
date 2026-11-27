@@ -1,3 +1,5 @@
+import damTapeBulge from '../../assets/thumbnails/dam-tape-bulge.webp';
+import damTapeRagdoll from '../../assets/thumbnails/dam-tape-ragdoll.webp';
 import jetUmbrellaV1 from '../../assets/thumbnails/jet-umbrella-v1.webp';
 import pievStudioFullshot from '../../assets/thumbnails/piev-studio-fullshot.webp';
 import ps2EoljukahV2 from '../../assets/thumbnails/ps2-eoljukah-v2.webp';
@@ -16,6 +18,8 @@ export const IMAGE_PRESET_OPTIONS: ImagePresetOption[] = [
   { id: 'ps2-eoljukah-v2', label: '얼죽아 v2', url: ps2EoljukahV2 },
   { id: 'jet-umbrella-v1', label: '제트엔진', url: jetUmbrellaV1 },
   { id: 'piev-studio', label: '피에브 풀샷', url: pievStudioFullshot },
+  { id: 'dam-tape-bulge', label: '댐 테이프', url: damTapeBulge },
+  { id: 'dam-tape-ragdoll', label: '댐 날아감', url: damTapeRagdoll },
   { id: 'ps2-subway-hero', label: '2호선 기대', url: ps2SubwayHero },
   { id: 'ps2-subway-v3', label: '2호선 현실', url: ps2SubwayV3 },
 ];
@@ -146,5 +150,62 @@ export const PS2_GTA_SHOWCASE_PRESETS: ShowcasePreset[] = [
     id: 'style-4-pov-bar',
     label: '스타일 4 · 상단 블랙 바 POV 밈형',
     props: VARIANT_PRESETS['pov-bar'],
+  },
+];
+
+export const DAM_DEODORIZING_THUMBNAIL_PRESETS: ShowcasePreset[] = [
+  {
+    id: 'dam-style-1-invert-box',
+    label: '스타일 1 · 화이트/블랙 반전 2줄 박스',
+    props: {
+      variant: 'invert-box',
+      badge: '',
+      headline: '댐 균열을 테이프 100겹으로\n덮으면 어떻게 될까요?',
+      highlightWord: '100겹',
+      subtitle: '',
+      imageUrl: damTapeBulge,
+      showWordmark: false,
+    },
+  },
+  {
+    id: 'dam-style-2-white-label',
+    label: '스타일 2 · 좌측정렬 화이트 라벨 2줄',
+    props: {
+      variant: 'white-label',
+      badge: '',
+      headline: '댐 균열 테이프 100겹\n몇 초 버틸까?',
+      highlightWord: '100겹',
+      subtitle: '',
+      imageUrl: damTapeBulge,
+      showWordmark: false,
+    },
+  },
+  {
+    id: 'dam-style-3-serif-outline',
+    label: '스타일 3 · 대형 명조 외곽선 임팩트',
+    props: {
+      variant: 'serif-outline',
+      badge: '댐 균열 테이프 100겹 실험',
+      headline: '버티는 건\n딱 3초',
+      highlightWord: '딱 3초',
+      subtitle: '',
+      imageUrl: damTapeBulge,
+      showWordmark: false,
+    },
+  },
+  {
+    id: 'dam-style-4-pov-bar',
+    label: '스타일 4 · 상단 블랙 바 POV 밈형',
+    props: {
+      variant: 'pov-bar',
+      badge: '',
+      headline: 'POV: 100톤 수압 댐 균열을\n테이프 100겹으로 막아보다가\n통째로 날아간 나',
+      highlightWord: '100겹',
+      subtitle: '',
+      imageUrl: damTapeRagdoll,
+      imageScale: 1.08,
+      imageOffsetY: -60,
+      showWordmark: false,
+    },
   },
 ];

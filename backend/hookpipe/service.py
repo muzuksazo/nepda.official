@@ -216,6 +216,11 @@ class HookPipeline:
     def _shared_body(self, project: Dict[str, Any], clips: List[Path], voice: Optional[str], job_id: str) -> Tuple[Path, Optional[Path], List[str]]:
         """A·B·C 공용 본편. FR-009 결과(project.body)가 있으면 그것을, 없으면 촬영본으로 10초 본편을 만든다(한 번만)."""
         body = project.get("body") or {}
+        # FR-009 본편 (app/body_pipeline.py, POST /v1/projects/{id}/body) 의 manifest: object_keys.body_video / body_srt
+        keys = body.get("object_keys") or {}
+        body = {**body, "video_key": body.get("video_key") or keys.get("body_video"),
+                "srt_key": body.get("srt_key") or keys.get("body_srt")}
+        project = {**project, "body": body}
         given = body.get("video_path")
         if not given and body.get("video_key"):
             dest = Path(self.settings.output_dir).resolve() / str(project["project_id"]) / "_renders" / job_id / "body_in.mp4"
