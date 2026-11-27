@@ -1,0 +1,29 @@
+name: Frontend Deployment Check
+
+on:
+  deployment_status:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Verify frontend deployment
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       startsWith(github.event.deployment_status.environment_url, 'https://napda-frontend-') &&
+       endsWith(github.event.deployment_status.environment_url, '.vercel.app'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.deployment.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+      - name: Check HTML, assets and backend proxy
+        env:
+          FRONTEND_URL: ${{ github.event.deployment_status.environment_url || 'https://napda.vercel.app' }}
+        run: node frontend/scripts/check-deployment.mjs
