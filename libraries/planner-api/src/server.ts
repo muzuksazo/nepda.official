@@ -54,8 +54,13 @@ export function createPlannerServer(deps: PlannerServerDeps = {}): http.Server {
           status: "ok",
           providers: {
             anthropic: Boolean(cfg.anthropicApiKey),
-            google: Boolean(cfg.googleApiKey),
+            google: Boolean(cfg.googleVertexApiKey || cfg.googleApiKey),
           },
+          googleAuthMode: cfg.googleVertexApiKey
+            ? "vertex_api_key"
+            : cfg.googleApiKey
+              ? "ai_studio"
+              : "none",
           models: {
             anthropic: cfg.anthropicModel,
             google: cfg.googleModel,

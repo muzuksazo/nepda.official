@@ -36,6 +36,18 @@ test("resolvePlannerModel supports Claude + Gemini key fallback and guards missi
   assert.equal(gRes.provider, "google");
   assert.equal(gRes.modelId, "gemini-3.5-flash");
 
+  const vtxRes = resolvePlannerModel("google", {
+    config: {
+      googleVertexApiKey: "AQ.DummyVertexTestKey123456",
+      anthropicModel: "claude-sonnet-4-5",
+      googleModel: "gemini-2.5-flash",
+      workerBaseUrl: "http://127.0.0.1:8080",
+      plannerPort: 8787,
+    },
+  });
+  assert.equal(vtxRes.provider, "google");
+  assert.equal(vtxRes.modelId, "gemini-2.5-flash");
+
   assert.throws(
     () =>
       resolvePlannerModel("anthropic", {
@@ -47,5 +59,17 @@ test("resolvePlannerModel supports Claude + Gemini key fallback and guards missi
         },
       }),
     /ANTHROPIC_API_KEY/
+  );
+  assert.throws(
+    () =>
+      resolvePlannerModel("google", {
+        config: {
+          anthropicModel: "claude-sonnet-4-5",
+          googleModel: "gemini-3.5-flash",
+          workerBaseUrl: "http://127.0.0.1:8080",
+          plannerPort: 8787,
+        },
+      }),
+    /GOOGLE_VERTEX_API_KEY/
   );
 });

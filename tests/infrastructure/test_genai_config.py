@@ -33,6 +33,19 @@ class TestGenAIClientFactory(GenAIClientFactoryCase):
         with self.assertRaises(ValueError):
             build_genai_client(Settings(google_genai_use_vertexai=True, google_cloud_project=None))
 
+    def test_build_client_vertex_api_key_express_mode(self) -> None:
+        with patch("app.genai_provider.genai.Client") as m_client:
+            s_vtx_key = Settings(
+                google_genai_use_vertexai=True,
+                google_vertex_api_key="AQ.DummyVertexKey",
+                google_cloud_project=None,
+            )
+            build_genai_client(s_vtx_key)
+            m_client.assert_called_once_with(
+                vertexai=True,
+                api_key="AQ.DummyVertexKey",
+            )
+
     def test_build_client_vercel_wif_credentials(self) -> None:
         provider = (
             "projects/123456789012/locations/global/workloadIdentityPools/"

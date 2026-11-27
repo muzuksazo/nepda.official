@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 
     # Auth: AI Studio (`GEMINI_API_KEY`) or Vertex AI (`GOOGLE_GENAI_USE_VERTEXAI=true`)
     gemini_api_key: Optional[str] = None
+    google_vertex_api_key: Optional[str] = None
     google_genai_use_vertexai: bool = False
     google_cloud_project: Optional[str] = None
     google_cloud_location: str = "us-central1"

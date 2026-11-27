@@ -119,15 +119,21 @@ def build_vercel_wif_credentials(
 def build_genai_client(settings: Settings) -> genai.Client:
     """Create a `google.genai.Client` configured for AI Studio or Vertex AI / WIF."""
     if settings.google_genai_use_vertexai:
+        has_wif = bool(
+            settings.gcp_workload_identity_provider
+            and settings.gcp_service_account_email
+            and get_active_vercel_oidc_token()
+        )
+        if settings.google_vertex_api_key and not has_wif:
+            return genai.Client(
+                vertexai=True,
+                api_key=settings.google_vertex_api_key,
+            )
         if not settings.google_cloud_project:
             raise ValueError(
                 "GOOGLE_CLOUD_PROJECT is required when GOOGLE_GENAI_USE_VERTEXAI=true"
             )
-        if (
-            settings.gcp_workload_identity_provider
-            and settings.gcp_service_account_email
-            and get_active_vercel_oidc_token()
-        ):
+        if has_wif:
             creds = build_vercel_wif_credentials(
                 settings.gcp_workload_identity_provider,
                 settings.gcp_service_account_email,
