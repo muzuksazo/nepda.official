@@ -26,7 +26,7 @@ import modal
 # 내 PC: backend/selfhosted/still_cycle.py → 저장소 루트. Modal 컨테이너 안에서는 /root/still_cycle.py 라 상위 폴더가 모자란다
 _HERE = Path(__file__).resolve()
 ROOT = _HERE.parents[2] if len(_HERE.parents) > 2 else _HERE.parent
-W, H = 768, 1376
+W, H = 576, 1024  # MiniMax 클립과 같은 크기 (768x1376 에서 낮춤: 그림이 빨라지고 클립 화질은 같다, 2026-11-28)
 
 image = modal.Image.from_dockerfile(ROOT / "backend" / "Dockerfile", context_dir=ROOT).env({
     "PYTHONPATH": "/app",
@@ -69,6 +69,13 @@ def cycle(product: dict, hook_types: list, refs: dict, captioners: list, scenari
 
     settings = Settings()
     flux = modal.Cls.from_name("napda-flux3-klein", "Flux3KleinService")()
+    # 시나리오를 만드는 동안 FLUX GPU 를 미리 깨운다: 아주 작은 그림 한 장 (기다리지 않는다).
+    # 시나리오 1분 뒤에 켜면 콘티 단계에 GPU 기동·모델 적재 약 1분이 그대로 붙었다 (2026-11-28)
+    flux_warm = None
+    if engine == "flux":
+        flux_warm = flux.run_generate.spawn({"prompt": "a plain grey square", "reference_images": [], "width": 256,
+                                             "height": 256, "steps": 1, "seed": 1, "use_pup": False, "safety": False,
+                                             "output_format": "png"})
     product_refs = [base64.b64encode(b).decode("ascii") for b in refs.values()]
     project = {"project_id": f"still_{uuid.uuid4().hex[:8]}", "product": product, "selected_types": hook_types}
     log: list = []
