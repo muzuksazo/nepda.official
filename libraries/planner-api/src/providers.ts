@@ -1,5 +1,6 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGoogleVertex } from "@ai-sdk/google-vertex";
 import type { LanguageModel } from "ai";
 import { loadConfig, type PlannerConfig } from "./config.js";
 
@@ -7,7 +8,8 @@ export type PlannerProviderName = "anthropic" | "google";
 
 /**
  * Resolve a Vercel AI SDK LanguageModel for either Anthropic Claude or Google Gemini.
- * Accepts `GOOGLE_GENERATIVE_AI_API_KEY` or `GEMINI_API_KEY` so a single key works across both SDKs.
+ * Prefers Vertex AI Express (`GOOGLE_VERTEX_API_KEY`) when configured, otherwise falls back
+ * to AI Studio (`GOOGLE_GENERATIVE_AI_API_KEY` or `GEMINI_API_KEY`).
  */
 export function resolvePlannerModel(
   provider: PlannerProviderName,
@@ -27,14 +29,18 @@ export function resolvePlannerModel(
   }
 
   if (provider === "google") {
-    if (!cfg.googleApiKey) {
-      throw new Error(
-        "GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY is required when provider='google'"
-      );
-    }
     const modelId = options.modelId?.trim() || cfg.googleModel;
-    const google = createGoogleGenerativeAI({ apiKey: cfg.googleApiKey });
-    return { provider, modelId, model: google(modelId) };
+    if (cfg.googleVertexApiKey) {
+      const vertex = createGoogleVertex({ apiKey: cfg.googleVertexApiKey });
+      return { provider, modelId, model: vertex(modelId) };
+    }
+    if (cfg.googleApiKey) {
+      const google = createGoogleGenerativeAI({ apiKey: cfg.googleApiKey });
+      return { provider, modelId, model: google(modelId) };
+    }
+    throw new Error(
+      "GOOGLE_VERTEX_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or GEMINI_API_KEY is required when provider='google'"
+    );
   }
 
   throw new Error(`Unsupported planner provider: ${String(provider)}`);

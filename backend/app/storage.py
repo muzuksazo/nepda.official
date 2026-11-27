@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import mimetypes
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Optional, Protocol
 
 from .config import Settings
+
+
+@dataclass(frozen=True)
+class ObjectMetadata:
+    """Minimal object metadata returned by StorageBackend.head_object."""
+
+    size_bytes: int
+    content_type: Optional[str] = None
 
 
 class StorageBackend(Protocol):
@@ -14,6 +24,9 @@ class StorageBackend(Protocol):
     def download_file(self, object_key: str, local_path: str | Path) -> str: ...
     def presign_upload(self, object_key: str, content_type: str = "video/mp4", expires_sec: int = 900) -> str: ...
     def presign_download(self, object_key: str, expires_sec: int = 3600) -> str: ...
+    def head_object(self, object_key: str) -> Optional[ObjectMetadata]: ...
+    def delete_object(self, object_key: str) -> bool: ...
+    def resolve_local_path(self, object_key: str) -> Optional[Path]: ...
 
 
 class LocalStorageBackend:
@@ -26,9 +39,33 @@ class LocalStorageBackend:
     def _target(self, object_key: str) -> Path:
         clean = object_key.lstrip("/")
         dest = (self.root / clean).resolve()
-        if not str(dest).startswith(str(self.root)):
+        if dest != self.root and not dest.is_relative_to(self.root):
             raise ValueError(f"Illegal object_key outside storage root: {object_key!r}")
         return dest
+
+    def local_path_for(self, object_key: str) -> Path:
+        return self._target(object_key)
+
+    def resolve_local_path(self, object_key: str) -> Optional[Path]:
+        try:
+            dest = self._target(object_key)
+        except ValueError:
+            return None
+        return dest if dest.is_file() else None
+
+    def head_object(self, object_key: str) -> Optional[ObjectMetadata]:
+        target = self.resolve_local_path(object_key)
+        if not target:
+            return None
+        ctype, _ = mimetypes.guess_type(str(target))
+        return ObjectMetadata(size_bytes=target.stat().st_size, content_type=ctype)
+
+    def delete_object(self, object_key: str) -> bool:
+        target = self.resolve_local_path(object_key)
+        if not target:
+            return False
+        target.unlink(missing_ok=True)
+        return True
 
     def upload_file(self, local_path: str | Path, object_key: str) -> str:
         dest = self._target(object_key)
@@ -80,6 +117,34 @@ class S3StorageBackend:
     def _full_key(self, object_key: str) -> str:
         clean = object_key.lstrip("/")
         return f"{self.prefix}/{clean}" if self.prefix else clean
+
+    def resolve_local_path(self, object_key: str) -> Optional[Path]:
+        _ = object_key
+        return None
+
+    def head_object(self, object_key: str) -> Optional[ObjectMetadata]:
+        try:
+            resp = self.client.head_object(Bucket=self.bucket, Key=self._full_key(object_key))
+        except Exception as exc:
+            code = str((getattr(exc, "response", {}) or {}).get("Error", {}).get("Code") or "")
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                return None
+            # Check botocore HTTP status if available
+            meta = (getattr(exc, "response", {}) or {}).get("ResponseMetadata", {})
+            if meta.get("HTTPStatusCode") == 404:
+                return None
+            raise
+        return ObjectMetadata(
+            size_bytes=int(resp.get("ContentLength") or 0),
+            content_type=resp.get("ContentType"),
+        )
+
+    def delete_object(self, object_key: str) -> bool:
+        try:
+            self.client.delete_object(Bucket=self.bucket, Key=self._full_key(object_key))
+            return True
+        except Exception:
+            return False
 
     def upload_file(self, local_path: str | Path, object_key: str) -> str:
         key = self._full_key(object_key)

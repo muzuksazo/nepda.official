@@ -1006,7 +1006,7 @@ def _resolve_target_title(
     if src_key:
         for idx, it in enumerate(grid_items):
             if it.get("src_key") == src_key:
-                return it.get("title") or saved_title, idx
+                return saved_title or it.get("title"), idx
     return saved_title or None, None
 
 
@@ -1071,14 +1071,20 @@ def _pick_from_open_modal_or_upload(
                     return o
         return None
 
+    orig_opts = opts
     chosen_opt = _match_opt(opts)
 
+    if chosen_opt is None and opts and grid_idx is not None and 0 <= grid_idx < len(opts) and len(opts) == len(grid_items):
+        chosen_opt = opts[grid_idx]
+
     if chosen_opt is None and opts and norm_t:
-        # Retry once after modal list finishes hydrating or filter by 애셋 검색
+        # Retry once after modal list finishes hydrating, check grid_idx again, then filter by 애셋 검색
         time.sleep(0.5)
         dp_r = read_dom(tab_id)
         opts_r = [el for el in dp_r.get("elements", []) if el.get("role") == "option"]
         chosen_opt = _match_opt(opts_r)
+        if chosen_opt is None and opts_r and grid_idx is not None and 0 <= grid_idx < len(opts_r) and len(opts_r) == len(grid_items):
+            chosen_opt = opts_r[grid_idx]
         if chosen_opt is None:
             search_ref = find_ref(dp_r, role="textbox", name="애셋 검색")
             if search_ref:
@@ -1090,9 +1096,11 @@ def _pick_from_open_modal_or_upload(
                 dp = read_dom(tab_id)
                 opts = [el for el in dp.get("elements", []) if el.get("role") == "option"]
                 chosen_opt = _match_opt(opts)
+                if chosen_opt is None and not opts:
+                    opts = orig_opts
 
-    if chosen_opt is None and opts and grid_idx is not None and 0 <= grid_idx < len(opts) and len(opts) == len(grid_items):
-        chosen_opt = opts[grid_idx]
+    if chosen_opt is None and orig_opts and grid_idx is not None and 0 <= grid_idx < len(orig_opts) and len(orig_opts) == len(grid_items):
+        chosen_opt = orig_opts[grid_idx]
 
     if chosen_opt is not None:
         print(f"  [attach] {target_id} -> '{chosen_opt.get('name')}'", flush=True)

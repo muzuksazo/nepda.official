@@ -42,6 +42,7 @@ class CampaignRequest:
     max_credits: Optional[int] = None
     concurrency: Optional[int] = None
     extra_past_specs: List[str] = field(default_factory=list)
+    skip_cross_campaign_reskin: bool = False
 
 
 def _run_script(
@@ -219,7 +220,7 @@ class ProductionPipeline:
             if req.compare_abc_specs and len(req.compare_abc_specs) == 3:
                 lint_args.extend(["--compare-abc", *req.compare_abc_specs])
 
-            if spec_data.get("track_archetype") == "A_bgrade_reversal":
+            if spec_data.get("track_archetype") == "A_bgrade_reversal" and not req.skip_cross_campaign_reskin:
                 prior_specs: List[str] = []
                 for p in self.store.list_past_campaigns():
                     sp_old = p.get("spec_path")

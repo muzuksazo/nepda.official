@@ -30,6 +30,8 @@ export interface CommunityVideo {
   caption?: string;
   likeCount: number;
   isLiked?: boolean;
+  /** 서버가 알려 준 댓글 수 (댓글 목록을 아직 안 불러왔을 때) */
+  commentCount?: number;
 }
 
 export interface CommunityScreenProps {
@@ -89,7 +91,7 @@ function CenteredState({ mascot, title, description, actionLabel, onAction }: Ce
 }
 
 /**
- * 안3-4 커뮤니티 — 다른 사람들이 냅다로 만든 영상을 둘러보는 탐색 그리드 (하단 내비게이션 '커뮤니티' 탭).
+ * 안3-4 탐색 — 다른 사람들이 냅다로 만든 영상을 둘러보는 그리드 (하단 내비게이션 '탐색' 탭).
  * 정렬·카테고리 없이 추천 순서로 보여 주고, 위쪽 탭으로 훅 유형만 고른다.
  */
 export function CommunityScreen({
@@ -170,7 +172,7 @@ export function CommunityScreen({
             영상을 불러오고 있어요
           </p>
         ) : null}
-        <ul className="n-explore-grid" aria-label="커뮤니티 영상" aria-busy={status === 'loading' || isLoadingMore || undefined}>
+        <ul className="n-explore-grid" aria-label="탐색 영상" aria-busy={status === 'loading' || isLoadingMore || undefined}>
           {status === 'loading'
             ? skeletonTiles(SKELETON_COUNT, 'first')
             : items.map((video) => (
@@ -195,7 +197,7 @@ export function CommunityScreen({
     <MobileScreen
       header={
         <>
-          <PageHeader title="커뮤니티" isTabRoot />
+          <PageHeader title="탐색" isTabRoot />
           <TabList idBase={tabsId} label="훅 유형" items={TYPE_TABS} value={tab} onChange={changeTab} />
         </>
       }

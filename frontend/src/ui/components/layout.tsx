@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Folder, Home, Lightning, User, Users, type IconProps } from '../icons';
+import { Bell, ChevronLeft, ChevronRight, Folder, Home, Lightning, Search, User, type IconProps } from '../icons';
 import { brand } from '../brand';
 import { IconButton, ProgressBar } from './primitives';
 
@@ -42,11 +42,15 @@ export function MobileScreen({ header, children, footer, footerSummary, bottomNa
 
 export type NavTab = 'home' | 'myVideos' | 'community' | 'profile';
 
-const NAV_ITEMS: { value: NavTab; label: string; Icon: ComponentType<IconProps> }[] = [
-  { value: 'home', label: '홈', Icon: Home },
-  { value: 'myVideos', label: '내 영상', Icon: Folder },
-  { value: 'community', label: '커뮤니티', Icon: Users },
-  { value: 'profile', label: '프로필', Icon: User },
+/**
+ * activeLook — 현재 탭 표시. fill: 아이콘 면을 꽉 채운다 · bold: 선만 굵게 (돋보기는 채우면 렌즈가 까만 원이 돼 알아보기 어렵다)
+ */
+const NAV_ITEMS: { value: NavTab; label: string; Icon: ComponentType<IconProps>; activeLook: 'fill' | 'bold' }[] = [
+  { value: 'home', label: '홈', Icon: Home, activeLook: 'fill' },
+  { value: 'myVideos', label: '내 영상', Icon: Folder, activeLook: 'fill' },
+  // 탐색 = 다른 사람 영상을 둘러보는 탭이라 돋보기 (코드 이름은 community 그대로)
+  { value: 'community', label: '탐색', Icon: Search, activeLook: 'bold' },
+  { value: 'profile', label: '프로필', Icon: User, activeLook: 'fill' },
 ];
 
 export interface BottomNavProps {
@@ -54,7 +58,7 @@ export interface BottomNavProps {
   onNavigate?: (tab: NavTab) => void;
 }
 
-/** 하단 내비게이션 바: 홈 · 내 영상 · 커뮤니티 · 프로필. 아이콘만 보이고(이름은 스크린 리더용), 현재 탭은 아이콘이 검정(다크는 흰색)으로 꽉 채워진다. */
+/** 하단 내비게이션 바: 홈 · 내 영상 · 탐색 · 프로필. 아이콘만 보이고(이름은 스크린 리더용), 현재 탭은 아이콘이 검정(다크는 흰색)으로 꽉 채워진다. */
 export function BottomNav({ active, onNavigate }: BottomNavProps) {
   return (
     <nav className="n-bottom-nav" aria-label="주요 메뉴">
@@ -70,8 +74,12 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
             onClick={() => onNavigate?.(item.value)}
           >
             <span className="n-bottom-nav__icon" aria-hidden="true">
-              {/* 현재 탭: 아이콘을 글자색(라이트 검정·다크 흰색)으로 꽉 채운다. 나머지: 회색 선만 */}
-              <item.Icon size={24} strokeWidth={2} fill={isActive ? 'currentColor' : 'none'} />
+              {/* 현재 탭: 아이콘을 글자색(라이트 검정·다크 흰색)으로 꽉 채운다(돋보기는 선만 굵게). 나머지: 회색 선만 */}
+              <item.Icon
+                size={24}
+                strokeWidth={isActive && item.activeLook === 'bold' ? 2.75 : 2}
+                fill={isActive && item.activeLook === 'fill' ? 'currentColor' : 'none'}
+              />
             </span>
           </button>
         );
@@ -151,18 +159,55 @@ export function ProfileButton({ name, imageUrl, onClick }: ProfileButtonProps) {
   );
 }
 
+export interface NotificationButtonProps {
+  /** 안 읽은 알림 수. 0이면 표시 없음, 10개부터는 "9+" */
+  unreadCount?: number;
+  onClick?: () => void;
+}
+
+/** 상단 GNB 알림 종: 안 읽은 알림이 있으면 오른쪽 위에 숫자 점이 붙는다 */
+export function NotificationButton({ unreadCount = 0, onClick }: NotificationButtonProps) {
+  const shown = unreadCount > 9 ? '9+' : String(unreadCount);
+  return (
+    <button
+      type="button"
+      className="n-bell"
+      onClick={onClick}
+      aria-label={unreadCount > 0 ? `알림, 안 읽은 알림 ${unreadCount}개` : '알림'}
+    >
+      <Bell size={24} aria-hidden="true" />
+      {unreadCount > 0 ? (
+        <span className="n-bell__count n-num" aria-hidden="true">
+          {shown}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 export interface AppHeaderActionsProps {
   credits?: number;
   onCreditClick?: () => void;
+  /** 안 읽은 알림 수 */
+  unreadCount?: number;
+  onNotificationsClick?: () => void;
   profile?: { name?: string; imageUrl?: string };
   onProfileClick?: () => void;
 }
 
-/** 홈 상단 오른쪽 묶음: 크레딧 · 프로필 */
-export function AppHeaderActions({ credits, onCreditClick, profile, onProfileClick }: AppHeaderActionsProps) {
+/** 홈 상단 오른쪽 묶음: 크레딧 · 알림 · 프로필 */
+export function AppHeaderActions({
+  credits,
+  onCreditClick,
+  unreadCount,
+  onNotificationsClick,
+  profile,
+  onProfileClick,
+}: AppHeaderActionsProps) {
   return (
     <div className="n-header-actions">
       <CreditBadge credits={credits} onClick={onCreditClick} />
+      <NotificationButton unreadCount={unreadCount} onClick={onNotificationsClick} />
       <ProfileButton name={profile?.name} imageUrl={profile?.imageUrl} onClick={onProfileClick} />
     </div>
   );
@@ -172,14 +217,16 @@ export interface FlowHeaderProps {
   title: string;
   step: number;
   onBack?: () => void;
+  /** 뒤로 버튼의 스크린 리더 이름 (기본 "이전") */
+  backLabel?: string;
 }
 
 /** 만들기 흐름 상단: [뒤로 · 제목 · 단계] 한 줄 + 바로 아래 진행 막대 */
-export function FlowHeader({ title, step, onBack }: FlowHeaderProps) {
+export function FlowHeader({ title, step, onBack, backLabel = '이전' }: FlowHeaderProps) {
   return (
     <header className="n-flow-header">
       <div className="n-row" style={{ gap: 4 }}>
-        <IconButton label="이전" icon={<ChevronLeft size={26} />} onClick={onBack} />
+        <IconButton label={backLabel} icon={<ChevronLeft size={26} />} onClick={onBack} />
         <h1 className="n-title">{title}</h1>
         <span className="n-flow-header__step n-num">
           <b>{step}</b> / {FLOW_TOTAL_STEPS}
@@ -237,18 +284,21 @@ export interface PageHeaderProps {
   title: string;
   count?: number;
   onBack?: () => void;
+  /** 오른쪽 끝 행동 (예: "모두 읽음") */
+  endContent?: ReactNode;
   /** 탭 최상위 화면(하단 내비게이션으로 들어온 화면)은 뒤로 버튼 없이 제목만 */
   isTabRoot?: boolean;
 }
 
 /** 일반 페이지 상단: 뒤로 · 제목 · 개수 (진행 막대 없음) */
-export function PageHeader({ title, count, onBack, isTabRoot }: PageHeaderProps) {
+export function PageHeader({ title, count, onBack, isTabRoot, endContent }: PageHeaderProps) {
   return (
     <header className={`n-flow-header${isTabRoot ? ' n-flow-header--root' : ''}`}>
       <div className="n-row" style={{ gap: 4, minHeight: 44 }}>
         {isTabRoot ? null : <IconButton label="이전" icon={<ChevronLeft size={26} />} onClick={onBack} />}
         <h1 className="n-title">{title}</h1>
         {count !== undefined ? <span className="n-title n-muted" style={{ marginLeft: 4 }}>{count}</span> : null}
+        {endContent ? <div style={{ marginLeft: 'auto' }}>{endContent}</div> : null}
       </div>
     </header>
   );

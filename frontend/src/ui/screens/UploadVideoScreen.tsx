@@ -26,8 +26,6 @@ export interface UploadVideoScreenProps {
   cost?: number;
   /** 지금 보유한 크레딧 */
   credits?: number;
-  /** 온보딩 무료 제작 1회가 남아 있으면 크레딧 대신 그걸 쓴다 */
-  isFreeVideo?: boolean;
   /** 크레딧이 모자라 "충전하고 만들기"를 눌렀을 때. 충전 뒤 이 화면으로 돌아오도록 고른 영상과 모자란 크레딧을 넘긴다 */
   onCharge?: (file: File, shortfall: number) => void;
   /** 처음부터 크레딧 부족 시트를 열어 둔다 (스토리·테스트용) */
@@ -55,14 +53,13 @@ export function UploadVideoScreen({
   estimate = SAMPLE_ESTIMATE,
   cost,
   credits,
-  isFreeVideo = false,
   onCharge,
   initialIsShort = false,
 }: UploadVideoScreenProps) {
   const [file, setFile] = useState<File | null>(initialFile);
   const [isShortOpen, setIsShortOpen] = useState(initialIsShort);
-  // 무료 1회가 남아 있으면 크레딧을 따지지 않는다. 단가·잔액을 모르면 막지 않고 서버에 맡긴다
-  const shortfall = !isFreeVideo && cost !== undefined && credits !== undefined ? Math.max(0, cost - credits) : 0;
+  // 단가·잔액을 모르면 막지 않고 서버에 맡긴다
+  const shortfall = cost !== undefined && credits !== undefined ? Math.max(0, cost - credits) : 0;
 
   const create = () => {
     if (!file) return;
@@ -74,13 +71,6 @@ export function UploadVideoScreen({
   let summary;
   if (!file) {
     summary = <span>영상부터 골라 주세요</span>;
-  } else if (isFreeVideo) {
-    summary = (
-      <>
-        <Badge tone="brand">무료</Badge>
-        <span>이번 영상은 무료예요</span>
-      </>
-    );
   } else if (cost === undefined) {
     summary = (
       <>

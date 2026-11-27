@@ -10,6 +10,7 @@ __pycache__/
 node_modules/
 dist/
 *.mp4
+!tests/e2e_recordings/*.mp4
 *.mov
 *.MOV
 *.wav

@@ -385,12 +385,8 @@ export function NapdaApp({ themeMode, onThemeModeChange }: NapdaAppProps) {
             onCreate={() => startCreate()}
             onContinue={resumeProject}
             onDownloadAgain={resumeProject}
-            onSeeAllInProgress={() => {
+            onSeeAllMyVideos={() => {
               setMyTab('inProgress');
-              setStep('myVideos');
-            }}
-            onSeeAllCompleted={() => {
-              setMyTab('completed');
               setStep('myVideos');
             }}
           />

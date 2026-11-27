@@ -18,6 +18,7 @@ class TestProductionPipelineAndAPI(ProductionPipelineAndAPICase):
         with temporary_directory() as td:
             root = Path(td)
             settings = Settings(
+                _env_file=None,
                 gemini_api_key="dummy",
                 api_bearer_token="secret-token-123",
                 work_root=str(root / "work"),
