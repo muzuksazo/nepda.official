@@ -1,5 +1,6 @@
 # NAPDA Full-Stack E2E 테스트 계획 및 3인 개발자 분배표
 
+> **E2E 영상 대시보드 (인라인 재생)**: https://muzuksazo.github.io/nepda.official/  
 > 최종 업데이트: 2026-11-27 (`origin/main` @ `417d2ff`, PR #14 병합 후)  
 > 대상 서비스: `frontend/` (React 19 + Vite) ↔ `backend/` (FastAPI) ↔ `libraries/planner-api` (Node) ↔ `libraries/media-tools` (FFmpeg / Pillow)  
 > 3인 편성: **나** (**A안**) · **시우님** (**B안**, `FR-003, FR-004, FR-005, FR-010` 전담) · **상윤님** (**C안**)

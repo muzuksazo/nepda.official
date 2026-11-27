@@ -1,0 +1,315 @@
+{
+  "updatedAt": "2026-11-27",
+  "commit": "417d2ff",
+  "repoUrl": "https://github.com/muzuksazo/nepda.official",
+  "planDocPath": "tests/E2E_TEST_PLAN.md",
+  "overviewImage": "./recordings/e2e_features_overview.png",
+  "offlineSuites": [
+    { "name": "Python Regression & Parity", "command": ".venv/bin/python scripts/test-python.py", "summary": "54 / 54 PASS", "status": "pass" },
+    { "name": "Node Planner & Prototype", "command": "npm test && npm run typecheck && npm run build", "summary": "7 / 7 PASS", "status": "pass" },
+    { "name": "Frontend Lint & Build", "command": "npm --prefix frontend run lint && npm --prefix frontend run build", "summary": "0 error · PASS", "status": "pass" },
+    { "name": "GitHub Actions CI / CD", "command": "CI + Frontend CI + CD Backend", "summary": "PASS", "status": "pass" }
+  ],
+  "owners": [
+    {
+      "id": "me",
+      "name": "나",
+      "variant": "A안",
+      "role": "Auth · Billing(FR-006) · Infra · Live Ops",
+      "scope": "Google OAuth/세션, Paddle 결제/웹훅, GitHub CI/CD, Vercel 운영, A안 풀스택 E2E"
+    },
+    {
+      "id": "siwoo",
+      "name": "시우님",
+      "variant": "B안",
+      "role": "FR-003 · FR-004 · FR-005 · FR-010 전담",
+      "scope": "시나리오 기획, 이미지 콘티, 훅 검수·생성, 이미지/영상 AI 생성·예산 상한, B안 풀스택 E2E"
+    },
+    {
+      "id": "sangyoon",
+      "name": "상윤님",
+      "variant": "C안",
+      "role": "Frontend UI · 업로드/TTS/전달 (FR-001~002·007~009·011~015)",
+      "scope": "UI/탐색/테마/8단계 위저드, 촬영 가이드·업로드·TTS·썸네일/미디어 전달, C안 풀스택 E2E"
+    }
+  ],
+  "cases": [
+    {
+      "id": "E2E-ABC-A",
+      "title": "A안 8단계 실앱 풀스택 E2E",
+      "owner": "me",
+      "env": "local",
+      "status": "pass",
+      "fr": "A안 · FR-001~014",
+      "durationSec": 38.28,
+      "sizeKb": 395,
+      "video": "./recordings/abc_A_hook_e2e.mp4",
+      "checks": [
+        "제품 정보 입력 → A 유형 선택 → 시나리오 글 수신 → 촬영 가이드 조회",
+        "8.5초 세로 MP4 업로드(presign + ffprobe) + Track A FFmpeg/Inworld TTS 실렌더",
+        "7/8 영상 확인(<video> 재생) → 8/8 썸네일·내려받기 완주, 에러 0건"
+      ]
+    },
+    {
+      "id": "E2E-L06",
+      "title": "크레딧 충전 + Paddle Sandbox + 서명 웹훅 적립",
+      "owner": "me",
+      "env": "local",
+      "status": "pass",
+      "fr": "FR-006",
+      "durationSec": 5.04,
+      "sizeKb": 161,
+      "video": "./recordings/05_local_billing_paddle_webhook.mp4",
+      "checks": [
+        "c100(12,900원) 선택 → POST /v1/billing/checkout(200)",
+        "실제 Paddle Sandbox 결제 오버레이 iframe 오픈 확인",
+        "HMAC-SHA256 서명 웹훅 전송 → UI 잔액 0 → 100 크레딧 즉시 반영"
+      ]
+    },
+    {
+      "id": "E2E-L01",
+      "title": "온보딩 + 개인정보 처리방침",
+      "owner": "me",
+      "env": "local",
+      "status": "pass",
+      "fr": "Auth · Privacy",
+      "durationSec": 6.04,
+      "sizeKb": 99,
+      "video": "./recordings/01_local_onboarding_privacy.mp4",
+      "checks": [
+        "GET /privacy.html HTTP 200 렌더링 확인",
+        "비로그인 '/' 진입 시 OnboardingScreen 및 Google 로그인 슬롯 확인"
+      ]
+    },
+    {
+      "id": "E2E-L07",
+      "title": "로그아웃 · 세션 쿠키 만료",
+      "owner": "me",
+      "env": "local",
+      "status": "pass",
+      "fr": "Auth",
+      "durationSec": 5.20,
+      "sizeKb": 199,
+      "video": "./recordings/06_local_logout.mp4",
+      "checks": [
+        "프로필 로그아웃 시트 승인 → POST /v1/auth/logout 204",
+        "'로그인이 풀렸어요' 전환 및 홈 온보딩 복귀 확인"
+      ]
+    },
+    {
+      "id": "E2E-P01/02",
+      "title": "실서버 프로덕션 스모크 (napda.vercel.app)",
+      "owner": "me",
+      "env": "live",
+      "status": "pass",
+      "fr": "Live Ops · Billing Config",
+      "durationSec": 8.68,
+      "sizeKb": 115,
+      "video": "./recordings/07_live_prod_smoke.mp4",
+      "checks": [
+        "GET https://napda.vercel.app/health 200 (status: ok, Vercel 리라이트)",
+        "GET /v1/billing/config 200 (sandbox, c30/c100/c300), /v1/auth/me 401",
+        "실서버 /privacy.html & '/' 온보딩 렌더, 콘솔 pageerror 0건"
+      ]
+    },
+    {
+      "id": "E2E-L03",
+      "title": "홈 통합 '내 영상' 캐러셀 & 내 영상 탭",
+      "owner": "sangyoon",
+      "env": "local",
+      "status": "pass",
+      "fr": "Core UI",
+      "durationSec": 4.36,
+      "sizeKb": 119,
+      "video": "./recordings/02_local_home_my_videos.mp4",
+      "checks": [
+        "PR #14 통합 '내 영상 2' 캐러셀 실DB 시드 2건(진행 중/완료) 표시",
+        "내 영상 탭 진입 및 진행 중 ↔ 완료 탭 전환 정상"
+      ]
+    },
+    {
+      "id": "E2E-L04",
+      "title": "탐색(구 커뮤니티) 그리드 & 훅 유형 필터",
+      "owner": "sangyoon",
+      "env": "local",
+      "status": "pass",
+      "fr": "Core UI",
+      "durationSec": 5.28,
+      "sizeKb": 193,
+      "video": "./recordings/03_local_community_filters.mp4",
+      "checks": [
+        "PR #14 하단 돋보기 '탐색' 탭 진입 확인",
+        "전체 / A 유형 / B 유형 / C 유형 탭 전환 및 필터 정상"
+      ]
+    },
+    {
+      "id": "E2E-L05",
+      "title": "내 정보 프로필 & #1A1A1A 다크/라이트 테마",
+      "owner": "sangyoon",
+      "env": "local",
+      "status": "pass",
+      "fr": "Core UI",
+      "durationSec": 4.36,
+      "sizeKb": 158,
+      "video": "./recordings/04_local_profile_theme.mp4",
+      "checks": [
+        "사용자 이메일·보유 크레딧·영상 수·7일 보관 안내 확인",
+        "PR #14 #1A1A1A 다크 / 라이트 / 기기 설정 전환 확인"
+      ]
+    },
+    {
+      "id": "E2E-P06",
+      "title": "실서버 Paddle 웹훅 HMAC 서명 보안 검증",
+      "owner": "me",
+      "env": "live",
+      "status": "pass",
+      "fr": "Security · Billing",
+      "video": null,
+      "checks": [
+        "무서명 POST → 401 INVALID_WEBHOOK_SIGNATURE",
+        "변조 서명 POST → 401 INVALID_WEBHOOK_SIGNATURE",
+        "정상 HMAC-SHA256 프로브 → 200 (received: true, credited: false)"
+      ]
+    },
+    {
+      "id": "E2E-P03",
+      "title": "실서버 실계정 Google One Tap 로그인 & 세션 쿠키 유지",
+      "owner": "me",
+      "env": "live",
+      "status": "todo",
+      "fr": "Auth",
+      "expectedVideo": "08_live_google_auth.mp4",
+      "checks": ["실제 Google 계정으로 https://napda.vercel.app 로그인 후 새로고침 세션 유지"]
+    },
+    {
+      "id": "E2E-P05",
+      "title": "실서버 Paddle Sandbox 테스트 카드 결제 E2E",
+      "owner": "me",
+      "env": "live",
+      "status": "todo",
+      "fr": "FR-006",
+      "expectedVideo": "10_live_paddle_checkout.mp4",
+      "checks": ["실계정 로그인 상태에서 테스트 카드로 결제 완료 후 실웹훅/잔액 증가 확인"]
+    },
+    {
+      "id": "E2E-ABC-B",
+      "title": "B안 풀스택 E2E (B 유형 선택 → 시나리오/콘티/생성 → 결과 확인)",
+      "owner": "siwoo",
+      "env": "local",
+      "status": "todo",
+      "fr": "B안 · FR-003~005·010",
+      "expectedVideo": "abc_B_hook_e2e.mp4",
+      "checks": ["B 유형 훅 선택부터 결과물·썸네일까지 로컬 풀스택 녹화"]
+    },
+    {
+      "id": "E2E-L09a",
+      "title": "FR-003 · FR-005 시나리오 기획 및 훅 검수/교체 E2E",
+      "owner": "siwoo",
+      "env": "local",
+      "status": "todo",
+      "fr": "FR-003 · FR-005",
+      "expectedVideo": "09a_local_fr003_fr005_planning.mp4",
+      "checks": ["planner-api 연계 시나리오 생성·교체 테스트·훅 검수"]
+    },
+    {
+      "id": "E2E-L09b",
+      "title": "FR-004 이미지 콘티 생성·조회·수정 E2E",
+      "owner": "siwoo",
+      "env": "local",
+      "status": "todo",
+      "fr": "FR-004",
+      "expectedVideo": "09b_local_fr004_storyboard.mp4",
+      "checks": ["시나리오 선택 후 4컷 이미지 콘티 생성·화면 확인"]
+    },
+    {
+      "id": "E2E-L11a",
+      "title": "FR-005 · FR-010 훅/이미지/영상 AI 생성 & 예산 상한 E2E",
+      "owner": "siwoo",
+      "env": "local",
+      "status": "todo",
+      "fr": "FR-005 · FR-010",
+      "expectedVideo": "11a_local_fr010_generation.mp4",
+      "checks": ["POST /v1/jobs AI 생성, 예산 상한, 서지컬 재시도, Blender 3D 스타일 검증"]
+    },
+    {
+      "id": "E2E-P08a",
+      "title": "실서버 AI / 플래너 기획·생성 API 연동 스모크",
+      "owner": "siwoo",
+      "env": "live",
+      "status": "todo",
+      "fr": "FR-003~005 · FR-010",
+      "expectedVideo": "11_live_ai_planner_smoke.mp4",
+      "checks": ["실배포 환경에서 Vertex/Gemini/planner-api 기획·생성 API 동작 확인"]
+    },
+    {
+      "id": "E2E-ABC-C",
+      "title": "C안 풀스택 E2E (C 유형 선택 → 촬영/업로드/조립 → 결과 확인)",
+      "owner": "sangyoon",
+      "env": "local",
+      "status": "todo",
+      "fr": "C안",
+      "expectedVideo": "abc_C_hook_e2e.mp4",
+      "checks": ["C 유형 훅 선택부터 업로드·TTS·본편 조립·썸네일까지 로컬 풀스택 녹화"]
+    },
+    {
+      "id": "E2E-L08",
+      "title": "8단계 제작 위저드 예외/크레딧 부족 복귀 UI E2E",
+      "owner": "sangyoon",
+      "env": "local",
+      "status": "todo",
+      "fr": "FR-001~014 UI",
+      "expectedVideo": "08_local_wizard_8step.mp4",
+      "checks": ["크레딧 부족 시트 → 충전 후 upload 복귀 및 8단계 전체 흐름 검증"]
+    },
+    {
+      "id": "E2E-L10",
+      "title": "제품·촬영 가이드·Presign 업로드 FFprobe 검증 E2E",
+      "owner": "sangyoon",
+      "env": "local",
+      "status": "todo",
+      "fr": "FR-001·002·007·009",
+      "expectedVideo": "10_local_upload_guide.mp4",
+      "checks": ["5~90초 길이·해상도·스푸핑 차단 검증"]
+    },
+    {
+      "id": "E2E-L11b",
+      "title": "FR-011 한국어 TTS 내레이션 & 본편 FFmpeg 조립 E2E",
+      "owner": "sangyoon",
+      "env": "local",
+      "status": "todo",
+      "fr": "FR-011",
+      "expectedVideo": "11b_local_tts_body_assembly.mp4",
+      "checks": ["Inworld/Gemini TTS 단어 정렬, LUFS 마스터링, body_pipeline 조립"]
+    },
+    {
+      "id": "E2E-L12",
+      "title": "썸네일 안전 영역 & 서명 URL Range 스트리밍 E2E",
+      "owner": "sangyoon",
+      "env": "local",
+      "status": "todo",
+      "fr": "FR-012~014",
+      "expectedVideo": "12_local_media_delivery.mp4",
+      "checks": ["9:16 썸네일 1:1 안전 영역, Range 스트리밍 및 토큰 변조 차단"]
+    },
+    {
+      "id": "E2E-P04",
+      "title": "실서버 로그인 후 UI 탐색 · 반응형 · 다크모드 E2E",
+      "owner": "sangyoon",
+      "env": "live",
+      "status": "todo",
+      "fr": "Core UI",
+      "expectedVideo": "09_live_ui_navigation.mp4",
+      "checks": ["https://napda.vercel.app 로그인 후 홈·내 영상·탐색·프로필 반응형 확인"]
+    },
+    {
+      "id": "E2E-P08b",
+      "title": "실서버 외부 스토리지(R2/S3) + FFmpeg 워커 분리 후 렌더 E2E",
+      "owner": "sangyoon",
+      "env": "live",
+      "status": "todo",
+      "fr": "Infra · Delivery",
+      "expectedVideo": "12_live_render_delivery.mp4",
+      "checks": ["R2/S3 및 별도 FFmpeg 워커 구성 후 실서버 업로드→렌더→다운로드"]
+    }
+  ]
+}
