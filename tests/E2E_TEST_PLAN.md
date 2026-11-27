@@ -1,6 +1,6 @@
 # NAPDA Full-Stack E2E 테스트 계획 및 3인 개발자 분배표
 
-> **E2E 영상 대시보드 (인라인 재생)**: https://muzuksazo.github.io/nepda.official/  
+> **E2E 영상 대시보드 (인라인 재생)**: https://muzuksazo.github.io/nepda.official/ · [사용/업로드 가이드](./e2e_dashboard/README.md)  
 > 최종 업데이트: 2026-11-27 (`origin/main` @ `417d2ff`, PR #14 병합 후)  
 > 대상 서비스: `frontend/` (React 19 + Vite) ↔ `backend/` (FastAPI) ↔ `libraries/planner-api` (Node) ↔ `libraries/media-tools` (FFmpeg / Pillow)  
 > 3인 편성: **나** (**A안**) · **시우님** (**B안**, `FR-003, FR-004, FR-005, FR-010` 전담) · **상윤님** (**C안**)
@@ -116,6 +116,7 @@ npm --prefix frontend run lint && npm --prefix frontend run build
 ### 4-2. 로컬 풀스택 + 실서버 스모크 기능별 E2E 녹화 (아티팩트 출력)
 - 격리 포트(`18080` 백엔드, `15173` 프론트엔드) + 임시 `DB_PATH`/`WORK_ROOT`/`OUTPUT_DIR`로 실행하므로 개발 중인 `:5173` 서버 및 로컬 DB를 건드리지 않습니다.
 - Playwright `recordVideo`(컨텍스트 기능별 1개씩 생성) → `ffmpeg`로 H.264 `.mp4`(`432×932`) 변환 + `pageerror`/`5xx` 자동 검사.
+- **대시보드 등록·업로드 방법**: [tests/e2e_dashboard/README.md](./e2e_dashboard/README.md) 참고 (`tests/e2e_recordings/`에 `.mp4` 추가 + `manifest.json` 갱신 후 푸시 시 GitHub Pages 자동 반영).
 
 ---
 
