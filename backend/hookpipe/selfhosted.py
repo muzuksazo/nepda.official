@@ -99,7 +99,7 @@ class SelfHostedMedia:
             logger.warning("FLUX 미리 깨우기 실패: %s", exc)
 
     def warm_clips(self, count: int) -> None:
-        """콘티 확인 화면이 뜰 때: 장면 수만큼 MiniMax GPU 를 켜 모델을 올려 둔다 (2분 유지)."""
+        """콘티 확인 화면이 뜰 때: MiniMax GPU 를 count 대 켜 모델을 올려 둔다 (2분 유지). 서버는 비용 때문에 1대만 켠다."""
         try:
             for slot in range(max(1, count)):
                 self.minimax.warm.spawn(slot)

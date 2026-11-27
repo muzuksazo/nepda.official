@@ -838,7 +838,7 @@ def _selfhosted_storyboard_generator(settings: Settings, storage: StorageBackend
                 "object_key": obj_key,
                 "motion_prompt": item.get("motion_prompt") or "",
             })
-        engine.warm_clips(len(frames))
+        engine.warm_clips(1)  # 비용: 1대만 미리 켠다 (나머지는 렌더 때 켠다)
         return frames
 
     return _generate

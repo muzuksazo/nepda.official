@@ -153,7 +153,7 @@ class StoryboardApiTest(unittest.TestCase):
         self.assertEqual(frames[0]["image_url"], "/v1/media/projects/p1/storyboards/s1/frame_01.png")
         self.assertEqual(frames[1]["motion_prompt"], "motion")
         self.assertTrue((tmp / "bucket" / frames[2]["object_key"]).is_file())
-        self.assertEqual(len(minimax.warm.spawned), 3)
+        self.assertEqual(len(minimax.warm.spawned), 1)  # 비용: 1대만 미리 켠다
         fallback.assert_not_called()
         self.assertEqual(gen({"project_id": "p1"}, {**worker_scenario("A"), "scenario_id": "s2"}, ""), [{"beat_order": 1}])
 
