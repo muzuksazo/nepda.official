@@ -2,14 +2,19 @@
 
 import json
 import shutil
+import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, List
+from unittest.mock import patch
 
 from tests.support.hookpipe import FakeMediaProvider, make_video, tools_or_none
 from tests.support.tempdirs import temporary_directory
 
+from app.config import Settings
+from app.storage import build_hook_a_storage
+from hookpipe import readiness as hookpipe_readiness
 from hookpipe.a_templates import TemplateError, load_catalog, make_template_scenario
 from hookpipe.media import probe
 from hookpipe.render import render_hook
@@ -173,6 +178,118 @@ class TemplateRender(unittest.TestCase):
             self.assertEqual([b["prebuilt"] for b in result.beats], [True, True, False, False])
             self.assertEqual(len(provider.tts_calls), 3)  # 앞부분 나레이션도 같은 목소리로 새로 만든다
             self.assertAlmostEqual(probe(TOOLS, root / "hook" / "hook.mp4").duration, 16.3, delta=0.3)
+
+
+class DedicatedHookAR2Tests(unittest.TestCase):
+    def test_build_hook_a_storage_returns_fallback_when_unset(self) -> None:
+        settings = Settings(storage_backend="local", gemini_api_key="test")
+        fallback = object()
+        self.assertIs(build_hook_a_storage(settings, fallback), fallback)  # type: ignore[arg-type]
+
+    def test_build_hook_a_storage_uses_dedicated_r2_settings_and_strips_bucket_suffix(self) -> None:
+        calls: List[Dict[str, Any]] = []
+
+        def fake_boto_client(service: str, **kwargs: Any) -> object:
+            calls.append({"service": service, **kwargs})
+            return object()
+
+        settings = Settings(
+            storage_backend="r2",
+            s3_bucket="main-bucket",
+            s3_endpoint_url="https://main.r2.cloudflarestorage.com",
+            s3_access_key_id="main-key",
+            s3_secret_access_key="main-secret",
+            s3_prefix="main-prefix",
+            hook_a_r2_bucket="track-a-bucket",
+            hook_a_r2_endpoint_url="https://owner2.r2.cloudflarestorage.com/track-a-bucket/",
+            hook_a_r2_access_key_id="owner2-key",
+            hook_a_r2_secret_access_key="owner2-secret",
+            hook_a_r2_prefix="/custom-a/",
+        )
+        with patch.dict(sys.modules, {"boto3": SimpleNamespace(client=fake_boto_client)}):
+            backend = build_hook_a_storage(settings, object())  # type: ignore[arg-type]
+
+        self.assertEqual(backend.bucket, "track-a-bucket")  # type: ignore[attr-defined]
+        self.assertEqual(backend.prefix, "custom-a")  # type: ignore[attr-defined]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["endpoint_url"], "https://owner2.r2.cloudflarestorage.com")
+        self.assertEqual(calls[0]["aws_access_key_id"], "owner2-key")
+        self.assertEqual(calls[0]["aws_secret_access_key"], "owner2-secret")
+        self.assertEqual(calls[0]["region_name"], "auto")
+
+    def test_resolve_asset_routes_track_a_keys_to_template_storage(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            main_calls: List[str] = []
+            tpl_calls: List[str] = []
+
+            class DummyStorage:
+                def __init__(self, log: List[str], payload: bytes) -> None:
+                    self._log = log
+                    self._payload = payload
+
+                def download_file(self, key: str, dest: Any) -> str:
+                    self._log.append(key)
+                    p = Path(dest)
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_bytes(self._payload)
+                    return str(p)
+
+            main_storage = DummyStorage(main_calls, b"main")
+            tpl_storage = DummyStorage(tpl_calls, b"tpl")
+            settings = SimpleNamespace(
+                hook_a_templates="storage:templates/a",
+                hook_assets_dir=str(root / "assets"),
+                output_dir=str(root / "out"),
+                tts_provider="gemini",
+            )
+            pipe = HookPipeline(settings, None, None, main_storage, template_storage=tpl_storage)
+
+            p1 = pipe.resolve_asset("templates/a/glass_01/beat_01.mp4", root / "w1")
+            p2 = pipe.resolve_asset("other/asset.mp4", root / "w2")
+            self.assertIsNotNone(p1)
+            self.assertEqual(p1.read_bytes(), b"tpl")  # type: ignore[union-attr]
+            self.assertIsNotNone(p2)
+            self.assertEqual(p2.read_bytes(), b"main")  # type: ignore[union-attr]
+            self.assertEqual(tpl_calls, ["templates/a/glass_01/beat_01.mp4"])
+            self.assertEqual(main_calls, ["other/asset.mp4"])
+
+    def test_readiness_uses_template_storage_and_validates_missing_fields(self) -> None:
+        with temporary_directory() as td:
+            lib = _library(Path(td))
+
+            class FakeTplStorage:
+                def download_file(self, key: str, dest: Any) -> str:
+                    shutil.copyfile(lib / key.split("templates/a/", 1)[1], dest)
+                    return str(dest)
+
+            class FakeModels:
+                def get(self, *, model: str) -> object:
+                    return {"name": model}
+
+            fake_client = SimpleNamespace(models=FakeModels())
+            bad_settings = Settings(
+                storage_backend="r2",
+                google_genai_use_vertexai=True,
+                hook_worker_llm="gemini-4-hydrogen",
+                hook_a_mode="template",
+                hook_a_templates="storage:templates/a",
+                hook_a_r2_bucket="track-a-bucket",
+                session_secret="not-default-secret",
+                tts_provider="gemini",
+            )
+            with patch("app.genai_provider.build_genai_client", return_value=fake_client):
+                res = hookpipe_readiness.check(
+                    bad_settings,
+                    object(),
+                    deep=True,
+                    template_storage=FakeTplStorage(),
+                )
+            self.assertEqual(res["config"]["hook_a_storage"], "dedicated_r2")
+            self.assertEqual(res["config"]["hook_a_r2_bucket"], "track-a-bucket")
+            self.assertEqual(res["deep"]["a_templates"], 2)
+            self.assertTrue(any("HOOK_A_R2_ENDPOINT_URL" in p for p in res["problems"]))
+            self.assertNotIn("owner2-secret", json.dumps(res))
 
 
 if __name__ == "__main__":

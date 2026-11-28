@@ -103,6 +103,13 @@ class Settings(BaseSettings):
     hook_a_mode: Literal["template", "realtime"] = "template"
     # A 템플릿 위치: "storage:<경로>" 면 서버 저장소(R2)의 그 경로, 아니면 로컬 폴더. 형식은 hookpipe/a_templates.py
     hook_a_templates: str = "storage:templates/a"
+    # A 템플릿 전용 비공개 Cloudflare R2 (비우면 위 메인 STORAGE_BACKEND 를 그대로 사용)
+    hook_a_r2_bucket: Optional[str] = None
+    hook_a_r2_endpoint_url: Optional[str] = None
+    hook_a_r2_region: str = "auto"
+    hook_a_r2_access_key_id: Optional[str] = None
+    hook_a_r2_secret_access_key: Optional[str] = None
+    hook_a_r2_prefix: str = ""
     hook_worker_timeout_sec: float = 900.0
     # 시나리오 작업자의 글 모델을 Gemini 로 바꾼다 (예: gemini-4-hydrogen). 비우면 각 트랙 기본(Claude).
     # B 는 B_LLM 스위치로, C 는 hookpipe 가 같은 프롬프트·스키마로 Gemini 를 부른다. A 는 Claude 전용이라 그대로.

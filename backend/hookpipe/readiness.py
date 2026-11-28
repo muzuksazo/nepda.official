@@ -22,7 +22,7 @@ def _has_key(settings: Any, attr: str, env: str) -> bool:
     return bool(str(getattr(settings, attr, "") or os.environ.get(env, "")).strip())
 
 
-def check(settings: Any, storage: Any = None, *, deep: bool = False) -> Dict[str, Any]:
+def check(settings: Any, storage: Any = None, *, deep: bool = False, template_storage: Any = None) -> Dict[str, Any]:
     problems: List[str] = []
     warnings: List[str] = []
     out: Dict[str, Any] = {}
@@ -83,6 +83,7 @@ def check(settings: Any, storage: Any = None, *, deep: bool = False) -> Dict[str
     if not getattr(settings, "api_bearer_token", None):
         warnings.append("API_BEARER_TOKEN 이 없어 내부 작업 API(/v1/jobs, /v1/uploads/presign)가 인증 없이 열려 있습니다.")
 
+    hook_a_r2_bucket = str(getattr(settings, "hook_a_r2_bucket", None) or "").strip()
     out["config"] = {
         "storage_backend": getattr(settings, "storage_backend", None),
         "video_model": getattr(settings, "video_model", None),
@@ -91,8 +92,22 @@ def check(settings: Any, storage: Any = None, *, deep: bool = False) -> Dict[str
         "hook_worker_llm": llm or None,
         "hook_a_mode": getattr(settings, "hook_a_mode", None),
         "hook_a_templates": getattr(settings, "hook_a_templates", None),
+        "hook_a_storage": "dedicated_r2" if hook_a_r2_bucket else "shared",
         "hook_render_mode": getattr(settings, "hook_render_mode", None),
     }
+    if hook_a_r2_bucket:
+        out["config"]["hook_a_r2_bucket"] = hook_a_r2_bucket
+        missing_r2 = [
+            env_name
+            for attr, env_name in (
+                ("hook_a_r2_endpoint_url", "HOOK_A_R2_ENDPOINT_URL"),
+                ("hook_a_r2_access_key_id", "HOOK_A_R2_ACCESS_KEY_ID"),
+                ("hook_a_r2_secret_access_key", "HOOK_A_R2_SECRET_ACCESS_KEY"),
+            )
+            if not str(getattr(settings, attr, None) or "").strip()
+        ]
+        if missing_r2:
+            problems.append(f"HOOK_A_R2_BUCKET 이 설정됐지만 다음 값이 비어 있습니다: {', '.join(missing_r2)}")
     if getattr(settings, "google_genai_use_vertexai", False) and getattr(settings, "gcp_vertex_profiles_json", None):
         try:
             from app.genai_provider import get_vertex_profile_pool, parse_vertex_profiles
@@ -107,7 +122,7 @@ def check(settings: Any, storage: Any = None, *, deep: bool = False) -> Dict[str
         warnings.append("STORAGE_BACKEND=local: 결과 주소가 file:// 라 브라우저에서 열 수 없고, 재배포하면 파일이 사라집니다.")
 
     if deep:
-        out["deep"] = _deep(settings, storage, problems, warnings)
+        out["deep"] = _deep(settings, storage, problems, warnings, template_storage=template_storage)
 
     out["ready"] = not problems
     out["problems"] = problems
@@ -115,15 +130,23 @@ def check(settings: Any, storage: Any = None, *, deep: bool = False) -> Dict[str
     return out
 
 
-def _deep(settings: Any, storage: Any, problems: List[str], warnings: List[str]) -> Dict[str, Any]:
+def _deep(
+    settings: Any,
+    storage: Any,
+    problems: List[str],
+    warnings: List[str],
+    *,
+    template_storage: Any = None,
+) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
     # A 템플릿 목록 (저장소 읽기 권한 확인을 겸한다)
-    if storage is not None and getattr(settings, "hook_a_mode", "template") == "template":
+    a_storage = template_storage if template_storage is not None else storage
+    if a_storage is not None and getattr(settings, "hook_a_mode", "template") == "template":
         from .a_templates import TemplateError, load_catalog
 
         try:
             with tempfile.TemporaryDirectory() as tmp:
-                catalog = load_catalog(settings, storage, Path(tmp))
+                catalog = load_catalog(settings, a_storage, Path(tmp))
             result["a_templates"] = len(catalog["templates"])
         except TemplateError as exc:
             result["a_templates"] = 0

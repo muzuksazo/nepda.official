@@ -37,7 +37,7 @@ from .projects_router import (
     build_projects_router,
 )
 from .retention import recover_orphaned_jobs
-from .storage import LocalStorageBackend, StorageBackend, build_storage
+from .storage import LocalStorageBackend, StorageBackend, build_hook_a_storage, build_storage
 from .store import JobStore
 from .tts_service import TTSProvider
 
@@ -89,6 +89,7 @@ def create_app(
     job_store = store or JobStore(cfg.db_path)
     proj_store = project_store or ProjectStore(cfg.db_path)
     storage_backend = storage or build_storage(cfg)
+    hook_a_storage_backend = build_hook_a_storage(cfg, fallback=storage_backend)
     pipeline = ProductionPipeline(
         cfg,
         job_store,
@@ -99,10 +100,16 @@ def create_app(
     if scenario_generator is None:
         # 유형별 작업자(bridge-dev/a·b·c)로 시나리오를 만들고, 작업자를 못 쓰면 기존 planner-api 로 넘어간다
         scenario_generator = make_scenario_generator(
-            cfg, proj_store, fallback=_default_scenario_generator(cfg), storage=storage_backend
+            cfg, proj_store, fallback=_default_scenario_generator(cfg), storage=hook_a_storage_backend
         )
     hook_pipeline = HookPipeline(
-        cfg, proj_store, job_store, storage_backend, provider_factory=provider_factory, body_writer=body_writer
+        cfg,
+        proj_store,
+        job_store,
+        storage_backend,
+        template_storage=hook_a_storage_backend,
+        provider_factory=provider_factory,
+        body_writer=body_writer,
     )
 
     @asynccontextmanager
@@ -136,6 +143,7 @@ def create_app(
     app.state.store = job_store
     app.state.project_store = proj_store
     app.state.storage = storage_backend
+    app.state.hook_a_storage = hook_a_storage_backend
     app.state.pipeline = pipeline
 
     def require_bearer(authorization: Optional[str] = Header(default=None)) -> None:
@@ -197,7 +205,9 @@ def create_app(
             "font_resolved": resolved_font,
             "scripts_dir_exists": scripts_dir.exists(),
             # 영상 한 편을 끝까지 만들 준비 (과금 없음, 키 값은 내보내지 않음)
-            "hookpipe": hookpipe_readiness.check(cfg, storage_backend, deep=deep),
+            "hookpipe": hookpipe_readiness.check(
+                cfg, storage_backend, deep=deep, template_storage=hook_a_storage_backend
+            ),
         }
 
     def require_presign_auth(

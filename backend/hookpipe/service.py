@@ -59,6 +59,7 @@ class HookPipeline:
         job_store: Any,
         storage: Any,
         *,
+        template_storage: Any = None,
         provider_factory: Optional[ProviderFactory] = None,
         tools: Optional[MediaTools] = None,
         body_writer: Optional[ScriptWriter] = None,
@@ -69,6 +70,7 @@ class HookPipeline:
         self.project_store = project_store
         self.job_store = job_store
         self.storage = storage
+        self.template_storage = template_storage if template_storage is not None else storage
         self._provider_factory = provider_factory
         self._tools = tools
         self._selfhosted_media = selfhosted_media  # 테스트에서 가짜 FLUX·MiniMax 를 넣는다
@@ -139,9 +141,26 @@ class HookPipeline:
         elif local is not None:
             return None
         dest = work_dir / f"{hashlib.sha1(ref.encode('utf-8')).hexdigest()[:12]}{Path(ref).suffix or '.mp4'}"
+        use_template_storage = False
+        if (
+            self.template_storage is not None
+            and self.template_storage is not self.storage
+            and templates.startswith("storage:")
+        ):
+            a_prefix = templates[len("storage:") :].strip("/")
+            clean_ref = ref.lstrip("/")
+            use_template_storage = (
+                (not a_prefix) or clean_ref == a_prefix or clean_ref.startswith(a_prefix + "/")
+            )
         try:
             dest.parent.mkdir(parents=True, exist_ok=True)
-            self.storage.download_file(ref, dest)
+            if use_template_storage:
+                try:
+                    self.template_storage.download_file(ref, dest)
+                except Exception:
+                    self.storage.download_file(ref, dest)
+            else:
+                self.storage.download_file(ref, dest)
         except Exception as exc:
             logger.warning("미리 만든 소재를 찾지 못했습니다 (%s): %s", ref, exc)
             return None
