@@ -100,7 +100,7 @@ from .project_schemas import (
     WalletResponse,
 )
 from .project_store import ProjectStore
-from .retention import is_project_expired, sync_project_status_with_job
+from .retention import is_project_expired, purge_project_data, sync_project_status_with_job
 from .storage import StorageBackend
 from .store import JobStore
 from .thumbnail_service import (
@@ -2256,6 +2256,26 @@ def build_projects_router(
             "refunded_credits": refunded,
             "credits": wallet["credits"],
         }
+
+    @router.delete(
+        "/v1/projects/{project_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["Projects"],
+    )
+    def delete_project(
+        project_id: str,
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> Response:
+        """내 영상에서 지우기: 만드는 중이면 먼저 멈추고(크레딧 환불은 생성 중단과 같다) 파일·기록을 모두 지운다."""
+        proj = _get_owned_project(project_id, user)
+        job = job_store.get_job(proj["latest_job_id"]) if proj.get("latest_job_id") else None
+        if (job and str(job.get("status") or "") in {"QUEUED", "RUNNING"}) or any(
+            hk.get("status") in {"queued", "running"} for hk in project_store.list_hooks_for_project(project_id)
+        ):
+            cancel_render(project_id, None, user)
+            proj = project_store.get_project(project_id) or proj
+        purge_project_data(proj, project_store, job_store, storage, settings)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.get(
         "/v1/projects/{project_id}/deliverables",

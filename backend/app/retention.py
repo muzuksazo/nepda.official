@@ -146,6 +146,58 @@ def _collect_project_object_keys(
     return keys
 
 
+def purge_project_data(
+    proj: Dict[str, Any],
+    project_store: ProjectStore,
+    job_store: JobStore,
+    storage: StorageBackend,
+    settings: Settings,
+) -> int:
+    """프로젝트 하나의 저장소 파일·작업 폴더·DB 행을 지운다. 지운 저장소 객체 수를 돌려준다.
+
+    보존 기간 정리(prune_expired_data)와 사용자 삭제(DELETE /v1/projects/{id})가 함께 쓴다.
+    """
+    pid = proj["project_id"]
+    deleted_objects = 0
+    delete_obj = getattr(storage, "delete_object", None)
+    work_root = Path(settings.work_root).resolve()
+    output_root = Path(settings.output_dir).resolve()
+    scenarios = project_store.list_scenarios(pid)
+    hooks = project_store.list_hooks_for_project(pid)
+    obj_keys = _collect_project_object_keys(proj, scenarios, hooks, storage)
+
+    # Also collect artifacts from latest_job if present
+    if proj.get("latest_job_id"):
+        job = job_store.get_job(proj["latest_job_id"])
+        if job:
+            arts = job.get("artifacts") or {}
+            for top_k in ("spec", "jobs", "credit_quote", "lint_report", "qa_strip"):
+                k = extract_object_key(arts.get(top_k), storage)
+                if k:
+                    obj_keys.add(k)
+            for r in arts.get("rendered") or []:
+                for rf in ("master_mp4", "clean_mp4", "srt"):
+                    k = extract_object_key(r.get(rf), storage)
+                    if k:
+                        obj_keys.add(k)
+            for t in arts.get("thumbnails") or []:
+                k = extract_object_key(t.get("url"), storage)
+                if k:
+                    obj_keys.add(k)
+
+    if callable(delete_obj):
+        for key in obj_keys:
+            if delete_obj(key):
+                deleted_objects += 1
+
+    for base_dir in (work_root / pid, output_root / pid):
+        if base_dir.exists() and base_dir.is_dir():
+            shutil.rmtree(base_dir, ignore_errors=True)
+
+    project_store.delete_project_cascade(pid)
+    return deleted_objects
+
+
 def prune_expired_data(
     project_store: ProjectStore,
     job_store: JobStore,
@@ -159,45 +211,8 @@ def prune_expired_data(
     expired_projects = project_store.list_expired_projects(cur_iso)
 
     deleted_objects = 0
-    delete_obj = getattr(storage, "delete_object", None)
-    work_root = Path(settings.work_root).resolve()
-    output_root = Path(settings.output_dir).resolve()
-
     for proj in expired_projects:
-        pid = proj["project_id"]
-        scenarios = project_store.list_scenarios(pid)
-        hooks = project_store.list_hooks_for_project(pid)
-        obj_keys = _collect_project_object_keys(proj, scenarios, hooks, storage)
-
-        # Also collect artifacts from latest_job if present
-        if proj.get("latest_job_id"):
-            job = job_store.get_job(proj["latest_job_id"])
-            if job:
-                arts = job.get("artifacts") or {}
-                for top_k in ("spec", "jobs", "credit_quote", "lint_report", "qa_strip"):
-                    k = extract_object_key(arts.get(top_k), storage)
-                    if k:
-                        obj_keys.add(k)
-                for r in arts.get("rendered") or []:
-                    for rf in ("master_mp4", "clean_mp4", "srt"):
-                        k = extract_object_key(r.get(rf), storage)
-                        if k:
-                            obj_keys.add(k)
-                for t in arts.get("thumbnails") or []:
-                    k = extract_object_key(t.get("url"), storage)
-                    if k:
-                        obj_keys.add(k)
-
-        if callable(delete_obj):
-            for key in obj_keys:
-                if delete_obj(key):
-                    deleted_objects += 1
-
-        for base_dir in (work_root / pid, output_root / pid):
-            if base_dir.exists() and base_dir.is_dir():
-                shutil.rmtree(base_dir, ignore_errors=True)
-
-        project_store.delete_project_cascade(pid)
+        deleted_objects += purge_project_data(proj, project_store, job_store, storage, settings)
 
     deleted_cache = project_store.delete_expired_product_info_cache(cur_iso)
     return {
