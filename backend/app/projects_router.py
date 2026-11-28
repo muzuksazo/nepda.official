@@ -717,6 +717,27 @@ def _is_pause_or_empty_beat(beat: Dict[str, Any]) -> bool:
     return False
 
 
+# C(제품 직접 훅) 콘티: 콘티 스틸컷이 그대로 훅 클립의 첫 화면이 되므로(hookpipe), 실사 한 장으로 그린다
+_C_STORYBOARD_STYLE = (
+    "Photorealistic vertical 9:16 photo taken with a smartphone: real materials, natural daylight, soft shadows. "
+    "One single continuous full-frame image that fills the whole frame: no panels, no split screen, no collage, "
+    "no borders. Zero readable text, no subtitles, no watermarks, no logos."
+)
+
+
+def _c_storyboard_layout(settings: Settings, beat: Dict[str, Any]) -> Optional[Path]:
+    """C 작업자가 장면에 붙인 구도 참고 이미지(Blender 블록아웃, `first_frame_ref`)의 위치. 없거나 못 찾으면 None."""
+    ref = str(beat.get("first_frame_ref") or "").strip()
+    if not ref:
+        return None
+    try:
+        from hookpipe.render import resolve_layout_reference
+
+        return resolve_layout_reference(ref, settings, None)
+    except Exception:
+        return None
+
+
 def _default_storyboard_generator(
     settings: Settings,
     storage: StorageBackend,
@@ -903,11 +924,28 @@ def _default_storyboard_generator(
                 f"projects/{project['project_id']}/storyboards/"
                 f"{scenario['scenario_id']}/frame_{order:02d}.png"
             )
-            prompt = (
-                f"{beat.get('visual', 'Clean storyboard scene')}. "
-                f"Style: {visual_style}. Zero readable text, no subtitles, no watermarks."
-            )
-            res = provider.generate_reference_image(prompt, img_path, skip_existing=True)
+            layout: Optional[Path] = None
+            if str(scenario.get("type") or "").upper() == "C":
+                # C: 요청 화풍(클레이 등)과 무관하게 실사 한 장. 블록아웃을 고른 장면은 그 구도로 그린다
+                prompt = f"{beat.get('visual', 'A product on a desk')}. {_C_STORYBOARD_STYLE}"
+                layout = _c_storyboard_layout(settings, beat)
+                if layout is not None:
+                    refine = str(beat.get("first_frame_prompt") or "").strip()
+                    prompt = (
+                        "Use the attached rough gray-box 3D blockout only as the layout: keep exactly its camera angle, "
+                        f"framing and positions of objects. {refine} Scene: {prompt}"
+                    )
+            else:
+                prompt = (
+                    f"{beat.get('visual', 'Clean storyboard scene')}. "
+                    f"Style: {visual_style}. Zero readable text, no subtitles, no watermarks."
+                )
+            if layout is not None:
+                res = provider.generate_reference_image(
+                    prompt, img_path, skip_existing=True, aspect_ratio="9:16", anchor_paths=[layout]
+                )
+            else:
+                res = provider.generate_reference_image(prompt, img_path, skip_existing=True)
             if project_store is not None:
                 from .usage_telemetry import record_usage_safe
 
