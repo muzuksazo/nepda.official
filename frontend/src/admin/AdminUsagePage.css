@@ -223,6 +223,11 @@
   color: #047857;
 }
 
+.napda-admin-badge.is-profile {
+  background: rgba(139, 92, 246, 0.16);
+  color: #6d28d9;
+}
+
 .napda-admin-badge.is-error {
   background: rgba(220, 38, 38, 0.15);
   color: #b91c1c;

@@ -120,8 +120,35 @@ interface UsageEventRow {
   latency_ms: number;
   cache_hit: boolean;
   status: string;
+  billing_account?: string | null;
+  gcp_project?: string | null;
   metadata?: Record<string, unknown>;
   matched_artifact?: MatchedArtifact | null;
+}
+
+interface BillingAccountRow {
+  account_key: string;
+  provider: string;
+  account_name: string;
+  gcp_project?: string | null;
+  calls: number;
+  cache_hits: number;
+  project_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  thinking_tokens: number;
+  video_sec: number;
+  image_count: number;
+  tts_chars: number;
+  estimated_cost_usd: number;
+  unpriced_calls: number;
+  avg_latency_ms: number;
+}
+
+interface ConfiguredVertexProfile {
+  name: string;
+  project?: string | null;
+  location?: string | null;
 }
 
 interface PricingRow {
@@ -140,6 +167,9 @@ interface AdminUsageSummaryResponse {
   by_provider_model: ProviderModelRow[];
   by_stage: StageRow[];
   recent_projects: ProjectUsageRow[];
+  by_billing_account?: BillingAccountRow[];
+  vertex_routing_mode?: string;
+  configured_vertex_profiles?: ConfiguredVertexProfile[];
   pricing_version: string;
   pricing_table: PricingRow[];
   usd_krw_rate: number | null;
@@ -657,6 +687,72 @@ export function AdminUsagePage({
                   ? fmtUsd(totals.estimated_cost_usd / totals.project_count, rate)
                   : '$0.0000'}
               </div>
+            </div>
+          </section>
+        )}
+
+        {summary && summary.by_billing_account && summary.by_billing_account.length > 0 && (
+          <section className="napda-admin-card">
+            <div className="napda-admin-card-head">
+              <h2 className="napda-admin-card-title">
+                계정(GCP 프로필)별 사용량 · 비용
+                {summary.vertex_routing_mode ? ` (${summary.vertex_routing_mode})` : ''}
+              </h2>
+            </div>
+            <div className="napda-admin-table-wrap">
+              <table className="napda-admin-table">
+                <thead>
+                  <tr>
+                    <th>계정 / 프로필</th>
+                    <th>공급자</th>
+                    <th className="num">호출(캐시)</th>
+                    <th className="num">프로젝트</th>
+                    <th className="num">입력 / 출력(+생각)</th>
+                    <th>영상 · 이미지 · TTS</th>
+                    <th className="num">추정 비용</th>
+                    <th className="num">비중</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.by_billing_account.map((acc) => {
+                    const totalCost = totals?.estimated_cost_usd ?? 0;
+                    const sharePct =
+                      totalCost > 0 ? `${((acc.estimated_cost_usd / totalCost) * 100).toFixed(1)}%` : '0.0%';
+                    return (
+                      <tr key={acc.account_key}>
+                        <td>
+                          <strong>
+                            {acc.account_name === 'untracked'
+                              ? '미분류 (구버전 호출)'
+                              : acc.account_name}
+                          </strong>
+                          {acc.gcp_project && (
+                            <div className="napda-admin-mono">{acc.gcp_project}</div>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`napda-admin-badge is-${acc.provider}`}>{acc.provider}</span>
+                        </td>
+                        <td className="num">
+                          {fmtNum(acc.calls)} ({fmtNum(acc.cache_hits)})
+                        </td>
+                        <td className="num">{fmtNum(acc.project_count)}</td>
+                        <td className="num">
+                          {fmtNum(acc.input_tokens)} / {fmtNum(acc.output_tokens + acc.thinking_tokens)}
+                        </td>
+                        <td>
+                          {acc.video_sec > 0 ? `${acc.video_sec.toFixed(1)}s ` : ''}
+                          {acc.image_count > 0 ? `${acc.image_count}장 ` : ''}
+                          {acc.tts_chars > 0 ? `${acc.tts_chars}자` : ''}
+                          {acc.video_sec === 0 && acc.image_count === 0 && acc.tts_chars === 0 ? '-' : ''}
+                        </td>
+                        <td className="num">{fmtUsd(acc.estimated_cost_usd, rate)}</td>
+                        <td className="num">{sharePct}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </section>
         )}
@@ -1189,6 +1285,18 @@ export function AdminUsagePage({
                                                 <span className={`napda-admin-badge is-${ev.provider}`}>
                                                   {ev.provider}
                                                 </span>{' '}
+                                                {ev.provider === 'google' &&
+                                                  ev.billing_account &&
+                                                  ev.billing_account !== 'untracked' && (
+                                                    <>
+                                                      <span
+                                                        className="napda-admin-badge is-profile"
+                                                        title={ev.gcp_project || undefined}
+                                                      >
+                                                        {ev.billing_account}
+                                                      </span>{' '}
+                                                    </>
+                                                  )}
                                                 <span className="napda-admin-mono">{ev.model}</span>
                                               </td>
                                               <td className="num">{fmtNum(ev.input_tokens)}</td>

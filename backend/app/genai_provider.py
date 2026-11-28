@@ -155,6 +155,33 @@ class VertexProfile:
         return "adc"
 
 
+_LAST_VERTEX_PROFILE = threading.local()
+
+
+def set_last_vertex_profile(profile: Optional[VertexProfile]) -> None:
+    """Record the GCP Vertex profile used by the most recent SDK call on this thread."""
+    if profile is None:
+        clear_last_vertex_profile()
+        return
+    _LAST_VERTEX_PROFILE.info = {
+        "vertex_profile": profile.name,
+        "gcp_project": profile.project or "",
+        "gcp_location": profile.location,
+    }
+
+
+def get_last_vertex_profile() -> Optional[Dict[str, str]]:
+    """Return a copy of the most recent Vertex profile used on this thread, if any."""
+    info = getattr(_LAST_VERTEX_PROFILE, "info", None)
+    return dict(info) if isinstance(info, dict) else None
+
+
+def clear_last_vertex_profile() -> None:
+    """Clear the thread-local Vertex profile marker."""
+    if hasattr(_LAST_VERTEX_PROFILE, "info"):
+        delattr(_LAST_VERTEX_PROFILE, "info")
+
+
 def _clean_opt(val: Any) -> Optional[str]:
     s = str(val or "").strip()
     return s or None
@@ -495,14 +522,17 @@ class FailoverGenAIClient:
                 client = self._client_for(prof)
                 result = fn(client, prof)
                 self._pool.mark_success(prof)
+                set_last_vertex_profile(prof)
                 return result
             except Exception as exc:
                 last_exc = exc
                 if preferred is not None and idx == 0:
+                    set_last_vertex_profile(prof)
                     raise
                 if is_vertex_failover_error(exc) and idx + 1 < len(candidates):
                     self._pool.mark_failure(prof, exc, cooldown_sec)
                     continue
+                set_last_vertex_profile(prof)
                 raise
         assert last_exc is not None
         raise last_exc
@@ -526,6 +556,7 @@ def build_genai_client(settings: Settings) -> Any:
         profiles = parse_vertex_profiles(settings)
         if len(profiles) > 1:
             return FailoverGenAIClient(settings, profiles)
+        set_last_vertex_profile(profiles[0])
         return _build_single_vertex_client(profiles[0], settings)
     if not settings.gemini_api_key:
         raise ValueError(

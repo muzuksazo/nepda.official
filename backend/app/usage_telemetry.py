@@ -231,6 +231,27 @@ def record_usage_safe(
     if project_store is None or not hasattr(project_store, "record_api_usage"):
         return
     try:
+        enriched_meta = dict(metadata or {})
+        if str(provider or "").strip().lower() == "google" and not enriched_meta.get("vertex_profile"):
+            try:
+                from .genai_provider import get_last_vertex_profile, parse_vertex_profiles
+
+                last_prof = get_last_vertex_profile()
+                if last_prof and last_prof.get("vertex_profile"):
+                    enriched_meta["vertex_profile"] = last_prof["vertex_profile"]
+                    if last_prof.get("gcp_project"):
+                        enriched_meta["gcp_project"] = last_prof["gcp_project"]
+                elif getattr(settings, "google_genai_use_vertexai", False):
+                    profs = parse_vertex_profiles(settings)
+                    if len(profs) == 1:
+                        enriched_meta["vertex_profile"] = profs[0].name
+                        if profs[0].project:
+                            enriched_meta["gcp_project"] = profs[0].project
+                else:
+                    enriched_meta["vertex_profile"] = "ai_studio"
+            except Exception:
+                pass
+
         overrides = parse_pricing_overrides(getattr(settings, "usage_pricing_overrides_json", None))
         est_usd, price_label = estimate_cost_usd(
             model,
@@ -264,7 +285,7 @@ def record_usage_safe(
             latency_ms=max(0, int(latency_ms or 0)),
             cache_hit=bool(cache_hit),
             status=status,
-            metadata=metadata,
+            metadata=enriched_meta,
         )
     except Exception as exc:  # pragma: no cover - defensive guard
         logger.warning("Failed to record API usage telemetry (%s/%s): %s", stage, model, exc)

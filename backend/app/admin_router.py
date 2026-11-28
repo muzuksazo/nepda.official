@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from .auth import SESSION_COOKIE_NAME, AuthenticatedUser, AuthenticationError, verify_session_token
 from .config import Settings
+from .genai_provider import parse_vertex_profiles
 from .media_delivery import resolve_media_url
 from .project_store import ProjectStore, persist_internal_accounts_to_storage
 from .thumbnail_service import normalize_thumbnail_style
@@ -790,7 +791,62 @@ def build_admin_router(
                 except Exception:
                     pass
             enriched_projects.append({**row, **preview_meta})
-        summary = {**summary, "by_stage": enriched_stages, "recent_projects": enriched_projects}
+
+        by_billing_account = list(summary.get("by_billing_account") or [])
+        configured_profiles: list[Dict[str, Any]] = []
+        vertex_routing_mode = "single"
+        if getattr(settings, "google_genai_use_vertexai", False):
+            try:
+                parsed_profiles = parse_vertex_profiles(settings)
+                configured_profiles = [
+                    {
+                        "name": p.name,
+                        "project": p.project,
+                        "location": p.location,
+                    }
+                    for p in parsed_profiles
+                ]
+                vertex_routing_mode = (
+                    str(getattr(settings, "gcp_vertex_routing_mode", "round_robin") or "round_robin")
+                    if len(parsed_profiles) > 1
+                    else "single"
+                )
+                seen_google_accounts = {
+                    str(item.get("account_name") or "")
+                    for item in by_billing_account
+                    if str(item.get("provider") or "").lower() == "google"
+                }
+                for prof in parsed_profiles:
+                    if prof.name not in seen_google_accounts:
+                        by_billing_account.append(
+                            {
+                                "account_key": f"google:{prof.name}",
+                                "provider": "google",
+                                "account_name": prof.name,
+                                "gcp_project": prof.project,
+                                "calls": 0,
+                                "cache_hits": 0,
+                                "project_count": 0,
+                                "input_tokens": 0,
+                                "output_tokens": 0,
+                                "thinking_tokens": 0,
+                                "video_sec": 0.0,
+                                "image_count": 0,
+                                "tts_chars": 0,
+                                "estimated_cost_usd": 0.0,
+                                "unpriced_calls": 0,
+                                "avg_latency_ms": 0,
+                            }
+                        )
+            except Exception:
+                pass
+
+        summary = {
+            **summary,
+            "by_stage": enriched_stages,
+            "recent_projects": enriched_projects,
+            "by_billing_account": by_billing_account,
+        }
         overrides = parse_pricing_overrides(settings.usage_pricing_overrides_json)
         return {
             **summary,
@@ -798,6 +854,8 @@ def build_admin_router(
             "pricing_version": PRICING_VERSION,
             "pricing_table": pricing_catalog(overrides),
             "usd_krw_rate": settings.usd_krw_rate,
+            "vertex_routing_mode": vertex_routing_mode,
+            "configured_vertex_profiles": configured_profiles,
             "admin_actor": admin["actor"],
             "dev_open_admin": admin["dev_open_admin"],
         }
@@ -833,11 +891,21 @@ def build_admin_router(
                 storage=storage,
                 settings=settings,
             )
+            ev_meta = ev.get("metadata") if isinstance(ev.get("metadata"), dict) else {}
+            ev_provider = str(ev.get("provider") or "")
+            billing_account = (
+                (str(ev_meta.get("vertex_profile") or "").strip() or "untracked")
+                if ev_provider.lower() == "google"
+                else ev_provider
+            )
+            gcp_project = str(ev_meta.get("gcp_project") or "").strip() or None
             enriched_events.append(
                 {
                     **ev,
                     "stage_label": st_meta["label"],
                     "output_description": st_meta["output_description"],
+                    "billing_account": billing_account,
+                    "gcp_project": gcp_project,
                     "matched_artifact": matched_artifact,
                 }
             )

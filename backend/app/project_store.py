@@ -1343,6 +1343,32 @@ class ProjectStore:
                 (since_iso, max(1, int(limit_projects))),
             ).fetchall()
 
+            acct_rows = conn.execute(
+                """
+                SELECT
+                    provider,
+                    COALESCE(NULLIF(json_extract(metadata_json, '$.vertex_profile'), ''), '') AS vertex_profile,
+                    COALESCE(NULLIF(json_extract(metadata_json, '$.gcp_project'), ''), '') AS gcp_project,
+                    COUNT(*) AS calls,
+                    COALESCE(SUM(CASE WHEN cache_hit = 1 THEN 1 ELSE 0 END), 0) AS cache_hits,
+                    COUNT(DISTINCT NULLIF(project_id, '')) AS project_count,
+                    COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                    COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                    COALESCE(SUM(thinking_tokens), 0) AS thinking_tokens,
+                    COALESCE(SUM(CASE WHEN media_unit = 'sec' THEN media_qty ELSE 0.0 END), 0.0) AS video_sec,
+                    COALESCE(SUM(CASE WHEN media_unit = 'image' THEN media_qty ELSE 0.0 END), 0.0) AS image_count,
+                    COALESCE(SUM(CASE WHEN media_unit = 'char' THEN media_qty ELSE 0.0 END), 0.0) AS tts_chars,
+                    COALESCE(SUM(estimated_cost_usd), 0.0) AS estimated_cost_usd,
+                    COALESCE(SUM(CASE WHEN estimated_cost_usd IS NULL AND cache_hit = 0 THEN 1 ELSE 0 END), 0) AS unpriced_calls,
+                    COALESCE(AVG(latency_ms), 0.0) AS avg_latency_ms
+                FROM api_usage_events
+                WHERE created_at >= ?
+                GROUP BY provider, vertex_profile, gcp_project
+                ORDER BY estimated_cost_usd DESC, calls DESC
+                """,
+                (since_iso,),
+            ).fetchall()
+
         totals = {
             "total_calls": int(t_row["total_calls"] or 0),
             "cache_hits": int(t_row["cache_hits"] or 0),
@@ -1433,11 +1459,42 @@ class ProjectStore:
                 }
             )
 
+        by_billing_account: List[Dict[str, Any]] = []
+        for r in acct_rows:
+            prov = str(r["provider"] or "")
+            v_prof = str(r["vertex_profile"] or "").strip()
+            g_proj = str(r["gcp_project"] or "").strip() or None
+            if prov.lower() == "google":
+                acct_name = v_prof or "untracked"
+            else:
+                acct_name = v_prof or prov
+            by_billing_account.append(
+                {
+                    "account_key": f"{prov}:{acct_name}",
+                    "provider": prov,
+                    "account_name": acct_name,
+                    "gcp_project": g_proj,
+                    "calls": int(r["calls"] or 0),
+                    "cache_hits": int(r["cache_hits"] or 0),
+                    "project_count": int(r["project_count"] or 0),
+                    "input_tokens": int(r["input_tokens"] or 0),
+                    "output_tokens": int(r["output_tokens"] or 0),
+                    "thinking_tokens": int(r["thinking_tokens"] or 0),
+                    "video_sec": round(float(r["video_sec"] or 0.0), 2),
+                    "image_count": int(round(float(r["image_count"] or 0.0))),
+                    "tts_chars": int(round(float(r["tts_chars"] or 0.0))),
+                    "estimated_cost_usd": round(float(r["estimated_cost_usd"] or 0.0), 6),
+                    "unpriced_calls": int(r["unpriced_calls"] or 0),
+                    "avg_latency_ms": int(round(float(r["avg_latency_ms"] or 0.0))),
+                }
+            )
+
         return {
             "totals": totals,
             "by_provider_model": by_provider_model,
             "by_stage": by_stage,
             "recent_projects": recent_projects,
+            "by_billing_account": by_billing_account,
         }
 
     def get_project_usage_detail(self, project_id: str) -> Dict[str, Any]:

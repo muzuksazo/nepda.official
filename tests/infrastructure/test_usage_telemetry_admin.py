@@ -19,10 +19,17 @@ if str(BACKEND) not in sys.path:
 
 from app.auth import AuthenticatedUser, issue_session_token  # noqa: E402
 from app.config import Settings  # noqa: E402
+from app.genai_provider import (  # noqa: E402
+    FailoverGenAIClient,
+    VertexProfile,
+    VertexProfilePool,
+    clear_last_vertex_profile,
+    get_last_vertex_profile,
+)
 from app.project_store import ProjectStore  # noqa: E402
 from app.server import create_app  # noqa: E402
 from app.storage import S3StorageBackend, _infer_content_type  # noqa: E402
-from app.usage_telemetry import estimate_cost_usd, parse_pricing_overrides, pricing_catalog  # noqa: E402
+from app.usage_telemetry import estimate_cost_usd, parse_pricing_overrides, pricing_catalog, record_usage_safe  # noqa: E402
 from hookpipe.body_edit import make_body  # noqa: E402
 from hookpipe.render import render_hook  # noqa: E402
 from hookpipe.workers import _SettingsOverlay, make_scenario_generator, run_worker_c  # noqa: E402
@@ -441,6 +448,116 @@ class TestUsageTelemetryAndAdmin(unittest.TestCase):
             "video/mp4",
         )
         self.assertIn("ResponseContentType=video/mp4" if False else "ct=video/mp4", url)
+
+    def test_round_robin_billing_account_attribution_and_admin_breakdown(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            profiles = [
+                VertexProfile(name="dev1", project="proj-dev1", location="global"),
+                VertexProfile(name="dev2", project="proj-dev2", location="global"),
+            ]
+            settings = Settings(
+                _env_file=None,
+                gemini_api_key=None,
+                google_genai_use_vertexai=True,
+                google_cloud_project="proj-dev1",
+                gcp_vertex_routing_mode="round_robin",
+                gcp_vertex_profiles_json=json.dumps(
+                    [
+                        {"name": "dev1", "project": "proj-dev1", "location": "global"},
+                        {"name": "dev2", "project": "proj-dev2", "location": "global"},
+                    ]
+                ),
+                session_secret="test-session-secret-32bytes-minimum",
+                admin_emails="admin@napda.ai",
+                api_bearer_token="adm-secret-token",
+                work_root=str(root / "work"),
+                output_dir=str(root / "outputs"),
+                db_path=str(root / "napda.db"),
+            )
+            store = ProjectStore(settings.db_path)
+            user = AuthenticatedUser(user_id="usr_rr", email="user@example.com", name="User")
+            store.upsert_user(user)
+            proj = store.create_project(
+                "prj_rr01",
+                user.user_id,
+                flow_mode="guide_first",
+                product={"name": "방수 테이프", "category": "living", "verified_facts": ["초강력 접착"]},
+                selected_types=["B"],
+            )
+
+            pool = VertexProfilePool()
+            client = FailoverGenAIClient(settings, profiles, pool=pool)
+            fake_sdk = {
+                "dev1": SimpleNamespace(models=SimpleNamespace(generate_content=lambda **_kw: "resp-dev1")),
+                "dev2": SimpleNamespace(models=SimpleNamespace(generate_content=lambda **_kw: "resp-dev2")),
+            }
+            client._client_for = lambda prof: fake_sdk[prof.name]  # type: ignore[method-assign]
+
+            clear_last_vertex_profile()
+            self.assertEqual(client.models.generate_content(model="gemini-4-hydrogen"), "resp-dev1")
+            last1 = get_last_vertex_profile()
+            self.assertIsNotNone(last1)
+            self.assertEqual(last1["vertex_profile"], "dev1")
+            record_usage_safe(
+                store,
+                settings,
+                project_id=proj["project_id"],
+                user_id=user.user_id,
+                stage="storyboard",
+                step_name="frame_01",
+                provider="google",
+                model="gemini-nano-banana-2.1",
+                media_unit="image",
+                media_qty=1.0,
+            )
+
+            self.assertEqual(client.models.generate_content(model="gemini-4-hydrogen"), "resp-dev2")
+            last2 = get_last_vertex_profile()
+            self.assertIsNotNone(last2)
+            self.assertEqual(last2["vertex_profile"], "dev2")
+            record_usage_safe(
+                store,
+                settings,
+                project_id=proj["project_id"],
+                user_id=user.user_id,
+                stage="video_clip",
+                step_name="beat_1",
+                provider="google",
+                model="gemini-omni-flash-preview",
+                media_unit="sec",
+                media_qty=4.0,
+            )
+
+            app = create_app(settings=settings, project_store=store)
+            api = TestClient(app)
+            sum_res = api.get(
+                "/v1/admin/usage/summary",
+                headers={"Authorization": "Bearer adm-secret-token"},
+            )
+            self.assertEqual(sum_res.status_code, 200, sum_res.text)
+            sum_data = sum_res.json()
+            self.assertEqual(sum_data["vertex_routing_mode"], "round_robin")
+            self.assertEqual(
+                [p["name"] for p in sum_data["configured_vertex_profiles"]],
+                ["dev1", "dev2"],
+            )
+            by_acct = {row["account_key"]: row for row in sum_data["by_billing_account"]}
+            self.assertAlmostEqual(by_acct["google:dev1"]["estimated_cost_usd"], 0.0336, places=6)
+            self.assertEqual(by_acct["google:dev1"]["gcp_project"], "proj-dev1")
+            self.assertAlmostEqual(by_acct["google:dev2"]["estimated_cost_usd"], 0.4, places=6)
+            self.assertEqual(by_acct["google:dev2"]["gcp_project"], "proj-dev2")
+
+            det_res = api.get(
+                f"/v1/admin/usage/projects/{proj['project_id']}",
+                headers={"Authorization": "Bearer adm-secret-token"},
+            )
+            self.assertEqual(det_res.status_code, 200, det_res.text)
+            events = det_res.json()["events"]
+            self.assertEqual(events[0]["billing_account"], "dev1")
+            self.assertEqual(events[0]["gcp_project"], "proj-dev1")
+            self.assertEqual(events[1]["billing_account"], "dev2")
+            self.assertEqual(events[1]["gcp_project"], "proj-dev2")
 
     @unittest.skipUnless(tools_or_none() is not None, "ffmpeg required")
     def test_make_body_records_body_tts_usage(self) -> None:

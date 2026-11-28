@@ -336,6 +336,7 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
 
     proc: Any = None
     data: Any = None
+    used_profile: Any = None
     if getattr(settings, "google_genai_use_vertexai", False) and using_gemini and getattr(settings, "gcp_vertex_profiles_json", None):
         from app.genai_provider import (
             get_vertex_profile_pool,
@@ -354,6 +355,7 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
                 try:
                     proc, data = _run_worker_b_once(worker_input, settings, worker_dir, cmd, record, profile=candidate)
                     pool.mark_success(candidate)
+                    used_profile = candidate
                     last_exc = None
                     break
                 except WorkerError as exc:
@@ -364,8 +366,16 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
                     raise
             if last_exc is not None:
                 raise last_exc
+        elif profiles:
+            used_profile = profiles[0]
     if data is None:
         proc, data = _run_worker_b_once(worker_input, settings, worker_dir, cmd, record)
+        if used_profile is None and getattr(settings, "google_genai_use_vertexai", False) and using_gemini:
+            from app.genai_provider import parse_vertex_profiles
+
+            profs = parse_vertex_profiles(settings)
+            if profs:
+                used_profile = profs[0]
     on_usage = getattr(settings, "_on_usage", None)
     if callable(on_usage) and isinstance(data, dict):
         b_resp = data.get("response") if isinstance(data.get("response"), dict) else {}
@@ -374,13 +384,18 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
             for s in (b_resp.get("scenarios") or [])
             if isinstance(s, dict) and s.get("hook_title")
         ][:3]
-        b_meta = {"hook_titles": b_titles} if b_titles else None
+        b_base_meta: Dict[str, Any] = {"hook_titles": b_titles} if b_titles else {}
         for st in data.get("steps") or []:
             if not isinstance(st, dict):
                 continue
             m_id = str(st.get("model") or getattr(settings, "_resolved_llm_model", None) or "claude-opus-5-5").strip()
             if not m_id or m_id == "-":
                 continue
+            step_meta: Dict[str, Any] = dict(b_base_meta)
+            if m_id.lower().startswith("gemini") and used_profile is not None:
+                step_meta["vertex_profile"] = getattr(used_profile, "name", "") or "default"
+                if getattr(used_profile, "project", None):
+                    step_meta["gcp_project"] = str(used_profile.project)
             on_usage(
                 stage="scenario_b",
                 step_name=str(st.get("step") or "step"),
@@ -389,7 +404,7 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
                 input_tokens=int(st.get("inputTokens") or 0),
                 output_tokens=int(st.get("outputTokens") or 0),
                 latency_ms=int(st.get("ms") or 0),
-                metadata=b_meta,
+                metadata=step_meta or None,
             )
     response = data.get("response") if isinstance(data, dict) else None
     if not isinstance(response, dict):
@@ -460,9 +475,11 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
     if not use_gemini and not os.environ.get("ANTHROPIC_API_KEY"):
         raise WorkerError("ANTHROPIC_API_KEY 가 없습니다 (C 작업자는 Claude 로 시나리오를 만듭니다).")
     gemini_client = None
+    last_vertex_info: Optional[Dict[str, str]] = None
     if use_gemini and getattr(settings, "google_genai_use_vertexai", False):
-        from app.genai_provider import build_genai_client
+        from app.genai_provider import build_genai_client, clear_last_vertex_profile
 
+        clear_last_vertex_profile()
         gemini_client = build_genai_client(settings)
     try:
         # 글 모델: 요청 오버라이드 또는 HOOK_WORKER_LLM 에 따라 Gemini / Claude 선택
@@ -478,6 +495,10 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
         raise WorkerError(f"C 작업자에 필요한 패키지가 없습니다: {exc.name} (bridge-dev/c/requirements.txt)") from exc
     except Exception as exc:
         raise WorkerError(f"C 작업자 실행 오류: {exc}") from exc
+    if use_gemini and getattr(settings, "google_genai_use_vertexai", False):
+        from app.genai_provider import get_last_vertex_profile
+
+        last_vertex_info = get_last_vertex_profile()
     on_usage = getattr(settings, "_on_usage", None)
     if callable(on_usage) and isinstance(run, dict):
         c_resp = run.get("response") if isinstance(run.get("response"), dict) else {}
@@ -486,13 +507,18 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
             for s in (c_resp.get("scenarios") or [])
             if isinstance(s, dict) and s.get("hook_title")
         ][:3]
-        c_meta = {"hook_titles": c_titles} if c_titles else None
+        c_base_meta: Dict[str, Any] = {"hook_titles": c_titles} if c_titles else {}
         for st in run.get("steps") or []:
             if not isinstance(st, dict):
                 continue
             m_id = str(st.get("model") or target_model or "claude-opus-5-5").strip()
             if not m_id or m_id == "-":
                 continue
+            step_meta = dict(c_base_meta)
+            if m_id.lower().startswith("gemini") and last_vertex_info:
+                step_meta["vertex_profile"] = last_vertex_info.get("vertex_profile", "")
+                if last_vertex_info.get("gcp_project"):
+                    step_meta["gcp_project"] = last_vertex_info["gcp_project"]
             on_usage(
                 stage="scenario_c",
                 step_name=str(st.get("step") or "scenarios"),
@@ -501,7 +527,7 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
                 input_tokens=int(st.get("inputTokens") or 0),
                 output_tokens=int(st.get("outputTokens") or 0),
                 latency_ms=int(st.get("ms") or 0),
-                metadata=c_meta,
+                metadata=step_meta or None,
             )
     response = run["response"]
     for item, check in zip(response.get("scenarios") or [], run.get("checks") or []):
