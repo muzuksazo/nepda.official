@@ -15,6 +15,9 @@ import templateBlocks from '../../assets/samples/thumbnail/template-blocks.webp'
 import templateCard from '../../assets/samples/thumbnail/template-card.webp';
 import templateSplit from '../../assets/samples/thumbnail/template-split.webp';
 import templateStroke from '../../assets/samples/thumbnail/template-stroke.webp';
+import loginInvertBox from '../../assets/samples/login/login-invert-box.webp';
+import loginPovBar from '../../assets/samples/login/login-pov-bar.webp';
+import loginSerifOutline from '../../assets/samples/login/login-serif-outline.webp';
 import event1 from '../../assets/events/event1.webp';
 import event2 from '../../assets/events/event2.webp';
 import event3 from '../../assets/events/event3.webp';
@@ -86,7 +89,7 @@ export const SAMPLE_THUMBNAIL_TEMPLATES: ThumbnailTemplate[] = [
 export const SAMPLE_THUMBNAIL_CAPTION = '이 도마, 미쳤다';
 
 /** 예시: 로그인 화면 위쪽에 펼쳐 보여 줄 냅다 영상 썸네일 3장 (예시용으로 만든 이미지) */
-export const SAMPLE_LOGIN_SHOWCASE = [thumb02, thumb01, thumb03];
+export const SAMPLE_LOGIN_SHOWCASE = [loginPovBar, loginInvertBox, loginSerifOutline];
 
 /**
  * 예시: 크레딧 충전 묶음과 영상 한 편 단가. 가격·크레딧 단가는 정해지지 않았다(OQ-003) — 화면 확인용 값이다.
