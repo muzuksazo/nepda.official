@@ -74,6 +74,13 @@ def _opening_callback_for_scenario(scenario: Optional[Dict[str, Any]]) -> Option
     return None if has_ai_landing else cb
 
 
+def _hook_lines_for_scenario(scenario: Optional[Dict[str, Any]]) -> List[str]:
+    """훅 나레이션을 장면 순서대로. 본편 첫 문장이 이 말을 이어받는다."""
+    beats = [b for b in ((scenario or {}).get("beats") or []) if isinstance(b, dict)]
+    beats.sort(key=lambda b: b["order"] if isinstance(b.get("order"), int) else 0)
+    return [str(b.get("narration") or "").strip() for b in beats if str(b.get("narration") or "").strip()]
+
+
 class HookPipeline:
     def __init__(
         self,
@@ -453,19 +460,23 @@ class HookPipeline:
         job_id: str,
         *,
         opening_callback: Optional[str] = None,
+        hook_lines: Optional[List[str]] = None,
     ) -> Tuple[Path, Optional[Path], List[str]]:
-        """A·B·C 공용 본편. FR-009 결과(project.body)가 있으면 그것을, 없으면 촬영본으로 10초 본편을 만든다(한 번만).
+        """A·B·C 공용 본편. FR-009 결과(project.body)가 있으면 그것을, 없으면 촬영본으로 10~15초 본편을 만든다.
 
         Track A 직결 컷처럼 반전 콜백(opening_callback)이 지정된 경우에는 콜백별 캐시 키로 별도 본편을 만든다.
+        hook_lines(앞 훅의 나레이션)가 있으면 본편 첫 문장이 그 말을 이어받도록 훅별로 만든다 (대본 + 나레이션만 새로, 영상 모델 없음).
         """
         clean_cb = str(opening_callback or "").strip() or None
+        hook = [] if clean_cb else [str(t).strip() for t in (hook_lines or []) if str(t).strip()]
         body = project.get("body") or {}
         # FR-009 본편 (app/body_pipeline.py, POST /v1/projects/{id}/body) 의 manifest: object_keys.body_video / body_srt
         keys = body.get("object_keys") or {}
         body = {**body, "video_key": body.get("video_key") or keys.get("body_video"),
                 "srt_key": body.get("srt_key") or keys.get("body_srt")}
         project = {**project, "body": body}
-        reuse_project_body = clean_cb is None or str(body.get("opening_callback") or "").strip() == clean_cb
+        # 앞 훅의 말을 이어받는 본편은 훅마다 다르므로, 프로젝트에 저장된 본편을 그대로 쓰지 않는다
+        reuse_project_body = not hook and (clean_cb is None or str(body.get("opening_callback") or "").strip() == clean_cb)
         given = body.get("video_path") if reuse_project_body else None
         if reuse_project_body and not given and body.get("video_key"):
             dest = Path(self.settings.output_dir).resolve() / str(project["project_id"]) / "_renders" / job_id / "body_in.mp4"
@@ -484,6 +495,7 @@ class HookPipeline:
             self.settings,
             voice,
             opening_callback=clean_cb,
+            hook_lines=hook,
         )
         body_dir = Path(self.settings.output_dir).resolve() / project_id / "_body" / key
         body_settings = self.settings
@@ -498,7 +510,7 @@ class HookPipeline:
                     project_id, stage, step, path
                 ),
             )
-        with self._lock(project_id, f"_body:{key}" if clean_cb else "_body"):
+        with self._lock(project_id, f"_body:{key}" if (clean_cb or hook) else "_body"):
             made = make_body(
                 clips,
                 project.get("product") or {},
@@ -510,6 +522,7 @@ class HookPipeline:
                 voice=voice,
                 subtitle_style=_subtitle_style(),
                 opening_callback=clean_cb,
+                hook_lines=hook,
             )
         uploaded_keys: Dict[str, str] = {}
         for field_name, file_name in (("body_video", "body.mp4"), ("body_srt", "body.srt")):
@@ -697,10 +710,12 @@ class HookPipeline:
 
             self._raise_if_cancelled(job_id)
             store.update_job(job_id, status="RUNNING", stage="BODY")
-            # 본편: A·B·C 공용 10초 편집본 (나레이션·자막 포함). Track A 직결 컷이면 반전 콜백으로 시작한다
+            # 본편: 10~15초 편집본 (나레이션·자막 포함). Track A 직결 컷이면 반전 콜백으로,
+            # 아니면 앞 훅의 나레이션을 이어받아 시작한다
             opening_callback = _opening_callback_for_scenario(scenario)
             body_video, body_srt, body_warnings = self._shared_body(
-                project, clips, voice, job_id, opening_callback=opening_callback
+                project, clips, voice, job_id, opening_callback=opening_callback,
+                hook_lines=_hook_lines_for_scenario(scenario),
             )
             self._raise_if_cancelled(job_id)
             # 최종 파일은 작업마다 다른 폴더에 쓴다 (같은 훅으로 겹쳐 만들어도 서로 덮어쓰지 않는다)

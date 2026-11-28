@@ -1,11 +1,11 @@
-"""본편 편집 (FR-009): 올린 촬영 영상 → 10초 설명 영상(나레이션 + 자막). A·B·C 훅이 함께 쓴다.
+"""본편 편집 (FR-009): 올린 촬영 영상 → 10~15초 설명 영상(나레이션 + 자막). 앞에 붙는 훅의 말을 이어받는다.
 
 B 트랙의 본편 단계(bridge-dev/b/src/body.ts)를 Python + ffmpeg 로 옮긴 것이다.
   1) 클립마다 프레임 5장을 뽑아 글 모델에 보여 준다
-  2) 모델이 제품 사실만으로 2~3문장 대본을 쓰고, 문장마다 맞는 컷(클립 번호와 시작·끝 초)을 고른다
-  3) 문장별 나레이션 → 음성 길이에 맞춰 컷을 자르고, 전체를 정확히 target_sec 으로 맞춘다
+  2) 모델이 제품 사실만으로 2~4문장 대본을 쓰고, 문장마다 맞는 컷(클립 번호와 시작·끝 초)을 고른다
+  3) 문장별 나레이션 → 음성 길이에 맞춰 컷을 자르고, 전체를 body_target_sec ~ body_max_target_sec 안으로 맞춘다
   4) 1080x1920 30fps, 자막 번인, 소리 -14 LUFS 의 body.mp4 와 body.srt
-결과는 프로젝트마다 한 번 만들어 두고(같은 촬영본·제품 정보·설정이면 재사용) 모든 훅 유형에 붙인다.
+결과는 같은 촬영본·제품 정보·설정·앞 훅 나레이션이면 재사용한다. 훅마다 첫 문장이 달라 훅별로 만든다.
 """
 
 from __future__ import annotations
@@ -111,19 +111,27 @@ def body_cache_key(
     settings: Any,
     voice: Optional[str] = None,
     opening_callback: Optional[str] = None,
+    hook_lines: Optional[Sequence[str]] = None,
 ) -> str:
-    """같은 촬영본·제품 정보·설정·목소리·도입 콜백이면 같은 본편을 쓴다."""
+    """같은 촬영본·제품 정보·설정·목소리·도입 콜백·앞 훅 나레이션이면 같은 본편을 쓴다."""
     parts: List[str] = [f"voice:{voice}"] if voice else []
     cb = str(opening_callback or "").strip()
     if cb:
         parts.append(f"callback:{cb}")
+    hook = _clean_hook_lines(hook_lines)
+    if hook:
+        parts.append("hook:" + "\x1e".join(hook))
     for path in clips:
         stat = Path(path).stat()
         parts.append(f"{Path(path).name}:{stat.st_size}:{int(stat.st_mtime)}")
     parts.append(json.dumps({k: product.get(k) for k in ("name", "call_name", "verified_facts")}, ensure_ascii=False, sort_keys=True))
-    for name in ("body_target_sec", "body_llm", "tts_provider", "inworld_voice_id", "tts_default_voice"):
+    for name in ("body_target_sec", "body_max_target_sec", "body_llm", "tts_provider", "inworld_voice_id", "tts_default_voice"):
         parts.append(str(getattr(settings, name, "")))
     return hashlib.sha1("\x1f".join(parts).encode("utf-8")).hexdigest()[:16]
+
+
+def _clean_hook_lines(hook_lines: Optional[Sequence[str]]) -> List[str]:
+    return [str(t).strip() for t in (hook_lines or []) if str(t).strip()]
 
 
 def _body_prompt(
@@ -132,12 +140,20 @@ def _body_prompt(
     target: float,
     *,
     opening_callback: Optional[str] = None,
+    hook_lines: Optional[Sequence[str]] = None,
+    max_sec: Optional[float] = None,
 ) -> str:
     name = product.get("call_name") or product.get("name") or "제품"
     facts = [str(f) for f in (product.get("verified_facts") or []) if str(f).strip()]
-    syllables = int(round(target * 5.5))
+    limit = max(target, float(max_sec or target))
+    syllables = int(round(limit * 5.5))
     ranges = ", ".join(f"{c.index}번 0~{c.duration:.1f}초" for c in clips)
+    length_rule = (
+        f"- 2~4문장, 나레이션 전체 {syllables}음절({limit:g}초) 이내. 할 말이 적으면 더 짧아도 됩니다. "
+        "짧고 또렷하게, '~습니다'체.\n"
+    )
     cb = str(opening_callback or "").strip()
+    hook = _clean_hook_lines(hook_lines)
     if cb:
         intro_clause = (
             "이 본편은 A안 반전 훅 직후 바로 이어집니다. 첫 문장(lines[0].narration)은 아래 반전 전환 콜백 문구로 "
@@ -145,24 +161,34 @@ def _body_prompt(
             f"반전 전환 콜백 오프닝: \"{cb}\"\n"
         )
         first_line_rule = (
-            f"- 2~3문장, 나레이션 전체 {syllables}음절 이내. 짧고 또렷하게, '~습니다'체. "
-            f"첫 문장은 위 반전 전환 콜백(\"{cb}\")을 자연스럽게 살려 제품 이름(\"{name}\")을 부르고 무엇인지 말합니다.\n"
+            f"- 첫 문장은 위 반전 전환 콜백(\"{cb}\")을 자연스럽게 살려 제품 이름(\"{name}\")을 부르고 무엇인지 말합니다.\n"
+        )
+    elif hook:
+        intro_clause = (
+            "이 본편은 아래 훅 영상 바로 뒤에 이어집니다. 시청자는 방금 이 말을 들었습니다:\n"
+            + "\n".join(f"- \"{t}\"" for t in hook) + "\n"
+        )
+        first_line_rule = (
+            "- 첫 문장은 훅의 마지막 말을 이어받아 제품으로 넘어갑니다. 훅 문장을 그대로 되풀이하지 않고, "
+            f"제품 이름(\"{name}\")을 부르며 그것이 무엇인지 말합니다.\n"
+            "- 훅이 던진 궁금증이나 문제에 제품이 답하는 흐름으로 씁니다. 다만 훅에 나온 말이라도 "
+            "제품 사실 목록에 없는 것은 말하지 않습니다.\n"
         )
     else:
         intro_clause = "이 본편은 어떤 훅 영상 뒤에도 붙으므로, 훅 내용과 상관없이 제품만 설명합니다.\n"
-        first_line_rule = (
-            f"- 2~3문장, 나레이션 전체 {syllables}음절 이내. 짧고 또렷하게, '~습니다'체. "
-            f"첫 문장에 제품 이름(\"{name}\")을 부르고 무엇인지 말합니다.\n"
-        )
+        first_line_rule = f"- 첫 문장에 제품 이름(\"{name}\")을 부르고 무엇인지 말합니다.\n"
     return (
-        f"판매자가 직접 찍은 제품 촬영 영상으로 {target:g}초짜리 제품 설명 영상(본편)을 만듭니다. "
+        f"판매자가 직접 찍은 제품 촬영 영상으로 {target:g}~{limit:g}초짜리 제품 설명 영상(본편)을 만듭니다. "
         + intro_clause
         + f"제품: {product.get('name', '')} (나레이션에서 부르는 이름: \"{name}\")\n"
         + "제품 사실(이것만 말합니다):\n" + "\n".join(f"- {f}" for f in facts) + "\n\n"
         + "대본 규칙:\n"
+        + length_rule
         + first_line_rule
         + "- 핵심 특징 1~2개를 사실 목록에 있는 것만 말합니다. 과장·없는 기능·가격·할인 금지.\n"
-        + "- 마지막 문장은 쓰는 방법이나 쓰는 장면으로 끝냅니다. 질문이나 댓글 유도는 넣지 않습니다.\n"
+        + "- 문장들은 따로 노는 사실 나열이 아니라 한 이야기로 이어집니다: 제품 소개 → 그래서 무엇이 좋은지 → 쓰는 장면. "
+        + "앞 문장을 받는 말(그래서, 덕분에, 이렇게 등)로 자연스럽게 잇습니다.\n"
+        + "- 마지막 문장은 앞 내용을 묶어 쓰는 장면으로 마무리합니다. 질문이나 댓글 유도는 넣지 않습니다.\n"
         + "- caption: 짧은 구어 자막, 한 줄 12자 안팎, 최대 2줄(\\n).\n"
         + "컷 규칙:\n"
         + "- 아래 프레임에는 클립 번호와 시각(초)이 붙어 있습니다. 문장마다 그 말과 가장 잘 맞는 장면을 "
@@ -395,9 +421,16 @@ def make_body(
     voice: Optional[str] = None,
     subtitle_style: str = "",
     opening_callback: Optional[str] = None,
+    hook_lines: Optional[Sequence[str]] = None,
 ) -> BodyEditResult:
-    """촬영 영상들 → body.mp4 + body.srt (out_dir 에). 이미 같은 결과가 있으면 그대로 돌려준다."""
+    """촬영 영상들 → body.mp4 + body.srt (out_dir 에). 이미 같은 결과가 있으면 그대로 돌려준다.
+
+    길이는 나레이션에 맞춘다: body_target_sec(최소) ~ body_max_target_sec(최대). 짧으면 최소 길이까지 늘리고,
+    길면 최대 길이에 맞춰 조금 빠르게 읽는다.
+    hook_lines: 앞에 붙는 훅의 나레이션. 있으면 본편 첫 문장이 그 말을 이어받는다.
+    """
     target = float(getattr(settings, "body_target_sec", 10.0) or 10.0)
+    limit = max(target, float(getattr(settings, "body_max_target_sec", target) or target))
     out = Path(out_dir)
     done = out / "body.json"
     if done.is_file() and (out / "body.mp4").is_file():
@@ -429,7 +462,7 @@ def make_body(
 
     # 2) 대본·컷
     script_raw = (writer or default_script_writer(settings))(
-        _body_prompt(product, clips, target, opening_callback=opening_callback),
+        _body_prompt(product, clips, target, opening_callback=opening_callback, hook_lines=hook_lines, max_sec=limit),
         frames,
     )
     lines = _clean_script(script_raw, clips)
@@ -481,16 +514,17 @@ def make_body(
         line["audio"] = audio
         line["voice_sec"] = probe(tools, audio).duration
     spoken = sum(line["voice_sec"] for line in lines) + LINE_GAP_SEC * len(lines)
+    length = round(min(limit, max(target, spoken)), 3)  # 본편 길이: 나레이션에 맞추되 최소~최대 안에서
     tempo = 1.0
-    if spoken > target:
-        tempo = min(MAX_TEMPO, spoken / target)
-        if spoken / tempo > target + 0.05:
-            warnings.append(f"본편 나레이션이 길어 {target:g}초 안에 다 들어가지 않습니다 (끝이 잘림).")
+    if spoken > length:
+        tempo = min(MAX_TEMPO, spoken / length)
+        if spoken / tempo > length + 0.05:
+            warnings.append(f"본편 나레이션이 길어 {length:g}초 안에 다 들어가지 않습니다 (끝이 잘림).")
     natural = [line["voice_sec"] / tempo + LINE_GAP_SEC for line in lines]
-    spare = max(0.0, target - sum(natural))
+    spare = max(0.0, length - sum(natural))
     for line, base in zip(lines, natural):  # 남는 시간은 문장 길이 비율로 나눠 준다
         line["duration"] = base + spare * base / sum(natural)
-    scale = target / sum(line["duration"] for line in lines)
+    scale = length / sum(line["duration"] for line in lines)
     cursor = 0.0
     for line in lines:
         line["duration"] = round(line["duration"] * scale, 3)
@@ -503,7 +537,7 @@ def make_body(
         encoding="utf-8",
     )
     mix_args: List[str] = []
-    mix_filters = [f"anullsrc=r={AUDIO_RATE}:cl=stereo,atrim=0:{target:.3f}[base]"]
+    mix_filters = [f"anullsrc=r={AUDIO_RATE}:cl=stereo,atrim=0:{length:.3f}[base]"]
     labels = ["[base]"]
     for index, line in enumerate(lines):
         mix_args += ["-i", str(line["audio"])]
@@ -515,11 +549,11 @@ def make_body(
     mix_filters.append(f"{''.join(labels)}amix=inputs={len(labels)}:duration=first:normalize=0[mix]")
     narration_mix = work / "narration_mix.wav"
     run_ffmpeg(tools, [*mix_args, "-filter_complex", ";".join(mix_filters), "-map", "[mix]", "-c:a", "pcm_s16le",
-                       "-ar", str(AUDIO_RATE), "-t", f"{target:.3f}", str(narration_mix)])
+                       "-ar", str(AUDIO_RATE), "-t", f"{length:.3f}", str(narration_mix)])
 
     # 4) 조립
     shots = _plan_shots(lines, clips)
-    burned = _render(shots, narration_mix, out, target, tools,
+    burned = _render(shots, narration_mix, out, length, tools,
                      burn_captions=bool(getattr(settings, "hook_burn_captions", True)), subtitle_style=subtitle_style)
     info = probe(tools, out / "body.mp4")
     lufs = measure_lufs(tools, out / "body.mp4")
@@ -530,6 +564,8 @@ def make_body(
             "warnings": warnings}
     if str(opening_callback or "").strip():
         meta["opening_callback"] = str(opening_callback).strip()
+    if _clean_hook_lines(hook_lines):
+        meta["hook_lines"] = _clean_hook_lines(hook_lines)
     done.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     return BodyEditResult(video=out / "body.mp4", srt=out / "body.srt", duration_sec=round(info.duration, 3),
                           lufs=lufs, script=script, warnings=warnings)

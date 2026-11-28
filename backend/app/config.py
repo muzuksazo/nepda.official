@@ -137,7 +137,8 @@ class Settings(BaseSettings):
     hook_clip_resolution: str = "720p"
     hook_max_clip_sec_per_hook: int = 45  # 훅 하나에서 영상 모델에 요청하는 클립 길이 합 상한(과금 방어)
     body_max_sec: float = 60.0
-    body_target_sec: float = 10.0  # A·B·C 공용 본편 길이 (팀 결정 2026-11-27)
+    body_target_sec: float = 10.0  # 본편 최소 길이 (팀 결정 2026-11-27)
+    body_max_target_sec: float = 15.0  # 본편 최대 길이: 나레이션이 길면 여기까지 늘린다 (2026-11-29)
     body_llm: str = "gemini-4-hydrogen"  # 본편 대본·컷 고르기 (촬영본 프레임을 보는 글 모델)
     ffmpeg_bin: Optional[str] = None
     ffprobe_bin: Optional[str] = None
