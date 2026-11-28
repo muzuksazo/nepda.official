@@ -1472,6 +1472,14 @@ export function App() {
         void queryClient.invalidateQueries({
           queryKey: COMMUNITY_VIDEOS_QUERY_KEY,
         });
+        try {
+          const delivRes = await getDeliverablesV1ProjectsProjectIdDeliverablesGet(projectId);
+          if (delivRes.status === 200) {
+            applyDeliverables(delivRes.data);
+          }
+        } catch {
+          // ignore deliverable refresh failure after thumbnail creation
+        }
 
         const cleanBgUrl = nextCandidateUrls[0] || newImageUrl || deliverableThumb?.imageUrl;
         try {
@@ -1500,6 +1508,7 @@ export function App() {
       }
     },
     [
+      applyDeliverables,
       deliverableThumb,
       productInfo.name,
       projectId,

@@ -371,7 +371,7 @@ def _first_frame_from_layout(
     prompt = str(plan.beat.get("first_frame_prompt") or "").strip() or DEFAULT_FIRST_FRAME_PROMPT
     candidate = cache / f"first_{_digest(prompt, getattr(settings, 'image_model', ''), _file_digest(source))}.jpg"
     usage = dict(stage="ref_image", step_name=f"first_frame_{plan.order}", provider="google", model=image_model_name,
-                 media_unit="image", media_qty=1.0)
+                 media_unit="image", media_qty=1.0, metadata={"prompt": prompt[:500]})
     try:
         if _ready(candidate):
             plan.reused.append("first_frame")
@@ -733,7 +733,8 @@ def render_hook(
                 with usage_lock:
                     record_usage(stage="tts", step_name=f"beat_{order}", provider=tts_provider_name,
                                  model=tts_model_name, media_unit="char", media_qty=float(len(text)),
-                                 cache_hit=True, latency_ms=0)
+                                 cache_hit=True, latency_ms=0,
+                                 metadata={"text": text[:300], "voice": str(voice_name or "")})
                 return out_path
             t_tts = time.monotonic()
             tts_status = "ok"
@@ -747,7 +748,8 @@ def render_hook(
                     record_usage(stage="tts", step_name=f"beat_{order}", provider=tts_provider_name,
                                  model=tts_model_name, media_unit="char", media_qty=float(len(text)),
                                  cache_hit=False, latency_ms=int((time.monotonic() - t_tts) * 1000),
-                                 status=tts_status)
+                                 status=tts_status,
+                                 metadata={"text": text[:300], "voice": str(voice_name or "")})
             return out_path
 
         def _narrate(plan: BeatPlan) -> Optional[Path]:
@@ -809,6 +811,7 @@ def render_hook(
                     media_qty=1.0,
                     cache_hit=True,
                     latency_ms=0,
+                    metadata={"prompt": ref_prompt[:500]},
                 )
             else:
                 t_ref = time.monotonic()
@@ -839,6 +842,7 @@ def render_hook(
                         cache_hit=False,
                         latency_ms=int((time.monotonic() - t_ref) * 1000),
                         status=ref_status,
+                        metadata={"prompt": ref_prompt[:500]},
                     )
             if _ready(candidate):
                 style_ref = _normalize_reference(candidate, media)
@@ -902,6 +906,7 @@ def render_hook(
                 media_qty=float(plan.clip_sec),
                 cache_hit=True,
                 latency_ms=0,
+                metadata={"prompt": plan.prompt[:500], "clip_sec": plan.clip_sec, "resolution": resolution},
             )
         else:
             t_clip = time.monotonic()
@@ -929,6 +934,7 @@ def render_hook(
                     cache_hit=False,
                     latency_ms=int((time.monotonic() - t_clip) * 1000),
                     status=clip_status,
+                    metadata={"prompt": plan.prompt[:500], "clip_sec": plan.clip_sec, "resolution": resolution},
                 )
             if tag:
                 plan.reused.append(tag)

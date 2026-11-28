@@ -15,7 +15,9 @@ from pydantic import BaseModel, Field
 
 from .auth import SESSION_COOKIE_NAME, AuthenticatedUser, AuthenticationError, verify_session_token
 from .config import Settings
+from .media_delivery import resolve_media_url
 from .project_store import ProjectStore, persist_internal_accounts_to_storage
+from .thumbnail_service import normalize_thumbnail_style
 from .track_a_templates import (
     MAX_TEMPLATE_VIDEO_BYTES,
     TrackATemplateError,
@@ -95,11 +97,222 @@ class SetInternalAccountRequest(BaseModel):
     note: Optional[str] = Field(default=None, max_length=200)
 
 
+def _resolve_admin_media(
+    ref: Optional[str],
+    *,
+    storage: Optional[Any],
+    settings: Settings,
+    download: bool = False,
+    filename: Optional[str] = None,
+) -> Optional[str]:
+    if not ref or not isinstance(ref, str):
+        return None
+    val = ref.strip()
+    if not val:
+        return None
+    if storage is None:
+        return val if val.startswith(("http://", "https://")) else None
+    # Re-sign stored presigned R2 URLs so Admin links remain valid after TTL
+    if val.startswith(("http://", "https://")) and "/projects/" in val:
+        idx = val.find("projects/")
+        if idx >= 0:
+            clean_subkey = val[idx:].split("?", 1)[0]
+            return resolve_media_url(
+                clean_subkey,
+                storage=storage,
+                settings=settings,
+                download=download,
+                filename=filename,
+            )
+    return resolve_media_url(
+        val,
+        storage=storage,
+        settings=settings,
+        download=download,
+        filename=filename,
+    )
+
+
+def _build_admin_project_artifacts(
+    project: Optional[Dict[str, Any]],
+    *,
+    project_store: ProjectStore,
+    job_store: Optional[Any],
+    storage: Optional[Any],
+    settings: Settings,
+) -> Optional[Dict[str, Any]]:
+    if not project:
+        return None
+    pid = str(project["project_id"])
+    latest_job_id = project.get("latest_job_id")
+    job = job_store.get_job(latest_job_id) if (job_store is not None and latest_job_id) else None
+    arts = (job or {}).get("artifacts") or {}
+    rendered = arts.get("rendered") or []
+    first_r = rendered[0] if rendered and isinstance(rendered[0], dict) else None
+    stored_thumb = project.get("thumbnail") if isinstance(project.get("thumbnail"), dict) else None
+
+    final_video: Optional[Dict[str, Any]] = None
+    if first_r:
+        master_ref = first_r.get("master_key") or first_r.get("master_mp4")
+        clean_ref = first_r.get("clean_key") or first_r.get("clean_mp4")
+        srt_ref = first_r.get("srt_key") or first_r.get("srt")
+        with_cover_ref = stored_thumb.get("video_with_cover_key") if stored_thumb else None
+        active_ref = with_cover_ref or master_ref
+        raw_dur = first_r.get("duration")
+        cover_intro = float(stored_thumb.get("cover_intro_sec") or 0.0) if (with_cover_ref and stored_thumb) else 0.0
+        eff_dur = round(float(raw_dur) + cover_intro, 3) if raw_dur is not None else None
+        final_video = {
+            "stream_url": _resolve_admin_media(active_ref, storage=storage, settings=settings),
+            "download_url": _resolve_admin_media(
+                active_ref, storage=storage, settings=settings, download=True, filename="napda_master.mp4"
+            ),
+            "raw_master_url": _resolve_admin_media(master_ref, storage=storage, settings=settings),
+            "clean_url": _resolve_admin_media(
+                clean_ref, storage=storage, settings=settings, download=True, filename="napda_clean.mp4"
+            ),
+            "srt_url": _resolve_admin_media(
+                srt_ref, storage=storage, settings=settings, download=True, filename="napda_subtitles.srt"
+            ),
+            "duration_sec": eff_dur,
+            "has_cover_intro": bool(with_cover_ref),
+            "cover_intro_sec": cover_intro if with_cover_ref else 0.0,
+            "voice": first_r.get("voice"),
+            "job_id": latest_job_id,
+            "job_status": (job or {}).get("status"),
+            "warnings": list(arts.get("warnings") or []),
+        }
+
+    thumbnail: Optional[Dict[str, Any]] = None
+    if stored_thumb:
+        t_key = stored_thumb.get("object_key")
+        thumbnail = {
+            "image_url": _resolve_admin_media(t_key, storage=storage, settings=settings),
+            "download_url": _resolve_admin_media(
+                t_key, storage=storage, settings=settings, download=True, filename="cover.png"
+            ),
+            "style": normalize_thumbnail_style(stored_thumb.get("style")),
+            "headline_lines": list(stored_thumb.get("headline_lines") or []),
+            "badge": stored_thumb.get("badge"),
+            "highlight_word": stored_thumb.get("highlight_word"),
+            "has_video_with_cover": bool(stored_thumb.get("video_with_cover_key")),
+            "safe_zone_1_1_ok": stored_thumb.get("safe_zone_1_1_ok"),
+        }
+
+    selected_id = project.get("selected_scenario_id")
+    scenarios_out: list[Dict[str, Any]] = []
+    for scn in project_store.list_scenarios(pid):
+        frames_out = []
+        for idx, frame in enumerate(scn.get("storyboard_frames") or [], start=1):
+            if not isinstance(frame, dict):
+                continue
+            raw_img = frame.get("object_key") or frame.get("image_url")
+            frames_out.append(
+                {
+                    "beat_order": frame.get("beat_order", idx),
+                    "image_url": _resolve_admin_media(raw_img, storage=storage, settings=settings),
+                    "caption": frame.get("caption"),
+                }
+            )
+        scenarios_out.append(
+            {
+                "scenario_id": scn.get("scenario_id"),
+                "type": scn.get("type"),
+                "selected": bool(selected_id and scn.get("scenario_id") == selected_id),
+                "hook_title": scn.get("hook_title"),
+                "abstract_law": scn.get("abstract_law"),
+                "genre": scn.get("genre"),
+                "hook_summary": scn.get("hook_summary"),
+                "beats": list(scn.get("beats") or []),
+                "shooting_guide": scn.get("shooting_guide"),
+                "storyboard_frames": frames_out,
+            }
+        )
+
+    hooks_out: list[Dict[str, Any]] = []
+    for hk in project_store.list_hooks_for_project(pid):
+        hid = str(hk.get("hook_id") or "")
+        files = hk.get("files") if isinstance(hk.get("files"), dict) else {}
+
+        def _hook_url(field: str, dl: bool = False) -> Optional[str]:
+            raw = files.get(field)
+            if not raw or not isinstance(raw, str):
+                return None
+            if raw.startswith(("http://", "https://")) or "/" in raw:
+                return _resolve_admin_media(raw, storage=storage, settings=settings, download=dl)
+            obj_key = f"projects/{pid}/hooks/{hid}/{raw}"
+            return _resolve_admin_media(obj_key, storage=storage, settings=settings, download=dl, filename=raw)
+
+        hooks_out.append(
+            {
+                "hook_id": hid,
+                "scenario_id": hk.get("scenario_id"),
+                "status": hk.get("status"),
+                "video_url": _hook_url("hook_video"),
+                "audio_url": _hook_url("tts_audio"),
+                "srt_url": _hook_url("subtitles_srt", dl=True),
+                "scenario_json_url": _hook_url("scenario_json"),
+                "error": hk.get("error"),
+            }
+        )
+
+    body_out: Optional[Dict[str, Any]] = None
+    body_obj = project.get("body")
+    if isinstance(body_obj, dict) and body_obj:
+        keys = body_obj.get("object_keys") if isinstance(body_obj.get("object_keys"), dict) else {}
+        body_out = {
+            "video_url": _resolve_admin_media(
+                keys.get("body_video") or body_obj.get("video_key") or body_obj.get("video_path"),
+                storage=storage,
+                settings=settings,
+            ),
+            "srt_url": _resolve_admin_media(
+                keys.get("body_srt") or body_obj.get("srt_key") or body_obj.get("srt_path"),
+                storage=storage,
+                settings=settings,
+                download=True,
+                filename="body.srt",
+            ),
+            "audio_url": _resolve_admin_media(
+                keys.get("body_audio"),
+                storage=storage,
+                settings=settings,
+            ),
+            "duration_sec": body_obj.get("duration_sec"),
+            "script": body_obj.get("script"),
+        }
+
+    uploads_out: list[Dict[str, Any]] = []
+    for clip in (project.get("uploads") or {}).get("clips") or []:
+        if not isinstance(clip, dict):
+            continue
+        uploads_out.append(
+            {
+                "clip_id": clip.get("clip_id"),
+                "filename": clip.get("filename"),
+                "duration_sec": clip.get("duration_sec"),
+                "width": clip.get("width"),
+                "height": clip.get("height"),
+                "video_url": _resolve_admin_media(clip.get("object_key"), storage=storage, settings=settings),
+            }
+        )
+
+    return {
+        "product": project.get("product"),
+        "final_video": final_video,
+        "thumbnail": thumbnail,
+        "scenarios": scenarios_out,
+        "hooks": hooks_out,
+        "body": body_out,
+        "uploads": uploads_out,
+    }
+
+
 def build_admin_router(
     settings: Settings,
     project_store: ProjectStore,
     storage: Optional[Any] = None,
     template_storage: Optional[Any] = None,
+    job_store: Optional[Any] = None,
 ) -> APIRouter:
     """Create `/v1/admin/*` routes gated by `ADMIN_EMAILS` or `API_BEARER_TOKEN`."""
     router = APIRouter(prefix="/v1/admin", tags=["Admin"])
@@ -183,8 +396,17 @@ def build_admin_router(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"error": {"code": "NOT_FOUND", "message": f"Project {project_id!r} not found"}},
             )
+        full_project = project_store.get_project(project_id)
+        artifacts = _build_admin_project_artifacts(
+            full_project,
+            project_store=project_store,
+            job_store=job_store,
+            storage=storage,
+            settings=settings,
+        )
         return {
             **detail,
+            "artifacts": artifacts,
             "usd_krw_rate": settings.usd_krw_rate,
             "admin_actor": admin["actor"],
         }

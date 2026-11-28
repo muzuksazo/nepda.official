@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import uuid
@@ -17,6 +19,10 @@ from PIL import Image, ImageDraw
 from .config import Settings
 from .media_delivery import extract_object_key, thumbnail_object_key
 from .storage import StorageBackend
+
+logger = logging.getLogger("napda.thumbnail")
+
+COVER_INTRO_DURATION_SEC: float = 0.4
 
 EMOJI_RE = re.compile(
     "["
@@ -202,6 +208,141 @@ def _resolve_local_from_ref(ref: Optional[str], dest_path: Path, storage: Storag
     return None
 
 
+def prepend_thumbnail_to_video(
+    cover_path: Path,
+    source_video: Path,
+    out_path: Path,
+    *,
+    duration_sec: float = COVER_INTRO_DURATION_SEC,
+    ffmpeg_bin: Optional[str] = None,
+) -> Path:
+    """Prepend a crisp cover PNG intro frame (`duration_sec`) onto `source_video` (1080x1920 30fps)."""
+    ffmpeg = (ffmpeg_bin or "").strip() or shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError("ffmpeg binary is required to prepend cover thumbnail to video")
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        probe_candidate = Path(ffmpeg).with_name("ffprobe")
+        if probe_candidate.exists():
+            ffprobe = str(probe_candidate)
+
+    has_audio = False
+    if ffprobe:
+        probe_proc = subprocess.run(
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-select_streams",
+                "a",
+                "-show_entries",
+                "stream=index",
+                "-of",
+                "csv=p=0",
+                str(source_video),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        has_audio = probe_proc.returncode == 0 and bool((probe_proc.stdout or "").strip())
+
+    dur = max(0.1, float(duration_sec or COVER_INTRO_DURATION_SEC))
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if has_audio:
+        filter_complex = (
+            "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
+            "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p[v0];"
+            "[2:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
+            "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p[v1];"
+            "[1:a]aformat=sample_rates=48000:channel_layouts=stereo[a0];"
+            "[2:a]aformat=sample_rates=48000:channel_layouts=stereo[a1];"
+            "[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]"
+        )
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-loop",
+            "1",
+            "-t",
+            f"{dur:.3f}",
+            "-framerate",
+            "30",
+            "-i",
+            str(cover_path),
+            "-f",
+            "lavfi",
+            "-t",
+            f"{dur:.3f}",
+            "-i",
+            "anullsrc=r=48000:cl=stereo",
+            "-i",
+            str(source_video),
+            "-filter_complex",
+            filter_complex,
+            "-map",
+            "[v]",
+            "-map",
+            "[a]",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "20",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+            "-movflags",
+            "+faststart",
+            str(out_path),
+        ]
+    else:
+        filter_complex = (
+            "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
+            "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p[v0];"
+            "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
+            "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p[v1];"
+            "[v0][v1]concat=n=2:v=1:a=0[v]"
+        )
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-loop",
+            "1",
+            "-t",
+            f"{dur:.3f}",
+            "-framerate",
+            "30",
+            "-i",
+            str(cover_path),
+            "-i",
+            str(source_video),
+            "-filter_complex",
+            filter_complex,
+            "-map",
+            "[v]",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "20",
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "+faststart",
+            str(out_path),
+        ]
+
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+    if proc.returncode != 0 or not out_path.is_file():
+        raise RuntimeError(f"ffmpeg failed prepending thumbnail cover: {(proc.stderr or proc.stdout or '')[:400]}")
+    return out_path
+
+
 def generate_project_thumbnail(
     project: Dict[str, Any],
     *,
@@ -366,6 +507,28 @@ def generate_project_thumbnail(
     cover_key = thumbnail_object_key(project_id, thumb_id, "cover.png")
     storage.upload_file(cover_path, cover_key)
 
+    video_with_cover_key: Optional[str] = None
+    cover_intro_sec: Optional[float] = None
+    if rendered and isinstance(rendered[0], dict):
+        master_ref = rendered[0].get("master_mp4")
+        if master_ref:
+            master_local = _resolve_local_from_ref(master_ref, work_dir / "master_src.mp4", storage)
+            if master_local is not None:
+                try:
+                    with_cover_path = prepend_thumbnail_to_video(
+                        cover_path,
+                        master_local,
+                        out_dir / "master_with_cover.mp4",
+                        duration_sec=COVER_INTRO_DURATION_SEC,
+                        ffmpeg_bin=settings.ffmpeg_bin,
+                    )
+                    cand_with_cover_key = thumbnail_object_key(project_id, thumb_id, "master_with_cover.mp4")
+                    storage.upload_file(with_cover_path, cand_with_cover_key)
+                    video_with_cover_key = cand_with_cover_key
+                    cover_intro_sec = COVER_INTRO_DURATION_SEC
+                except Exception as exc:
+                    logger.warning("Failed to prepend thumbnail to master video (%s): %s", project_id, exc)
+
     style_preview_keys: Dict[str, str] = {valid_style: cover_key}
     for st in sibling_styles:
         entry = rendered_by_id.get(f"preview_{st}")
@@ -379,6 +542,8 @@ def generate_project_thumbnail(
     return {
         "thumb_id": thumb_id,
         "object_key": cover_key,
+        "video_with_cover_key": video_with_cover_key,
+        "cover_intro_sec": cover_intro_sec,
         "safe_zone_1_1_ok": bool(thumb_info.get("safe_zone_ok", False)),
         "warnings": list(thumb_info.get("warnings") or []),
         "headline_lines": clean_lines,

@@ -168,6 +168,7 @@ def gemini_pick_writer(settings: Any, *, model_override: Optional[str] = None) -
             ),
         )
         elapsed_ms = int((time.monotonic() - t0) * 1000)
+        text = getattr(response, "text", None) or ""
         on_usage = getattr(settings, "_on_usage", None)
         if callable(on_usage):
             usage = getattr(response, "usage_metadata", None)
@@ -181,8 +182,8 @@ def gemini_pick_writer(settings: Any, *, model_override: Optional[str] = None) -
                 cached_tokens=int(getattr(usage, "cached_content_token_count", 0) or 0),
                 thinking_tokens=int(getattr(usage, "thoughts_token_count", 0) or 0),
                 latency_ms=elapsed_ms,
+                metadata={"prompt_preview": prompt[:500], "response_preview": text[:800]},
             )
-        text = getattr(response, "text", None) or ""
         try:
             return json.loads(text)
         except ValueError as exc:

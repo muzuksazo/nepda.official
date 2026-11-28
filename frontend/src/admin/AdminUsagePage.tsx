@@ -91,6 +91,7 @@ interface UsageEventRow {
   latency_ms: number;
   cache_hit: boolean;
   status: string;
+  metadata?: Record<string, unknown>;
 }
 
 interface PricingRow {
@@ -116,10 +117,102 @@ interface AdminUsageSummaryResponse {
   dev_open_admin: boolean;
 }
 
+interface AdminScenarioBeat {
+  order?: number;
+  role?: string;
+  duration_sec?: number;
+  narration?: string;
+  caption?: string;
+  visual?: string;
+}
+
+interface AdminScenarioArtifact {
+  scenario_id?: string;
+  type?: string;
+  selected?: boolean;
+  hook_title?: string;
+  abstract_law?: string;
+  genre?: string;
+  hook_summary?: string;
+  beats?: AdminScenarioBeat[];
+  shooting_guide?: Record<string, unknown> | null;
+  storyboard_frames?: Array<{
+    beat_order?: number;
+    image_url?: string | null;
+    caption?: string | null;
+  }>;
+}
+
+interface AdminProjectArtifacts {
+  product?: {
+    name?: string;
+    category?: string;
+    verified_facts?: string[];
+  } | null;
+  final_video?: {
+    stream_url?: string | null;
+    download_url?: string | null;
+    raw_master_url?: string | null;
+    clean_url?: string | null;
+    srt_url?: string | null;
+    duration_sec?: number | null;
+    has_cover_intro?: boolean;
+    cover_intro_sec?: number;
+    voice?: string | null;
+    job_id?: string | null;
+    job_status?: string | null;
+    warnings?: string[];
+  } | null;
+  thumbnail?: {
+    image_url?: string | null;
+    download_url?: string | null;
+    style?: string | null;
+    headline_lines?: string[];
+    badge?: string | null;
+    highlight_word?: string | null;
+    has_video_with_cover?: boolean;
+    safe_zone_1_1_ok?: boolean | null;
+  } | null;
+  scenarios?: AdminScenarioArtifact[];
+  hooks?: Array<{
+    hook_id: string;
+    scenario_id?: string | null;
+    status?: string | null;
+    video_url?: string | null;
+    audio_url?: string | null;
+    srt_url?: string | null;
+    scenario_json_url?: string | null;
+    error?: string | null;
+  }>;
+  body?: {
+    video_url?: string | null;
+    srt_url?: string | null;
+    audio_url?: string | null;
+    duration_sec?: number | null;
+    script?: {
+      lines?: Array<{
+        narration?: string;
+        caption?: string;
+        start?: number;
+        duration?: number;
+      }>;
+    } | null;
+  } | null;
+  uploads?: Array<{
+    clip_id?: string | null;
+    filename?: string | null;
+    duration_sec?: number | null;
+    width?: number | null;
+    height?: number | null;
+    video_url?: string | null;
+  }>;
+}
+
 interface ProjectUsageDetailResponse {
   project_id: string;
   events: UsageEventRow[];
   totals: UsageTotals & { total_latency_ms: number };
+  artifacts?: AdminProjectArtifacts | null;
 }
 
 const BEARER_STORAGE_KEY = 'napda_admin_bearer';
@@ -618,59 +711,421 @@ export function AdminUsagePage({
                                 {loadingDetailId === p.project_id && !detail ? (
                                   <div>상세 이벤트 불러오는 중...</div>
                                 ) : detail ? (
-                                  <table className="napda-admin-table">
-                                    <thead>
-                                      <tr>
-                                        <th>단계 / 스텝</th>
-                                        <th>공급자 · 모델</th>
-                                        <th className="num">입력</th>
-                                        <th className="num">출력(+생각)</th>
-                                        <th>미디어</th>
-                                        <th>적용 단가</th>
-                                        <th className="num">비용</th>
-                                        <th className="num">지연</th>
-                                        <th>상태</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {detail.events.map((ev) => (
-                                        <tr key={ev.event_id}>
-                                          <td className="napda-admin-mono">
-                                            {ev.stage}
-                                            {ev.step_name ? ` · ${ev.step_name}` : ''}
-                                            {ev.hook_type ? ` [${ev.hook_type}]` : ''}
-                                          </td>
-                                          <td>
-                                            <span className={`napda-admin-badge is-${ev.provider}`}>
-                                              {ev.provider}
-                                            </span>{' '}
-                                            <span className="napda-admin-mono">{ev.model}</span>
-                                          </td>
-                                          <td className="num">{fmtNum(ev.input_tokens)}</td>
-                                          <td className="num">
-                                            {fmtNum(ev.output_tokens + ev.thinking_tokens)}
-                                          </td>
-                                          <td>{fmtMedia(ev.media_unit, ev.media_qty)}</td>
-                                          <td className="napda-admin-mono">
-                                            {ev.unit_price_label || '-'}
-                                          </td>
-                                          <td className="num">{fmtUsd(ev.estimated_cost_usd, rate)}</td>
-                                          <td className="num">{fmtNum(ev.latency_ms)} ms</td>
-                                          <td>
-                                            {ev.cache_hit ? (
-                                              <span className="napda-admin-badge">CACHE</span>
-                                            ) : ev.status !== 'ok' ? (
-                                              <span className="napda-admin-badge is-error">
-                                                {ev.status}
-                                              </span>
-                                            ) : (
-                                              'OK'
+                                  <div className="napda-admin-artifacts">
+                                    {detail.artifacts && (
+                                      <>
+                                        {(detail.artifacts.final_video || detail.artifacts.thumbnail) && (
+                                          <div className="napda-admin-artifact-section">
+                                            <h3 className="napda-admin-artifact-title">최종 결과물 · 썸네일</h3>
+                                            <div className="napda-admin-artifact-grid">
+                                              {detail.artifacts.final_video?.stream_url && (
+                                                <div className="napda-admin-media-card">
+                                                  <div className="napda-admin-media-head">
+                                                    <strong>최종 영상</strong>
+                                                    {detail.artifacts.final_video.has_cover_intro ? (
+                                                      <span className="napda-admin-badge is-google">
+                                                        썸네일 인트로 포함 (+
+                                                        {detail.artifacts.final_video.cover_intro_sec ?? 0.4}s)
+                                                      </span>
+                                                    ) : (
+                                                      <span className="napda-admin-badge">원본 마스터</span>
+                                                    )}
+                                                  </div>
+                                                  <video
+                                                    className="napda-admin-video"
+                                                    controls
+                                                    playsInline
+                                                    preload="metadata"
+                                                    src={detail.artifacts.final_video.stream_url}
+                                                    poster={detail.artifacts.thumbnail?.image_url ?? undefined}
+                                                  />
+                                                  <div className="napda-admin-media-meta">
+                                                    {detail.artifacts.final_video.duration_sec !== null &&
+                                                    detail.artifacts.final_video.duration_sec !== undefined
+                                                      ? `${detail.artifacts.final_video.duration_sec.toFixed(1)}s`
+                                                      : '-'}
+                                                    {detail.artifacts.final_video.voice
+                                                      ? ` · 음성: ${detail.artifacts.final_video.voice}`
+                                                      : ''}
+                                                  </div>
+                                                  <div className="napda-admin-media-links">
+                                                    {detail.artifacts.final_video.download_url && (
+                                                      <a
+                                                        className="napda-admin-link"
+                                                        href={detail.artifacts.final_video.download_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                      >
+                                                        최종 MP4
+                                                      </a>
+                                                    )}
+                                                    {detail.artifacts.final_video.raw_master_url &&
+                                                      detail.artifacts.final_video.has_cover_intro && (
+                                                        <a
+                                                          className="napda-admin-link"
+                                                          href={detail.artifacts.final_video.raw_master_url}
+                                                          target="_blank"
+                                                          rel="noreferrer"
+                                                        >
+                                                          커버 전 마스터
+                                                        </a>
+                                                      )}
+                                                    {detail.artifacts.final_video.clean_url && (
+                                                      <a
+                                                        className="napda-admin-link"
+                                                        href={detail.artifacts.final_video.clean_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                      >
+                                                        클린본
+                                                      </a>
+                                                    )}
+                                                    {detail.artifacts.final_video.srt_url && (
+                                                      <a
+                                                        className="napda-admin-link"
+                                                        href={detail.artifacts.final_video.srt_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                      >
+                                                        자막 SRT
+                                                      </a>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              )}
+
+                                              {detail.artifacts.thumbnail?.image_url && (
+                                                <div className="napda-admin-media-card">
+                                                  <div className="napda-admin-media-head">
+                                                    <strong>커버 썸네일</strong>
+                                                    {detail.artifacts.thumbnail.style && (
+                                                      <span className="napda-admin-badge">
+                                                        {detail.artifacts.thumbnail.style}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  <img
+                                                    className="napda-admin-thumb-img"
+                                                    src={detail.artifacts.thumbnail.image_url}
+                                                    alt="프로젝트 썸네일"
+                                                  />
+                                                  {detail.artifacts.thumbnail.headline_lines &&
+                                                    detail.artifacts.thumbnail.headline_lines.length > 0 && (
+                                                      <div className="napda-admin-media-meta">
+                                                        문구:{' '}
+                                                        {detail.artifacts.thumbnail.headline_lines.join(' / ')}
+                                                      </div>
+                                                    )}
+                                                  <div className="napda-admin-media-links">
+                                                    {detail.artifacts.thumbnail.download_url && (
+                                                      <a
+                                                        className="napda-admin-link"
+                                                        href={detail.artifacts.thumbnail.download_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                      >
+                                                        썸네일 PNG
+                                                      </a>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {(detail.artifacts.product ||
+                                          (detail.artifacts.scenarios && detail.artifacts.scenarios.length > 0)) && (
+                                          <div className="napda-admin-artifact-section">
+                                            <h3 className="napda-admin-artifact-title">기획 글 · 시나리오 · 콘티</h3>
+                                            {detail.artifacts.product && (
+                                              <div className="napda-admin-product-box">
+                                                <strong>{detail.artifacts.product.name || p.product_name}</strong>
+                                                {detail.artifacts.product.category && (
+                                                  <span className="napda-admin-badge">
+                                                    {detail.artifacts.product.category}
+                                                  </span>
+                                                )}
+                                                {detail.artifacts.product.verified_facts &&
+                                                  detail.artifacts.product.verified_facts.length > 0 && (
+                                                    <ul className="napda-admin-facts">
+                                                      {detail.artifacts.product.verified_facts.map((fact, idx) => (
+                                                        <li key={idx}>{fact}</li>
+                                                      ))}
+                                                    </ul>
+                                                  )}
+                                              </div>
                                             )}
-                                          </td>
+
+                                            {detail.artifacts.scenarios?.map((scn, sIdx) => (
+                                              <div
+                                                key={scn.scenario_id || sIdx}
+                                                className="napda-admin-scenario-card"
+                                              >
+                                                <div className="napda-admin-media-head">
+                                                  <div>
+                                                    <span className="napda-admin-badge">{scn.type || '?'}안</span>{' '}
+                                                    {scn.selected && (
+                                                      <span className="napda-admin-badge is-inworld">선택됨</span>
+                                                    )}{' '}
+                                                    <strong>{scn.hook_title || scn.scenario_id}</strong>
+                                                  </div>
+                                                  <span className="napda-admin-mono">{scn.scenario_id}</span>
+                                                </div>
+                                                {(scn.abstract_law || scn.genre || scn.hook_summary) && (
+                                                  <p className="napda-admin-scenario-summary">
+                                                    {[scn.genre, scn.abstract_law, scn.hook_summary]
+                                                      .filter(Boolean)
+                                                      .join(' · ')}
+                                                  </p>
+                                                )}
+                                                {scn.beats && scn.beats.length > 0 && (
+                                                  <div className="napda-admin-table-wrap">
+                                                    <table className="napda-admin-table napda-admin-subtable">
+                                                      <thead>
+                                                        <tr>
+                                                          <th>컷</th>
+                                                          <th>시간</th>
+                                                          <th>나레이션</th>
+                                                          <th>자막</th>
+                                                          <th>화면 연출(Visual)</th>
+                                                        </tr>
+                                                      </thead>
+                                                      <tbody>
+                                                        {scn.beats.map((b, bIdx) => (
+                                                          <tr key={bIdx}>
+                                                            <td>{b.order ?? bIdx + 1}</td>
+                                                            <td>
+                                                              {b.duration_sec !== undefined
+                                                                ? `${b.duration_sec}s`
+                                                                : '-'}
+                                                            </td>
+                                                            <td className="wrap">{b.narration || '-'}</td>
+                                                            <td className="wrap">{b.caption || '-'}</td>
+                                                            <td className="wrap">{b.visual || '-'}</td>
+                                                          </tr>
+                                                        ))}
+                                                      </tbody>
+                                                    </table>
+                                                  </div>
+                                                )}
+                                                {scn.storyboard_frames && scn.storyboard_frames.length > 0 && (
+                                                  <div className="napda-admin-storyboard-grid">
+                                                    {scn.storyboard_frames.map((fr, fIdx) => (
+                                                      <div key={fIdx} className="napda-admin-storyboard-item">
+                                                        {fr.image_url && (
+                                                          <img src={fr.image_url} alt={`콘티 ${fIdx + 1}`} />
+                                                        )}
+                                                        <div className="napda-admin-media-meta">
+                                                          #{fr.beat_order ?? fIdx + 1} {fr.caption || ''}
+                                                        </div>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {((detail.artifacts.hooks && detail.artifacts.hooks.length > 0) ||
+                                          detail.artifacts.body ||
+                                          (detail.artifacts.uploads && detail.artifacts.uploads.length > 0)) && (
+                                          <div className="napda-admin-artifact-section">
+                                            <h3 className="napda-admin-artifact-title">중간 산물 (훅 · 본편 · 업로드)</h3>
+                                            <div className="napda-admin-artifact-grid">
+                                              {detail.artifacts.hooks?.map((hk) => (
+                                                <div key={hk.hook_id} className="napda-admin-media-card">
+                                                  <div className="napda-admin-media-head">
+                                                    <strong>훅 ({hk.hook_id})</strong>
+                                                    <span className="napda-admin-badge">{hk.status || '-'}</span>
+                                                  </div>
+                                                  {hk.video_url && (
+                                                    <video
+                                                      className="napda-admin-video"
+                                                      controls
+                                                      playsInline
+                                                      preload="metadata"
+                                                      src={hk.video_url}
+                                                    />
+                                                  )}
+                                                  <div className="napda-admin-media-links">
+                                                    {hk.audio_url && (
+                                                      <a
+                                                        className="napda-admin-link"
+                                                        href={hk.audio_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                      >
+                                                        TTS 오디오
+                                                      </a>
+                                                    )}
+                                                    {hk.srt_url && (
+                                                      <a
+                                                        className="napda-admin-link"
+                                                        href={hk.srt_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                      >
+                                                        훅 자막
+                                                      </a>
+                                                    )}
+                                                    {hk.scenario_json_url && (
+                                                      <a
+                                                        className="napda-admin-link"
+                                                        href={hk.scenario_json_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                      >
+                                                        시나리오 JSON
+                                                      </a>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              ))}
+
+                                              {detail.artifacts.body && (
+                                                <div className="napda-admin-media-card">
+                                                  <div className="napda-admin-media-head">
+                                                    <strong>본편 편집본</strong>
+                                                    {detail.artifacts.body.duration_sec && (
+                                                      <span className="napda-admin-badge">
+                                                        {detail.artifacts.body.duration_sec.toFixed(1)}s
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  {detail.artifacts.body.video_url && (
+                                                    <video
+                                                      className="napda-admin-video"
+                                                      controls
+                                                      playsInline
+                                                      preload="metadata"
+                                                      src={detail.artifacts.body.video_url}
+                                                    />
+                                                  )}
+                                                  {detail.artifacts.body.script?.lines && (
+                                                    <ul className="napda-admin-facts">
+                                                      {detail.artifacts.body.script.lines.map((ln, lIdx) => (
+                                                        <li key={lIdx}>{ln.narration || ln.caption}</li>
+                                                      ))}
+                                                    </ul>
+                                                  )}
+                                                  <div className="napda-admin-media-links">
+                                                    {detail.artifacts.body.srt_url && (
+                                                      <a
+                                                        className="napda-admin-link"
+                                                        href={detail.artifacts.body.srt_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                      >
+                                                        본편 SRT
+                                                      </a>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              )}
+
+                                              {detail.artifacts.uploads && detail.artifacts.uploads.length > 0 && (
+                                                <div className="napda-admin-media-card">
+                                                  <div className="napda-admin-media-head">
+                                                    <strong>업로드 원본 ({detail.artifacts.uploads.length}개)</strong>
+                                                  </div>
+                                                  <ul className="napda-admin-facts">
+                                                    {detail.artifacts.uploads.map((up, uIdx) => (
+                                                      <li key={up.clip_id || uIdx}>
+                                                        {up.filename || up.clip_id} (
+                                                        {up.duration_sec ? `${up.duration_sec.toFixed(1)}s` : '-'})
+                                                        {up.video_url && (
+                                                          <>
+                                                            {' '}
+                                                            <a
+                                                              href={up.video_url}
+                                                              target="_blank"
+                                                              rel="noreferrer"
+                                                            >
+                                                              열기
+                                                            </a>
+                                                          </>
+                                                        )}
+                                                      </li>
+                                                    ))}
+                                                  </ul>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+
+                                    <h3 className="napda-admin-artifact-title">단계별 AI 호출 · 비용 기록</h3>
+                                    <table className="napda-admin-table">
+                                      <thead>
+                                        <tr>
+                                          <th>단계 / 스텝</th>
+                                          <th>공급자 · 모델</th>
+                                          <th className="num">입력</th>
+                                          <th className="num">출력(+생각)</th>
+                                          <th>미디어</th>
+                                          <th>적용 단가</th>
+                                          <th className="num">비용</th>
+                                          <th className="num">지연</th>
+                                          <th>상태</th>
+                                          <th>프롬프트 / 산물</th>
                                         </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
+                                      </thead>
+                                      <tbody>
+                                        {detail.events.map((ev) => (
+                                          <tr key={ev.event_id}>
+                                            <td className="napda-admin-mono">
+                                              {ev.stage}
+                                              {ev.step_name ? ` · ${ev.step_name}` : ''}
+                                              {ev.hook_type ? ` [${ev.hook_type}]` : ''}
+                                            </td>
+                                            <td>
+                                              <span className={`napda-admin-badge is-${ev.provider}`}>
+                                                {ev.provider}
+                                              </span>{' '}
+                                              <span className="napda-admin-mono">{ev.model}</span>
+                                            </td>
+                                            <td className="num">{fmtNum(ev.input_tokens)}</td>
+                                            <td className="num">
+                                              {fmtNum(ev.output_tokens + ev.thinking_tokens)}
+                                            </td>
+                                            <td>{fmtMedia(ev.media_unit, ev.media_qty)}</td>
+                                            <td className="napda-admin-mono">
+                                              {ev.unit_price_label || '-'}
+                                            </td>
+                                            <td className="num">{fmtUsd(ev.estimated_cost_usd, rate)}</td>
+                                            <td className="num">{fmtNum(ev.latency_ms)} ms</td>
+                                            <td>
+                                              {ev.cache_hit ? (
+                                                <span className="napda-admin-badge">CACHE</span>
+                                              ) : ev.status !== 'ok' ? (
+                                                <span className="napda-admin-badge is-error">
+                                                  {ev.status}
+                                                </span>
+                                              ) : (
+                                                'OK'
+                                              )}
+                                            </td>
+                                            <td className="wrap">
+                                              {ev.metadata && Object.keys(ev.metadata).length > 0 ? (
+                                                <details>
+                                                  <summary className="napda-admin-meta-summary">보기</summary>
+                                                  <pre className="napda-admin-meta-pre">
+                                                    {JSON.stringify(ev.metadata, null, 2)}
+                                                  </pre>
+                                                </details>
+                                              ) : (
+                                                '-'
+                                              )}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
                                 ) : null}
                               </td>
                             </tr>

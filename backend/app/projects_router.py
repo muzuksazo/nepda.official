@@ -850,6 +850,7 @@ def _default_storyboard_generator(
                     media_qty=1.0,
                     cache_hit=bool(getattr(res, "skipped", False)),
                     latency_ms=int(float(getattr(res, "elapsed_sec", 0.0) or 0.0) * 1000),
+                    metadata={"prompt": prompt[:500], "object_key": obj_key},
                 )
             obj_key = (
                 f"projects/{project['project_id']}/storyboards/"
@@ -2189,28 +2190,6 @@ def build_projects_router(
         arts = job.get("artifacts") or {}
         rendered = arts.get("rendered") or []
         first_r = rendered[0] if rendered else None
-        video = None
-        if first_r:
-            lufs_obj = first_r.get("lufs") or {}
-            master_ref = first_r.get("master_mp4")
-            clean_ref = first_r.get("clean_mp4")
-            srt_ref = first_r.get("srt")
-            video = DeliverableVideo(
-                stream_url=resolve_media_url(master_ref, storage=storage, settings=settings),
-                download_url=resolve_media_url(
-                    master_ref, storage=storage, settings=settings, download=True, filename="napda_master.mp4"
-                ),
-                clean_download_url=resolve_media_url(
-                    clean_ref, storage=storage, settings=settings, download=True, filename="napda_clean.mp4"
-                ),
-                srt_url=resolve_media_url(
-                    srt_ref, storage=storage, settings=settings, download=True, filename="napda_subtitles.srt"
-                ),
-                duration_sec=first_r.get("duration"),
-                width=1080,
-                height=1920,
-                lufs=lufs_obj.get("final_lufs"),
-            )
 
         thumbs = arts.get("thumbnails") or []
         thumb = None
@@ -2248,6 +2227,44 @@ def build_projects_router(
                 style=normalize_thumbnail_style(stored_thumb.get("style")),
             )
             project_store.update_project(project_id, thumbnail=stored_thumb)
+
+        video = None
+        if first_r:
+            lufs_obj = first_r.get("lufs") or {}
+            master_ref = first_r.get("master_mp4")
+            clean_ref = first_r.get("clean_mp4")
+            srt_ref = first_r.get("srt")
+            with_cover_ref = (
+                stored_thumb.get("video_with_cover_key")
+                if isinstance(stored_thumb, dict)
+                else None
+            )
+            active_video_ref = with_cover_ref or master_ref
+            raw_dur = first_r.get("duration")
+            extra_intro = (
+                float(stored_thumb.get("cover_intro_sec") or 0.0)
+                if with_cover_ref and isinstance(stored_thumb, dict)
+                else 0.0
+            )
+            effective_dur = (
+                round(float(raw_dur) + extra_intro, 3) if raw_dur is not None else None
+            )
+            video = DeliverableVideo(
+                stream_url=resolve_media_url(active_video_ref, storage=storage, settings=settings),
+                download_url=resolve_media_url(
+                    active_video_ref, storage=storage, settings=settings, download=True, filename="napda_master.mp4"
+                ),
+                clean_download_url=resolve_media_url(
+                    clean_ref, storage=storage, settings=settings, download=True, filename="napda_clean.mp4"
+                ),
+                srt_url=resolve_media_url(
+                    srt_ref, storage=storage, settings=settings, download=True, filename="napda_subtitles.srt"
+                ),
+                duration_sec=effective_dur,
+                width=1080,
+                height=1920,
+                lufs=lufs_obj.get("final_lufs"),
+            )
 
         if isinstance(stored_thumb, dict):
             t_key = stored_thumb.get("object_key")

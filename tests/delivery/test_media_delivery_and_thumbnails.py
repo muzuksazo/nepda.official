@@ -262,6 +262,98 @@ class TestMediaDeliveryAndThumbnails(unittest.TestCase):
                 with Image.open(out_p) as im:
                     self.assertEqual(im.size, (1080, 1920))
 
+    def test_prepend_thumbnail_to_video_and_no_double_prepend(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            settings = Settings(
+                _env_file=None,
+                gemini_api_key="dummy-key",
+                google_client_id="dummy-client-id.apps.googleusercontent.com",
+                session_secret="test-session-secret-32bytes-minimum",
+                work_root=str(root / "work"),
+                output_dir=str(root / "outputs"),
+                db_path=str(root / "napda.db"),
+            )
+            job_store = JobStore(settings.db_path)
+            proj_store = ProjectStore(settings.db_path)
+            storage = LocalStorageBackend(Path(settings.work_root) / "_objects")
+            app = create_app(
+                settings=settings,
+                store=job_store,
+                project_store=proj_store,
+                storage=storage,
+                google_token_verifier=fake_google_verifier,
+            )
+            client = TestClient(app)
+            login_client(client)
+
+            src_mp4 = root / "master.mp4"
+            src_mp4.write_bytes(_make_sample_mp4_bytes(duration=2.0, w=1080, h=1920))
+            clean_mp4 = root / "clean.mp4"
+            clean_mp4.write_bytes(_make_sample_mp4_bytes(duration=2.0, w=1080, h=1920))
+
+            pid = client.post(
+                "/v1/projects",
+                json={
+                    "product": {
+                        "name": "방수 테이프",
+                        "category": "living",
+                        "verified_facts": ["초강력 방수", "3초 부착"],
+                    },
+                    "selected_types": ["A"],
+                },
+            ).json()["project_id"]
+
+            master_uri = storage.upload_file(src_mp4, f"projects/{pid}/renders/job_cov1/master.mp4")
+            clean_uri = storage.upload_file(clean_mp4, f"projects/{pid}/renders/job_cov1/clean.mp4")
+            job_store.create_job("job_cov1", pid, {}, status="QC_READY", stage="QC_READY")
+            job_store.update_job(
+                "job_cov1",
+                status="QC_READY",
+                stage="QC_READY",
+                artifacts={
+                    "rendered": [
+                        {
+                            "variant": "A",
+                            "duration": 2.0,
+                            "master_mp4": master_uri,
+                            "clean_mp4": clean_uri,
+                            "lufs": {"final_lufs": -14.0},
+                        }
+                    ]
+                },
+            )
+            proj_store.update_project(pid, status="DELIVERABLE_READY", latest_job_id="job_cov1")
+
+            deliv = client.get(f"/v1/projects/{pid}/deliverables")
+            self.assertEqual(deliv.status_code, 200, deliv.text)
+            dj = deliv.json()
+            self.assertAlmostEqual(dj["video"]["duration_sec"], 2.4, places=2)
+            vid_bytes_1 = client.get(dj["video"]["download_url"]).content
+            clean_bytes = client.get(dj["video"]["clean_download_url"]).content
+            self.assertEqual(clean_bytes, clean_mp4.read_bytes())
+
+            # Regenerating thumbnail with another style must prepend from original master (never double-prepend)
+            regen = client.post(
+                f"/v1/projects/{pid}/thumbnail",
+                json={"headline_lines": ["3초 만에 누수 끝"], "style": "white-label"},
+            )
+            self.assertEqual(regen.status_code, 200, regen.text)
+            deliv2 = client.get(f"/v1/projects/{pid}/deliverables").json()
+            self.assertAlmostEqual(deliv2["video"]["duration_sec"], 2.4, places=2)
+            vid2_path = root / "out_after_regen.mp4"
+            vid2_path.write_bytes(client.get(deliv2["video"]["download_url"]).content)
+            self.assertGreater(len(vid_bytes_1), 1000)
+
+            ffprobe = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(vid2_path)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            actual_dur = float(ffprobe.stdout.strip())
+            self.assertAlmostEqual(actual_dur, 2.4, delta=0.15)
+
     def test_figma_four_styles_horizontal_autofit_long_24_char_korean(self) -> None:
         from tests.support.media_tools import ad_thumbnail_builder
         import json

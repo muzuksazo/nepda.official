@@ -340,6 +340,7 @@ def create_app(
             proj_store,
             storage=storage_backend,
             template_storage=hook_a_storage_backend,
+            job_store=job_store,
         )
     )
 

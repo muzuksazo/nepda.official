@@ -236,6 +236,12 @@ def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     on_usage = getattr(settings, "_on_usage", None)
     if callable(on_usage):
+        scen_titles = [
+            str(s.get("hook_title") or "")
+            for s in ((data.get("scenarios") or []) if isinstance(data, dict) else [])
+            if isinstance(s, dict) and s.get("hook_title")
+        ][:3]
+        worker_meta = {"hook_titles": scen_titles} if scen_titles else None
         steps = data.get("steps") if isinstance(data, dict) else None
         if isinstance(steps, list) and steps:
             for st in steps:
@@ -252,6 +258,7 @@ def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
                     input_tokens=int(st.get("inputTokens") or 0),
                     output_tokens=int(st.get("outputTokens") or 0),
                     latency_ms=int(st.get("ms") or 0),
+                    metadata=worker_meta,
                 )
         else:
             on_usage(
@@ -260,6 +267,7 @@ def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
                 provider="anthropic",
                 model=str(resolved_model or "claude-opus-5-5"),
                 latency_ms=elapsed_ms,
+                metadata=worker_meta,
             )
     return _mark_violation(data, proc)
 
@@ -360,6 +368,13 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
         proc, data = _run_worker_b_once(worker_input, settings, worker_dir, cmd, record)
     on_usage = getattr(settings, "_on_usage", None)
     if callable(on_usage) and isinstance(data, dict):
+        b_resp = data.get("response") if isinstance(data.get("response"), dict) else {}
+        b_titles = [
+            str(s.get("hook_title") or "")
+            for s in (b_resp.get("scenarios") or [])
+            if isinstance(s, dict) and s.get("hook_title")
+        ][:3]
+        b_meta = {"hook_titles": b_titles} if b_titles else None
         for st in data.get("steps") or []:
             if not isinstance(st, dict):
                 continue
@@ -374,6 +389,7 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
                 input_tokens=int(st.get("inputTokens") or 0),
                 output_tokens=int(st.get("outputTokens") or 0),
                 latency_ms=int(st.get("ms") or 0),
+                metadata=b_meta,
             )
     response = data.get("response") if isinstance(data, dict) else None
     if not isinstance(response, dict):
@@ -464,6 +480,13 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
         raise WorkerError(f"C 작업자 실행 오류: {exc}") from exc
     on_usage = getattr(settings, "_on_usage", None)
     if callable(on_usage) and isinstance(run, dict):
+        c_resp = run.get("response") if isinstance(run.get("response"), dict) else {}
+        c_titles = [
+            str(s.get("hook_title") or "")
+            for s in (c_resp.get("scenarios") or [])
+            if isinstance(s, dict) and s.get("hook_title")
+        ][:3]
+        c_meta = {"hook_titles": c_titles} if c_titles else None
         for st in run.get("steps") or []:
             if not isinstance(st, dict):
                 continue
@@ -478,6 +501,7 @@ def run_worker_c(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
                 input_tokens=int(st.get("inputTokens") or 0),
                 output_tokens=int(st.get("outputTokens") or 0),
                 latency_ms=int(st.get("ms") or 0),
+                metadata=c_meta,
             )
     response = run["response"]
     for item, check in zip(response.get("scenarios") or [], run.get("checks") or []):

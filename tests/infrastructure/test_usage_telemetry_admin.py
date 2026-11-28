@@ -169,7 +169,8 @@ class TestUsageTelemetryAndAdmin(unittest.TestCase):
             gen = make_scenario_generator(settings, store, workers={"C": run_worker_c})
             with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}, clear=True):
                 with patch("hookpipe.workers._import_c_generate", return_value=c_generate):
-                    gen({**proj, "_ab_override": {"provider": "anthropic", "model": "claude-sonnet-5-5", "explicit": True}}, ["C"], "anthropic")
+                    generated = gen({**proj, "_ab_override": {"provider": "anthropic", "model": "claude-sonnet-5-5", "explicit": True}}, ["C"], "anthropic")
+            store.append_scenarios(pid, generated)
 
             # Also record a video clip cache hit to test media summary
             store.record_api_usage(
@@ -226,6 +227,12 @@ class TestUsageTelemetryAndAdmin(unittest.TestCase):
             self.assertEqual(len(detail["events"]), 2)
             self.assertEqual(detail["events"][0]["stage"], "scenario_c")
             self.assertEqual(detail["events"][0]["model"], "claude-sonnet-5-5")
+            self.assertIn("hook_titles", detail["events"][0]["metadata"])
+            self.assertIsNotNone(detail["artifacts"])
+            self.assertEqual(detail["artifacts"]["product"]["name"], "60분 비주얼 타이머")
+            self.assertEqual(len(detail["artifacts"]["scenarios"]), 1)
+            self.assertTrue(detail["artifacts"]["scenarios"][0]["scenario_id"].startswith("sc_tel_c"))
+            self.assertGreaterEqual(len(detail["artifacts"]["scenarios"][0]["beats"]), 1)
 
     @unittest.skipUnless(tools_or_none() is not None, "ffmpeg required")
     def test_make_body_records_body_tts_usage(self) -> None:

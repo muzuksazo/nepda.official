@@ -166,6 +166,7 @@ def gemini_script_writer(settings: Any) -> ScriptWriter:
             ),
         )
         elapsed_ms = int((time.monotonic() - t0) * 1000)
+        text = getattr(response, "text", None) or ""
         on_usage = getattr(settings, "_on_usage", None)
         if callable(on_usage):
             usage = getattr(response, "usage_metadata", None)
@@ -179,8 +180,8 @@ def gemini_script_writer(settings: Any) -> ScriptWriter:
                 cached_tokens=int(getattr(usage, "cached_content_token_count", 0) or 0),
                 thinking_tokens=int(getattr(usage, "thoughts_token_count", 0) or 0),
                 latency_ms=elapsed_ms,
+                metadata={"prompt_preview": prompt[:500], "response_preview": text[:800]},
             )
-        text = getattr(response, "text", None) or ""
         try:
             return json.loads(text)
         except ValueError as exc:
@@ -219,6 +220,7 @@ def claude_script_writer(settings: Any) -> ScriptWriter:
             output_config={"format": {"type": "json_schema", "schema": BODY_SCRIPT_SCHEMA}},
         )
         elapsed_ms = int((time.monotonic() - t0) * 1000)
+        text = "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
         on_usage = getattr(settings, "_on_usage", None)
         if callable(on_usage):
             usage = getattr(response, "usage", None)
@@ -231,10 +233,10 @@ def claude_script_writer(settings: Any) -> ScriptWriter:
                 output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
                 cached_tokens=int(getattr(usage, "cache_read_input_tokens", 0) or 0),
                 latency_ms=elapsed_ms,
+                metadata={"prompt_preview": prompt[:500], "response_preview": text[:800]},
             )
         if response.stop_reason == "refusal":
             raise BodyEditError("Claude 가 본편 대본 요청을 거절했습니다.")
-        text = "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
         try:
             return json.loads(text)
         except ValueError as exc:
@@ -429,6 +431,7 @@ def make_body(
                     cache_hit=False,
                     latency_ms=int((time.monotonic() - t_tts) * 1000),
                     status=tts_status,
+                    metadata={"text": str(line["narration"])[:300], "voice": str(voice_name or "")},
                 )
         line["audio"] = audio
         line["voice_sec"] = probe(tools, audio).duration
