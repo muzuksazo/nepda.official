@@ -160,9 +160,15 @@ export function ThumbnailDownloadScreen({
 
   const liveHeadline = formatThumbnailHeadline(caption || initialCaption);
   // 서버 썸네일에 마지막으로 반영된 글자·시안 (내려받기를 누르면 반영된다)
-  const [applied, setApplied] = useState({ caption: initialCaption, templateId: initialTemplateId ?? null });
-  const isChanged =
-    (caption || initialCaption) !== applied.caption || effectiveTemplateId !== (applied.templateId ?? effectiveTemplateId);
+  // 처음 시안은 화면이 실제로 고른 것(목록에 없는 값이면 첫 시안)과 비교해야 손대지 않았을 때 "고침"으로 잡히지 않는다
+  const [applied, setApplied] = useState(() => ({
+    caption: initialCaption,
+    templateId:
+      initialTemplateId && effectiveTemplates.some((t) => t.id === initialTemplateId)
+        ? initialTemplateId
+        : (effectiveTemplates[0]?.id ?? null),
+  }));
+  const isChanged = (caption || initialCaption) !== applied.caption || effectiveTemplateId !== applied.templateId;
 
   const chooseTemplate = (next: string) => {
     setTemplateId(next);
@@ -203,7 +209,6 @@ export function ThumbnailDownloadScreen({
                 variant="ghost"
                 size="md"
                 isBlock
-                isDisabled={isDownloadingThumbnail}
                 onClick={() => onComplete(effectiveTemplateId, caption || initialCaption, isChanged)}
               />
             ) : null}

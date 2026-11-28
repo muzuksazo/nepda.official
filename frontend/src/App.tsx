@@ -2220,10 +2220,11 @@ export function App() {
           onDownloadThumbnail={(tplId, caption) => {
             void handleDownloadThumbnail(tplId, caption);
           }}
-          onComplete={async (tplId, caption, changed) => {
-            // 고친 글자·시안이 아직 서버에 없으면 먼저 반영하고 넘어간다 (내 영상 썸네일이 예전 글자로 남지 않게)
+          onComplete={(tplId, caption, changed) => {
+            // 고친 글자·시안이 아직 서버에 없으면 뒤에서 반영한다. 표지를 영상에 붙이는 데 수십 초 걸려서
+            // 기다리지 않고 바로 내 영상으로 넘어간다 (끝나면 목록이 새로 고쳐진다)
             if (changed) {
-              await handleDownloadThumbnail(tplId, caption, false);
+              void handleDownloadThumbnail(tplId, caption, false);
             }
             setCreationStep(null);
             setMyTab('completed');
