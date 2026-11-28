@@ -1,7 +1,12 @@
 .napda-admin {
+  --n-bg: var(--bg-weak, #f6f7f9);
+  --n-surface: var(--bg, #ffffff);
+  --n-ink: var(--text, #141518);
+  --n-muted: var(--text-3, #676c75);
+  --n-line: var(--border, rgba(20, 21, 24, 0.12));
   min-height: 100vh;
-  background: var(--n-bg, #f6f7f9);
-  color: var(--n-ink, #141518);
+  background: var(--n-bg);
+  color: var(--n-ink);
   padding: 28px 32px 64px;
   font-family: inherit;
 }
@@ -57,6 +62,7 @@
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -83,14 +89,18 @@
 }
 
 .napda-admin-input {
-  flex: 1 1 260px;
-  min-width: 200px;
   padding: 7px 10px;
   border-radius: 7px;
   border: 1px solid var(--n-line, rgba(20, 21, 24, 0.18));
   background: transparent;
   color: inherit;
   font-size: 13px;
+  box-sizing: border-box;
+}
+
+.napda-admin-bearer .napda-admin-input {
+  flex: 1 1 260px;
+  min-width: 200px;
 }
 
 .napda-admin-kpis {
@@ -191,6 +201,8 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
   background: rgba(127, 127, 127, 0.14);
 }
 
@@ -230,4 +242,297 @@
 .napda-admin-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
+}
+
+.napda-admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid var(--n-line);
+  padding-bottom: 10px;
+}
+
+.napda-admin-tab {
+  padding: 8px 16px;
+  border-radius: 9px;
+  border: 1px solid var(--n-line);
+  background: var(--n-surface);
+  color: var(--n-muted);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.napda-admin-tab.is-active {
+  background: var(--inverse, var(--n-ink));
+  color: var(--on-inverse, var(--n-surface));
+  border-color: transparent;
+}
+
+.napda-admin-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- Track A Templates Management ---------- */
+.napda-tpl-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.napda-tpl-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.napda-tpl-toolbar-left,
+.napda-tpl-toolbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.napda-tpl-summary {
+  font-size: 13px;
+  color: var(--n-muted);
+}
+
+.napda-tpl-summary strong {
+  color: var(--n-ink);
+}
+
+.napda-tpl-search {
+  flex: 0 0 210px;
+  width: 210px;
+  min-width: 160px;
+}
+
+.napda-tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.napda-tpl-card {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 16px;
+}
+
+.napda-tpl-card.is-disabled {
+  opacity: 0.72;
+}
+
+@media (max-width: 520px) {
+  .napda-tpl-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+.napda-tpl-video-box {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #101216;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.napda-tpl-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.napda-tpl-video-fallback {
+  padding: 12px;
+  text-align: center;
+  font-size: 11px;
+  color: #a1a6b0;
+}
+
+.napda-tpl-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.napda-tpl-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.napda-tpl-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+
+.napda-tpl-id {
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--n-muted);
+}
+
+.napda-tpl-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.napda-tpl-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.napda-tpl-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-weak, rgba(127, 127, 127, 0.12));
+  color: var(--text-2, var(--n-ink));
+}
+
+.napda-tpl-summary-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2, var(--n-ink));
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.napda-tpl-captions {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--n-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.napda-tpl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.napda-tpl-btn-danger {
+  color: var(--danger, #dc2626);
+  border-color: rgba(220, 38, 38, 0.32);
+}
+
+.napda-tpl-btn-danger-solid {
+  background: var(--danger, #dc2626);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+/* ---------- Modal ---------- */
+.napda-admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.56);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.napda-admin-modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--n-surface);
+  color: var(--n-ink);
+  border: 1px solid var(--n-line);
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+}
+
+.napda-admin-modal--sm {
+  max-width: 420px;
+}
+
+.napda-admin-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.napda-admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.napda-admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.napda-admin-field .napda-admin-input {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.napda-admin-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--n-muted);
+}
+
+.napda-admin-textarea {
+  resize: vertical;
+  min-height: 70px;
+  line-height: 1.45;
+  font-family: inherit;
+}
+
+.napda-admin-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.napda-admin-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
 }

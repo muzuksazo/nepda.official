@@ -1,11 +1,11 @@
 {
   "updatedAt": "2026-11-28",
-  "commit": "c11b5c0",
+  "commit": "c4a2901",
   "repoUrl": "https://github.com/muzuksazo/nepda.official",
   "planDocPath": "tests/E2E_TEST_PLAN.md",
   "overviewImage": "./recordings/e2e_features_overview.png",
   "offlineSuites": [
-    { "name": "Python Regression & Parity", "command": ".venv/bin/python scripts/test-python.py", "summary": "delivery 7/7 · integration 2/2 · infra 13/13", "status": "pass" },
+    { "name": "Python Regression & Parity", "command": ".venv/bin/python scripts/test-python.py", "summary": "storyboards 6/6 · infra 14/14 · planning 8/8 · delivery 7/7", "status": "pass" },
     { "name": "Node Planner & Prototype", "command": "npm test && npm run typecheck && npm run build", "summary": "7 / 7 PASS", "status": "pass" },
     { "name": "Frontend Lint & Build", "command": "npm --prefix frontend run lint && npm --prefix frontend run build", "summary": "0 error · PASS", "status": "pass" },
     { "name": "GitHub Actions CI / CD", "command": "CI + Frontend CI + CD Backend", "summary": "PASS", "status": "pass" }
@@ -93,6 +93,46 @@
         "제품 정보 → A 유형('시안 없이 냅다 만들기' 왕복 검증) → 3D 도미노 1:1 정렬 시나리오·4/8 그림 콘티(4컷 /v1/media/ 실이미지, CTA 미노출) → 촬영 가이드",
         "8.5초 스튜디오 시연 영상(pva_sponge_demo.mp4) 업로드 → GeneratingScreen → Track A 실렌더 7/8 영상 확인(<video>, MP4 200)",
         "8/8 Storybook Figma 4종 SSOT(반전 박스·화이트 라벨·명조 임팩트·상단 POV) 클린 키프레임 + '안전 영역 보기' 토글 + 24자 한글 자동 축소(무오버플로) + '화이트 라벨' PNG(>10KB) + '탐색에도 올리기'(PATCH /publish) 영속성 검증"
+      ]
+    },
+    {
+      "id": "E2E-L14",
+      "domain": "creation",
+      "title": "관리자 A안 템플릿 10종 CRUD · 업로드 · 활성 토글 E2E",
+      "owner": "me",
+      "env": "local",
+      "viewport": "desktop",
+      "status": "pass",
+      "fr": "Admin · Track A (10종)",
+      "durationSec": 17.5,
+      "sizeKb": 441,
+      "video": "./recordings/11_local_admin_templates.mp4",
+      "poster": "./recordings/shots/11_local_admin_templates/01_templates_grid.webp",
+      "screenshots": [
+        { "label": "관리자 · 10종 템플릿 그리드", "src": "./recordings/shots/11_local_admin_templates/01_templates_grid.webp" },
+        { "label": "새 템플릿 업로드 모달", "src": "./recordings/shots/11_local_admin_templates/02_upload_modal.webp" },
+        { "label": "수정 · 비활성 토글 유지", "src": "./recordings/shots/11_local_admin_templates/03_edited_disabled.webp" },
+        { "label": "삭제 완료 · 10종 복귀", "src": "./recordings/shots/11_local_admin_templates/04_deleted_clean.webp" }
+      ],
+      "checks": [
+        "/admin?tab=templates 자동 시드 10종(전체 10개 · 활성 10개) 렌더링 및 인라인 <video> 미리보기(/v1/admin/templates/track-a/.../video 200/206) 확인",
+        "+ 새 템플릿 업로드 모달 → MP4(720×1280, 4s) 멀티파트 업로드(POST 201) → 전체 11개 반영",
+        "제목·태그 수정(PATCH 200) → 비활성화 토글(PATCH 200) → 새로고침 후 영속성 유지(활성 10개 · 비활성 1개) → 삭제(DELETE 200) 후 10종 복귀, pageerror·예기치 않은 4xx/5xx 0건"
+      ]
+    },
+    {
+      "id": "E2E-L14b",
+      "domain": "creation",
+      "title": "A안 템플릿 10종 전수 동적 매트릭스 검증 (API · FFprobe · FFmpeg)",
+      "owner": "me",
+      "env": "local",
+      "status": "pass",
+      "fr": "Admin · Track A (10종)",
+      "video": null,
+      "checks": [
+        "backend/data/templates/track_a/manifest.json 전수(10/10) 동적 로드 — 향후 신규 템플릿 추가 시 자동 검증 포함",
+        "전 10종 FFprobe 코덱/지오메트리(h264 · yuv420p · 9:16 세로 · 2~30초 · <=12MB · manifest 길이 오차 <=0.35s) + FFmpeg 1080×1920 트림/스케일 호환 통과",
+        "전 10종 실 스토리보드 추출 API(POST /storyboard 200) 40장 540×675 PNG(>5KB) + 한글 자막(내부 ID·CTA 누수 0건) 검증 (tests/storyboards/test_track_a_all_templates_matrix.py 6/6 PASS)"
       ]
     },
     {

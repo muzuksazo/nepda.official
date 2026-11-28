@@ -340,6 +340,9 @@
       grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
       gap: 12px;
     }
+    .shots-grid.is-desktop {
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
 
     .shot-card {
       background: var(--surface-2);
@@ -365,6 +368,9 @@
       border-radius: 9px;
       overflow: hidden;
       aspect-ratio: 432 / 932;
+    }
+    .shot-thumb-wrap.is-desktop {
+      aspect-ratio: 16 / 10;
     }
 
     .shot-thumb-wrap img {
@@ -429,6 +435,12 @@
       object-fit: cover;
       display: block;
     }
+    .phone-stage.is-desktop video {
+      max-width: 100%;
+      aspect-ratio: 16 / 10;
+      border-radius: 10px;
+      object-fit: contain;
+    }
 
     .card-body {
       padding: 14px 16px 16px;
@@ -480,12 +492,18 @@
       background: #0f0f0f;
       cursor: pointer;
     }
+    .mini-shot-btn.is-desktop {
+      width: 72px;
+    }
     .mini-shot-btn:hover { border-color: var(--brand); }
     .mini-shot-btn img {
       width: 100%;
       aspect-ratio: 432 / 932;
       object-fit: cover;
       display: block;
+    }
+    .mini-shot-btn.is-desktop img {
+      aspect-ratio: 16 / 10;
     }
 
     .card-footer {
@@ -1145,7 +1163,7 @@
             ]),
             el(
               'div',
-              { className: 'shots-grid' },
+              { className: `shots-grid${c.viewport === 'desktop' ? ' is-desktop' : ''}` },
               c.screenshots.map((shot, idx) =>
                 el(
                   'button',
@@ -1155,7 +1173,7 @@
                     onClick: () => openShotModal(c, idx),
                   },
                   [
-                    el('div', { className: 'shot-thumb-wrap' }, [
+                    el('div', { className: `shot-thumb-wrap${c.viewport === 'desktop' ? ' is-desktop' : ''}` }, [
                       el('img', {
                         src: shot.src,
                         alt: `${c.title} - ${shot.label}`,
@@ -1283,7 +1301,7 @@
             );
             const shots = c.screenshots || [];
             return el('article', { className: 'video-card' }, [
-              el('div', { className: 'phone-stage' }, [videoNode]),
+              el('div', { className: `phone-stage${c.viewport === 'desktop' ? ' is-desktop' : ''}` }, [videoNode]),
               el('div', { className: 'card-body' }, [
                 el('div', { className: 'meta-row' }, [
                   el('span', { className: 'badge badge-pass', textContent: 'PASS' }),
@@ -1310,7 +1328,7 @@
                           'button',
                           {
                             type: 'button',
-                            className: 'mini-shot-btn',
+                            className: `mini-shot-btn${c.viewport === 'desktop' ? ' is-desktop' : ''}`,
                             title: s.label,
                             onClick: () => openShotModal(c, idx),
                           },

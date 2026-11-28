@@ -1,16 +1,91 @@
-"""Admin-only telemetry & cost inspection endpoints (`/v1/admin/usage/*`)."""
+"""Admin-only telemetry, cost inspection, and Track A template management endpoints (`/v1/admin/*`)."""
 
 from __future__ import annotations
 
 import hmac
-from typing import Any, Dict, Optional
+import json
+import re
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse
 
 from .auth import SESSION_COOKIE_NAME, AuthenticatedUser, AuthenticationError, verify_session_token
 from .config import Settings
 from .project_store import ProjectStore
+from .track_a_templates import (
+    MAX_TEMPLATE_VIDEO_BYTES,
+    TrackATemplateError,
+    create_track_a_template,
+    delete_track_a_template,
+    get_track_a_template,
+    list_track_a_templates,
+    update_track_a_template,
+)
 from .usage_telemetry import PRICING_VERSION, parse_pricing_overrides, pricing_catalog
+
+
+def _parse_multipart_bytes(
+    content_type: str,
+    body: bytes,
+) -> Tuple[Dict[str, str], Dict[str, Tuple[str, bytes]]]:
+    """Parse RFC 7578 multipart/form-data without external python-multipart dependency."""
+    m = re.search(r'boundary=(?:"([^"]+)"|([^;\s]+))', content_type or "", flags=re.IGNORECASE)
+    if not m:
+        raise TrackATemplateError(
+            400,
+            "INVALID_REQUEST",
+            "multipart/form-data 요청의 boundary 헤더가 누락되었습니다.",
+        )
+    boundary = (m.group(1) or m.group(2)).encode("latin-1")
+    delimiter = b"--" + boundary
+    fields: Dict[str, str] = {}
+    files: Dict[str, Tuple[str, bytes]] = {}
+    for part in body.split(delimiter)[1:]:
+        if part.startswith(b"--"):
+            break
+        if part.startswith(b"\r\n"):
+            part = part[2:]
+        elif part.startswith(b"\n"):
+            part = part[1:]
+        if part.endswith(b"\r\n"):
+            part = part[:-2]
+        elif part.endswith(b"\n"):
+            part = part[:-1]
+        sep = b"\r\n\r\n" if b"\r\n\r\n" in part else b"\n\n"
+        if sep not in part:
+            continue
+        raw_headers, payload = part.split(sep, 1)
+        header_text = raw_headers.decode("utf-8", errors="replace")
+        disp_line = ""
+        for line in header_text.splitlines():
+            if line.lower().startswith("content-disposition:"):
+                disp_line = line.split(":", 1)[1].strip()
+                break
+        if not disp_line:
+            continue
+        name_m = re.search(r'name="([^"]+)"', disp_line)
+        if not name_m:
+            continue
+        field_name = name_m.group(1)
+        fn_star_m = re.search(r"filename\*=UTF-8''([^;\s]+)", disp_line, flags=re.IGNORECASE)
+        fn_m = re.search(r'filename="([^"]*)"', disp_line)
+        if fn_star_m is not None:
+            files[field_name] = (unquote(fn_star_m.group(1)), payload)
+        elif fn_m is not None:
+            files[field_name] = (fn_m.group(1), payload)
+        else:
+            fields[field_name] = payload.decode("utf-8", errors="replace")
+    return fields, files
+
+
+def _raise_template_http_error(exc: TrackATemplateError) -> None:
+    raise HTTPException(
+        status_code=exc.status_code,
+        detail={"error": {"code": exc.code, "message": exc.message}},
+    ) from exc
 
 
 def build_admin_router(settings: Settings, project_store: ProjectStore) -> APIRouter:
@@ -120,5 +195,122 @@ def build_admin_router(settings: Settings, project_store: ProjectStore) -> APIRo
             "count": len(events),
             "admin_actor": admin["actor"],
         }
+
+    @router.get("/templates/track-a")
+    def admin_list_track_a_templates(
+        admin: Dict[str, Any] = Depends(require_admin),
+    ) -> Dict[str, Any]:
+        templates = list_track_a_templates(settings, enabled_only=False, include_path=False)
+        return {
+            "templates": templates,
+            "admin_actor": admin["actor"],
+        }
+
+    @router.get("/templates/track-a/{template_id}/video")
+    def admin_get_track_a_template_video(
+        template_id: str,
+        _admin: Dict[str, Any] = Depends(require_admin),
+    ) -> FileResponse:
+        try:
+            entry = get_track_a_template(settings, template_id, include_path=True)
+        except TrackATemplateError as exc:
+            _raise_template_http_error(exc)
+        if not entry:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": {"code": "TEMPLATE_NOT_FOUND", "message": f"템플릿을 찾을 수 없습니다: {template_id}"}},
+            )
+        video_path = Path(entry["path"])
+        if not video_path.is_file():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": {"code": "TEMPLATE_NOT_FOUND", "message": "템플릿 영상 파일이 존재하지 않습니다."}},
+            )
+        return FileResponse(path=str(video_path), media_type="video/mp4", filename=entry["filename"])
+
+    @router.post("/templates/track-a", status_code=status.HTTP_201_CREATED)
+    async def admin_create_track_a_template(
+        request: Request,
+        _admin: Dict[str, Any] = Depends(require_admin),
+    ) -> Dict[str, Any]:
+        ctype = request.headers.get("content-type", "")
+        if "multipart/form-data" not in ctype.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": {"code": "INVALID_REQUEST", "message": "multipart/form-data 형식으로 업로드해 주세요."}},
+            )
+        body = await request.body()
+        if len(body) > MAX_TEMPLATE_VIDEO_BYTES + 2 * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": {"code": "INVALID_TEMPLATE_VIDEO", "message": "영상 파일 용량은 50MB 이하만 업로드할 수 있습니다."}},
+            )
+        try:
+            fields, files = _parse_multipart_bytes(ctype, body)
+            if "file" not in files:
+                raise TrackATemplateError(400, "INVALID_TEMPLATE_VIDEO", "MP4 영상 파일(file)이 필요합니다.")
+            fname, fbytes = files["file"]
+            return create_track_a_template(
+                settings,
+                file_bytes=fbytes,
+                filename=fname or "template.mp4",
+                template_id=fields.get("id"),
+                title=fields.get("title", ""),
+                a_genre_archetype=fields.get("a_genre_archetype"),
+                tags=fields.get("tags"),
+                visual_summary=fields.get("visual_summary", ""),
+                default_hook_captions=fields.get("default_hook_captions"),
+                enabled=fields.get("enabled", True),
+            )
+        except TrackATemplateError as exc:
+            _raise_template_http_error(exc)
+
+    @router.patch("/templates/track-a/{template_id}")
+    async def admin_update_track_a_template(
+        template_id: str,
+        request: Request,
+        _admin: Dict[str, Any] = Depends(require_admin),
+    ) -> Dict[str, Any]:
+        ctype = request.headers.get("content-type", "").lower()
+        body = await request.body()
+        if len(body) > MAX_TEMPLATE_VIDEO_BYTES + 2 * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": {"code": "INVALID_TEMPLATE_VIDEO", "message": "영상 파일 용량은 50MB 이하만 업로드할 수 있습니다."}},
+            )
+        try:
+            file_bytes: Optional[bytes] = None
+            updates: Dict[str, Any] = {}
+            if "multipart/form-data" in ctype:
+                fields, files = _parse_multipart_bytes(request.headers.get("content-type", ""), body)
+                updates.update(fields)
+                if "file" in files and files["file"][1]:
+                    file_bytes = files["file"][1]
+            else:
+                try:
+                    raw = json.loads(body.decode("utf-8") or "{}")
+                except Exception as exc:
+                    raise TrackATemplateError(400, "INVALID_JSON", "올바른 JSON 요청 본문이 아닙니다.") from exc
+                if not isinstance(raw, dict):
+                    raise TrackATemplateError(400, "INVALID_REQUEST", "JSON 객체 형식이어야 합니다.")
+                updates = raw
+            return update_track_a_template(
+                settings,
+                template_id,
+                updates=updates,
+                file_bytes=file_bytes,
+            )
+        except TrackATemplateError as exc:
+            _raise_template_http_error(exc)
+
+    @router.delete("/templates/track-a/{template_id}")
+    def admin_delete_track_a_template(
+        template_id: str,
+        _admin: Dict[str, Any] = Depends(require_admin),
+    ) -> Dict[str, Any]:
+        try:
+            return delete_track_a_template(settings, template_id)
+        except TrackATemplateError as exc:
+            _raise_template_http_error(exc)
 
     return router

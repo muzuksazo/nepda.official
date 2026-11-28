@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { customFetch } from '../api/mutator';
 import type { ThemeSetting } from '../ui/NapdaProvider';
+import { AdminTemplatesPanel } from './AdminTemplatesPanel';
 import './AdminUsagePage.css';
 
 interface UsageTotals {
@@ -121,6 +122,16 @@ interface ProjectUsageDetailResponse {
 }
 
 const BEARER_STORAGE_KEY = 'napda_admin_bearer';
+type AdminTab = 'usage' | 'templates';
+
+function readAdminTabFromUrl(): AdminTab {
+  try {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    return tab === 'templates' ? 'templates' : 'usage';
+  } catch {
+    return 'usage';
+  }
+}
 
 function fmtUsd(val: number | null | undefined, rate?: number | null): string {
   if (val === null || val === undefined) return '단가 미등록';
@@ -152,6 +163,7 @@ export function AdminUsagePage({
   onThemeModeChange: (next: ThemeSetting) => void;
   userEmail?: string;
 }) {
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => readAdminTabFromUrl());
   const [days, setDays] = useState<number>(30);
   const [bearerInput, setBearerInput] = useState<string>(() => {
     try {
@@ -160,6 +172,14 @@ export function AdminUsagePage({
       return '';
     }
   });
+  const [appliedBearer, setAppliedBearer] = useState<string>(() => {
+    try {
+      return window.sessionStorage.getItem(BEARER_STORAGE_KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const [bearerRevision, setBearerRevision] = useState<number>(0);
   const [summary, setSummary] = useState<AdminUsageSummaryResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -169,9 +189,9 @@ export function AdminUsagePage({
   const [showPricing, setShowPricing] = useState<boolean>(false);
 
   const authHeaders = useCallback((): HeadersInit | undefined => {
-    const trimmed = bearerInput.trim();
+    const trimmed = appliedBearer.trim();
     return trimmed ? { Authorization: `Bearer ${trimmed}` } : undefined;
-  }, [bearerInput]);
+  }, [appliedBearer]);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -190,18 +210,59 @@ export function AdminUsagePage({
   }, [authHeaders, days]);
 
   useEffect(() => {
-    void loadSummary();
-  }, [loadSummary]);
+    const onPopState = () => {
+      setActiveTab(readAdminTabFromUrl());
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await customFetch<{ data: AdminUsageSummaryResponse; status: number }>(
+          `/v1/admin/usage/summary?days=${days}&limit=50`,
+          { headers: authHeaders() },
+        );
+        if (!active) return;
+        setSummary(res.data);
+      } catch (err) {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : '사용량 데이터를 불러오지 못했습니다.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [authHeaders, days, bearerRevision]);
+
+  const handleSelectTab = (next: AdminTab) => {
+    setActiveTab(next);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', next);
+      window.history.replaceState(null, '', url.toString());
+    } catch {
+      // ignore history errors
+    }
+  };
 
   const handleSaveBearer = () => {
+    const trimmed = bearerInput.trim();
     try {
-      const trimmed = bearerInput.trim();
       if (trimmed) window.sessionStorage.setItem(BEARER_STORAGE_KEY, trimmed);
       else window.sessionStorage.removeItem(BEARER_STORAGE_KEY);
     } catch {
       // ignore storage errors
     }
-    void loadSummary();
+    setAppliedBearer(trimmed);
+    setBearerRevision((n) => n + 1);
   };
 
   const handleToggleProject = async (projectId: string) => {
@@ -233,7 +294,11 @@ export function AdminUsagePage({
       <div className="napda-admin-inner">
         <header className="napda-admin-header">
           <div>
-            <h1 className="napda-admin-title">NAPDA 사용량 · 단가 · A/B 텔레메트리</h1>
+            <h1 className="napda-admin-title">
+              {activeTab === 'templates'
+                ? 'NAPDA A안 템플릿 관리'
+                : 'NAPDA 사용량 · 단가 · A/B 텔레메트리'}
+            </h1>
             <p className="napda-admin-sub">
               {summary
                 ? `접속: ${summary.admin_actor}${summary.dev_open_admin ? ' (로컬 오픈 모드 — 운영 시 ADMIN_EMAILS 설정 필요)' : ''} · 단가 기준 ${summary.pricing_version}`
@@ -243,19 +308,23 @@ export function AdminUsagePage({
             </p>
           </div>
           <div className="napda-admin-controls">
-            {[7, 30, 90].map((d) => (
-              <button
-                key={d}
-                type="button"
-                className={`napda-admin-btn${days === d ? ' is-active' : ''}`}
-                onClick={() => setDays(d)}
-              >
-                {d}일
-              </button>
-            ))}
-            <button type="button" className="napda-admin-btn" onClick={() => void loadSummary()}>
-              새로고침
-            </button>
+            {activeTab === 'usage' ? (
+              <>
+                {[7, 30, 90].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    className={`napda-admin-btn${days === d ? ' is-active' : ''}`}
+                    onClick={() => setDays(d)}
+                  >
+                    {d}일
+                  </button>
+                ))}
+                <button type="button" className="napda-admin-btn" onClick={() => void loadSummary()}>
+                  새로고침
+                </button>
+              </>
+            ) : null}
             <button
               type="button"
               className="napda-admin-btn"
@@ -275,6 +344,27 @@ export function AdminUsagePage({
           </div>
         </header>
 
+        <nav className="napda-admin-tabs" role="tablist" aria-label="관리자 메뉴">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'usage'}
+            className={`napda-admin-tab${activeTab === 'usage' ? ' is-active' : ''}`}
+            onClick={() => handleSelectTab('usage')}
+          >
+            사용량 · 비용
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'templates'}
+            className={`napda-admin-tab${activeTab === 'templates' ? ' is-active' : ''}`}
+            onClick={() => handleSelectTab('templates')}
+          >
+            A안 템플릿 관리
+          </button>
+        </nav>
+
         <div className="napda-admin-bearer">
           <span className="napda-admin-sub" style={{ margin: 0 }}>
             Admin Bearer Token (선택 · `ADMIN_EMAILS` 로그인 대신 사용 시):
@@ -291,6 +381,13 @@ export function AdminUsagePage({
           </button>
         </div>
 
+        {activeTab === 'templates' ? (
+          <AdminTemplatesPanel
+            bearerToken={appliedBearer}
+            reloadSignal={bearerRevision}
+          />
+        ) : (
+          <>
         {error && (
           <div className="napda-admin-error">
             오류: {error} (백엔드 `ADMIN_EMAILS`에 이메일 등록 또는 위 `API_BEARER_TOKEN`을 입력해 주세요.)
@@ -618,6 +715,8 @@ export function AdminUsagePage({
               </div>
             )}
           </section>
+        )}
+          </>
         )}
       </div>
     </div>

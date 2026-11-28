@@ -1,7 +1,7 @@
 # NAPDA Full-Stack E2E 테스트 계획 및 3인 개발자 분배표
 
 > **E2E 영상 & 도메인별 스크린샷 대시보드**: https://muzuksazo.github.io/nepda.official/ · [사용/업로드 가이드](./e2e_dashboard/README.md)  
-> 최종 업데이트: 2026-11-28 (`origin/main` @ `c11b5c0` + `E2E-P03` 실서버 Google 로그인 · `E2E-P05` 실서버 Paddle Sandbox 테스트 카드 결제 `+100` 크레딧 적립 통과 반영)  
+> 최종 업데이트: 2026-11-28 (`origin/main` @ `5a4f10b` + `E2E-L14` 관리자 A안 템플릿 10종 CRUD · `E2E-L14b` 10종 전수 동적 매트릭스 검증 반영)  
 > 대상 서비스: `frontend/` (React 19 + Vite) ↔ `backend/` (FastAPI) ↔ `libraries/planner-api` (Node) ↔ `libraries/media-tools` (FFmpeg / Pillow)  
 > 3인 편성: **나** (**A안**) · **시우님** (**B안**, `FR-003, FR-004, FR-005, FR-010` 전담) · **상윤님** (**C안**)
 
@@ -44,6 +44,8 @@
 | **E2E-L11b** | `FR-011` · 조립 | TTS 내레이션 · 본편 FFmpeg 조립 | Inworld/Gemini TTS 단어 정렬·LUFS 마스터링 + `body_pipeline` 본편 조립 (`tests/narration/`, `tests/integration/`) | `11b_local_tts_body_assembly.mp4` |
 | **E2E-L12** | `FR-012~014` | 썸네일 · 서명 URL 미디어 전달 | 9:16 썸네일 생성 + 안전 영역 체크 + 서명 URL `Range` 스트리밍 및 변조 차단 (`tests/delivery/`) | `12_local_media_delivery.mp4` |
 | **E2E-L13** | `FR-008 · 015` · Infra | 일일 쿼터 · 보관 만료 · 복구 | 일일 3회 한도, 7일 만료(`410`), 고아 잡 복구(`tests/workflow/`, `tests/credits/`) + 테스트 `.env` 격리 수정(`tests/infrastructure/`) | *(자동화 리포트)* |
+| **E2E-L14** | Admin · Track A (10종) | 관리자 A안 템플릿 CRUD · 업로드 | `/admin?tab=templates` 자동 시드 10종 그리드·`<video>` 미리보기 → `+ 새 템플릿 업로드`(`POST 201`) → `수정`/`비활성화`(`PATCH 200`)·새로고침 영속성 → `삭제`(`DELETE 200`) | `11_local_admin_templates.mp4` |
+| **E2E-L14b** | Admin · Track A (10종) | A안 10종 전수 동적 매트릭스 | `backend/data/templates/track_a/manifest.json` 전수(10/10) 동적 로드 → `ffprobe` 코덱/9:16/길이 + 실 `POST /storyboard` 40장 PNG + `ffmpeg` 1080×1920 호환 검증 (`tests/storyboards/test_track_a_all_templates_matrix.py`) | *(자동화 매트릭스 리포트)* |
 
 ---
 
@@ -120,7 +122,7 @@ npm --prefix frontend run lint && npm --prefix frontend run build
 
 ---
 
-## 5. 최신 실행 결과 기록 (2026-11-28 `c11b5c0` + `E2E-P03`·`E2E-P05` 실서버 대화형 QA 완료 기준 · 6개 도메인 36장 스크린샷)
+## 5. 최신 실행 결과 기록 (2026-11-28 `5a4f10b` + `E2E-L14`/`E2E-L14b` A안 템플릿 10종 CRUD·전수 매트릭스 반영 · 6개 도메인 40장 스크린샷)
 
 ![E2E 8개 기능 녹화 요약](./e2e_recordings/e2e_features_overview.png)
 
@@ -132,6 +134,8 @@ npm --prefix frontend run lint && npm --prefix frontend run build
 | [`04_local_profile_theme.mp4`](./e2e_recordings/04_local_profile_theme.mp4) | 프로필 · 테마 설정 | Local (`:15175` → `:18082`) | `10.08s` / 190 KB / 2장 | **PASS** | 크레딧 내역 빈 상태(`아직 텅 비었어요`), `개인정보 처리방침` `/privacy.html` 새 탭 오픈, 회원 탈퇴 고객지원 안내 시트 + `#1A1A1A` `다크`/`라이트`/`기기 설정` 테마 전환 정상 |
 | [`05_local_billing_paddle_webhook.mp4`](./e2e_recordings/05_local_billing_paddle_webhook.mp4) | 결제 · 크레딧 (Paddle) | Local (`:15175` → `:18082`) | `12.72s` / 172 KB / 3장 | **PASS** | 0크레딧 `POST /renders` `402 INSUFFICIENT_CREDITS` 가드 + `POST /v1/billing/checkout`(`ord_65401875494b`) + Paddle Sandbox 결제창(`₩12,900`·`계속`) 완전 로드 + 실서명 웹훅 → 잔액 **`0 → 100`** |
 | [`abc_A_hook_e2e.mp4`](./e2e_recordings/abc_A_hook_e2e.mp4) (**나 담당 A안**) | 영상 제작 · 8단계 위저드 | Local (`:15175` → `:18082` + Track A) | `63.76s` / 780 KB / 9장 | **PASS** | 실제 앱 8단계 완주: `제품 정보` → `A 유형`(`시안 없이 냅다 만들기` 왕복 검증) → 3D 도미노 1:1 정렬 `시나리오`·**`4/8 그림 콘티`**(4컷 `/v1/media/` 실이미지) → `촬영 가이드` → `pva_sponge_demo.mp4` 업로드 → `GeneratingScreen` → Track A 실렌더(`7/8 영상 확인` `<video>`·MP4 `200`) → `8/8` Storybook Figma 4종 SSOT 클린 키프레임 + `안전 영역 보기` 토글 + 24자 한글 자동 축소(무오버플로) + `white-label` PNG(`>10KB`) + `탐색에도 올리기`(`PATCH /publish`) 영속성 검증 |
+| [`11_local_admin_templates.mp4`](./e2e_recordings/11_local_admin_templates.mp4) (**`E2E-L14`**) | 영상 제작 · 8단계 위저드 | Local (`:15175` → `:18082` · `1280×800`) | `17.50s` / 441 KB / 4장 | **PASS** | `/admin?tab=templates` 자동 시드 10종 그리드·`<video>` 미리보기(`200/206`) → `+ 새 템플릿 업로드`(`POST 201`, 11개) → 제목/태그 수정·비활성 토글(`PATCH 200`)·새로고침 영속성(`활성 10 · 비활성 1`) → 삭제(`DELETE 200`, 10개 복귀), 에러 0건 |
+| `E2E-L14b` (동적 전수 매트릭스) | 영상 제작 · 8단계 위저드 | Local (`test_track_a_all_templates_matrix.py`) | — | **PASS** | `manifest.json` 10/10 전수 동적 검증: `ffprobe` 코덱/9:16/길이 + 실 `POST /storyboard` 40장 `540×675` PNG + `ffmpeg` `1080×1920` 호환 (`storyboards` 6/6 PASS) |
 | [`06_local_logout.mp4`](./e2e_recordings/06_local_logout.mp4) | 인증 · 온보딩 | Local (`:15175` → `:18082`) | `10.72s` / 176 KB / 3장 | **PASS** | `POST /v1/auth/logout` `204` → `로그인이 풀렸어요` → 홈 온보딩 복귀 |
 | [`07_live_prod_smoke.mp4`](./e2e_recordings/07_live_prod_smoke.mp4) | 실서버 배포 스모크 | Live (`https://napda.vercel.app`) | `19.92s` / 111 KB / 2장 | **PASS** | `/health` `200`(`status: ok`), `/v1/billing/config` `200`(`paddle`/`sandbox`, 3종), `/v1/auth/me` `401`, `/privacy.html` `200`, `/` 온보딩 정상 |
 | [`08_live_google_auth.mp4`](./e2e_recordings/08_live_google_auth.mp4) | 인증 · 온보딩 | Live (`https://napda.vercel.app`) | `9.20s` / 83 KB / 4장 | **PASS** | 실제 Google 계정 GIS 로그인(`POST /v1/auth/google` `200`, `432×932`) → 홈 진입 → 전체 새로고침 후 `napda_session` Secure HTTPS 쿠키 세션 유지 + 프로필(`구글 계정`·`크레딧 0`·개인 이메일 마스킹) 정상 |

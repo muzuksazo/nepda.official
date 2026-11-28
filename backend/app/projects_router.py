@@ -107,6 +107,7 @@ from .thumbnail_service import (
     generate_project_thumbnail,
     normalize_thumbnail_style,
 )
+from .track_a_templates import list_track_a_templates
 from .tts_service import build_tts_provider
 from .upload_service import validate_and_complete_uploads
 
@@ -310,41 +311,13 @@ def _build_default_ad_spec(
     }
 
 
-def _load_track_a_manifest_entries(settings: Settings) -> List[Dict[str, Any]]:
-    """Load validated Track A visual template metadata entries from configured or default dirs."""
-    dirs: List[Path] = []
-    if settings.track_a_template_dir and settings.track_a_template_dir.strip():
-        dirs.append(Path(settings.track_a_template_dir).expanduser().resolve())
-    dirs.append((Path(__file__).resolve().parents[1] / "data" / "templates" / "track_a").resolve())
-
-    entries: List[Dict[str, Any]] = []
-    seen_dirs: set[Path] = set()
-    for d in dirs:
-        if d in seen_dirs or not d.is_dir():
-            continue
-        seen_dirs.add(d)
-        manifest_path = d / "manifest.json"
-        if not manifest_path.is_file():
-            continue
-        try:
-            raw = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        if not isinstance(raw, list):
-            continue
-        for item in raw:
-            if not isinstance(item, dict):
-                continue
-            fname = str(item.get("filename") or "").strip()
-            if not fname:
-                continue
-            video_path = (d / fname).resolve()
-            if not video_path.is_file():
-                continue
-            enriched = dict(item)
-            enriched["path"] = str(video_path)
-            entries.append(enriched)
-    return entries
+def _load_track_a_manifest_entries(
+    settings: Settings,
+    *,
+    enabled_only: bool = True,
+) -> List[Dict[str, Any]]:
+    """Load validated Track A visual template metadata entries from the persistent template store."""
+    return list_track_a_templates(settings, enabled_only=enabled_only, include_path=True)
 
 
 def _select_track_a_template(
@@ -721,12 +694,15 @@ def _default_storyboard_generator(
     def _extract_track_a_storyboard(
         project: Dict[str, Any], scenario: Dict[str, Any]
     ) -> Optional[List[Dict[str, Any]]]:
-        manifest_entries = _load_track_a_manifest_entries(settings)
+        all_entries = _load_track_a_manifest_entries(settings, enabled_only=False)
         tpl_id = str((scenario.get("ad_spec") or {}).get("track_a_template_id") or "").strip()
-        tpl_entry = _select_track_a_template(
-            manifest_entries,
-            project,
-            requested_template_id=tpl_id or None,
+        tpl_entry = (
+            _select_track_a_template(all_entries, project, requested_template_id=tpl_id)
+            if tpl_id
+            else _select_track_a_template(
+                _load_track_a_manifest_entries(settings, enabled_only=True) or all_entries,
+                project,
+            )
         )
         if not tpl_entry:
             return None
@@ -969,9 +945,9 @@ def build_projects_router(
         project: Optional[Dict[str, Any]] = None,
     ) -> Optional[Path]:
         """Resolve a pre-prepared Track A opener MP4 from manifest, URLs, dir, or defaults."""
-        manifest_entries = _load_track_a_manifest_entries(settings)
+        all_entries = _load_track_a_manifest_entries(settings, enabled_only=False)
         if template_id:
-            for entry in manifest_entries:
+            for entry in all_entries:
                 if entry.get("id") == template_id:
                     return Path(entry["path"])
 
@@ -989,8 +965,10 @@ def build_projects_router(
                     cached.write_bytes(dl.content)
             return cached
 
-        if manifest_entries:
-            picked = _select_track_a_template(manifest_entries, project, requested_template_id=template_id)
+        enabled_entries = [e for e in all_entries if e.get("enabled", True)]
+        pool_entries = enabled_entries or all_entries
+        if pool_entries:
+            picked = _select_track_a_template(pool_entries, project, requested_template_id=template_id)
             if picked and picked.get("path"):
                 return Path(picked["path"])
 
