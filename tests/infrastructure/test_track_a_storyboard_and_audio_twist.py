@@ -6,6 +6,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -267,6 +268,60 @@ class TestTrackAStoryboardAndAudioTwist(unittest.TestCase):
             self.assertTrue(all("정지" not in p for p in seen_prompts))
             self.assertIn("바닷속 문어 클로즈업", seen_prompts[0])
             self.assertIn("파이프에 방수 테이프를 감는다", seen_prompts[1])
+
+    def test_type_c_storyboard_is_photoreal_single_frame_and_follows_the_blockout(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            workers = root / "workers"
+            blockout = workers / "c" / "blockouts" / "desk.png"
+            blockout.parent.mkdir(parents=True)
+            blockout.write_bytes(b"\x89PNG\r\n\x1a\nblockout")
+            settings = Settings(
+                _env_file=None, work_root=str(root / "work"), output_dir=str(root / "out"), db_path=str(root / "t.db"),
+                storage_backend="local", hook_workers_dir=str(workers),
+            )
+            storage = LocalStorageBackend(root / "objects")
+            calls: List[Dict[str, Any]] = []
+
+            class _SpyProvider:
+                def __init__(self, _settings: Any) -> None:
+                    pass
+
+                def generate_reference_image(self, prompt: str, out_path: Path, **kw: Any) -> Any:
+                    calls.append({"prompt": prompt, **kw})
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    out_path.write_bytes(b"\x89PNG\r\n\x1a\nfake")
+                    return SimpleNamespace(skipped=False, elapsed_sec=0.01)
+
+            gen = _default_storyboard_generator(settings, storage)
+            project = {"project_id": "prj_c_sb", "user_id": "u1", "product": PRODUCT}
+            scenario = {
+                "scenario_id": "scn_c_1",
+                "type": "C",
+                "beats": [
+                    {"order": 1, "role": "문제", "duration_sec": 4.0, "visual": "책상 위에서 손이 폰으로 간다",
+                     "first_frame_ref": "c/blockouts/desk.png", "first_frame_prompt": "Real hand, wooden desk."},
+                    {"order": 2, "role": "증명", "duration_sec": 5.0, "visual": "타이머 다이얼을 돌린다"},
+                ],
+            }
+            with patch("app.projects_router.GenAIMediaProvider", _SpyProvider):
+                frames = gen(project, scenario, "blender_clay_diorama")
+
+            self.assertEqual([f["beat_order"] for f in frames], [1, 2])
+            for call in calls:  # 요청 화풍(클레이)이 아니라 실사 한 장으로 그린다
+                self.assertIn("Photorealistic", call["prompt"])
+                self.assertIn("no panels", call["prompt"])
+                self.assertNotIn("blender_clay_diorama", call["prompt"])
+            self.assertEqual([str(p) for p in calls[0]["anchor_paths"]], [str(blockout.resolve())])  # 블록아웃 구도로
+            self.assertIn("Real hand, wooden desk.", calls[0]["prompt"])
+            self.assertNotIn("anchor_paths", calls[1])
+
+            calls.clear()
+            scenario_b = {"scenario_id": "scn_b_1", "type": "B",
+                          "beats": [{"order": 1, "role": "시작", "duration_sec": 3.0, "visual": "바닷속 문어"}]}
+            with patch("app.projects_router.GenAIMediaProvider", _SpyProvider):
+                gen(project, scenario_b, "blender_3d_cutaway")
+            self.assertIn("Style: blender_3d_cutaway", calls[0]["prompt"])  # 다른 유형은 그대로
 
     def test_omni_prompt_hygiene_track_a_product_and_no_bottom_third_box(self) -> None:
         self.assertNotIn("Keep the bottom third calm", COMMON_RULES)
