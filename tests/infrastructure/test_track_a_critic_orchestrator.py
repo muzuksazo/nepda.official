@@ -237,7 +237,7 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
                 executor=fake_exec,
             )
             s = out["scenarios"][0]
-            self.assertEqual(calls, ["plan", "critic"])
+            self.assertEqual(calls, ["plan"])  # 규칙을 통과한 기획은 비평 없이 바로 쓴다
             self.assertEqual(len(s["beats"]), 2)
             self.assertAlmostEqual(s["hook_duration_sec"], 10.3, places=2)
 
@@ -263,6 +263,7 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
             self.assertTrue(spec["abstract_law"])
             self.assertFalse(spec["ai_landing"])
             self.assertTrue(spec["critic_verdict"]["passed"])
+            self.assertTrue(spec["critic_verdict"]["skipped"])
 
     def test_taboo_filter_paradox_allows_matching_template_and_paraphrases_beat1(self) -> None:
         with temporary_directory() as td:
@@ -374,16 +375,17 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
                 critic=critic_then_pass,
                 executor=exec_fix,
             )
-            self.assertEqual(critic_calls, 2)
+            # 규칙에 걸린 첫 기획만 비평을 받고, 고친 기획은 규칙을 통과해 비평 없이 쓴다
+            self.assertEqual(critic_calls, 1)
             self.assertEqual(exec_calls, 1)
             self.assertEqual(out["scenarios"][0]["ad_spec"]["critic_verdict"]["revisions"], 1)
 
-            # Case 2: Persistent critic failure stops strictly after 2 revisions (1 plan + 3 critic + 2 revise)
+            # Case 2: 끝까지 규칙에 걸리면 2번 고친 뒤 멈춘다 (1 plan + 3 critic + 2 revise)
             counts = {"plan": 0, "critic": 0, "exec": 0}
 
             def always_plan(_s: str, _p: str) -> Dict[str, Any]:
                 counts["plan"] += 1
-                return _good_direct_plan()
+                return bad_draft
 
             def always_fail(_s: str, _p: str) -> Dict[str, Any]:
                 counts["critic"] += 1
@@ -391,7 +393,7 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
 
             def always_exec(_s: str, _p: str) -> Dict[str, Any]:
                 counts["exec"] += 1
-                return _good_direct_plan()
+                return bad_draft
 
             with self.assertRaises(TemplateError):
                 make_template_scenario(
@@ -404,6 +406,25 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
                     executor=always_exec,
                 )
             self.assertEqual(counts, {"plan": 1, "critic": 3, "exec": 2})
+
+            # Case 3: 비평이 불합격이어도 규칙을 통과한 기획이면 실시간으로 넘기지 않고 쓴다
+            counts = {"critic": 0}
+
+            def never_called(_s: str, _p: str) -> Dict[str, Any]:
+                counts["critic"] += 1
+                return _fail_verdict("반전 톤 부족", "더 능청스럽게 고치세요.")
+
+            out = make_template_scenario(
+                inp,
+                settings,
+                None,
+                Path(td) / "work3",
+                planner=lambda _s, _p: _good_direct_plan(),
+                critic=never_called,
+                executor=lambda _s, _p: _good_direct_plan(),
+            )
+            self.assertEqual(counts["critic"], 0)
+            self.assertEqual(out["scenarios"][0]["ad_spec"]["track_a_template_id"], "a_dam_tape_3d")
 
     def test_ai_landing_opt_in_enforces_three_beat_and_3_5_to_4_5s_landing(self) -> None:
         with temporary_directory() as td:
@@ -498,16 +519,15 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
             self.assertEqual(out["scenarios"][0]["ad_spec"]["template_id"], "a_dam_tape_3d")
             self.assertEqual(
                 call_models,
-                ["gemini-4-neon", "gemini-4-neon", "gemini-4-hydrogen", "gemini-4-neon"],
+                ["gemini-4-neon", "gemini-4-neon", "gemini-4-hydrogen"],
             )
-            self.assertEqual(len(usage_events), 4)
+            self.assertEqual(len(usage_events), 3)  # 고친 기획은 규칙을 통과해 비평을 다시 부르지 않는다
             self.assertEqual(
                 [(e["stage"], e["step_name"], e["model"]) for e in usage_events],
                 [
                     ("a_template", "plan_template", "gemini-4-neon"),
                     ("a_template", "critic_gate", "gemini-4-neon"),
                     ("a_template", "execute_revise", "gemini-4-hydrogen"),
-                    ("a_template", "critic_gate", "gemini-4-neon"),
                 ],
             )
             self.assertEqual(usage_events[0]["input_tokens"], 1000)
@@ -600,7 +620,7 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
                 )
                 self.assertEqual(
                     call_models,
-                    ["gemini-4-neon", "gemini-4-neon", "gemini-4-hydrogen", "gemini-4-neon"],
+                    ["gemini-4-neon", "gemini-4-neon", "gemini-4-hydrogen"],
                 )
 
                 # Explicit model="gemini-4-hydrogen" overrides plan_template (critic remains Neon)
@@ -615,7 +635,7 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
                 )
                 self.assertEqual(
                     call_models,
-                    ["gemini-4-hydrogen", "gemini-4-neon", "gemini-4-hydrogen", "gemini-4-neon"],
+                    ["gemini-4-hydrogen", "gemini-4-neon", "gemini-4-hydrogen"],
                 )
 
     def test_thinking_budget_forwarded_to_thinking_config(self) -> None:
