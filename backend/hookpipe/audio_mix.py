@@ -33,6 +33,7 @@ HOOK_BGM_FILES: Dict[str, str] = {
 }
 BODY_BGM_FILE = "bgm_body.mp3"
 TRANSITION_SFX_FILE = "sfx_transition.mp3"
+OUTRO_SFX_FILE = "sfx_outro.mp3"
 DEFAULT_AUDIO_LOCATION = "storage:assets/audio"
 
 
@@ -43,9 +44,10 @@ class AudioPack:
     hook_bgm: Optional[Path] = None
     body_bgm: Optional[Path] = None
     transition_sfx: Optional[Path] = None
+    outro_sfx: Optional[Path] = None
 
     def is_empty(self) -> bool:
-        return not (self.hook_bgm or self.body_bgm or self.transition_sfx)
+        return not (self.hook_bgm or self.body_bgm or self.transition_sfx or self.outro_sfx)
 
 
 def _fetch_audio_file(
@@ -108,7 +110,13 @@ def resolve_audio_pack(
     transition_sfx = _fetch_audio_file(
         TRANSITION_SFX_FILE, location=location, storage=storage, cache_dir=cache_dir
     )
-    return AudioPack(hook_bgm=hook_bgm, body_bgm=body_bgm, transition_sfx=transition_sfx)
+    outro_sfx = _fetch_audio_file(OUTRO_SFX_FILE, location=location, storage=storage, cache_dir=cache_dir)
+    return AudioPack(
+        hook_bgm=hook_bgm,
+        body_bgm=body_bgm,
+        transition_sfx=transition_sfx,
+        outro_sfx=outro_sfx,
+    )
 
 
 def mix_bgm_and_sfx(
@@ -120,8 +128,9 @@ def mix_bgm_and_sfx(
     pack: AudioPack,
     tmp_dir: Path,
     hook_bgm_db: float = -17.0,
+    endcard_sec: float = 0.0,
 ) -> Optional[float]:
-    """Mix 2-stage BGM (with twist dead-stop), transition SFX, and VO-keyed sidechain ducking onto `video_mp4`.
+    """Mix 2-stage BGM (with twist dead-stop), transition/outro SFX, and VO-keyed sidechain ducking onto `video_mp4`.
 
     Returns measured integrated LUFS after mastering, or `None` if skipped/no audio stems.
     """
@@ -134,6 +143,13 @@ def mix_bgm_and_sfx(
         return None
 
     pivot_sec = float(twist_sec) if (twist_sec is not None and float(twist_sec) > 0.0) else float(hook_sec)
+    ec_sec = max(0.0, float(endcard_sec or 0.0))
+    if ec_sec > 0.0:
+        fade_out_d = min(1.15, max(0.80, ec_sec * 0.45))
+        fade_curve = ":curve=exp"
+    else:
+        fade_out_d = 0.45
+        fade_curve = ""
 
     tmp_dir.mkdir(parents=True, exist_ok=True)
     pre_mix = tmp_dir / "pre_mix.mp4"
@@ -168,7 +184,8 @@ def mix_bgm_and_sfx(
         act1_end = max(0.5, pivot_sec - gap_sec)
         act2_dur = max(0.5, total - pivot_sec)
         act1_fade_out_st = max(0.0, act1_end - 0.06)
-        act2_fade_out_st = max(0.0, act2_dur - 0.45)
+        act2_fade_d = min(fade_out_d, act2_dur)
+        act2_fade_out_st = max(0.0, act2_dur - act2_fade_d)
         twist_ms = int(round(pivot_sec * 1000))
 
         cmd.extend(["-stream_loop", "-1", "-i", str(pack.hook_bgm)])
@@ -186,7 +203,7 @@ def mix_bgm_and_sfx(
         )
         filters.append(
             f"[{idx_b}:a]atrim=0:{act2_dur:.3f},asetpts=PTS-STARTPTS,"
-            f"volume=-15.5dB,afade=t=in:st=0:d=0.06,afade=t=out:st={act2_fade_out_st:.3f}:d=0.45,"
+            f"volume=-15.5dB,afade=t=in:st=0:d=0.06,afade=t=out:st={act2_fade_out_st:.3f}:d={act2_fade_d:.2f}{fade_curve},"
             f"aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
             f"adelay={twist_ms}:all=1,apad=whole_dur={total:.3f},atrim=0:{total:.3f}[abgm2]"
         )
@@ -194,13 +211,14 @@ def mix_bgm_and_sfx(
         bgm_raw_lbl = "[abgm_raw]"
     elif pack.hook_bgm or pack.body_bgm:
         single_bgm = pack.hook_bgm or pack.body_bgm
-        fade_out_st = max(0.0, total - 0.45)
+        single_fade_d = min(fade_out_d, total)
+        fade_out_st = max(0.0, total - single_fade_d)
         cmd.extend(["-stream_loop", "-1", "-i", str(single_bgm)])
         idx_s = idx
         idx += 1
         filters.append(
             f"[{idx_s}:a]atrim=0:{total:.3f},asetpts=PTS-STARTPTS,"
-            f"volume=-16dB,afade=t=in:st=0:d=0.08,afade=t=out:st={fade_out_st:.3f}:d=0.45,"
+            f"volume=-16dB,afade=t=in:st=0:d=0.08,afade=t=out:st={fade_out_st:.3f}:d={single_fade_d:.2f}{fade_curve},"
             f"aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
             f"apad=whole_dur={total:.3f},atrim=0:{total:.3f}[abgm_raw]"
         )
@@ -228,6 +246,19 @@ def mix_bgm_and_sfx(
             f"{delay_stage}apad=whole_dur={total:.3f},atrim=0:{total:.3f}[asfx]"
         )
         mix_labels.append("[asfx]")
+
+    # Bus 4: Outro SFX hit right at the packshot end-card entry
+    if ec_sec > 0.0 and pack.outro_sfx and total > ec_sec + 0.5:
+        outro_ms = int(round(max(0.0, total - ec_sec) * 1000))
+        cmd.extend(["-i", str(pack.outro_sfx)])
+        idx_outro = idx
+        idx += 1
+        outro_delay = f"adelay={outro_ms}:all=1," if outro_ms > 0 else ""
+        filters.append(
+            f"[{idx_outro}:a]volume=-14dB,aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
+            f"{outro_delay}apad=whole_dur={total:.3f},atrim=0:{total:.3f}[aoutro]"
+        )
+        mix_labels.append("[aoutro]")
 
     filters.append(f"{''.join(mix_labels)}amix=inputs={len(mix_labels)}:duration=first:normalize=0[amix]")
     cmd.extend([

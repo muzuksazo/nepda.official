@@ -2,7 +2,7 @@
 
 B 트랙의 본편 단계(bridge-dev/b/src/body.ts)를 Python + ffmpeg 로 옮긴 것이다.
   1) 클립마다 프레임 5장을 뽑아 글 모델에 보여 준다
-  2) 모델이 제품 사실만으로 2~4문장 대본을 쓰고, 문장마다 맞는 컷(클립 번호와 시작·끝 초)을 고른다
+  2) 모델이 제품 사실만으로 3문장(소개·효능·마무리) 대본을 쓰고, 문장마다 맞는 컷(클립 번호와 시작·끝 초)을 고른다
   3) 문장별 나레이션 → 음성 길이에 맞춰 컷을 자르고, 전체를 body_target_sec ~ body_max_target_sec 안으로 맞춘다
   4) 1080x1920 30fps, 자막 번인, 소리 -14 LUFS 의 body.mp4 와 body.srt
 결과는 같은 촬영본·제품 정보·설정·앞 훅 나레이션이면 재사용한다. 훅마다 첫 문장이 달라 훅별로 만든다.
@@ -50,6 +50,7 @@ BODY_SCRIPT_SCHEMA: Dict[str, Any] = {
     "additionalProperties": False,
     "required": ["lines"],
     "properties": {
+        "cta_badge": {"type": "string"},
         "lines": {
             "type": "array",
             "items": {
@@ -74,7 +75,7 @@ BODY_SCRIPT_SCHEMA: Dict[str, Any] = {
                     },
                 },
             },
-        }
+        },
     },
 }
 
@@ -114,7 +115,9 @@ def body_cache_key(
     hook_lines: Optional[Sequence[str]] = None,
 ) -> str:
     """같은 촬영본·제품 정보·설정·목소리·도입 콜백·앞 훅 나레이션이면 같은 본편을 쓴다."""
-    parts: List[str] = [f"voice:{voice}"] if voice else []
+    parts: List[str] = ["body_v2_commercial_cta"]
+    if voice:
+        parts.append(f"voice:{voice}")
     cb = str(opening_callback or "").strip()
     if cb:
         parts.append(f"callback:{cb}")
@@ -124,7 +127,13 @@ def body_cache_key(
     for path in clips:
         stat = Path(path).stat()
         parts.append(f"{Path(path).name}:{stat.st_size}:{int(stat.st_mtime)}")
-    parts.append(json.dumps({k: product.get(k) for k in ("name", "call_name", "verified_facts")}, ensure_ascii=False, sort_keys=True))
+    parts.append(
+        json.dumps(
+            {k: product.get(k) for k in ("name", "call_name", "verified_facts", "price_or_offer")},
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
     for name in ("body_target_sec", "body_max_target_sec", "body_llm", "tts_provider", "inworld_voice_id", "tts_default_voice"):
         parts.append(str(getattr(settings, name, "")))
     return hashlib.sha1("\x1f".join(parts).encode("utf-8")).hexdigest()[:16]
@@ -145,13 +154,10 @@ def _body_prompt(
 ) -> str:
     name = product.get("call_name") or product.get("name") or "제품"
     facts = [str(f) for f in (product.get("verified_facts") or []) if str(f).strip()]
+    offer = str(product.get("price_or_offer") or "").strip()
     limit = max(target, float(max_sec or target))
     syllables = int(round(limit * 5.5))
     ranges = ", ".join(f"{c.index}번 0~{c.duration:.1f}초" for c in clips)
-    length_rule = (
-        f"- 2~4문장, 나레이션 전체 {syllables}음절({limit:g}초) 이내. 할 말이 적으면 더 짧아도 됩니다. "
-        "짧고 또렷하게, '~습니다'체.\n"
-    )
     cb = str(opening_callback or "").strip()
     hook = _clean_hook_lines(hook_lines)
     if cb:
@@ -160,36 +166,46 @@ def _body_prompt(
             f"자연스럽게 열어 제품 이름(\"{name}\")과 바로 연결하세요.\n"
             f"반전 전환 콜백 오프닝: \"{cb}\"\n"
         )
-        first_line_rule = (
-            f"- 첫 문장은 위 반전 전환 콜백(\"{cb}\")을 자연스럽게 살려 제품 이름(\"{name}\")을 부르고 무엇인지 말합니다.\n"
+        line1_rule = (
+            f"- Line 1 (전환 & 제품명): 위 반전 전환 콜백(\"{cb}\")을 자연스럽게 살려 "
+            f"정확한 제품 이름(\"{name}\")을 부르고 무엇인지 소개합니다.\n"
         )
     elif hook:
         intro_clause = (
             "이 본편은 아래 훅 영상 바로 뒤에 이어집니다. 시청자는 방금 이 말을 들었습니다:\n"
             + "\n".join(f"- \"{t}\"" for t in hook) + "\n"
         )
-        first_line_rule = (
-            "- 첫 문장은 훅의 마지막 말을 이어받아 제품으로 넘어갑니다. 훅 문장을 그대로 되풀이하지 않고, "
-            f"제품 이름(\"{name}\")을 부르며 그것이 무엇인지 말합니다.\n"
+        line1_rule = (
+            "- Line 1 (훅 이어받기 & 제품명): 훅의 마지막 말을 이어받아 제품으로 넘어갑니다. 훅 문장을 그대로 "
+            f"되풀이하지 않고, 정확한 제품 이름(\"{name}\")을 부르며 무엇인지 소개합니다.\n"
             "- 훅이 던진 궁금증이나 문제에 제품이 답하는 흐름으로 씁니다. 다만 훅에 나온 말이라도 "
             "제품 사실 목록에 없는 것은 말하지 않습니다.\n"
         )
     else:
         intro_clause = "이 본편은 어떤 훅 영상 뒤에도 붙으므로, 훅 내용과 상관없이 제품만 설명합니다.\n"
-        first_line_rule = f"- 첫 문장에 제품 이름(\"{name}\")을 부르고 무엇인지 말합니다.\n"
+        line1_rule = f"- Line 1 (도입 & 제품명): 정확한 제품 이름(\"{name}\")을 부르고 무엇인지 소개합니다.\n"
+    offer_line = f"가격/혜택(입력된 내용만 사용): {offer}\n" if offer else ""
+    offer_closer = f" + 입력된 가격/혜택(\"{offer}\") 반영" if offer else ""
+    cta_offer_hint = ", 입력된 가격/혜택이 있으면 짧게 반영 가능" if offer else ""
     return (
-        f"판매자가 직접 찍은 제품 촬영 영상으로 {target:g}~{limit:g}초짜리 제품 설명 영상(본편)을 만듭니다. "
+        f"판매자가 직접 찍은 제품 촬영 영상으로 {target:g}~{limit:g}초짜리 상업용 제품 설명 영상(본편)을 만듭니다. "
         + intro_clause
         + f"제품: {product.get('name', '')} (나레이션에서 부르는 이름: \"{name}\")\n"
+        + offer_line
         + "제품 사실(이것만 말합니다):\n" + "\n".join(f"- {f}" for f in facts) + "\n\n"
-        + "대본 규칙:\n"
-        + length_rule
-        + first_line_rule
-        + "- 핵심 특징 1~2개를 사실 목록에 있는 것만 말합니다. 과장·없는 기능·가격·할인 금지.\n"
-        + "- 문장들은 따로 노는 사실 나열이 아니라 한 이야기로 이어집니다: 제품 소개 → 그래서 무엇이 좋은지 → 쓰는 장면. "
-        + "앞 문장을 받는 말(그래서, 덕분에, 이렇게 등)로 자연스럽게 잇습니다.\n"
-        + "- 마지막 문장은 앞 내용을 묶어 쓰는 장면으로 마무리합니다. 질문이나 댓글 유도는 넣지 않습니다.\n"
+        + "대본 규칙 (3단 커머셜 본편 구조, lines 길이 3):\n"
+        + f"- 정확히 3문장(lines 3개), 나레이션 전체 {syllables}음절({limit:g}초) 이내. 할 말이 적으면 더 짧아도 됩니다. "
+        + "짧고 또렷하게, '~습니다'체.\n"
+        + line1_rule
+        + "- Line 2 (검증된 핵심 효능): 위 제품 사실(verified_facts)에 있는 핵심 효능만 말합니다.\n"
+        + f"- Line 3 (클로징 / CTA): 제품 이름(\"{name}\")을 다시 각인하며 훅을 깔끔하게 회수하는 클로징 펀치"
+        + offer_closer
+        + " + 행동 유도(예: \"지금 프로필 링크에서 확인해 보세요.\" 또는 재치 있는 마감).\n"
+        + "- 세 문장은 따로 노는 나열이 아니라 한 이야기로 이어집니다. 앞 문장을 받는 말(그래서, 덕분에, 이렇게 등)로 "
+        + "자연스럽게 잇습니다.\n"
+        + "- 입력되지 않은 가격·할인이나 제품 사실에 없는 과장·기능은 절대 지어내지 않습니다.\n"
         + "- caption: 짧은 구어 자막, 한 줄 12자 안팎, 최대 2줄(\\n).\n"
+        + f"- cta_badge: 엔드카드 CTA 필에 들어갈 8~14자 짧은 문구 (이모지 금지, 예: \"프로필 링크에서 확인 →\"{cta_offer_hint}).\n"
         + "컷 규칙:\n"
         + "- 아래 프레임에는 클립 번호와 시각(초)이 붙어 있습니다. 문장마다 그 말과 가장 잘 맞는 장면을 "
         + "클립 번호와 시작·끝 초로 고릅니다(문장당 1~2개, 한 컷 1.5초 이상).\n"
@@ -206,6 +222,7 @@ def gemini_script_writer(settings: Any) -> ScriptWriter:
         from google.genai import types
 
         from app.genai_provider import build_genai_client
+        from .a_templates import build_gemini_thinking_config
 
         client = build_genai_client(settings)  # 변수에 담아 둔다 (요청 도중 닫히지 않게)
         model_id = str(getattr(settings, "body_llm", "") or "gemini-4-hydrogen")
@@ -213,14 +230,18 @@ def gemini_script_writer(settings: Any) -> ScriptWriter:
         for frame in frames:
             parts.append(types.Part.from_text(text=f"클립 {frame['clip']}번 {frame['t']:.1f}초"))
             parts.append(types.Part.from_bytes(data=Path(frame["path"]).read_bytes(), mime_type="image/jpeg"))
+        config_kwargs: Dict[str, Any] = {
+            "response_mime_type": "application/json",
+            "response_json_schema": BODY_SCRIPT_SCHEMA,
+        }
+        thinking_cfg = build_gemini_thinking_config(types, model_id, settings)
+        if thinking_cfg is not None:
+            config_kwargs["thinking_config"] = thinking_cfg
         t0 = time.monotonic()
         response = client.models.generate_content(
             model=model_id,
             contents=[types.Content(role="user", parts=parts)],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_json_schema=BODY_SCRIPT_SCHEMA,
-            ),
+            config=types.GenerateContentConfig(**config_kwargs),
         )
         elapsed_ms = int((time.monotonic() - t0) * 1000)
         text = getattr(response, "text", None) or ""
@@ -435,8 +456,11 @@ def make_body(
     done = out / "body.json"
     if done.is_file() and (out / "body.mp4").is_file():
         meta = json.loads(done.read_text(encoding="utf-8"))
+        script_meta = dict(meta.get("script") or {})
+        if not str(script_meta.get("cta_badge") or "").strip():
+            script_meta["cta_badge"] = str(product.get("price_or_offer") or "").strip()[:16] or "프로필 링크에서 확인 →"
         return BodyEditResult(video=out / "body.mp4", srt=out / "body.srt", duration_sec=meta["duration_sec"],
-                              lufs=meta.get("lufs"), script=meta["script"], reused=True, warnings=meta.get("warnings", []))
+                              lufs=meta.get("lufs"), script=script_meta, reused=True, warnings=meta.get("warnings", []))
     work = out / "_work"
     (work / "frames").mkdir(parents=True, exist_ok=True)
     warnings: List[str] = []
@@ -557,8 +581,10 @@ def make_body(
                      burn_captions=bool(getattr(settings, "hook_burn_captions", True)), subtitle_style=subtitle_style)
     info = probe(tools, out / "body.mp4")
     lufs = measure_lufs(tools, out / "body.mp4")
+    default_cta = str(product.get("price_or_offer") or "").strip()[:16] or "프로필 링크에서 확인 →"
+    cta_badge = str((script_raw or {}).get("cta_badge") or "").strip() or default_cta
     script = {"lines": [{k: v for k, v in line.items() if k in ("narration", "caption", "shots", "start", "duration")}
-                        for line in lines], "tempo": round(tempo, 3)}
+                        for line in lines], "tempo": round(tempo, 3), "cta_badge": cta_badge}
     meta = {"duration_sec": round(info.duration, 3), "lufs": lufs, "captions_burned": burned, "script": script,
             "clips": [{"index": c.index, "file": c.path.name, "seconds": round(c.duration, 2)} for c in clips],
             "warnings": warnings}

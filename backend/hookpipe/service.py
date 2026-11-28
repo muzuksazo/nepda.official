@@ -25,6 +25,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .audio_mix import mix_bgm_and_sfx, resolve_audio_pack
 from .body import attach_body
+from .endcard import append_endcard, build_endcard_clip, extract_best_product_frame, render_packshot_png
 from .media import MediaTools, find_tools
 from .body_edit import ScriptWriter, body_cache_key, make_body
 from .selfhosted import SelfHostedMedia
@@ -51,6 +52,33 @@ def is_worker_scenario(scenario: Optional[Dict[str, Any]]) -> bool:
         return False
     spec = scenario.get("ad_spec") or {}
     return bool(scenario.get("beats")) and not spec.get("timeline")
+
+
+def _read_body_cta_badge(body_video: Path, product: Dict[str, Any]) -> str:
+    """본편 메타(body.json)의 script.cta_badge, 없으면 짧은 price_or_offer 또는 기본 CTA 문구를 돌려준다."""
+    meta_path = body_video.parent / "body.json"
+    if meta_path.is_file():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            badge = str(((meta.get("script") or {}) if isinstance(meta, dict) else {}).get("cta_badge") or "").strip()
+            if badge:
+                return badge
+        except Exception:
+            pass
+    offer = str((product or {}).get("price_or_offer") or "").strip()
+    if offer and len(offer) <= 16:
+        return offer
+    return "프로필 링크에서 확인 →"
+
+
+def _pick_endcard_subhead(product: Dict[str, Any], cta_badge: str) -> str:
+    offer = str((product or {}).get("price_or_offer") or "").strip()
+    facts = [str(f).strip() for f in ((product or {}).get("verified_facts") or []) if str(f).strip()]
+    if offer and offer != cta_badge:
+        if facts and len(facts[0]) <= 26 and len(offer) <= 22:
+            return f"{facts[0]} · {offer}"
+        return offer
+    return facts[0] if facts else ""
 
 
 def _opening_callback_for_scenario(scenario: Optional[Dict[str, Any]]) -> Optional[str]:
@@ -732,6 +760,44 @@ class HookPipeline:
             joined.warnings = [*body_warnings, *joined.warnings]
             self._raise_if_cancelled(job_id)
 
+            applied_endcard_sec = 0.0
+            if bool(getattr(self.settings, "hook_endcard_enabled", True)):
+                endcard_sec = max(1.2, min(3.5, float(getattr(self.settings, "hook_endcard_sec", 2.0) or 2.0)))
+                endcard_dir = job_dir / "_endcard"
+                try:
+                    media = self._media()
+                    product = project.get("product") or {}
+                    cta_badge = _read_body_cta_badge(body_video, product)
+                    product_name = str(product.get("name") or product.get("call_name") or "").strip() or "제품 확인하기"
+                    subhead = _pick_endcard_subhead(product, cta_badge)
+                    bg_frame = extract_best_product_frame(body_video, endcard_dir / "packshot_frame.png", media)
+                    card_png = render_packshot_png(
+                        bg_frame,
+                        product_name=product_name,
+                        subhead=subhead,
+                        cta_badge=cta_badge,
+                        out_png=endcard_dir / "packshot_card.png",
+                    )
+                    endcard_mp4 = build_endcard_clip(
+                        card_png,
+                        endcard_dir / "endcard.mp4",
+                        duration_sec=endcard_sec,
+                        tools=media,
+                    )
+                    new_dur = append_endcard(
+                        final_path,
+                        endcard_mp4,
+                        tools=media,
+                        tmp_dir=endcard_dir,
+                    )
+                    joined.duration_sec = round(new_dur, 3)
+                    applied_endcard_sec = endcard_sec
+                except Exception as exc:
+                    logger.warning("상업용 엔드카드 생성을 건너뛰고 기존 최종 영상을 사용합니다: %s", exc)
+                    joined.warnings.append(f"엔드카드 생성을 건너뛰었습니다: {exc}")
+                    applied_endcard_sec = 0.0
+            self._raise_if_cancelled(job_id)
+
             try:
                 clip_audio_preserved = False
                 twist_sec: Optional[float] = None
@@ -762,6 +828,7 @@ class HookPipeline:
                     pack=audio_pack,
                     tmp_dir=job_dir / "_audio_mix",
                     hook_bgm_db=-21.0 if clip_audio_preserved else -17.0,
+                    endcard_sec=applied_endcard_sec,
                 )
                 if mixed_lufs is not None:
                     joined.lufs = mixed_lufs

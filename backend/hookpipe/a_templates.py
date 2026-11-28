@@ -328,7 +328,7 @@ def _is_explicit_override(settings: Any, model_override: Optional[str]) -> bool:
     override = str(model_override or "").strip()
     if not override:
         return False
-    if getattr(settings, "_resolved_llm_explicit", False):
+    if getattr(settings, "_resolved_llm_model_explicit", False):
         return True
     # Direct callers (tests/tools) passing model_override without workers.py overlay
     resolved_from_overlay = getattr(settings, "_resolved_llm_model", None)
@@ -358,6 +358,23 @@ def _resolve_executor_model(settings: Any, model_override: Optional[str] = None)
     )
 
 
+def build_gemini_thinking_config(types_mod: Any, model_id: str, settings: Any) -> Any:
+    """Build model-appropriate ThinkingConfig (thinking_level for Gemini 3/4, thinking_budget otherwise)."""
+    budget = int(getattr(settings, "llm_thinking_budget", 1024) or 0)
+    if budget <= 0 or not hasattr(types_mod, "ThinkingConfig"):
+        return None
+    lower = str(model_id or "").strip().lower()
+    uses_level = "gemini-4" in lower or ("gemini-3" in lower and "gemini-3-pro-image" not in lower)
+    if uses_level:
+        level_raw = str(getattr(settings, "llm_thinking_level", "LOW") or "LOW").strip().upper()
+        if level_raw == "MINIMAL" and ("gemini-4-hydrogen" in lower or "gemini-4-neon" in lower):
+            level_raw = "LOW"
+        thinking_enum = getattr(types_mod, "ThinkingLevel", None)
+        level_val = getattr(thinking_enum, level_raw, level_raw) if thinking_enum is not None else level_raw
+        return types_mod.ThinkingConfig(thinking_level=level_val)
+    return types_mod.ThinkingConfig(thinking_budget=budget)
+
+
 def _make_gemini_json_caller(
     settings: Any,
     *,
@@ -371,15 +388,19 @@ def _make_gemini_json_caller(
         from app.genai_provider import build_genai_client
 
         client = build_genai_client(settings)  # 변수에 담아 둔다 (요청 도중 닫히지 않게)
+        config_kwargs: Dict[str, Any] = {
+            "system_instruction": system,
+            "response_mime_type": "application/json",
+            "response_json_schema": schema,
+        }
+        thinking_cfg = build_gemini_thinking_config(types, model_id, settings)
+        if thinking_cfg is not None:
+            config_kwargs["thinking_config"] = thinking_cfg
         t0 = time.monotonic()
         response = client.models.generate_content(
             model=model_id,
             contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                response_mime_type="application/json",
-                response_json_schema=schema,
-            ),
+            config=types.GenerateContentConfig(**config_kwargs),
         )
         elapsed_ms = int((time.monotonic() - t0) * 1000)
         text = getattr(response, "text", None) or ""
