@@ -1072,6 +1072,7 @@ textarea.n-input {
   position: absolute;
   top: 8px;
   right: 8px;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;

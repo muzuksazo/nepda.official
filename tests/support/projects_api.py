@@ -94,6 +94,7 @@ def build_test_client(root: Path, *, daily_render_limit: int = 3) -> TestClient:
         google_client_id="dummy-client-id.apps.googleusercontent.com",
         session_secret="test-session-secret-32bytes-minimum",
         daily_render_limit=daily_render_limit,
+        hook_render_mode="dry_run",  # 과금 호출 없이 scenario.json·hook.srt 만 (영상 생성은 tests/hookpipe 에서 대역으로 검증)
         work_root=str(root / "work"),
         output_dir=str(root / "outputs"),
         db_path=str(root / "napda.db"),

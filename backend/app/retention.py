@@ -49,6 +49,9 @@ def sync_project_status_with_job(
     p_status = project.get("status")
     if j_status == "QC_READY" and p_status != "DELIVERABLE_READY":
         return project_store.update_project(project["project_id"], status="DELIVERABLE_READY")
+    if j_status == "CANCELED" and p_status == "RENDERING":
+        next_status = "UPLOADS_READY" if (project.get("uploads") or {}).get("clips") else "STORYBOARD_READY"
+        return project_store.update_project(project["project_id"], status=next_status)
     if j_status == "FAILED" and p_status == "RENDERING":
         return project_store.update_project(project["project_id"], status="FAILED")
     return project

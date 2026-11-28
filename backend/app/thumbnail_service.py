@@ -27,6 +27,64 @@ EMOJI_RE = re.compile(
     flags=re.UNICODE,
 )
 
+THUMBNAIL_STYLES: tuple[str, ...] = ("invert-box", "white-label", "serif-outline", "pov-bar")
+FIGMA_THUMBNAIL_STYLES: tuple[str, ...] = THUMBNAIL_STYLES
+DEFAULT_THUMBNAIL_STYLE: str = "invert-box"
+THUMBNAIL_STYLE_ALIASES: Dict[str, str] = {
+    "invert-box": "invert-box",
+    "invert_box": "invert-box",
+    "white-label": "white-label",
+    "white_label": "white-label",
+    "serif-outline": "serif-outline",
+    "serif_outline": "serif-outline",
+    "pov-bar": "pov-bar",
+    "pov_bar": "pov-bar",
+    # Legacy Pillow style aliases mapped to canonical 4 Figma Storybook styles
+    "stroke": "serif-outline",
+    "stroke_bold": "serif-outline",
+    "blocks": "white-label",
+    "line_blocks": "white-label",
+    "card": "invert-box",
+    "panel_card": "invert-box",
+    "split": "pov-bar",
+}
+
+
+def normalize_thumbnail_style(style: Optional[str]) -> str:
+    raw = str(style or "").strip().lower()
+    return THUMBNAIL_STYLE_ALIASES.get(raw, DEFAULT_THUMBNAIL_STYLE)
+
+
+def _build_thumb_spec_item(
+    *,
+    item_id: str,
+    filename: str,
+    chosen_bg: Path,
+    clean_lines: List[str],
+    clean_badge: str,
+    style: str,
+    clean_highlight: str = "",
+) -> Dict[str, Any]:
+    valid_style = normalize_thumbnail_style(style)
+    thumb_item: Dict[str, Any] = {
+        "id": item_id,
+        "filename": filename,
+        "layout": "figma",
+        "figma_variant": valid_style,
+        "image": str(chosen_bg),
+        "strict_margin": True,
+        "headline": {
+            "style": valid_style,
+            "lines": [{"text": ln} for ln in clean_lines],
+            **({"highlight_word": clean_highlight} if clean_highlight else {}),
+        },
+    }
+    if clean_badge:
+        thumb_item["badge"] = clean_badge
+    if clean_highlight:
+        thumb_item["highlight_word"] = clean_highlight
+    return thumb_item
+
 
 def _strip_emojis(text: str) -> str:
     return EMOJI_RE.sub("", str(text or "")).strip()
@@ -153,8 +211,10 @@ def generate_project_thumbnail(
     job: Optional[Dict[str, Any]] = None,
     headline_lines: Optional[Sequence[str]] = None,
     badge: Optional[str] = None,
-    style: str = "stroke_bold",
+    highlight_word: Optional[str] = None,
+    style: str = DEFAULT_THUMBNAIL_STYLE,
     source_image_key: Optional[str] = None,
+    include_style_previews: bool = True,
 ) -> Dict[str, Any]:
     """Build a 1080x1920 safe-zone validated cover PNG using `ad_thumbnail_builder.py`."""
     project_id = project["project_id"]
@@ -171,11 +231,16 @@ def generate_project_thumbnail(
         if explicit is not None:
             local_candidates.append(explicit)
 
-    # Check rendered master video keyframes first
+    # Prefer clean_mp4 (subtitle/watermark-free) BEFORE master_mp4 for crisp cover keyframes
     rendered = ((job or {}).get("artifacts") or {}).get("rendered") or []
     if rendered and isinstance(rendered[0], dict):
-        v_ref = rendered[0].get("master_mp4") or rendered[0].get("clean_mp4")
-        v_local = _resolve_local_from_ref(v_ref, cand_dir / "master.mp4", storage)
+        v_local = None
+        for ref_key in ("clean_mp4", "master_mp4"):
+            cand_ref = rendered[0].get(ref_key)
+            if cand_ref:
+                v_local = _resolve_local_from_ref(cand_ref, cand_dir / f"{ref_key}.mp4", storage)
+                if v_local is not None:
+                    break
         if v_local is not None:
             local_candidates.extend(extract_video_keyframes(v_local, cand_dir / "master_kf"))
 
@@ -224,50 +289,46 @@ def generate_project_thumbnail(
         candidate_keys.append(ckey)
 
     chosen_bg = unique_cands[0]
-    clean_lines = [_strip_emojis(ln)[:18] for ln in (headline_lines or default_headline_lines(project, scenario)) if _strip_emojis(ln)][:2]
+    clean_lines = [
+        _strip_emojis(ln)[:36]
+        for ln in (headline_lines or default_headline_lines(project, scenario))
+        if _strip_emojis(ln)
+    ][:3]
     if not clean_lines:
-        clean_lines = [str((project.get("product") or {}).get("name") or "제품 확인")[:14]]
+        clean_lines = [str((project.get("product") or {}).get("name") or "제품 확인")[:18]]
 
-    clean_badge = _strip_emojis(badge)[:18] if badge else ""
-    valid_style = style if style in {"stroke_bold", "line_blocks", "panel_card"} else "stroke_bold"
+    clean_badge = _strip_emojis(badge)[:32] if badge else ""
+    clean_highlight = _strip_emojis(highlight_word)[:24] if highlight_word else ""
+    valid_style = normalize_thumbnail_style(style)
 
-    line_entries = [
-        {
-            "text": ln,
-            "color": (
-                [214, 255, 63]
-                if (idx == 1 and valid_style == "stroke_bold")
-                else ([14, 18, 26] if valid_style == "line_blocks" else [255, 255, 255])
-            ),
-        }
-        for idx, ln in enumerate(clean_lines)
+    thumb_items: List[Dict[str, Any]] = [
+        _build_thumb_spec_item(
+            item_id="cover",
+            filename="cover.png",
+            chosen_bg=chosen_bg,
+            clean_lines=clean_lines,
+            clean_badge=clean_badge,
+            clean_highlight=clean_highlight,
+            style=valid_style,
+        )
     ]
-
-    thumb_item: Dict[str, Any] = {
-        "id": "cover",
-        "filename": "cover.png",
-        "layout": "single",
-        "image": str(chosen_bg),
-        "strict_margin": True,
-        "scrim": {"y_top": 450, "y_bottom": 960, "peak_alpha": 185, "edge_soft": 110},
-        "headline": {
-            "style": valid_style,
-            "font_size": 88,
-            "gap_after_pill": 22,
-            "lines": line_entries,
-        },
-    }
-    if clean_badge:
-        thumb_item["pill"] = {
-            "y": 510,
-            "text": clean_badge,
-            "fill": [214, 255, 63, 245],
-            "outline": [10, 10, 10, 255],
-            "text_color": [10, 10, 10, 255],
-            "font_size": 36,
-        }
-    else:
-        thumb_item["headline"]["y"] = 560
+    sibling_styles: List[str] = []
+    if include_style_previews:
+        for st in THUMBNAIL_STYLES:
+            if st == valid_style:
+                continue
+            sibling_styles.append(st)
+            thumb_items.append(
+                _build_thumb_spec_item(
+                    item_id=f"preview_{st}",
+                    filename=f"preview_{st}.png",
+                    chosen_bg=chosen_bg,
+                    clean_lines=clean_lines,
+                    clean_badge=clean_badge,
+                    clean_highlight=clean_highlight,
+                    style=st,
+                )
+            )
 
     spec_path = work_dir / "thumbs_spec.json"
     spec_path.write_text(
@@ -275,7 +336,7 @@ def generate_project_thumbnail(
             {
                 "canvas": {"width": 1080, "height": 1920},
                 "strict_margin": True,
-                "thumbnails": [thumb_item],
+                "thumbnails": thumb_items,
             },
             ensure_ascii=False,
             indent=2,
@@ -294,11 +355,26 @@ def generate_project_thumbnail(
     if proc.returncode != 0:
         raise RuntimeError(f"ad_thumbnail_builder failed: {proc.stderr or proc.stdout}")
     result = json.loads(proc.stdout.strip())
-    thumb_info = (result.get("thumbnails") or [{}])[0]
+    rendered_by_id = {
+        str(entry.get("id") or ""): entry
+        for entry in (result.get("thumbnails") or [])
+        if isinstance(entry, dict)
+    }
+    thumb_info = rendered_by_id.get("cover") or (result.get("thumbnails") or [{}])[0]
     cover_path = Path(thumb_info["path"])
 
     cover_key = thumbnail_object_key(project_id, thumb_id, "cover.png")
     storage.upload_file(cover_path, cover_key)
+
+    style_preview_keys: Dict[str, str] = {valid_style: cover_key}
+    for st in sibling_styles:
+        entry = rendered_by_id.get(f"preview_{st}")
+        if entry and entry.get("path"):
+            p_path = Path(entry["path"])
+            if p_path.is_file():
+                p_key = thumbnail_object_key(project_id, thumb_id, f"preview_{st}.png")
+                storage.upload_file(p_path, p_key)
+                style_preview_keys[st] = p_key
 
     return {
         "thumb_id": thumb_id,
@@ -307,7 +383,9 @@ def generate_project_thumbnail(
         "warnings": list(thumb_info.get("warnings") or []),
         "headline_lines": clean_lines,
         "badge": clean_badge or None,
+        "highlight_word": clean_highlight or None,
         "style": valid_style,
         "candidate_keys": candidate_keys,
+        "style_preview_keys": style_preview_keys,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }

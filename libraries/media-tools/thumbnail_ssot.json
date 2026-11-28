@@ -1,0 +1,223 @@
+{
+  "version": "2026-11-r3",
+  "description": "Canonical Single Source of Truth (SSOT) for NAPDA 1080x1920 Reels/Shorts cover thumbnails (4 Figma Storybook variants).",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "brand": {
+    "lime_hex": "#D6FF3F",
+    "lime_rgb": [214, 255, 63]
+  },
+  "safe_zone": {
+    "reels_ui": {
+      "figma_node": "#114:383",
+      "x_min": 63,
+      "x_max": 1016,
+      "y_min": 168,
+      "y_max": 1396,
+      "lower_right_cutout": {
+        "y_min": 1094,
+        "x_max": 924
+      }
+    },
+    "ig_profile_3_4_crop": {
+      "y_min": 240,
+      "y_max": 1680
+    },
+    "ig_profile_1_1_crop": {
+      "y_min": 420,
+      "y_max": 1500
+    },
+    "strict_text_box": {
+      "x_min": 64,
+      "x_max": 1016,
+      "y_min": 248,
+      "y_max": 1396,
+      "max_text_width": 944
+    }
+  },
+  "fonts": {
+    "sans": {
+      "css_family": "'Pretendard Variable', Pretendard, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      "env_override": "SHORTFORM_FONT_BOLD",
+      "pillow_candidates": [
+        "~/Library/Fonts/Pretendard-Bold.otf",
+        "~/Library/Fonts/Pretendard-Bold.ttf",
+        "~/Library/Fonts/NotoSansCJKkr-Bold.otf",
+        "/Library/Fonts/NotoSansCJKkr-Bold.otf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/System/Library/Fonts/Helvetica.ttc"
+      ]
+    },
+    "serif": {
+      "css_family": "'Bookk Myungjo', 'Noto Serif KR', serif",
+      "web_asset": "frontend/src/assets/fonts/BookkMyungjo-Bd.woff2",
+      "env_override": "SHORTFORM_FONT_SERIF",
+      "pillow_candidates": [
+        "~/Library/Fonts/BookkMyungjo-Bd.ttf",
+        "~/Library/Fonts/BookkMyungjo-Bd.otf",
+        "/Library/Fonts/BookkMyungjo-Bd.ttf",
+        "~/Library/Fonts/NotoSerifCJKkr-Bold.otf",
+        "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/nanum/NanumMyeongjoBold.ttf",
+        "/System/Library/Fonts/Supplemental/AppleMyungjo.ttf"
+      ]
+    }
+  },
+  "default_variant": "invert-box",
+  "variant_order": [
+    "invert-box",
+    "white-label",
+    "serif-outline",
+    "pov-bar"
+  ],
+  "legacy_style_aliases": {
+    "stroke": "serif-outline",
+    "stroke_bold": "serif-outline",
+    "blocks": "white-label",
+    "line_blocks": "white-label",
+    "card": "invert-box",
+    "panel_card": "invert-box",
+    "split": "pov-bar"
+  },
+  "variants": {
+    "invert-box": {
+      "label_ko": "반전 박스",
+      "description_ko": "화이트/블랙 반전 2줄 박스",
+      "figma_nodes": ["#101:842", "#114:389"],
+      "layout": "full_bleed",
+      "scrim": false,
+      "bg_fallback_hex": "#111317",
+      "align": "center",
+      "top": 296,
+      "left": 64,
+      "right": 64,
+      "font_family": "sans",
+      "font_weight": 500,
+      "font_size": 78,
+      "min_font_size": 28,
+      "max_text_width": 900,
+      "max_box_width": 952,
+      "line_height": 1.16,
+      "pad_x": 22,
+      "pad_y": 10,
+      "even_line": {
+        "bg": "#ffffff",
+        "ink": "#111111",
+        "highlight_bg": "#d6ff3f",
+        "highlight_ink": "#000000"
+      },
+      "odd_line": {
+        "bg": "#020202",
+        "ink": "#ffffff",
+        "highlight_bg": null,
+        "highlight_ink": "#d6ff3f"
+      }
+    },
+    "white-label": {
+      "label_ko": "화이트 라벨",
+      "description_ko": "좌측정렬 화이트 라벨",
+      "figma_nodes": ["#105:263"],
+      "layout": "full_bleed",
+      "scrim": false,
+      "bg_fallback_hex": "#12151c",
+      "align": "left",
+      "top": 340,
+      "left": 68,
+      "right": 68,
+      "font_family": "sans",
+      "font_weight": 700,
+      "font_size": 92,
+      "min_font_size": 28,
+      "max_text_width": 880,
+      "max_box_width": 944,
+      "line_height": 1.12,
+      "pad_x": 20,
+      "pad_y": 10,
+      "line_style": {
+        "bg": "#ffffff",
+        "ink": "#000000",
+        "highlight_bg": "#d6ff3f",
+        "highlight_ink": "#000000"
+      }
+    },
+    "serif-outline": {
+      "label_ko": "명조 임팩트",
+      "description_ko": "대형 명조 외곽선 임팩트",
+      "figma_nodes": ["#105:264", "#105:265"],
+      "layout": "full_bleed",
+      "scrim": false,
+      "bg_fallback_hex": "#141414",
+      "align": "center",
+      "top": 248,
+      "left": 64,
+      "right": 64,
+      "font_family": "serif",
+      "font_weight": 700,
+      "dynamic_font_size": [
+        { "max_chars": 5, "font_size": 210 },
+        { "max_chars": 8, "font_size": 152 },
+        { "max_chars": null, "font_size": 112 }
+      ],
+      "min_font_size": 32,
+      "max_text_width": 920,
+      "line_height": 1.06,
+      "ink": "#000000",
+      "stroke_color": "#ffffff",
+      "stroke_width_css": 22,
+      "stroke_width_pillow": 11,
+      "highlight_ink": "#d6ff3f",
+      "highlight_stroke_color": "#000000",
+      "highlight_stroke_width_css": 22,
+      "highlight_stroke_width_pillow": 11,
+      "badge": {
+        "font_family": "serif",
+        "font_style": "italic",
+        "font_size": 52,
+        "ink": "#ffffff",
+        "stroke_color": "#000000",
+        "stroke_width_css": 10,
+        "stroke_width_pillow": 5,
+        "gap_below": 16
+      }
+    },
+    "pov-bar": {
+      "label_ko": "상단 POV",
+      "description_ko": "상단 블랙 바 POV 밈형",
+      "figma_nodes": ["#121:404"],
+      "layout": "top_bar_image",
+      "scrim": false,
+      "bg_fallback_hex": "#000000",
+      "top_bar": {
+        "y": 0,
+        "height": 560,
+        "bg": "#000000",
+        "text_y_min": 248,
+        "text_y_max": 532,
+        "pad_x": 72
+      },
+      "image_area": {
+        "x": 0,
+        "y": 560,
+        "width": 1080,
+        "height": 1360
+      },
+      "align": "center",
+      "left": 72,
+      "right": 72,
+      "font_family": "sans",
+      "font_weight": 700,
+      "font_size": 60,
+      "min_font_size": 28,
+      "max_text_width": 936,
+      "line_height": 1.32,
+      "ink": "#ffffff",
+      "highlight_ink": "#d6ff3f"
+    }
+  }
+}

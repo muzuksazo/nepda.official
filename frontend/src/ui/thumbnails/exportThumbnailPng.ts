@@ -1,22 +1,69 @@
 import { brand } from '../brand';
 import {
-  computeSerifOutlineFontSize,
+  computeFittedFontSize,
   THUMBNAIL_HEIGHT,
   THUMBNAIL_WIDTH,
+  VARIANT_TYPOGRAPHY_LIMITS,
   type ThumbnailTemplateProps,
+  type ThumbnailVariant,
 } from './presets';
 
 const SANS_FONT = "'Pretendard Variable', Pretendard, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 const SERIF_FONT = "'Bookk Myungjo', 'Noto Serif KR', serif";
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`이미지 로드 실패: ${src}`));
-    img.src = src;
-  });
+/** 실측 ctx.measureText로 maxTextWidth를 절대 넘지 않도록 최종 폰트 크기를 맞춘다 */
+function fitCanvasFontSize(
+  ctx: CanvasRenderingContext2D,
+  variant: ThumbnailVariant,
+  lines: string[],
+  headlineText: string,
+  fontWeight: number,
+  fontFamily: string,
+): number {
+  const { maxTextWidth, minFontSize } = VARIANT_TYPOGRAPHY_LIMITS[variant];
+  let fontSize = computeFittedFontSize(variant, headlineText);
+  if (lines.length === 0) return fontSize;
+  while (fontSize > minFontSize) {
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    const widest = Math.max(...lines.map((line) => ctx.measureText(line).width));
+    if (widest <= maxTextWidth) break;
+    fontSize = Math.max(minFontSize, fontSize - 2);
+  }
+  return fontSize;
+}
+
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  let objectUrl: string | null = null;
+  let effectiveSrc = src;
+
+  if (!src.startsWith('data:') && !src.startsWith('blob:')) {
+    try {
+      const response = await fetch(src, { credentials: 'include' });
+      if (response.ok) {
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+        effectiveSrc = objectUrl;
+      }
+    } catch {
+      // Fall back to direct Image load below.
+    }
+  }
+
+  try {
+    return await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      if (!objectUrl) {
+        img.crossOrigin = 'anonymous';
+      }
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`이미지 로드 실패: ${src}`));
+      img.src = effectiveSrc;
+    });
+  } finally {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
 }
 
 function roundRectPath(
@@ -229,7 +276,7 @@ export async function exportThumbnailPng(
     drawBottomGradientIfNeeded(ctx, props.showBottomGradient);
 
     let curY = drawBadgePill(ctx, 540, 540, 296, badgeText);
-    const fontSize = 78;
+    const fontSize = fitCanvasFontSize(ctx, 'invert-box', lines, headlineText, 500, SANS_FONT);
     const boxHeight = Math.round(fontSize * 1.16 + 20);
     ctx.font = `500 ${fontSize}px ${SANS_FONT}`;
     ctx.textBaseline = 'middle';
@@ -265,7 +312,7 @@ export async function exportThumbnailPng(
     drawBottomGradientIfNeeded(ctx, props.showBottomGradient);
 
     let curY = drawBadgePill(ctx, null, 68, 340, badgeText);
-    const fontSize = 92;
+    const fontSize = fitCanvasFontSize(ctx, 'white-label', lines, headlineText, 700, SANS_FONT);
     const boxHeight = Math.round(fontSize * 1.12 + 20);
     ctx.font = `700 ${fontSize}px ${SANS_FONT}`;
     ctx.textBaseline = 'middle';
@@ -298,7 +345,7 @@ export async function exportThumbnailPng(
     if (img) drawCoverImage(ctx, img, 0, 0, 1080, 1920, imgScale, imgOffX, imgOffY);
     drawBottomGradientIfNeeded(ctx, props.showBottomGradient);
 
-    let curY = 235;
+    let curY = 248;
     if (badgeText) {
       ctx.save();
       ctx.font = `italic 700 52px ${SERIF_FONT}`;
@@ -318,7 +365,8 @@ export async function exportThumbnailPng(
     }
 
     if (lines.length > 0) {
-      const fontSize = computeSerifOutlineFontSize(headlineText);
+      const fontSize = fitCanvasFontSize(ctx, 'serif-outline', lines, headlineText, 700, SERIF_FONT);
+      const strokeWidth = fontSize >= 100 ? 22 : Math.max(12, Math.round(fontSize * 0.2));
       const lineHeight = Math.round(fontSize * 1.06);
       ctx.save();
       ctx.font = `700 ${fontSize}px ${SERIF_FONT}`;
@@ -339,7 +387,7 @@ export async function exportThumbnailPng(
           '#d6ff3f',
           undefined,
           '#ffffff',
-          22,
+          strokeWidth,
           '#000000',
         );
         curY += lineHeight;
@@ -360,7 +408,7 @@ export async function exportThumbnailPng(
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, 1080, 560);
 
-    const fontSize = 60;
+    const fontSize = fitCanvasFontSize(ctx, 'pov-bar', lines, headlineText, 700, SANS_FONT);
     const lineHeight = Math.round(fontSize * 1.32);
     const badgeH = badgeText ? 74 : 0;
     const blockH = badgeH + lines.length * lineHeight;
@@ -406,5 +454,7 @@ export async function exportThumbnailPng(
   const a = document.createElement('a');
   a.href = dataUrl;
   a.download = `napda-thumbnail-${props.variant}.png`;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
 }

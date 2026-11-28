@@ -58,7 +58,13 @@ class TestGenAIMediaProvider(GenAIMediaProviderCase):
                 interactions=_FakeInteractions(png_bytes=self.png_bytes, mp4_bytes=self.mp4_bytes),
                 models=_FakeModels(),
             )
-            settings = Settings(gemini_api_key="dummy", poll_interval_sec=0.0, video_timeout_sec=10.0)
+            settings = Settings(
+                _env_file=None,
+                gemini_api_key="dummy",
+                google_genai_use_vertexai=False,
+                poll_interval_sec=0.0,
+                video_timeout_sec=10.0,
+            )
             provider = GenAIMediaProvider(settings, client=fake_client)
 
             # Budget cap triggers BEFORE any paid video calls

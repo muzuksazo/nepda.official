@@ -59,11 +59,28 @@ export interface ThumbnailTemplateProps {
 export const THUMBNAIL_WIDTH = 1080;
 export const THUMBNAIL_HEIGHT = 1920;
 
+/** Canonical safe-zone boundaries matching libraries/media-tools/thumbnail_ssot.json */
+export const THUMBNAIL_SAFE_ZONE = {
+  reels: { xMin: 63, xMax: 1016, yMin: 168, yMax: 1396, cutoutXMax: 924, cutoutYMin: 1094 },
+  feed3x4: { yMin: 240, yMax: 1680 },
+  textSafeBox: { xMin: 64, xMax: 1016, yMin: 248, yMax: 1396 },
+} as const;
+
+export const VARIANT_TYPOGRAPHY_LIMITS: Record<
+  ThumbnailVariant,
+  { baseFontSize: number; maxTextWidth: number; minFontSize: number }
+> = {
+  'invert-box': { baseFontSize: 78, maxTextWidth: 900, minFontSize: 28 },
+  'white-label': { baseFontSize: 92, maxTextWidth: 880, minFontSize: 28 },
+  'serif-outline': { baseFontSize: 210, maxTextWidth: 920, minFontSize: 32 },
+  'pov-bar': { baseFontSize: 60, maxTextWidth: 936, minFontSize: 28 },
+};
+
 export const SANS_FONT_FAMILY =
   "var(--font-sans, 'Pretendard Variable', Pretendard, 'Inter', sans-serif)";
 export const SERIF_FONT_FAMILY = "'Bookk Myungjo', 'Noto Serif KR', serif";
 
-/** 스타일 3 (대형 명조 외곽선) 글자 수에 맞춰 DOM·Canvas 동일 크기를 산출한다. */
+/** 스타일 3 (대형 명조 외곽선) 글자 수에 맞춰 DOM·Canvas 동일 기준 크기를 산출한다. */
 export function computeSerifOutlineFontSize(headline: string): number {
   const maxChars = Math.max(
     ...headline.split('\n').map((l) => [...l.trim()].length),
@@ -72,6 +89,47 @@ export function computeSerifOutlineFontSize(headline: string): number {
   if (maxChars <= 5) return 210;
   if (maxChars <= 8) return 152;
   return 112;
+}
+
+/** 한 줄의 예상 em 너비를 계산한다 (한글/CJK 0.96, 영문 대문자·숫자 0.62, 소문자·기호 0.50, 공백 0.30). */
+function estimateLineUnits(line: string): number {
+  let units = 0;
+  for (const ch of line.trim()) {
+    if (/\s/.test(ch)) {
+      units += 0.3;
+    } else if (/[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af\u3000-\u9fff\uff00-\uffef]/.test(ch)) {
+      units += 0.96;
+    } else if (/[A-Z0-9@#%&]/.test(ch)) {
+      units += 0.62;
+    } else {
+      units += 0.5;
+    }
+  }
+  return Math.max(units, 1);
+}
+
+/**
+ * 4종 Figma 스타일별 안전 영역(maxTextWidth) 안에 들어가도록 가로 자동 축소 폰트 크기를 계산한다.
+ * DOM(ThumbnailTemplate)과 Canvas(exportThumbnailPng)가 동일한 기준을 공유한다.
+ */
+export function computeFittedFontSize(variant: ThumbnailVariant, headline: string): number {
+  const limits = VARIANT_TYPOGRAPHY_LIMITS[variant];
+  const clean = headline?.trim() ?? '';
+  const baseSize =
+    variant === 'serif-outline'
+      ? computeSerifOutlineFontSize(clean || '제목')
+      : limits.baseFontSize;
+  if (!clean) return baseSize;
+  const lines = clean
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return baseSize;
+  const maxUnits = Math.max(...lines.map(estimateLineUnits), 1);
+  if (maxUnits * baseSize <= limits.maxTextWidth) {
+    return baseSize;
+  }
+  return Math.max(limits.minFontSize, Math.floor(limits.maxTextWidth / maxUnits));
 }
 
 export const VARIANT_PRESETS: Record<

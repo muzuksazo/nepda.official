@@ -21,13 +21,16 @@ Windows에서는 Python 경로를 `.venv\Scripts\python.exe`로 바꿉니다. �
 | `POST /v1/auth/google`, `GET /v1/auth/me` | Google One Tap 로그인·세션·일일 한도 조회 |
 | `GET /v1/hook-types` | A·B·C 유형 & 교체 테스트 메타 조회 |
 | `POST /v1/projects`, `GET /v1/projects/{project_id}` | 제품 입력·촬영 후 이어하기 프로젝트 상태 |
-| `POST /v1/projects/{project_id}/scenarios` | 글 시나리오 생성 (`libraries/planner-api` 연결) |
+| `POST /v1/projects/{project_id}/scenarios` | 글 시나리오 생성 (유형별 작업자 `bridge-dev/{a,b,c}`, 실패 시 `libraries/planner-api`) |
 | `POST /v1/projects/{project_id}/scenarios/{id}/storyboard` | 선택형 이미지 콘티 생성 |
 | `POST /v1/projects/{project_id}/filming-guide` | 촬영 가이드 확정 (`shots[]`) |
 | `POST /v1/projects/{project_id}/estimate` | 실행 전 예상 크레딧·일일 잔여 횟수 조회 |
 | `POST /v1/uploads/presign`, `POST /v1/projects/{id}/uploads/complete` | 업로드 URL 발급 및 100MB / 5~90초 검증 |
-| `POST /v1/projects/{id}/renders`, `GET /v1/projects/{id}/deliverables` | 영상 제작 접수(일 3회 한도) 및 결과·AI 라벨 조회 |
+| `POST /v1/projects/{id}/hooks`, `GET /v1/projects/{id}/hooks/{hook_id}` | 훅 영상 생성(영상 모델)과 상태 조회 |
+| `POST /v1/projects/{id}/renders`, `GET /v1/projects/{id}/deliverables` | 영상 제작 접수(일 3회 한도, 훅 + 본편 붙이기) 및 결과·AI 라벨 조회 |
 | `POST /v1/jobs`, `GET /v1/jobs/{job_id}`, `POST /v1/jobs/{job_id}/retry-unit/{unit_id}` | 내부 미디어 워커 작업 관리 |
+
+시나리오 → 훅 영상 → 본편 붙이기는 [`hookpipe/`](hookpipe/README.md)가 맡습니다.
 
 전체 요청/응답 예시와 상태 머신은 [`contracts/api-spec.md`](../contracts/api-spec.md) · [`contracts/openapi.json`](../contracts/openapi.json)을 참고하세요.
 
@@ -60,7 +63,7 @@ docker build -f backend/Dockerfile -t napda-backend .
 
 - API 키: `GOOGLE_GENAI_USE_VERTEXAI=false`, `GEMINI_API_KEY` 설정.
 - Vertex AI (ADC): `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` 설정과 실행 환경의 ADC 인증 사용.
-- Vertex AI (Vercel OIDC ↔ GCP Workload Identity): 정적 JSON 키 없이 Vercel 서버리스에서 본인 GCP 크레딧으로 Vertex AI를 호출하는 방법은 [backend/GCP_WIF_SETUP.md](./GCP_WIF_SETUP.md) 가이드를 참고하세요.
+- Vertex AI (Vercel & Modal OIDC ↔ GCP Workload Identity): 정적 JSON 키 없이 Vercel 서버리스(`VERCEL_OIDC_TOKEN`)나 Modal 컨테이너(`MODAL_IDENTITY_TOKEN_FILE` / `MODAL_IDENTITY_TOKEN`)에서 GCP 크레딧으로 Vertex AI 추론을 호출하는 방법은 [backend/GCP_WIF_SETUP.md](./GCP_WIF_SETUP.md) 가이드를 참고하세요.
 - 서비스 계정 키 파일은 저장소에 보관하지 않습니다.
 
 이 폴더는 기존 워커의 실행 위치를 정리한 것입니다. 최종 생성 방식과 PRD의 제품 흐름은 추가 개발이 필요합니다. [PRD별 테스트](../tests/README.md)를 참고하세요.

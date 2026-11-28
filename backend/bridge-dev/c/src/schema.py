@@ -1,11 +1,12 @@
 """C 훅 작업자 입출력 형태 (01_worker-input, ScenarioItem) 와 간단한 검증.
 
-외부 의존성 없이 dict 로 다룬다. 필드 정의의 기준은 ../api-guide.md 와 contracts/openapi.json 이다.
+외부 의존성 없이 dict 로 다룬다. 필드 정의의 기준은 ../../WORKER_CONTRACT.md 와 contracts/openapi.json 이다.
 """
 from __future__ import annotations
 
 HOOK_TYPE = "C"
-MAX_HOOK_SEC = 15.0
+# 팀 결정(2026-11-26): 훅은 15~20초. 훅 뒤에는 판매자가 찍은 본편이 붙는다.
+MIN_HOOK_SEC, MAX_HOOK_SEC = 15.0, 20.0
 MIN_BEATS, MAX_BEATS = 3, 5
 
 
@@ -56,29 +57,18 @@ def parse_worker_input(data: dict) -> dict:
         raise InputError("product_info.verified_facts 에 검증된 사실이 1개 이상 필요합니다.")
     if not data.get("project_id"):
         raise InputError("project_id 가 필요합니다.")
-    assets = data.get("assets") or {}
-    if not isinstance(assets, dict):
-        raise InputError("assets 는 객체여야 합니다.")
     return {
         "hook_type": HOOK_TYPE,
         "project_id": str(data["project_id"]),
         "round": int(data.get("round", 1)),
-        "count": max(1, min(10, int(data.get("count", 1)))),
+        "count": max(1, min(5, int(data.get("count", 1)))),
         "product_info": product,
         "selling_points": parse_selling_points(product.get("selling_points")),
         "previous_scenarios": list(data.get("previous_scenarios") or []),
-        # 가이드의 제안 인터페이스에 없는 확장 필드. 영상에 쓸 실물 소재와 문제 장면 템플릿을 알려 준다.
-        "assets": {
-            "product_footage": assets.get("product_footage"),      # 실물 제품 영상 경로 (증명 장면에 사용)
-            "problem_template": assets.get("problem_template"),    # 생성 문제 장면 템플릿 이름 (예: spill_diffuser)
-            "problem_engine": assets.get("problem_engine"),        # auto(기본) · veo(Blender 첫 프레임 → Google Veo) · blender
-            # 실물 영상의 컷 목록 [{t: 시작 초, zoom: 확대, focus: [가로, 세로] 0~1}]. 있으면 실물 장면을 짧은 컷으로 나눠 편집한다.
-            "footage_cuts": assets.get("footage_cuts") if isinstance(assets.get("footage_cuts"), list) else None,
-        },
     }
 
 
-# Claude 구조화 출력에 쓰는 JSON 스키마. 길이 합·장면 수 같은 규칙은 check.py 가 검사한다.
+# 모델 구조화 출력에 쓰는 JSON 스키마 (Claude·Gemini 공통). 길이 합·장면 수 같은 규칙은 check.py 가 검사한다.
 SCENARIO_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -89,9 +79,11 @@ SCENARIO_SCHEMA = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["hook_title", "selling_point", "replacement_test_note", "pov_label", "beats", "claim_ids", "cta_text"],
+                "required": ["hook_title", "selling_point", "replacement_test_note", "pov_label", "beats", "claim_ids", "cta_text",
+                             "problem_blockout"],
                 "properties": {
                     "hook_title": {"type": "string"},
+                    "problem_blockout": {"type": "string"},      # 첫 장면의 구도 참고 id (blockouts/catalog.json). 없으면 ""
                     "selling_point": {"type": "string"},
                     "replacement_test_note": {"type": "string"},
                     "pov_label": {"type": "string"},
@@ -120,8 +112,14 @@ SCENARIO_SCHEMA = {
 }
 
 
-def to_scenario_item(draft: dict, *, scenario_id: str, round_no: int, body_duration_sec: float = 0.0) -> dict:
-    """모델(또는 오프라인 초안)이 준 초안을 ScenarioItem 으로 만든다."""
+def to_scenario_item(draft: dict, *, scenario_id: str, round_no: int, body_duration_sec: float = 0.0,
+                     blockouts: list[dict] | None = None) -> dict:
+    """모델(또는 오프라인 초안)이 준 초안을 ScenarioItem 으로 만든다.
+
+    blockouts: 구도 참고 목록. None 이면 blockouts/catalog.json 을 읽는다. 초안의 problem_blockout 이 목록에 있으면 첫 장면에 붙인다.
+    """
+    from .blockouts import attach
+
     beats = []
     for i, b in enumerate(sorted(draft["beats"], key=lambda x: x.get("order", 0)), 1):
         beats.append({
@@ -133,7 +131,7 @@ def to_scenario_item(draft: dict, *, scenario_id: str, round_no: int, body_durat
             "caption": str(b["caption"]).strip(),
         })
     selling_point = str(draft.get("selling_point", "")).strip()
-    return {
+    return attach({
         "scenario_id": scenario_id,
         "round": round_no,
         "type": HOOK_TYPE,
@@ -146,9 +144,10 @@ def to_scenario_item(draft: dict, *, scenario_id: str, round_no: int, body_durat
             "track_archetype": "C_direct_proof",
             "claim_ids": sorted(set(draft.get("claim_ids") or [])),
             "proof_first": True,
-            "cta": {"type": "comment_engagement", "text": str(draft.get("cta_text", "")).strip()},
+            # 댓글 유도 질문은 훅 안이 아니라 최종 영상(훅 + 본편) 맨 끝에 쓴다
+            "cta": {"type": "comment_engagement", "text": str(draft.get("cta_text", "")).strip(), "placement": "after_body"},
             "disclosure": "ai_assisted",
             "pov_label": str(draft.get("pov_label", "")).strip(),
             **({"selling_point": selling_point} if selling_point else {}),      # 이 시나리오가 겨냥한 소구포인트
         },
-    }
+    }, str(draft.get("problem_blockout", "")), blockouts)

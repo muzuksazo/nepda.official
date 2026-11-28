@@ -4,6 +4,10 @@ export interface PlannerConfig {
   anthropicApiKey?: string;
   googleApiKey?: string;
   googleVertexApiKey?: string;
+  googleCloudProject?: string;
+  googleCloudLocation?: string;
+  gcpWorkloadIdentityProvider?: string;
+  gcpServiceAccountEmail?: string;
   anthropicModel: string;
   googleModel: string;
   workerBaseUrl: string;
@@ -20,6 +24,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): PlannerConfig 
       env.GEMINI_API_KEY?.trim() ||
       undefined,
     googleVertexApiKey: env.GOOGLE_VERTEX_API_KEY?.trim() || undefined,
+    googleCloudProject: env.GOOGLE_CLOUD_PROJECT?.trim() || undefined,
+    googleCloudLocation: env.GOOGLE_CLOUD_LOCATION?.trim() || "global",
+    gcpWorkloadIdentityProvider: env.GCP_WORKLOAD_IDENTITY_PROVIDER?.trim() || undefined,
+    gcpServiceAccountEmail: env.GCP_SERVICE_ACCOUNT_EMAIL?.trim() || undefined,
     anthropicModel: env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-5",
     googleModel: env.GOOGLE_PLANNER_MODEL?.trim() || "gemini-3.5-flash",
     workerBaseUrl: (env.WORKER_BASE_URL?.trim() || "http://127.0.0.1:8080").replace(/\/+$/, ""),

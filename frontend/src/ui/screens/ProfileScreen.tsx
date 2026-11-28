@@ -13,7 +13,6 @@ import {
   Mascot,
   MobileScreen,
   PageHeader,
-  PendingBadge,
   SkeletonText,
   Stack,
   StatTile,
@@ -38,10 +37,10 @@ export interface ProfileScreenProps {
   user?: ProfileUser | null;
   /** 내 정보를 불러오는 중: 계정·크레딧 자리에 스켈레톤을 보여 준다 */
   isLoading?: boolean;
-  /** 크레딧 잔액. 영상은 하루 횟수 제한 없이 크레딧으로 만든다 (단가 미정 · OQ-003) */
+  /** 크레딧 잔액 */
   credits?: number;
   videoCounts?: { inProgress: number; completed: number };
-  /** 영상 보관 기간(일). 없으면 미정 배지를 보여 준다 */
+  /** 영상 보관 기간(일). 기본 7일 */
   retentionDays?: number;
   themeMode?: ThemeSetting;
   onThemeModeChange?: (mode: ThemeSetting) => void;
@@ -54,7 +53,10 @@ export interface ProfileScreenProps {
   onOpenMyVideos?: (tab: MyVideosTab) => void;
   onOpenDoc?: (doc: ProfileDoc) => void;
   onLogout?: () => void;
+  /** 실제 회원 탈퇴 API가 연동된 경우 확인 시트 뒤 호출 */
   onDeleteAccount?: () => void;
+  /** 자동 탈퇴 대신 고객지원 안내를 열 때 호출 (거짓 삭제 안내 방지) */
+  onRequestDeleteSupport?: () => void;
   onSignIn?: () => void;
   /** 로그인 전 상태의 버튼 자리. 실제 앱은 여기에 Google 공식 로그인 버튼(GIS)을 넣는다 */
   signInSlot?: ReactNode;
@@ -71,7 +73,7 @@ export function ProfileScreen({
   isLoading,
   credits,
   videoCounts,
-  retentionDays,
+  retentionDays = 7,
   themeMode = 'system',
   onThemeModeChange,
   onNavigate,
@@ -81,6 +83,7 @@ export function ProfileScreen({
   onOpenDoc,
   onLogout,
   onDeleteAccount,
+  onRequestDeleteSupport,
   onSignIn,
   signInSlot,
   initialConfirm,
@@ -113,7 +116,11 @@ export function ProfileScreen({
         />
       }
     >
-      <ListRow icon={<Bell size={20} />} label="영상 완성 알림" endContent={<PendingBadge>방식 미정</PendingBadge>} />
+      <ListRow
+        icon={<Bell size={20} />}
+        label="영상 완성 알림"
+        endContent={<span className="n-small n-muted">앱 내 알림</span>}
+      />
     </ListGroup>
   );
 
@@ -126,9 +133,7 @@ export function ProfileScreen({
           <StatTile label="완료" value={videoCounts?.completed} onClick={() => onOpenMyVideos?.('completed')} />
         </div>
       }
-      note={
-        retentionDays ? `만든 날부터 ${retentionDays}일 동안 보관돼요.` : <PendingBadge>보관 기간 미정 · OQ-012</PendingBadge>
-      }
+      note={`만든 날부터 ${retentionDays}일 동안 보관돼요.`}
     />
   );
 
@@ -193,7 +198,17 @@ export function ProfileScreen({
               <ListRow icon={<Logout size={20} />} label="로그아웃" hasChevron={false} onClick={() => setConfirm('logout')} />
             </ListGroup>
             <div className="n-profile__leave">
-              <button type="button" className="n-link-btn" onClick={() => setConfirm('delete')}>
+              <button
+                type="button"
+                className="n-link-btn"
+                onClick={() => {
+                  if (onRequestDeleteSupport && !onDeleteAccount) {
+                    onRequestDeleteSupport();
+                  } else {
+                    setConfirm('delete');
+                  }
+                }}
+              >
                 탈퇴하기
               </button>
             </div>

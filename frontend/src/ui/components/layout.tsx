@@ -27,7 +27,7 @@ export function MobileScreen({ header, children, footer, footerSummary, bottomNa
   return (
     <div className="n-screen" inert={isInert}>
       <div className="n-screen__header">{header}</div>
-      <main className="n-screen__body">{children}</main>
+      <main className="n-screen__body" tabIndex={0}>{children}</main>
       {bottomNav ? (
         <div className="n-screen__bottom">
           {footerEl}

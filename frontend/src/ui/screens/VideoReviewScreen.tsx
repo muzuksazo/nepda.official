@@ -1,7 +1,7 @@
 import { Play } from '../icons';
-import { Button, FlowHeader, IconButton, MobileScreen, PendingBadge, ScreenTitle, Stack, VideoFrame } from '../components';
+import { Button, FlowHeader, IconButton, MobileScreen, ScreenTitle, Stack, VideoFrame } from '../components';
 
-/** 15칸 중 훅이 차지하는 칸 (길이 비율 미정 · OQ-002, 임시값) */
+/** 15칸 중 훅이 차지하는 칸 */
 const HOOK_SEGMENTS = 6;
 
 export interface VideoReviewScreenProps {
@@ -31,7 +31,7 @@ export function VideoReviewScreen({
         <Button
           label={isRendering ? '영상 만드는 중…' : '썸네일 만들기'}
           isBlock
-          isDisabled={isRendering || !videoUrl}
+          isDisabled={isRendering || Boolean(errorMessage)}
           onClick={onMakeThumbnail}
         />
       }
@@ -71,7 +71,6 @@ export function VideoReviewScreen({
         </div>
         <div className="n-row n-small n-muted" style={{ gap: 8, paddingTop: 4 }}>
           전체 30초 안팎
-          <PendingBadge>길이 비율 미정 · OQ-002</PendingBadge>
         </div>
       </Stack>
     </MobileScreen>

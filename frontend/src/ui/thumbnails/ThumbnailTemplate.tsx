@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { brand } from '../brand';
 import {
-  computeSerifOutlineFontSize,
+  computeFittedFontSize,
   SANS_FONT_FAMILY,
   SERIF_FONT_FAMILY,
   THUMBNAIL_HEIGHT,
@@ -318,7 +318,9 @@ function InvertBoxCanvas({
   imageOffsetY,
   showWordmark,
 }: CanvasCommonProps) {
-  const lines = headline?.trim() ? headline.split('\n').filter((l) => l.length > 0) : [];
+  const headlineText = headline?.trim() ?? '';
+  const lines = headlineText ? headlineText.split('\n').filter((l) => l.length > 0) : [];
+  const fontSize = computeFittedFontSize('invert-box', headlineText);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#111317', overflow: 'hidden' }}>
@@ -361,7 +363,7 @@ function InvertBoxCanvas({
                   justifyContent: 'center',
                   backgroundColor: isOdd ? '#020202' : '#ffffff',
                   color: isOdd ? '#ffffff' : '#111111',
-                  fontSize: 78,
+                  fontSize,
                   fontWeight: 500,
                   lineHeight: 1.16,
                   letterSpacing: '-0.03em',
@@ -410,7 +412,9 @@ function WhiteLabelCanvas({
   imageOffsetY,
   showWordmark,
 }: CanvasCommonProps) {
-  const lines = headline?.trim() ? headline.split('\n').filter((l) => l.length > 0) : [];
+  const headlineText = headline?.trim() ?? '';
+  const lines = headlineText ? headlineText.split('\n').filter((l) => l.length > 0) : [];
+  const fontSize = computeFittedFontSize('white-label', headlineText);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#12151c', overflow: 'hidden' }}>
@@ -451,7 +455,7 @@ function WhiteLabelCanvas({
                 alignItems: 'center',
                 backgroundColor: '#ffffff',
                 color: '#000000',
-                fontSize: 92,
+                fontSize,
                 fontWeight: 700,
                 lineHeight: 1.12,
                 letterSpacing: '-0.03em',
@@ -493,7 +497,8 @@ function SerifOutlineCanvas({
 }: CanvasCommonProps) {
   const headlineText = headline?.trim() ?? '';
   const lines = headlineText ? headlineText.split('\n') : [];
-  const fontSize = computeSerifOutlineFontSize(headlineText || '제목');
+  const fontSize = computeFittedFontSize('serif-outline', headlineText || '제목');
+  const strokeWidth = fontSize >= 100 ? 22 : Math.max(12, Math.round(fontSize * 0.2));
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#141414', overflow: 'hidden' }}>
@@ -514,9 +519,9 @@ function SerifOutlineCanvas({
         <div
           style={{
             position: 'absolute',
-            left: 56,
-            right: 56,
-            top: 235,
+            left: 64,
+            right: 64,
+            top: 248,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -555,16 +560,17 @@ function SerifOutlineCanvas({
                 lineHeight: 1.06,
                 letterSpacing: '-0.03em',
                 color: '#000000',
-                WebkitTextStroke: '22px #ffffff',
+                WebkitTextStroke: `${strokeWidth}px #ffffff`,
                 paintOrder: 'stroke fill',
                 filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.32))',
+                maxWidth: '100%',
               }}
             >
               {lines.map((line, i) => (
                 <span key={i} style={{ display: 'block' }}>
                   {renderHighlightedLine(line, highlightWord, {
                     color: '#d6ff3f',
-                    WebkitTextStroke: '22px #000000',
+                    WebkitTextStroke: `${strokeWidth}px #000000`,
                     paintOrder: 'stroke fill',
                   })}
                 </span>
@@ -596,10 +602,11 @@ function PovBarCanvas({
 }: CanvasCommonProps) {
   const headlineText = headline?.trim() ?? '';
   const lines = headlineText ? headlineText.split('\n') : [];
+  const fontSize = computeFittedFontSize('pov-bar', headlineText);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#000000' }}>
-      {/* 상단 솔리드 블랙 바 (3:4·9:16 안전 영역 y >= 250 내부에 2~3줄 POV 텍스트 배치) */}
+      {/* 상단 솔리드 블랙 바 (3:4·9:16 안전 영역 y >= 248 내부에 2~3줄 POV 텍스트 배치) */}
       <div
         style={{
           position: 'absolute',
@@ -625,10 +632,11 @@ function PovBarCanvas({
             style={{
               margin: 0,
               color: '#ffffff',
-              fontSize: 60,
+              fontSize,
               fontWeight: 700,
               lineHeight: 1.32,
               letterSpacing: '-0.025em',
+              maxWidth: '100%',
             }}
           >
             {lines.map((line, i) => (

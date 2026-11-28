@@ -14,6 +14,7 @@ export interface CreateRenderResponse {
   status: string;
   selected_type: CreateRenderResponseSelectedType;
   estimated_credits: number;
+  deducted_credits?: number;
   quota: QuotaStatus;
   expires_at: string;
 }

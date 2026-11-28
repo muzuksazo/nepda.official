@@ -27,6 +27,8 @@ export interface ProjectDetailResponse {
   uploads?: CompleteUploadsResponse | null;
   latest_job_id?: string | null;
   latest_job?: ProjectDetailResponseLatestJob;
+  is_public?: boolean;
+  public_caption?: string | null;
   quota: QuotaStatus;
   expires_at: string;
   created_at: string;

@@ -27,7 +27,7 @@
 - Deployment Check: `Frontend CI` — GitHub check `Frontend Lint & Build`, 운영 도메인 할당 차단, 제한 시간 900초
 - Git 이벤트: `gitProviderOptions.disableRepositoryDispatchEvents=false`로 배포 후 검사 트리거 활성화
 
-`frontend/vercel.json`의 `/v1/*`, `/health` rewrite가 `https://napda-api.vercel.app`으로 요청을 전달합니다. 프론트와 같은 출처로 요청하도록 운영 `VITE_API_BASE_URL`은 비워 둡니다.
+`frontend/vercel.json`의 `/v1/*`, `/health` rewrite가 `https://napda-backend-pwdvuwrqfa-du.a.run.app` (Cloud Run `asia-northeast3`)으로 요청을 전달하고, `/admin`·`/admin/*` rewrite가 SPA 대시보드(`/index.html`)를 서빙합니다. 프론트와 같은 출처로 요청하도록 운영 `VITE_API_BASE_URL`은 비워 둡니다.
 
 Google 로그인을 활성화하려면 Vercel 프로젝트의 Production/Preview 환경에 공개 OAuth 웹 클라이언트 ID인 `VITE_GOOGLE_CLIENT_ID`를 설정하고 다시 배포해야 합니다. Google 허용 JavaScript 출처와 백엔드의 클라이언트 ID도 일치해야 합니다. `.env` 파일이나 비밀 키를 저장소에 올리지 않습니다.
 

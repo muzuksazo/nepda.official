@@ -98,6 +98,11 @@ class DeliverableThumbnail(BaseModel):
     download_url: str | None = Field(None, title="Download Url")
     safe_zone_1_1_ok: bool | None = Field(None, title="Safe Zone 1 1 Ok")
     headline_lines: list[str] | None = Field(None, title="Headline Lines")
+    style: str | None = Field("invert-box", title="Style")
+    highlight_word: str | None = Field(None, title="Highlight Word")
+    candidate_image_urls: list[str] | None = Field(None, title="Candidate Image Urls")
+    candidate_keys: list[str] | None = Field(None, title="Candidate Keys")
+    style_previews: dict[str, str] | None = Field(None, title="Style Previews")
 
 
 class DeliverableVideo(BaseModel):
@@ -217,6 +222,8 @@ class ProjectSummary(BaseModel):
     selected_types: list[SelectedType] = Field(..., title="Selected Types")
     selected_scenario_id: str | None = Field(None, title="Selected Scenario Id")
     latest_job_id: str | None = Field(None, title="Latest Job Id")
+    thumbnail_url: str | None = Field(None, title="Thumbnail Url")
+    is_public: bool | None = Field(False, title="Is Public")
     expires_at: str = Field(..., title="Expires At")
     created_at: str = Field(..., title="Created At")
     updated_at: str = Field(..., title="Updated At")
@@ -478,6 +485,7 @@ class CreateRenderResponse(BaseModel):
     status: str = Field(..., title="Status")
     selected_type: SelectedType = Field(..., title="Selected Type")
     estimated_credits: int = Field(..., title="Estimated Credits")
+    deducted_credits: int | None = Field(0, title="Deducted Credits")
     quota: QuotaStatus
     expires_at: str = Field(..., title="Expires At")
 
@@ -582,6 +590,8 @@ class ProjectDetailResponse(BaseModel):
     uploads: CompleteUploadsResponse | None = None
     latest_job_id: str | None = Field(None, title="Latest Job Id")
     latest_job: dict[str, Any] | None = Field(None, title="Latest Job")
+    is_public: bool | None = Field(False, title="Is Public")
+    public_caption: str | None = Field(None, title="Public Caption")
     quota: QuotaStatus
     expires_at: str = Field(..., title="Expires At")
     created_at: str = Field(..., title="Created At")

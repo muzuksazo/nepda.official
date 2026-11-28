@@ -263,6 +263,63 @@ export function FilePicker({
   );
 }
 
+export interface FilesPickerProps {
+  label: string;
+  accept: string;
+  value: File[];
+  onChange: (files: File[]) => void;
+  placeholder: string;
+  isLabelHidden?: boolean;
+}
+
+/** 여러 파일 한 번에 고르기 (드롭존). 파일 이름 순서로 정렬해 돌려준다(촬영 순서 = 보통 이름 순서). 다시 고르면 바뀐다 */
+export function FilesPicker({ label, accept, value, onChange, placeholder, isLabelHidden }: FilesPickerProps) {
+  const id = useId();
+  const [isOver, setIsOver] = useState(false);
+  const className = ['n-drop', isOver && 'is-over', value.length && 'is-filled'].filter(Boolean).join(' ');
+  return (
+    <div className="n-field">
+      <label className={isLabelHidden ? 'napda-visually-hidden' : 'n-field__label'} htmlFor={id}>
+        {label}
+      </label>
+      <div
+        className={className}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsOver(true);
+        }}
+        onDragLeave={() => setIsOver(false)}
+        onDrop={() => setIsOver(false)}
+      >
+        <input
+          id={id}
+          type="file"
+          accept={accept}
+          multiple
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            files.sort((a, b) => a.name.localeCompare(b.name, 'ko', { numeric: true }));
+            onChange(files);
+          }}
+        />
+        {value.length ? <Check size={28} /> : <Upload size={28} />}
+        {value.length ? (
+          <span className="n-small" style={{ textAlign: 'center' }}>
+            {value.map((f, i) => (
+              <span key={`${f.name}-${i}`} style={{ display: 'block' }}>
+                {i + 1}. {f.name}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="n-small">{placeholder}</span>
+        )}
+        {value.length ? <span className="n-caption">바꾸려면 다시 눌러요 · 여러 개를 한 번에 골라요</span> : null}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- 표시 ---------- */
 
 export interface BadgeProps {

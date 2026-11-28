@@ -5,7 +5,9 @@
   "buildCommand": "npm run lint && npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/v1/:path*", "destination": "https://napda-api.vercel.app/v1/:path*" },
-    { "source": "/health", "destination": "https://napda-api.vercel.app/health" }
+    { "source": "/v1/:path*", "destination": "https://napda-backend-pwdvuwrqfa-du.a.run.app/v1/:path*" },
+    { "source": "/health", "destination": "https://napda-backend-pwdvuwrqfa-du.a.run.app/health" },
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/admin/:path*", "destination": "/index.html" }
   ]
 }

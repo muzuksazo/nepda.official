@@ -5,10 +5,9 @@ import {
   Card,
   ConfirmSheet,
   CreditIcon,
-  FilePicker,
+  FilesPicker,
   FlowHeader,
   MobileScreen,
-  PendingBadge,
   ScreenTitle,
   Stack,
   TimeEstimate,
@@ -18,20 +17,23 @@ import type { HookType } from './flowData';
 
 export interface UploadVideoScreenProps {
   hookType: HookType;
-  initialFile?: File | null;
+  initialFiles?: File[];
   onBack?: () => void;
   onReviewGuide?: () => void;
-  onCreate?: (file: File) => void;
-  /** 이 영상에 드는 크레딧(견적 API). 없으면 "크레딧 미정"으로 둔다 */
+  /** 고른 영상들 (촬영 순서). 1개 이상 */
+  onCreate?: (files: File[]) => void;
+  /** 이 영상에 드는 크레딧(견적 API). 없으면 예상 소요 시간만 보여 준다 */
   cost?: number;
   /** 지금 보유한 크레딧 */
   credits?: number;
   /** 크레딧이 모자라 "충전하고 만들기"를 눌렀을 때. 충전 뒤 이 화면으로 돌아오도록 고른 영상과 모자란 크레딧을 넘긴다 */
-  onCharge?: (file: File, shortfall: number) => void;
+  onCharge?: (files: File[], shortfall: number) => void;
   /** 처음부터 크레딧 부족 시트를 열어 둔다 (스토리·테스트용) */
   initialIsShort?: boolean;
-  /** 예상 소요 시간(서버가 알려 주는 값). 아직 정해지지 않아 예시 값을 기본으로 둔다 */
+  /** 예상 소요 시간(서버가 알려 주는 값). 없으면 기본 안내 값을 쓴다 */
   estimate?: { total: string; stages: TimeEstimateStage[] };
+  /** 내부 테스트 계정 여부 (크레딧·일일 한도 면제) */
+  isInternalAccount?: boolean;
 }
 
 const SAMPLE_ESTIMATE = {
@@ -46,7 +48,7 @@ const SAMPLE_ESTIMATE = {
 /** 안1-7 영상 올리기 (6/8) – 영상을 고르기 전에는 만들기 버튼이 꺼져 있다. */
 export function UploadVideoScreen({
   hookType,
-  initialFile = null,
+  initialFiles = [],
   onBack,
   onReviewGuide,
   onCreate,
@@ -55,29 +57,38 @@ export function UploadVideoScreen({
   credits,
   onCharge,
   initialIsShort = false,
+  isInternalAccount = false,
 }: UploadVideoScreenProps) {
-  const [file, setFile] = useState<File | null>(initialFile);
+  const [files, setFiles] = useState<File[]>(initialFiles);
+  const file = files.length > 0;
   const [isShortOpen, setIsShortOpen] = useState(initialIsShort);
-  // 단가·잔액을 모르면 막지 않고 서버에 맡긴다
-  const shortfall = cost !== undefined && credits !== undefined ? Math.max(0, cost - credits) : 0;
+  // 단가·잔액을 모르면 막지 않고 서버에 맡긴다. 내부 테스트 계정은 크레딧 차감 면제.
+  const shortfall = isInternalAccount
+    ? 0
+    : cost !== undefined && credits !== undefined
+      ? Math.max(0, cost - credits)
+      : 0;
 
   const create = () => {
     if (!file) return;
     if (shortfall > 0) setIsShortOpen(true);
-    else onCreate?.(file);
+    else onCreate?.(files);
   };
 
   // 버튼 바로 위 한 줄: 누르면 무엇이 빠지는지 미리 보여 준다
   let summary;
   if (!file) {
     summary = <span>영상부터 골라 주세요</span>;
-  } else if (cost === undefined) {
+  } else if (isInternalAccount) {
     summary = (
-      <>
-        <span>{estimate.total}이면 나와요</span>
-        <PendingBadge>크레딧 미정</PendingBadge>
-      </>
+      <span className="n-cost">
+        <CreditIcon />
+        <b>내부 테스트 계정</b>
+        <span className="n-cost__have">· 크레딧 차감 없음</span>
+      </span>
     );
+  } else if (cost === undefined) {
+    summary = <span>{estimate.total}이면 나와요</span>;
   } else {
     summary = (
       <span className="n-cost">
@@ -106,26 +117,25 @@ export function UploadVideoScreen({
                 <span className="n-small n-muted">붙일 훅</span>
                 <Badge tone="brand">{hookType} 유형</Badge>
               </div>
-              <Button label="가이드 다시 보기" variant="ghost" size="sm" onClick={onReviewGuide} />
+              {onReviewGuide ? (
+                <Button label="가이드 다시 보기" variant="ghost" size="sm" onClick={onReviewGuide} />
+              ) : null}
             </div>
-            <FilePicker
+            <FilesPicker
               label="촬영한 영상"
               isLabelHidden
               accept="video/*"
-              value={file}
-              onChange={setFile}
-              placeholder="찍은 영상을 골라 주세요"
+              value={files}
+              onChange={setFiles}
+              placeholder="찍은 영상을 골라 주세요 (여러 개 가능)"
             />
-            <div>
-              <PendingBadge>길이·용량 제한 미정 · OQ-007</PendingBadge>
-            </div>
+            <p className="n-small n-muted">합쳐서 5~90초 · 한 개 100MB 이하 · 세로 9:16 영상</p>
           </Stack>
         </Card>
 
         {/* 누르기 전에 기다릴 시간을 알려 준다: 총 시간 하나 + 단계별 시간 */}
         <TimeEstimate total={estimate.total} stages={estimate.stages}>
           <span>만드는 동안 다른 화면 봐도 괜찮아요.</span>
-          <PendingBadge>시간·완료 알림 미정</PendingBadge>
         </TimeEstimate>
       </MobileScreen>
 
@@ -138,7 +148,7 @@ export function UploadVideoScreen({
         cancelLabel="나중에"
         onConfirm={() => {
           setIsShortOpen(false);
-          if (file) onCharge?.(file, shortfall);
+          if (file) onCharge?.(files, shortfall);
         }}
         onClose={() => setIsShortOpen(false)}
       >

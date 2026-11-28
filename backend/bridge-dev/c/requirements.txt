@@ -1,8 +1,4 @@
-# 시나리오 생성(Claude)
-anthropic
-# 문제 장면 생성 영상(Google Veo, Vertex AI) 인증
-google-auth
-requests
-# 결과 파일 저장 (Cloudflare R2, STORAGE_BACKEND=s3일 때만 사용)
-boto3>=1.36,<2
-# 나머지는 표준 라이브러리 + ffmpeg + Blender.
+# 시나리오 생성 글 모델 (하나만 있으면 된다)
+anthropic          # Claude (기본, C_MODEL)
+google-genai       # Gemini (--model gemini-…, 또는 백엔드 HOOK_WORKER_LLM)
+# 영상·나레이션·본편은 backend/hookpipe 가 만든다. 이 작업자는 시나리오만 만든다.

@@ -23,7 +23,13 @@ class TestGenAIMediaProvider(GenAIMediaProviderCase):
                 interactions=_FakeInteractions(png_bytes=self.png_bytes, mp4_bytes=self.mp4_bytes),
                 models=_FakeModels(return_wav=False),
             )
-            settings = Settings(gemini_api_key="dummy", poll_interval_sec=0.0, video_timeout_sec=10.0)
+            settings = Settings(
+                _env_file=None,
+                gemini_api_key="dummy",
+                google_genai_use_vertexai=False,
+                poll_interval_sec=0.0,
+                video_timeout_sec=10.0,
+            )
             provider = GenAIMediaProvider(settings, client=fake_client)
 
             ref_path = Path(td) / "refs" / "R_A1.png"
@@ -145,3 +151,58 @@ class TestGenAIMediaProvider(GenAIMediaProviderCase):
             self.assertEqual(len(key_models.configs), 2)
             self.assertIsNone(key_models.configs[0][1].labels)
             self.assertIsNone(key_models.configs[1][1].labels)
+
+    def test_vertex_reference_image_uses_generate_content_with_labels(self) -> None:
+        class _VertexImageModels:
+            def __init__(self, png_payload: bytes) -> None:
+                self.calls = []
+                self.png_payload = png_payload
+
+            def generate_content(self, *, model, contents, config=None):
+                self.calls.append((model, contents, config))
+                return SimpleNamespace(
+                    candidates=[
+                        SimpleNamespace(
+                            content=SimpleNamespace(
+                                parts=[
+                                    SimpleNamespace(
+                                        inline_data=SimpleNamespace(
+                                            data=self.png_payload,
+                                            mime_type="image/png",
+                                        )
+                                    )
+                                ]
+                            )
+                        )
+                    ]
+                )
+
+        class _ExplodingInteractions:
+            def create(self, **_kwargs):
+                raise AssertionError("Vertex image generation must not call interactions.create")
+
+        with temporary_directory() as td:
+            vtx_models = _VertexImageModels(self.png_bytes)
+            vtx_client = SimpleNamespace(interactions=_ExplodingInteractions(), models=vtx_models)
+            vtx_settings = Settings(
+                _env_file=None,
+                google_genai_use_vertexai=True,
+                google_cloud_project="my-gcp-project",
+                google_cloud_location="global",
+                image_model="gemini-nano-banana-2.1",
+            )
+            provider = GenAIMediaProvider(vtx_settings, client=vtx_client)
+            out_jpg = Path(td) / "style.jpg"
+            res = provider.generate_reference_image(
+                "Clean studio apple",
+                out_jpg,
+                aspect_ratio="9:16",
+                mime_type="image/jpeg",
+            )
+            self.assertFalse(res.skipped)
+            self.assertEqual(len(vtx_models.calls), 1)
+            model_arg, _, cfg_arg = vtx_models.calls[0]
+            self.assertEqual(model_arg, "gemini-nano-banana-2.1")
+            self.assertEqual(cfg_arg.response_modalities, ["IMAGE"])
+            self.assertEqual(cfg_arg.labels, {"app": "napda", "component": "image"})
+            self.assertTrue(out_jpg.read_bytes().startswith(b"\xff\xd8\xff"))

@@ -41,7 +41,6 @@ import {
   SAMPLE_NOW,
   SAMPLE_STORYBOARD,
   SAMPLE_THUMBNAIL_CAPTION,
-  SAMPLE_THUMBNAIL_TEMPLATES,
   SAMPLE_USER,
   sampleCreator,
 } from './sampleProjects';
@@ -115,7 +114,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       ...prev,
     ]);
   const [historyFrom, setHistoryFrom] = useState<'profile' | 'notifications'>('profile');
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [isSigningIn, setIsSigningIn] = useState(false);
   // 처음 로그인하면 가입(약관 → 닉네임)을 거치고, 로그아웃 뒤 다시 들어오면 바로 홈으로 간다
   const [isMember, setIsMember] = useState(false);
@@ -456,6 +455,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       return (
         <ScenarioScreen
           hookType={hookType}
+          scenario={'[예시 훅 시나리오]\n1. 시선을 끄는 첫 장면 (3초)\n2. 제품 핵심 장점을 한눈에 보여 주기 (5초)'}
           onBack={() => setStep('hook')}
           onShootingGuide={() => setStep('guide')}
           onStoryboard={() => setStep('storyboard')}
@@ -469,18 +469,18 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       return (
         <UploadVideoScreen
           hookType={hookType}
-          initialFile={uploadFile}
+          initialFiles={uploadFiles}
           cost={SAMPLE_CREDITS_PER_VIDEO}
           credits={credits}
           onBack={() => setStep('guide')}
           onReviewGuide={() => setStep('guide')}
           onCreate={() => {
-            setUploadFile(null);
+            setUploadFiles([]);
             startJob();
           }}
-          onCharge={(file, shortfall) => {
+          onCharge={(files, shortfall) => {
             // 충전하고 돌아오면 고른 영상이 그대로 남아 있게 들고 간다
-            setUploadFile(file);
+            setUploadFiles(files);
             openCharge('upload', shortfall);
           }}
         />
@@ -563,11 +563,18 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
         />
       );
     case 'review':
-      return <VideoReviewScreen onBack={() => setStep('upload')} onMakeThumbnail={() => setStep('thumbnail')} />;
+      return (
+        <VideoReviewScreen
+          videoUrl={SAMPLE_COMMUNITY[0].videoUrl}
+          onBack={() => setStep('upload')}
+          onMakeThumbnail={() => setStep('thumbnail')}
+        />
+      );
     case 'thumbnail':
       return (
         <ThumbnailDownloadScreen
-          templates={SAMPLE_THUMBNAIL_TEMPLATES}
+          useFigmaTemplates
+          backgroundImageUrl={SAMPLE_COMMUNITY[0].thumbnailUrl}
           initialCaption={SAMPLE_THUMBNAIL_CAPTION}
           onBack={() => setStep('review')}
           onDownloadVideo={() => setStep('home')}

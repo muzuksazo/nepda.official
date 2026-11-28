@@ -1,4 +1,4 @@
-import { llm, stepOptions } from "./llm.js";
+import { isGemini, llm, stepOptions } from "./llm.js";
 import { randomUUID } from "node:crypto";
 import { generateText, Output, type LanguageModel } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -15,6 +15,8 @@ import {
 } from "./schema.js";
 
 export const DEFAULT_MODEL = "claude-opus-5-5";
+/** 주제 후보(마인드맵)·채점 단계 기본 모델 */
+export const IDEA_MODEL = "claude-sonnet-5-5";
 
 export interface GenerateOptions {
   /** 기본: B_MODEL 환경변수 → claude-opus-5-5 */
@@ -75,7 +77,9 @@ function applySeed(d: DraftScenario, seeds: StorySeed[], anchor: string | undefi
 
 export async function generateScenarios(input: WorkerInput, opts: GenerateOptions = {}): Promise<RunRecord> {
   const modelId = opts.modelId || process.env.B_MODEL?.trim() || DEFAULT_MODEL;
-  const ideaModelId = opts.ideaModelId || process.env.B_IDEA_MODEL?.trim() || modelId;
+  // 주제 후보·채점은 빠른 모델로 (시나리오 2분대 → 단축, 2026-11-28). Gemini 로 돌 때는 같은 모델을 쓴다
+  const ideaModelId =
+    opts.ideaModelId || process.env.B_IDEA_MODEL?.trim() || (isGemini(modelId) ? modelId : IDEA_MODEL);
   const model = opts.model ?? llm(modelId);
   const ideaModel = opts.model ?? llm(ideaModelId);
   const maxAttempts = Math.max(1, opts.maxAttempts ?? 2);
@@ -132,7 +136,7 @@ export async function generateScenarios(input: WorkerInput, opts: GenerateOption
       // 3D 명세(scene3d)는 여기서 만들지 않는다 → 컷 단계에서 고른 시나리오에만 (src/scene3d.ts)
       output: Output.object({ schema: ScenarioOnlyResponseSchema }),
       maxOutputTokens: 16000,
-      providerOptions: stepOptions("scenario", "high"),
+      providerOptions: stepOptions("scenario", "medium"), // high → medium: 시나리오 시간 단축 (2026-11-28)
     });
     const inT = result.usage?.inputTokens ?? 0;
     const outT = result.usage?.outputTokens ?? 0;

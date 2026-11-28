@@ -10,6 +10,7 @@ __pycache__/
 node_modules/
 dist/
 *.mp4
+!tests/e2e_recordings/*.mp4
 *.mov
 *.MOV
 *.wav
@@ -23,7 +24,13 @@ prototypes/campaigns/*/clips/
 prototypes/campaigns/*/final/*.mp4
 prototypes/campaigns/*/refs/.flow_assets.json
 .venv/
-backend/data/
+backend/data/*
+!backend/data/templates/
+backend/data/templates/*
+!backend/data/templates/track_a/
+backend/data/templates/track_a/*
+!backend/data/templates/track_a/*.mp4
+!backend/data/templates/track_a/manifest.json
 *.db
 *.db-wal
 *.db-shm

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { brand } from '../brand';
-import { Button, CreditIcon, FlowHeader, Mascot, MobileScreen, Note, PendingBadge, Stack } from '../components';
+import { Button, CreditIcon, FlowHeader, Mascot, MobileScreen, Note, Stack } from '../components';
 import { Check, X } from '../icons';
 
 /** 만드는 단계 (영상 올리기 화면의 예상 시간과 같은 이름) */
@@ -18,8 +18,8 @@ export interface GeneratingFailure {
 }
 
 export interface GeneratingScreenProps {
-  /** queued: 차례를 기다리는 중 · running: 만드는 중 · done: 다 됨 · failed: 못 만듦 */
-  status: 'queued' | 'running' | 'done' | 'failed';
+  /** queued: 차례를 기다리는 중 · running: 만드는 중 · done: 다 됨 · failed: 못 만듦 · canceled: 사용자가 정지 */
+  status: 'queued' | 'running' | 'done' | 'failed' | 'canceled';
   /** 앞에 기다리는 영상 수 (queued일 때) */
   queuePosition?: number;
   /** 0~100 (running일 때). 서버가 주지 않으면 퍼센트·막대 대신 단계만 보여 준다 */
@@ -31,7 +31,7 @@ export interface GeneratingScreenProps {
   productName?: string;
   /** failed일 때 이유 */
   failure?: GeneratingFailure;
-  /** failed일 때 돌려준 크레딧 */
+  /** failed/canceled일 때 돌려준 크레딧 */
   refundedCredits?: number;
   /** 돌려받은 뒤 잔액 */
   credits?: number;
@@ -39,18 +39,24 @@ export interface GeneratingScreenProps {
   retryCost?: number;
   /** 위 뒤로 버튼 — 만들기는 멈추지 않고 홈으로 간다 */
   onBack?: () => void;
-  /** "홈에서 기다릴게요" · 실패 시 "홈으로" */
+  /** "홈에서 기다릴게요" · 실패/중단 시 "홈으로" */
   onWaitAtHome?: () => void;
   /** 다 됐을 때 "영상 보러 가기" */
   onViewVideo?: () => void;
-  /** temporary 실패: 같은 영상으로 다시 만들기 */
+  /** 진행 중 즉시 정지 */
+  onCancel?: () => void;
+  /** 정지 요청 중 표시 */
+  isCanceling?: boolean;
+  /** temporary 실패/중단: 같은 영상으로 다시 만들기 */
   onRetry?: () => void;
-  /** video 실패: 영상 올리기로 돌아가 다른 영상 고르기 */
+  /** video 실패/중단: 영상 올리기로 돌아가 다른 영상 고르기 */
   onReupload?: () => void;
   /** video 실패: 촬영 가이드 다시 보기 */
   onReviewGuide?: () => void;
   /** "계속 안 되면 문의하기" */
   onContact?: () => void;
+  /** 내부 테스트 계정 여부 (크레딧·한도 면제) */
+  isInternalAccount?: boolean;
 }
 
 /** "약 2분 남았어요." · "1분 안에 끝나요." · "거의 다 됐어요." */
@@ -79,21 +85,29 @@ export function GeneratingScreen({
   onBack,
   onWaitAtHome,
   onViewVideo,
+  onCancel,
+  isCanceling = false,
   onRetry,
   onReupload,
   onReviewGuide,
   onContact,
+  isInternalAccount = false,
 }: GeneratingScreenProps) {
   const isDone = status === 'done';
   const isQueued = status === 'queued';
   const isFailed = status === 'failed';
+  const isCanceled = status === 'canceled';
+  const isStopped = isFailed || isCanceled;
   const isVideoProblem = isFailed && failure.kind === 'video';
   const percent = isDone ? 100 : Math.max(0, Math.min(100, Math.round(progress ?? 0)));
   const currentStage = isDone ? GENERATING_STAGES.length : isQueued ? -1 : stageIndex;
 
   let title: string;
   let description: string;
-  if (isFailed) {
+  if (isCanceled) {
+    title = '영상 생성을 정지했어요';
+    description = '진행 중이던 작업을 멈췄어요. 원하실 때 바로 다시 만들 수 있어요.';
+  } else if (isFailed) {
     title = isVideoProblem ? '이 영상으론 못 굽겠어요' : '앗, 영상이 안 구워졌어요';
     description = isVideoProblem
       ? (failure.detail ?? '올린 영상을 읽지 못했어요.')
@@ -115,29 +129,71 @@ export function GeneratingScreen({
     footer = (
       <>
         <Button label="다른 영상 올리기" isBlock onClick={onReupload} />
-        <Button label="촬영 가이드 다시 보기" variant="secondary" isBlock onClick={onReviewGuide} />
+        {onReviewGuide ? (
+          <Button label="촬영 가이드 다시 보기" variant="secondary" isBlock onClick={onReviewGuide} />
+        ) : null}
       </>
     );
-  } else if (isFailed) {
+  } else if (isStopped) {
     footer = (
       <>
         <Button label="다시 만들기" isBlock onClick={onRetry} />
-        <Button label="홈으로" variant="secondary" isBlock onClick={onWaitAtHome} />
+        {isCanceled && onReupload ? (
+          <Button label="다른 영상 올리기" variant="secondary" isBlock onClick={onReupload} />
+        ) : null}
+        <Button
+          label="홈으로"
+          variant={isCanceled && onReupload ? 'ghost' : 'secondary'}
+          isBlock
+          onClick={onWaitAtHome}
+        />
       </>
     );
     // 다시 누르면 무엇이 빠지는지 미리 (영상 올리기와 같은 한 줄)
-    footerSummary =
-      retryCost !== undefined ? (
-        <span className="n-cost">
-          <CreditIcon />
-          <b className="n-num">{retryCost.toLocaleString('ko-KR')}</b> 크레딧 써요
-          {credits !== undefined ? <span className="n-cost__have n-num">· 보유 {credits.toLocaleString('ko-KR')}</span> : null}
-        </span>
-      ) : undefined;
+    footerSummary = isInternalAccount ? (
+      <span className="n-cost">
+        <CreditIcon />
+        <b>내부 테스트 계정</b>
+        <span className="n-cost__have">· 크레딧 차감 없음</span>
+      </span>
+    ) : retryCost !== undefined ? (
+      <span className="n-cost">
+        <CreditIcon />
+        <b className="n-num">{retryCost.toLocaleString('ko-KR')}</b> 크레딧 써요
+        {credits !== undefined ? <span className="n-cost__have n-num">· 보유 {credits.toLocaleString('ko-KR')}</span> : null}
+      </span>
+    ) : undefined;
   } else if (isDone) {
     footer = <Button label="영상 보러 가기" isBlock onClick={onViewVideo} />;
   } else {
-    footer = <Button label="홈에서 기다릴게요" variant="secondary" isBlock onClick={onWaitAtHome} />;
+    footer = (
+      <>
+        {onCancel ? (
+          <Button
+            label={isCanceling ? '정지하는 중...' : '생성 정지'}
+            variant="secondary"
+            isBlock
+            isDisabled={isCanceling}
+            onClick={onCancel}
+          />
+        ) : null}
+        <Button
+          label="홈에서 기다릴게요"
+          variant={onCancel ? 'ghost' : 'secondary'}
+          isBlock
+          onClick={onWaitAtHome}
+        />
+      </>
+    );
+    if (isInternalAccount) {
+      footerSummary = (
+        <span className="n-cost">
+          <CreditIcon />
+          <b>내부 테스트 계정</b>
+          <span className="n-cost__have">· 크레딧 차감 없음</span>
+        </span>
+      );
+    }
   }
 
   let mascot = brand.mascot.lying;
@@ -148,7 +204,7 @@ export function GeneratingScreen({
     <MobileScreen
       header={
         <FlowHeader
-          title={isFailed ? '영상 만들기' : isDone ? '영상 완성' : '영상 만드는 중'}
+          title={isStopped ? '영상 만들기' : isDone ? '영상 완성' : '영상 만드는 중'}
           step={7}
           onBack={onBack}
           backLabel="홈으로"
@@ -158,7 +214,7 @@ export function GeneratingScreen({
       footer={footer}
     >
       <Stack gap={20} align="center" style={{ textAlign: 'center', paddingTop: 8 }}>
-        <div className={`n-gen__mascot${isDone || isFailed ? '' : ' is-working'}`}>
+        <div className={`n-gen__mascot${isDone || isStopped ? '' : ' is-working'}`}>
           <Mascot src={mascot} />
         </div>
         <Stack gap={6} align="center">
@@ -167,8 +223,8 @@ export function GeneratingScreen({
         </Stack>
       </Stack>
 
-      {/* 돈 얘기는 먼저: 실패하면 쓴 크레딧을 돌려줬다는 것부터 */}
-      {isFailed && refundedCredits ? (
+      {/* 돈 얘기는 먼저: 실패/중단 시 쓴 크레딧을 돌려줬다는 것부터 */}
+      {isStopped && refundedCredits ? (
         <div className="n-gen__refund">
           <CreditIcon size="lg" />
           <p className="n-gen__refund-text">
@@ -181,8 +237,8 @@ export function GeneratingScreen({
         </div>
       ) : null}
 
-      {/* 퍼센트 + 막대: 서버가 진행률을 줄 때만 (실패하면 숨긴다) */}
-      {!isQueued && !isFailed && (progress !== undefined || isDone) ? (
+      {/* 퍼센트 + 막대: 서버가 진행률을 줄 때만 (실패/중단하면 숨긴다) */}
+      {!isQueued && !isStopped && (progress !== undefined || isDone) ? (
         <div className="n-gen__meter">
           <div className="n-gen__meter-head">
             <span className="n-small n-muted">{isDone ? '완료' : (GENERATING_STAGES[currentStage] ?? '')}</span>
@@ -206,7 +262,7 @@ export function GeneratingScreen({
         {GENERATING_STAGES.map((label, i) => {
           let state: 'done' | 'running' | 'stopped' | 'waiting' = 'waiting';
           if (i < currentStage) state = 'done';
-          else if (i === currentStage) state = isFailed ? 'stopped' : 'running';
+          else if (i === currentStage) state = isStopped ? 'stopped' : 'running';
           const readout = { done: ' 끝남', running: ' 하는 중', stopped: ' 여기서 멈춤', waiting: ' 기다리는 중' }[state];
           return (
             <li key={label} className={`n-gen__step is-${state}`}>
@@ -217,7 +273,7 @@ export function GeneratingScreen({
               <span className="n-gen__label">{label}</span>
               {state === 'stopped' ? (
                 <span className="n-gen__stopped" aria-hidden="true">
-                  여기서 멈췄어요
+                  {isCanceled ? '여기서 정지했어요' : '여기서 멈췄어요'}
                 </span>
               ) : null}
               <span className="napda-visually-hidden">{readout}</span>
@@ -228,16 +284,18 @@ export function GeneratingScreen({
 
       {/* 단계가 바뀌거나 끝나면 스크린 리더가 한 번 읽는다 (퍼센트는 읽지 않는다) */}
       <p className="napda-visually-hidden" role="status">
-        {isFailed
-          ? `영상을 못 만들었어요. ${refundedCredits ? '쓴 크레딧은 돌려드렸어요.' : ''}`
-          : isDone
-            ? '영상이 다 만들어졌어요'
-            : isQueued
-              ? '차례를 기다리고 있어요'
-              : `${GENERATING_STAGES[currentStage] ?? ''} 하는 중`}
+        {isCanceled
+          ? `영상 생성을 정지했어요. ${refundedCredits ? '쓴 크레딧은 돌려드렸어요.' : ''}`
+          : isFailed
+            ? `영상을 못 만들었어요. ${refundedCredits ? '쓴 크레딧은 돌려드렸어요.' : ''}`
+            : isDone
+              ? '영상이 다 만들어졌어요'
+              : isQueued
+                ? '차례를 기다리고 있어요'
+                : `${GENERATING_STAGES[currentStage] ?? ''} 하는 중`}
       </p>
 
-      {isFailed ? (
+      {isStopped ? (
         isVideoProblem ? (
           <Note title="이런 영상이면 잘 만들어져요">
             <span className="n-small n-muted">5~90초, 100MB 이하, 세로(9:16)로 찍은 영상이요.</span>
@@ -245,10 +303,7 @@ export function GeneratingScreen({
         ) : null
       ) : isDone ? null : (
         <Note title="다른 화면 봐도 괜찮아요">
-          <Stack gap={6} style={{ alignItems: 'flex-start' }}>
-            <span className="n-small n-muted">다 되면 알림으로 알려 드려요. 홈의 내 영상에서도 볼 수 있어요.</span>
-            <PendingBadge>푸시 알림 방식 미정</PendingBadge>
-          </Stack>
+          <span className="n-small n-muted">다 되면 알림으로 알려 드려요. 홈의 내 영상에서도 볼 수 있어요.</span>
         </Note>
       )}
 
