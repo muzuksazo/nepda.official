@@ -619,6 +619,7 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
                 )
 
     def test_thinking_budget_forwarded_to_thinking_config(self) -> None:
+        from google.genai import types
         from hookpipe.a_templates import PLAN_SCHEMA_DIRECT, _make_gemini_json_caller
         from hookpipe.body_edit import gemini_script_writer
 
@@ -626,7 +627,7 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
 
         class FakeModels:
             def generate_content(self, *, model: str, contents: Any, config: Any) -> Any:
-                captured_configs.append(config)
+                captured_configs.append((model, config))
                 return SimpleNamespace(text='{"ok": true, "lines": []}', usage_metadata=None)
 
         fake_client = SimpleNamespace(models=FakeModels())
@@ -637,6 +638,7 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
             with patch("app.genai_provider.build_genai_client", return_value=fake_client):
                 settings_default = Settings(_env_file=None, gemini_api_key="test")
                 self.assertEqual(settings_default.llm_thinking_budget, 1024)
+                self.assertEqual(settings_default.llm_thinking_level, "LOW")
                 self.assertTrue(settings_default.hook_endcard_enabled)
                 self.assertAlmostEqual(settings_default.hook_endcard_sec, 2.0)
 
@@ -651,6 +653,14 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
                 writer = gemini_script_writer(settings_default)
                 writer("body prompt", [{"clip": 1, "t": 0.5, "path": str(frame_path)}])
 
+                # Legacy 2.5 budget-based model still receives thinking_budget=1024
+                _make_gemini_json_caller(
+                    settings_default,
+                    model_id="gemini-2.5-pro",
+                    step_name="plan_template",
+                    schema=PLAN_SCHEMA_DIRECT,
+                )("sys", "prompt")
+
                 settings_zero = Settings(_env_file=None, gemini_api_key="test", llm_thinking_budget=0)
                 _make_gemini_json_caller(
                     settings_zero,
@@ -660,13 +670,23 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
                 )("sys", "prompt")
                 gemini_script_writer(settings_zero)("body prompt", [{"clip": 1, "t": 0.5, "path": str(frame_path)}])
 
-        self.assertEqual(len(captured_configs), 4)
-        self.assertIsNotNone(captured_configs[0].thinking_config)
-        self.assertEqual(captured_configs[0].thinking_config.thinking_budget, 1024)
-        self.assertIsNotNone(captured_configs[1].thinking_config)
-        self.assertEqual(captured_configs[1].thinking_config.thinking_budget, 1024)
-        self.assertIsNone(captured_configs[2].thinking_config)
-        self.assertIsNone(captured_configs[3].thinking_config)
+        self.assertEqual(len(captured_configs), 5)
+        self.assertEqual(captured_configs[0][0], "gemini-4-neon")
+        self.assertIsNotNone(captured_configs[0][1].thinking_config)
+        self.assertEqual(captured_configs[0][1].thinking_config.thinking_level, types.ThinkingLevel.LOW)
+        self.assertIsNone(captured_configs[0][1].thinking_config.thinking_budget)
+
+        self.assertEqual(captured_configs[1][0], "gemini-4-hydrogen")
+        self.assertIsNotNone(captured_configs[1][1].thinking_config)
+        self.assertEqual(captured_configs[1][1].thinking_config.thinking_level, types.ThinkingLevel.LOW)
+        self.assertIsNone(captured_configs[1][1].thinking_config.thinking_budget)
+
+        self.assertEqual(captured_configs[2][0], "gemini-2.5-pro")
+        self.assertIsNotNone(captured_configs[2][1].thinking_config)
+        self.assertEqual(captured_configs[2][1].thinking_config.thinking_budget, 1024)
+
+        self.assertIsNone(captured_configs[3][1].thinking_config)
+        self.assertIsNone(captured_configs[4][1].thinking_config)
 
     def test_body_prompt_commercial_cta_offer_and_cache_key(self) -> None:
         from hookpipe.body_edit import BODY_SCRIPT_SCHEMA, Clip, _body_prompt, body_cache_key, make_body

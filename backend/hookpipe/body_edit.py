@@ -196,6 +196,7 @@ def gemini_script_writer(settings: Any) -> ScriptWriter:
         from google.genai import types
 
         from app.genai_provider import build_genai_client
+        from .a_templates import build_gemini_thinking_config
 
         client = build_genai_client(settings)  # 변수에 담아 둔다 (요청 도중 닫히지 않게)
         model_id = str(getattr(settings, "body_llm", "") or "gemini-4-hydrogen")
@@ -203,13 +204,13 @@ def gemini_script_writer(settings: Any) -> ScriptWriter:
         for frame in frames:
             parts.append(types.Part.from_text(text=f"클립 {frame['clip']}번 {frame['t']:.1f}초"))
             parts.append(types.Part.from_bytes(data=Path(frame["path"]).read_bytes(), mime_type="image/jpeg"))
-        budget = int(getattr(settings, "llm_thinking_budget", 1024) or 0)
         config_kwargs: Dict[str, Any] = {
             "response_mime_type": "application/json",
             "response_json_schema": BODY_SCRIPT_SCHEMA,
         }
-        if budget > 0 and hasattr(types, "ThinkingConfig"):
-            config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=budget)
+        thinking_cfg = build_gemini_thinking_config(types, model_id, settings)
+        if thinking_cfg is not None:
+            config_kwargs["thinking_config"] = thinking_cfg
         t0 = time.monotonic()
         response = client.models.generate_content(
             model=model_id,

@@ -108,6 +108,7 @@ class Settings(BaseSettings):
     hook_planner_llm: str = "gemini-4-neon"
     hook_critic_llm: str = "gemini-4-neon"
     llm_thinking_budget: int = 1024
+    llm_thinking_level: str = "LOW"
     # A 템플릿 위치: "storage:<경로>" 면 서버 저장소(R2)의 그 경로, 아니면 로컬 폴더. 형식은 hookpipe/a_templates.py
     hook_a_templates: str = "storage:templates/a"
     # A 템플릿 전용 비공개 Cloudflare R2 (비우면 위 메인 STORAGE_BACKEND 를 그대로 사용)
