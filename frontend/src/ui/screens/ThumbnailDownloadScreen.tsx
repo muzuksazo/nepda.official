@@ -109,6 +109,8 @@ export interface ThumbnailDownloadScreenProps {
   needsPublishConsent?: boolean;
   /** 처음부터 올리기 동의 시트를 열어 둔다 (스토리·테스트용) */
   initialIsConfirmingPublish?: boolean;
+  /** 제작 흐름을 마치고 내 영상 목록 등으로 빠져나간다 */
+  onComplete?: () => void;
 }
 
 const DEFAULT_AI_DISCLOSURE = "인스타그램 게시 시 'AI 정보' 라벨 활성화를 권장합니다.";
@@ -133,6 +135,7 @@ export function ThumbnailDownloadScreen({
   onPublicChange,
   needsPublishConsent = true,
   initialIsConfirmingPublish = false,
+  onComplete,
 }: ThumbnailDownloadScreenProps) {
   const effectiveTemplates = useFigmaTemplates ? FIGMA_THUMBNAIL_TEMPLATES : templates;
   const [caption, setCaption] = useState(initialCaption);
@@ -187,6 +190,9 @@ export function ThumbnailDownloadScreen({
               icon={<Download size={20} aria-hidden="true" />}
               onClick={() => onDownloadThumbnail?.(effectiveTemplateId, caption)}
             />
+            {onComplete ? (
+              <Button label="완료 · 내 영상 보기" variant="ghost" size="md" isBlock onClick={onComplete} />
+            ) : null}
           </>
         }
       >

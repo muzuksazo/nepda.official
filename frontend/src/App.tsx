@@ -2162,6 +2162,12 @@ export function App() {
           onDownloadThumbnail={(tplId, caption) => {
             void handleDownloadThumbnail(tplId, caption);
           }}
+          onComplete={() => {
+            setCreationStep(null);
+            setMyTab('completed');
+            setActiveTab('myVideos');
+            void projectsQuery.refetch();
+          }}
         />
       );
     } else if (overlayScreen?.type === 'notifications') {
