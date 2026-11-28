@@ -1934,6 +1934,82 @@ button.n-list-row:active {
   color: var(--text-weak);
 }
 
+/* 머리 오른쪽 글자 버튼: 내 영상 "선택" · "완료" (누르는 자리 44px) */
+.n-header-text-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-header-text-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* 내 영상 선택 모드: 카드 전체를 덮는 고르기 칸 + 오른쪽 위 체크 원 */
+.n-project-wrap {
+  position: relative;
+}
+
+.n-project-select {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: transparent;
+  cursor: pointer;
+}
+
+.n-project-select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.n-project-select__check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg);
+  color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+/* 고른 카드: 선택 카드와 같은 라임 틴트 테두리 + 라임 체크 */
+.n-project-wrap.is-selected .n-card {
+  border-color: var(--selected-border);
+  box-shadow: inset 0 0 0 1px var(--selected-border);
+}
+
+.n-project-wrap.is-selected .n-project-select__check {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+/* 선택 중에는 행동 타일을 흐리게 해 누를 수 없다는 걸 보여 준다 */
+.n-project-wrap.is-selecting .n-project__action {
+  opacity: 0.45;
+}
+
 /* 글자 버튼: 탈퇴처럼 일부러 조용하게 두는 행동 */
 .n-link-btn {
   min-height: 44px;

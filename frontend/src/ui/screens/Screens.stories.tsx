@@ -239,25 +239,30 @@ export const HomeCommentsEmpty: Story = {
   ),
 };
 
+/** 내 영상: "선택" → 고르기 → "N개 지우기"를 누르면 이 스토리 안에서 실제로 목록에서 빠진다 */
+function MyVideosWithDelete({ initialTab }: { initialTab?: 'inProgress' | 'completed' }) {
+  const [deletedIds, setDeletedIds] = useState<ReadonlySet<string>>(() => new Set());
+  return (
+    <MyVideosScreen
+      inProgress={SAMPLE_IN_PROGRESS.filter((p) => !deletedIds.has(p.id))}
+      completed={SAMPLE_COMPLETED.filter((p) => !deletedIds.has(p.id))}
+      initialTab={initialTab}
+      onNavigate={fn()}
+      onContinue={fn()}
+      onDownloadAgain={fn()}
+      onDelete={(ids) => setDeletedIds((prev) => new Set([...prev, ...ids]))}
+    />
+  );
+}
+
 export const MyVideos: Story = {
   name: '안3-2 내 영상 · 진행 중 탭',
-  render: () => (
-    <MyVideosScreen inProgress={SAMPLE_IN_PROGRESS} completed={SAMPLE_COMPLETED} onNavigate={fn()} onContinue={fn()} onDownloadAgain={fn()} />
-  ),
+  render: () => <MyVideosWithDelete />,
 };
 
 export const MyVideosCompleted: Story = {
   name: '안3-2 내 영상 · 완료 탭',
-  render: () => (
-    <MyVideosScreen
-      inProgress={SAMPLE_IN_PROGRESS}
-      completed={SAMPLE_COMPLETED}
-      initialTab="completed"
-      onNavigate={fn()}
-      onContinue={fn()}
-      onDownloadAgain={fn()}
-    />
-  ),
+  render: () => <MyVideosWithDelete initialTab="completed" />,
 };
 
 /** 내 정보 스토리 공통 값. 화면 모드는 Storybook 툴바의 '모드'와 같은 값을 쓰고, 화면에서 바꾸면 바로 적용된다. */

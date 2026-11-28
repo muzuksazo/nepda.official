@@ -227,7 +227,12 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
     if (tab === 'community') setStep('community');
     if (tab === 'profile') setStep('profile');
   };
-  const completed = [{ id: 'mine', productName, status: '영상과 썸네일을 만들었어요' }, ...SAMPLE_COMPLETED];
+  // 내 영상에서 지운 작업물 (프로토타입에서는 화면에서만 빠진다)
+  const [deletedIds, setDeletedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const inProgress = SAMPLE_IN_PROGRESS.filter((p) => !deletedIds.has(p.id));
+  const completed = [{ id: 'mine', productName, status: '영상과 썸네일을 만들었어요' }, ...SAMPLE_COMPLETED].filter(
+    (p) => !deletedIds.has(p.id),
+  );
 
   // 스플래시: 잠깐 보여 준 뒤 온보딩으로 넘어간다 (실제 앱에서는 로그인 확인이 끝날 때까지)
   useEffect(() => {
@@ -312,7 +317,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           profile={{ name: SAMPLE_USER.name }}
           onNavigate={navigate}
           banners={SAMPLE_BANNERS}
-          inProgress={SAMPLE_IN_PROGRESS}
+          inProgress={inProgress}
           completed={completed}
           onCreate={() => setStep('product')}
           onContinue={(id) => {
@@ -332,12 +337,13 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       return (
         <MyVideosScreen
           key={myTab}
-          inProgress={SAMPLE_IN_PROGRESS}
+          inProgress={inProgress}
           completed={completed}
           initialTab={myTab}
           onNavigate={navigate}
           onContinue={() => setStep('upload')}
           onDownloadAgain={() => setStep('thumbnail')}
+          onDelete={(ids) => setDeletedIds((prev) => new Set([...prev, ...ids]))}
         />
       );
     case 'community':
@@ -415,7 +421,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
             setHistoryFrom('profile');
             setStep('creditHistory');
           }}
-          videoCounts={{ inProgress: SAMPLE_IN_PROGRESS.length, completed: completed.length }}
+          videoCounts={{ inProgress: inProgress.length, completed: completed.length }}
           retentionDays={7}
           themeMode={themeMode}
           onThemeModeChange={setStorybookTheme}
