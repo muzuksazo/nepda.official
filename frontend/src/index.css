@@ -15,6 +15,27 @@ body {
   overflow: hidden;
 }
 
+/* Admin pages render outside the 430px mobile app shell and scroll at the document level. */
+html:has(.napda-admin),
+body:has(.napda-admin) {
+  height: auto;
+  min-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#root:has(.napda-admin) {
+  display: block;
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+#root:has(.napda-admin) > .napda-root {
+  width: 100%;
+  min-height: 100dvh;
+}
+
 .napda-app-shell {
   width: 100%;
   max-width: 430px;
