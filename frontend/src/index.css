@@ -39,6 +39,12 @@ body {
   min-height: 0;
 }
 
+.napda-app-shell .n-viewer {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+}
+
 .napda-app-shell .n-screen__header,
 .napda-app-shell .n-screen__footer,
 .napda-app-shell .n-screen__bottom {

@@ -5,6 +5,7 @@ import {
   BottomNav,
   BrandHeader,
   Button,
+  Card,
   Carousel,
   CommentSheet,
   EventBanner,
@@ -140,7 +141,8 @@ export function HomeScreen({
     return () => observer.disconnect();
   }, [feedHasMore, isFeedLoadingMore, onLoadMoreFeed]);
 
-  const isEmpty = inProgress.length === 0 && completed.length === 0;
+  const hasMyVideos = inProgress.length > 0 || completed.length > 0;
+  const isEmpty = !hasMyVideos && banners.length === 0 && feed.length === 0;
   const header = (
     <BrandHeader
       endContent={
@@ -184,36 +186,50 @@ export function HomeScreen({
         ) : null}
         {createButton}
 
-        {/* 내 영상: 진행 중(이어 할 것)을 앞에, 완료를 뒤에 한 줄로 */}
-        <Stack gap={12} as="section">
-          <SectionTitle title="내 영상" count={inProgress.length + completed.length} onSeeAll={onSeeAllMyVideos} />
-          <Carousel label="내 영상">
-            {[
-              ...inProgress.map((p) => (
-                <ProjectCard
-                  key={p.id}
-                  productName={p.productName}
-                  status={p.status}
-                  completedSteps={p.completedSteps}
-                  nextStep={p.nextStep}
-                  thumbnailUrl={p.thumbnailUrl}
-                  actionLabel="이어하기"
-                  onAction={() => onContinue?.(p.id)}
-                />
-              )),
-              ...completed.map((p) => (
-                <ProjectCard
-                  key={p.id}
-                  productName={p.productName}
-                  status={p.status}
-                  thumbnailUrl={p.thumbnailUrl}
-                  actionLabel="다시 받기"
-                  onAction={() => onDownloadAgain?.(p.id)}
-                />
-              )),
-            ]}
-          </Carousel>
-        </Stack>
+        {/* 내 영상: 진행 중(이어 할 것)을 앞에, 완료를 뒤에 한 줄로. 아직 없으면 안내 카드 */}
+        {hasMyVideos ? (
+          <Stack gap={12} as="section">
+            <SectionTitle title="내 영상" count={inProgress.length + completed.length} onSeeAll={onSeeAllMyVideos} />
+            <Carousel label="내 영상">
+              {[
+                ...inProgress.map((p) => (
+                  <ProjectCard
+                    key={p.id}
+                    productName={p.productName}
+                    status={p.status}
+                    completedSteps={p.completedSteps}
+                    nextStep={p.nextStep}
+                    thumbnailUrl={p.thumbnailUrl}
+                    actionLabel="이어하기"
+                    onAction={() => onContinue?.(p.id)}
+                  />
+                )),
+                ...completed.map((p) => (
+                  <ProjectCard
+                    key={p.id}
+                    productName={p.productName}
+                    status={p.status}
+                    thumbnailUrl={p.thumbnailUrl}
+                    actionLabel="다시 받기"
+                    onAction={() => onDownloadAgain?.(p.id)}
+                  />
+                )),
+              ]}
+            </Carousel>
+          </Stack>
+        ) : (
+          <Card padding={20}>
+            <Stack gap={10} align="center" style={{ textAlign: 'center' }}>
+              <Mascot src={brand.mascot.clapboard} size="sm" />
+              <Stack gap={4} align="center">
+                <h2 className="n-h2">
+                  첫 광고, <span className="n-mark">냅다</span> 만들어 볼까요?
+                </h2>
+                <p className="n-small n-muted">제품만 알려 주면 훅은 저희가 붙여요.</p>
+              </Stack>
+            </Stack>
+          </Card>
+        )}
 
         {/* 다른 사장님들이 냅다로 만든 영상: 내리면서 계속 본다 */}
         {feed.length > 0 ? (

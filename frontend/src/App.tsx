@@ -44,11 +44,18 @@ import {
   formatThumbnailHeadline,
   InfoSheet,
   type AgreementDoc,
+  type BannerItem,
   type CreditPackage,
   type NavTab,
   type ShareHandlers,
   type VideoComment,
 } from './ui/components';
+import event1 from './assets/events/event1.webp';
+import event2 from './assets/events/event2.webp';
+import event3 from './assets/events/event3.webp';
+import showcase01 from './assets/samples/community/thumb-01.webp';
+import showcase02 from './assets/samples/community/thumb-02.webp';
+import showcase03 from './assets/samples/community/thumb-03.webp';
 import {
   ChargeResultScreen,
   CommunityScreen,
@@ -99,6 +106,42 @@ const DEFAULT_CREDIT_PACKAGES: readonly CreditPackage[] = [
   { id: 'c300', credits: 300, price: 33000 },
 ];
 const COMMUNITY_VIDEOS_QUERY_KEY = ['community', 'videos'] as const;
+const HOME_BANNERS: BannerItem[] = [
+  { id: 'b1', imageUrl: event1, alt: '블랙 프라이데이 세일, 최대 70% 할인' },
+  {
+    id: 'b2',
+    imageUrl: event3,
+    alt: '냅다 광고 뽑기 이벤트. 오늘은 또 무슨 광고가 나올까? 랜덤 미션에 도전하고 크레딧을 받아보세요! 이벤트 참여하기',
+  },
+  {
+    id: 'b3',
+    imageUrl: event2,
+    alt: '미친 광고 공모전. 세상에서 가장 어이없는 광고에 도전하세요! 지금 바로 참여하기',
+  },
+];
+const LOGIN_FALLBACK_SHOWCASE = [showcase02, showcase01, showcase03] as const;
+
+function mapCommunityVideos(
+  raw: CommunityVideoApiItem[],
+  likedOverrides: Record<string, boolean>,
+): CommunityVideo[] {
+  return raw.map((item) => {
+    const isLiked = likedOverrides[item.id] ?? false;
+    return {
+      id: item.id,
+      productName: item.product_name,
+      creatorName: item.creator_name || '냅다사장',
+      hookType: (item.hook_type === 'A' || item.hook_type === 'B' || item.hook_type === 'C'
+        ? item.hook_type
+        : 'A') as HookType,
+      thumbnailUrl: item.thumbnail_url ?? undefined,
+      videoUrl: item.video_url ?? undefined,
+      caption: item.caption || item.title || item.product_name,
+      likeCount: (item.like_count ?? 0) + (isLiked ? 1 : 0),
+      isLiked,
+    };
+  });
+}
 
 function normalizeFigmaVariant(id: string | null | undefined): ThumbnailVariant {
   if (id === 'invert-box' || id === 'white-label' || id === 'serif-outline' || id === 'pov-bar') {
@@ -361,8 +404,10 @@ export function App() {
   const [onboardedUsers, setOnboardedUsers] = useState<Record<string, boolean>>({});
   const nicknameTimerRef = useRef<number | undefined>(undefined);
 
-  // Notifications / Credit ledger / Community comments
+  // Notifications / Credit ledger / Community comments & feed likes
   const [commentsByVideo, setCommentsByVideo] = useState<Record<string, VideoComment[]>>({});
+  const [likedVideoIds, setLikedVideoIds] = useState<Record<string, boolean>>({});
+  const [homeFeedCount, setHomeFeedCount] = useState(4);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [creditLedger, setCreditLedger] = useState<CreditEntry[]>([]);
   const [publicProjectIds, setPublicProjectIds] = useState<Record<string, boolean>>({});
@@ -425,6 +470,18 @@ export function App() {
     },
   });
 
+  const homeFeedQuery = useQuery({
+    queryKey: [...COMMUNITY_VIDEOS_QUERY_KEY, 'home'],
+    queryFn: async () => {
+      const res = await customFetch<{
+        status: number;
+        data: { items: CommunityVideoApiItem[] };
+      }>('/v1/community/videos?limit=50');
+      return res.data.items;
+    },
+    retry: false,
+  });
+
   const communityQuery = useQuery({
     queryKey: [...COMMUNITY_VIDEOS_QUERY_KEY, communityHookType ?? 'all'],
     queryFn: async () => {
@@ -475,21 +532,27 @@ export function App() {
     }));
   }, [billingConfig]);
 
-  const communityVideos = useMemo<CommunityVideo[]>(() => {
-    const raw = communityQuery.data ?? [];
-    return raw.map((item) => ({
-      id: item.id,
-      productName: item.product_name,
-      creatorName: item.creator_name || '냅다사장',
-      hookType: (item.hook_type === 'A' || item.hook_type === 'B' || item.hook_type === 'C'
-        ? item.hook_type
-        : 'A') as HookType,
-      thumbnailUrl: item.thumbnail_url ?? undefined,
-      videoUrl: item.video_url ?? undefined,
-      caption: item.caption || item.title || item.product_name,
-      likeCount: item.like_count ?? 0,
-    }));
-  }, [communityQuery.data]);
+  const homeFeedVideos = useMemo<CommunityVideo[]>(
+    () => mapCommunityVideos(homeFeedQuery.data ?? [], likedVideoIds),
+    [homeFeedQuery.data, likedVideoIds],
+  );
+
+  const communityVideos = useMemo<CommunityVideo[]>(
+    () => mapCommunityVideos(communityQuery.data ?? [], likedVideoIds),
+    [communityQuery.data, likedVideoIds],
+  );
+
+  const loginShowcase = useMemo<readonly string[]>(() => {
+    const liveThumbs = homeFeedVideos
+      .map((v) => v.thumbnailUrl)
+      .filter((u): u is string => Boolean(u))
+      .slice(0, 3);
+    if (liveThumbs.length >= 3) return liveThumbs;
+    return [
+      ...liveThumbs,
+      ...LOGIN_FALLBACK_SHOWCASE.slice(0, 3 - liveThumbs.length),
+    ];
+  }, [homeFeedVideos]);
 
   const shareHandlers = useMemo<ShareHandlers>(() => buildShareHandlers(), []);
 
@@ -648,6 +711,32 @@ export function App() {
       });
     },
     [wallet?.credits],
+  );
+
+  const handleToggleVideoLike = useCallback((id: string, isLiked: boolean) => {
+    setLikedVideoIds((prev) => ({ ...prev, [id]: isLiked }));
+  }, []);
+
+  const handleBannerSelect = useCallback(
+    (bannerId: string) => {
+      if (bannerId === 'b1') {
+        openCharge('home');
+        return;
+      }
+      const banner = HOME_BANNERS.find((b) => b.id === bannerId);
+      setInfoSheet({
+        title: bannerId === 'b2' ? '냅다 광고 뽑기 이벤트' : '미친 광고 공모전',
+        description:
+          banner?.alt ??
+          '새로운 이벤트와 크레딧 혜택을 확인하고 나만의 릴스 광고를 만들어 보세요.',
+        actionLabel: '지금 만들어 보기',
+        onAction: () => {
+          setInfoSheet(null);
+          setActiveTab('home');
+        },
+      });
+    },
+    [openCharge],
   );
 
   const startNewCreation = useCallback((initialType: HookType = 'A') => {
@@ -1630,7 +1719,7 @@ export function App() {
         />
       ) : authEntryStep === 'login' ? (
         <LoginScreen
-          showcase={[]}
+          showcase={loginShowcase}
           isSigningIn={auth.isSubmitting}
           hasError={Boolean(auth.error)}
           signInSlot={<GoogleSignInButton theme={gisTheme} />}
@@ -1642,7 +1731,7 @@ export function App() {
   } else if (needsSignup && !termsAgreed) {
     screen = (
       <LoginScreen
-        showcase={[]}
+        showcase={loginShowcase}
         isTermsOpen
         onOpenDoc={openInfoDocument}
         onAgreeTerms={() => {
@@ -1957,8 +2046,10 @@ export function App() {
     } else if (overlayScreen?.type === 'communityViewer') {
       const viewerItems =
         overlayScreen.from === 'creator'
-          ? buildCreatorProfile(overlayScreen.creatorName || '', communityVideos).videos
-          : communityVideos;
+          ? buildCreatorProfile(overlayScreen.creatorName || '', homeFeedVideos).videos
+          : overlayScreen.from === 'home'
+            ? homeFeedVideos
+            : communityVideos;
       screen = (
         <CommunityViewerScreen
           items={viewerItems}
@@ -1966,6 +2057,7 @@ export function App() {
           share={shareHandlers}
           comments={commentsByVideo}
           myName={displayName}
+          onToggleLike={handleToggleVideoLike}
           onAddComment={handleAddComment}
           onDeleteComment={handleDeleteComment}
           onBack={() => {
@@ -1998,7 +2090,7 @@ export function App() {
         />
       );
     } else if (overlayScreen?.type === 'creator') {
-      const { profile, videos } = buildCreatorProfile(overlayScreen.name, communityVideos);
+      const { profile, videos } = buildCreatorProfile(overlayScreen.name, homeFeedVideos);
       screen = (
         <CreatorProfileScreen
           creator={profile}
@@ -2089,6 +2181,8 @@ export function App() {
     } else {
       screen = (
         <HomeScreen
+          banners={HOME_BANNERS}
+          onBannerSelect={handleBannerSelect}
           inProgress={inProgress}
           completed={completed}
           credits={wallet?.credits}
@@ -2109,6 +2203,18 @@ export function App() {
             setMyTab('inProgress');
             setActiveTab('myVideos');
           }}
+          feed={homeFeedVideos.slice(0, homeFeedCount)}
+          feedHasMore={homeFeedCount < homeFeedVideos.length}
+          onLoadMoreFeed={() => setHomeFeedCount((value) => Math.min(homeFeedVideos.length, value + 4))}
+          onOpenFeed={(videoId) => setOverlayScreen({ type: 'communityViewer', from: 'home', videoId })}
+          onToggleFeedLike={handleToggleVideoLike}
+          share={shareHandlers}
+          onOpenCreator={(name) => setOverlayScreen({ type: 'creator', name, returnTo: { type: 'home' } })}
+          onRemixFeed={(video) => startNewCreation(video.hookType)}
+          onSeeAllFeed={() => setActiveTab('community')}
+          comments={commentsByVideo}
+          onAddComment={handleAddComment}
+          onDeleteComment={handleDeleteComment}
         />
       );
     }

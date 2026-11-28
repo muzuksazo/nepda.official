@@ -40,7 +40,6 @@ import {
   SAMPLE_NOW,
   SAMPLE_STORYBOARD,
   SAMPLE_THUMBNAIL_CAPTION,
-  SAMPLE_THUMBNAIL_TEMPLATES,
   SAMPLE_USER,
   sampleCreator,
 } from './sampleProjects';
@@ -550,11 +549,18 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
         />
       );
     case 'review':
-      return <VideoReviewScreen onBack={() => setStep('upload')} onMakeThumbnail={() => setStep('thumbnail')} />;
+      return (
+        <VideoReviewScreen
+          videoUrl={SAMPLE_COMMUNITY[0].videoUrl}
+          onBack={() => setStep('upload')}
+          onMakeThumbnail={() => setStep('thumbnail')}
+        />
+      );
     case 'thumbnail':
       return (
         <ThumbnailDownloadScreen
-          templates={SAMPLE_THUMBNAIL_TEMPLATES}
+          useFigmaTemplates
+          backgroundImageUrl={SAMPLE_COMMUNITY[0].thumbnailUrl}
           initialCaption={SAMPLE_THUMBNAIL_CAPTION}
           onBack={() => setStep('review')}
           onDownloadVideo={() => setStep('home')}

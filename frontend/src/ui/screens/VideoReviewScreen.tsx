@@ -31,7 +31,7 @@ export function VideoReviewScreen({
         <Button
           label={isRendering ? '영상 만드는 중…' : '썸네일 만들기'}
           isBlock
-          isDisabled={isRendering || !videoUrl}
+          isDisabled={isRendering || Boolean(errorMessage)}
           onClick={onMakeThumbnail}
         />
       }
