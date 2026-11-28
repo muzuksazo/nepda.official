@@ -64,19 +64,16 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Build & push container image via Cloud Build
+      - name: Build & push container image to Artifact Registry
         env:
           SHORT_SHA: ${{ github.sha }}
         run: |
           TAG="${SHORT_SHA:0:7}"
           IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/${CLOUD_RUN_SERVICE}:${TAG}"
           echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
-          gcloud builds submit \
-            --project="$GCP_PROJECT_ID" \
-            --region="$GCP_REGION" \
-            --config=backend/cloudbuild.yaml \
-            --substitutions=_IMAGE="$IMAGE" \
-            --quiet .
+          gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+          docker build --platform linux/amd64 -f backend/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
 
       - name: Deploy service to Cloud Run
         run: |
