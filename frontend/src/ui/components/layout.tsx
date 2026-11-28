@@ -6,7 +6,8 @@ import { IconButton, ProgressBar } from './primitives';
 export const FLOW_TOTAL_STEPS = 8;
 
 export interface MobileScreenProps {
-  header: ReactNode;
+  /** 위 고정 영역. 없으면 노치·상태 표시줄 높이만 비워 둔다 (온보딩·로그인처럼 로고 없이 시작하는 화면) */
+  header?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
   /** 버튼 바로 위 한 줄 요약. 결정 직전에 확인할 정보를 버튼과 같은 영역에 묶는다. */
@@ -88,7 +89,7 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
   );
 }
 
-/** 홈·온보딩 상단 로고. 한 화면에 로고는 이것 하나뿐이다. */
+/** 홈 상단 로고. 한 화면에 로고는 이것 하나뿐이다. (온보딩·로그인은 스플래시에서 로고를 보여 줬으니 두지 않는다) */
 export function BrandHeader({ endContent }: { endContent?: ReactNode }) {
   return (
     <header className="n-brand-header">
@@ -160,14 +161,13 @@ export function ProfileButton({ name, imageUrl, onClick }: ProfileButtonProps) {
 }
 
 export interface NotificationButtonProps {
-  /** 안 읽은 알림 수. 0이면 표시 없음, 10개부터는 "9+" */
+  /** 안 읽은 알림 수. 0이면 표시 없음, 1개 이상이면 빨간 점 (개수는 스크린 리더 이름으로만 알린다) */
   unreadCount?: number;
   onClick?: () => void;
 }
 
 /** 상단 GNB 알림 종: 안 읽은 알림이 있으면 오른쪽 위에 숫자 점이 붙는다 */
 export function NotificationButton({ unreadCount = 0, onClick }: NotificationButtonProps) {
-  const shown = unreadCount > 9 ? '9+' : String(unreadCount);
   return (
     <button
       type="button"
@@ -176,11 +176,8 @@ export function NotificationButton({ unreadCount = 0, onClick }: NotificationBut
       aria-label={unreadCount > 0 ? `알림, 안 읽은 알림 ${unreadCount}개` : '알림'}
     >
       <Bell size={24} aria-hidden="true" />
-      {unreadCount > 0 ? (
-        <span className="n-bell__count n-num" aria-hidden="true">
-          {shown}
-        </span>
-      ) : null}
+      {/* 안 읽은 알림이 있다는 표시만 한다. 개수는 스크린 리더 이름으로 알린다 */}
+      {unreadCount > 0 ? <span className="n-bell__dot" aria-hidden="true" /> : null}
     </button>
   );
 }
@@ -191,24 +188,19 @@ export interface AppHeaderActionsProps {
   /** 안 읽은 알림 수 */
   unreadCount?: number;
   onNotificationsClick?: () => void;
-  profile?: { name?: string; imageUrl?: string };
-  onProfileClick?: () => void;
 }
 
-/** 홈 상단 오른쪽 묶음: 크레딧 · 알림 · 프로필 */
+/** 홈 상단 오른쪽 묶음: 크레딧 · 알림 (프로필은 하단 내비게이션 탭으로 간다) */
 export function AppHeaderActions({
   credits,
   onCreditClick,
   unreadCount,
   onNotificationsClick,
-  profile,
-  onProfileClick,
 }: AppHeaderActionsProps) {
   return (
     <div className="n-header-actions">
       <CreditBadge credits={credits} onClick={onCreditClick} />
       <NotificationButton unreadCount={unreadCount} onClick={onNotificationsClick} />
-      <ProfileButton name={profile?.name} imageUrl={profile?.imageUrl} onClick={onProfileClick} />
     </div>
   );
 }

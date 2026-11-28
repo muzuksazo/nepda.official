@@ -87,7 +87,6 @@ export const Home: Story = {
         unreadCount={SAMPLE_NOTIFICATIONS.filter((n) => !n.isRead).length}
         onNotificationsClick={fn()}
         profile={{ name: '냅다사장' }}
-        onProfileClick={fn()}
         onNavigate={fn()}
         feed={SAMPLE_COMMUNITY.slice(0, 4)}
         feedHasMore
@@ -430,7 +429,7 @@ export const CommunityViewerReport: Story = {
 
 export const HomeEmpty: Story = {
   name: '안3-1 홈 · 빈 상태',
-  render: () => <HomeScreen inProgress={[]} completed={[]} onCreate={fn()} credits={30} onCreditClick={fn()} onProfileClick={fn()} onNavigate={fn()} />,
+  render: () => <HomeScreen inProgress={[]} completed={[]} onCreate={fn()} credits={30} onCreditClick={fn()} onNavigate={fn()} />,
 };
 
 export const Splash: Story = {

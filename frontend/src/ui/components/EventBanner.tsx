@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImageIcon, Pause, Play } from '../icons';
+import { useState, type UIEvent } from 'react';
+import { ImageIcon } from '../icons';
 
 import { BANNER_SIZE, MAX_BANNERS } from './bannerSpec';
 
@@ -13,61 +13,26 @@ export interface BannerItem {
 
 export interface EventBannerProps {
   items: BannerItem[];
-  /** 자동 회전 간격(ms) */
-  intervalMs?: number;
   onSelect?: (id: string) => void;
 }
 
-/** 홈 상단 이벤트 배너(최대 3장): 자동 회전 + 손으로 넘기기 + 우측 하단 "1 / 3" 뱃지(누르면 일시정지) */
-export function EventBanner({ items: allItems, intervalMs = 4000, onSelect }: EventBannerProps) {
+/**
+ * 홈 상단 이벤트 배너(최대 3장): 자동으로 넘어가지 않고 첫 장에 멈춰 있다. 손으로 밀어 넘기고,
+ * 우측 하단 "1 / 3" 뱃지로 지금 몇 번째인지 보여 준다.
+ */
+export function EventBanner({ items: allItems, onSelect }: EventBannerProps) {
   // 배너는 최대 3장까지만 보여 준다
   const items = allItems.slice(0, MAX_BANNERS);
-  const trackRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
-  const [userPaused, setUserPaused] = useState(false);
-  const [hoverPaused, setHoverPaused] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-  );
 
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = () => setReducedMotion(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-
-  const goTo = useCallback((i: number) => {
-    const el = trackRef.current;
-    if (!el) return;
-    el.scrollTo({ left: i * el.clientWidth, behavior: reducedMotion ? 'auto' : 'smooth' });
-  }, [reducedMotion]);
-
-  const paused = userPaused || hoverPaused || reducedMotion || items.length < 2;
-
-  useEffect(() => {
-    if (paused) return;
-    const t = window.setInterval(() => goTo((index + 1) % items.length), intervalMs);
-    return () => window.clearInterval(t);
-  }, [paused, index, items.length, intervalMs, goTo]);
-
-  const onScroll = () => {
-    const el = trackRef.current;
-    if (!el) return;
+  const onScroll = (e: UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
     setIndex(Math.round(el.scrollLeft / el.clientWidth));
   };
 
   return (
-    <section
-      className="n-banner"
-      aria-roledescription="캐러셀"
-      aria-label="이벤트 배너"
-      onMouseEnter={() => setHoverPaused(true)}
-      onMouseLeave={() => setHoverPaused(false)}
-      onFocus={() => setHoverPaused(true)}
-      onBlur={() => setHoverPaused(false)}
-    >
-      <div ref={trackRef} className="n-banner__track" onScroll={onScroll} aria-live={paused ? 'polite' : 'off'}>
+    <section className="n-banner" aria-roledescription="캐러셀" aria-label="이벤트 배너">
+      <div className="n-banner__track" onScroll={onScroll} aria-live="polite">
         {items.map((item, i) => (
           <button
             key={item.id}
@@ -91,17 +56,11 @@ export function EventBanner({ items: allItems, intervalMs = 4000, onSelect }: Ev
         ))}
       </div>
       {items.length > 1 ? (
-        <button
-          type="button"
-          className="n-banner__badge"
-          aria-label={userPaused ? '배너 자동 넘김 다시 시작' : '배너 자동 넘김 멈추기'}
-          onClick={() => setUserPaused((p) => !p)}
-        >
+        <span className="n-banner__badge" aria-hidden="true">
           <span className="n-num">
             {index + 1} / {items.length}
           </span>
-          {userPaused ? <Play size={11} fill="currentColor" aria-hidden="true" /> : <Pause size={11} fill="currentColor" aria-hidden="true" />}
-        </button>
+        </span>
       ) : null}
     </section>
   );

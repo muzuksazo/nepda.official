@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { brand } from '../brand';
-import { BrandHeader, Button, Mascot, MobileScreen, Note, Stack, TermsSheet, type AgreementDoc, type Agreements } from '../components';
+import { Button, Mascot, MobileScreen, Note, Stack, TermsSheet, type AgreementDoc, type Agreements } from '../components';
 import { Check } from '../icons';
 
 export interface LoginScreenProps {
@@ -98,7 +98,6 @@ export function LoginScreen({
     <>
       <MobileScreen
         isInert={isTermsOpen}
-        header={<BrandHeader />}
         footer={
           <>
             {isInAppBrowser && !isSigningIn ? (
@@ -135,7 +134,7 @@ export function LoginScreen({
           )}
 
           <Stack gap={8} align="center">
-            <h2 className="n-display n-display--xl">
+            <h1 className="n-display n-display--xl">
               {isExpired ? (
                 '로그인이 풀렸어요'
               ) : (
@@ -145,7 +144,7 @@ export function LoginScreen({
                   <span className="n-mark">냅다</span> 만들어 볼까요?
                 </>
               )}
-            </h2>
+            </h1>
             <p className="n-muted">
               {isExpired ? '다시 들어오면 만들던 영상이 그대로 있어요.' : '구글 계정 하나면 가입도 로그인도 끝.'}
             </p>

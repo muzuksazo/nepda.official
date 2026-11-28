@@ -109,20 +109,18 @@ export const Credit: Story = {
 };
 
 export const HeaderActions: Story = {
-  name: '상단 GNB 묶음 · 알림 · 프로필',
+  name: '상단 GNB 묶음 · 크레딧 · 알림',
   render: () => (
     <>
       <div className="n-row" style={{ justifyContent: 'flex-end', paddingRight: 6 }}>
         <AppHeaderActions
           credits={120}
           unreadCount={3}
-          profile={{ name: '냅다사장' }}
           onCreditClick={fn()}
           onNotificationsClick={fn()}
-          onProfileClick={fn()}
         />
       </div>
-      {/* 안 읽은 알림: 없음 · 1개 · 12개("9+") */}
+      {/* 안 읽은 알림: 없음 · 있음(개수와 상관없이 같은 점) */}
       <div className="n-row" style={{ gap: 8 }}>
         <NotificationButton />
         <NotificationButton unreadCount={1} />

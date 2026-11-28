@@ -310,7 +310,6 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           onSeeAllFeed={() => setStep('community')}
           {...commentProps}
           profile={{ name: SAMPLE_USER.name }}
-          onProfileClick={() => setStep('profile')}
           onNavigate={navigate}
           banners={SAMPLE_BANNERS}
           inProgress={SAMPLE_IN_PROGRESS}

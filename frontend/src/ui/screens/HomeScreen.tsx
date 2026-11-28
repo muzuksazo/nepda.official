@@ -59,9 +59,8 @@ export interface HomeScreenProps {
   /** 상단 알림 종: 안 읽은 알림 수 */
   unreadCount?: number;
   onNotificationsClick?: () => void;
-  /** 상단 프로필 (사진이 없으면 닉네임 첫 글자) */
+  /** 내 프로필 — 피드에서 내 게시물 표시에 쓴다 */
   profile?: { name?: string; imageUrl?: string };
-  onProfileClick?: () => void;
   /** 하단 내비게이션 이동 */
   onNavigate?: (tab: NavTab) => void;
   /** 완료 아래 피드: 커뮤니티 영상 (추천 순서). 비어 있으면 섹션을 숨긴다 */
@@ -106,7 +105,6 @@ export function HomeScreen({
   unreadCount,
   onNotificationsClick,
   profile,
-  onProfileClick,
   onNavigate,
   feed = [],
   feedHasMore,
@@ -151,14 +149,12 @@ export function HomeScreen({
           onCreditClick={onCreditClick}
           unreadCount={unreadCount}
           onNotificationsClick={onNotificationsClick}
-          profile={profile}
-          onProfileClick={onProfileClick}
         />
       }
     />
   );
   const bottomNav = <BottomNav active="home" onNavigate={onNavigate} />;
-  const createButton = <Button label="영상 만들기" isBlock icon={<Plus size={20} aria-hidden="true" />} onClick={onCreate} />;
+  const createButton = <Button label="영상 만들기" isBlock icon={<Plus size={20} className="n-create-plus" aria-hidden="true" />} onClick={onCreate} />;
 
   if (isEmpty) {
     return (

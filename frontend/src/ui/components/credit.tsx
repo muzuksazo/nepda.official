@@ -9,7 +9,7 @@ export interface CreditPackage {
   credits: number;
   /** 원 단위 가격 */
   price: number;
-  /** "많이 골라요" 배지 */
+  /** "인기" 배지 */
   isPopular?: boolean;
 }
 
@@ -51,7 +51,7 @@ export function CreditPackagePicker({ label, packages, value, onChange, creditsP
                 name={name}
                 value={pkg.id}
                 checked={value === pkg.id}
-                aria-label={`${credits} 크레딧, ${price}${videos ? `, 영상 약 ${videos}편` : ''}${pkg.isPopular ? ', 많이 골라요' : ''}`}
+                aria-label={`${credits} 크레딧, ${price}${videos ? `, 영상 약 ${videos}편` : ''}${pkg.isPopular ? ', 인기' : ''}`}
                 onChange={() => onChange(pkg.id)}
               />
               <span className="n-package__check" aria-hidden="true">
@@ -62,7 +62,7 @@ export function CreditPackagePicker({ label, packages, value, onChange, creditsP
                 <span className="n-package__credits">
                   <span className="n-num">{credits}</span>
                   <span className="n-package__unit">크레딧</span>
-                  {pkg.isPopular ? <Badge tone="brand">많이 골라요</Badge> : null}
+                  {pkg.isPopular ? <Badge tone="brand">인기</Badge> : null}
                 </span>
                 {videos ? <span className="n-package__videos">영상 약 {videos}편</span> : null}
               </span>
