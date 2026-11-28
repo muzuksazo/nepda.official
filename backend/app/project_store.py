@@ -254,6 +254,25 @@ class ProjectStore:
             row = conn.execute("SELECT * FROM users WHERE user_id = ?", (user.user_id,)).fetchone()
         return dict(row)  # type: ignore[arg-type]
 
+    def ensure_user(self, user: AuthenticatedUser) -> None:
+        """로그인 세션의 사용자를 users 표에 채운다 (없을 때만 넣고, 비어 있는 이름·이메일만 채운다).
+
+        users 행은 구글 로그인 때만 생기므로, 로그인이 유지된 채 DB 가 새로 시작되면 행이 없어
+        공유 영상의 만든 사람이 "크리에이터"로 떴다 (2026-11-29). 마지막 로그인 시각은 건드리지 않는다.
+        """
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO users (user_id, email, name, picture, created_at, last_login_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    email = CASE WHEN COALESCE(users.email, '') = '' THEN excluded.email ELSE users.email END,
+                    name = CASE WHEN COALESCE(users.name, '') = '' THEN excluded.name ELSE users.name END
+                """,
+                (user.user_id, user.email or "", user.name, user.picture, now_iso, now_iso),
+            )
+
     @staticmethod
     def _row_to_project(row: sqlite3.Row) -> Dict[str, Any]:
         keys = set(row.keys())
