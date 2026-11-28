@@ -1526,6 +1526,31 @@ export function App() {
     ],
   );
 
+  // 내 영상 지우기: 만드는 중인 영상은 서버가 먼저 멈추고(크레딧 환불) 지운다
+  const handleDeleteProjects = useCallback(
+    async (ids: string[]) => {
+      const failed: string[] = [];
+      for (const id of ids) {
+        try {
+          await customFetch<{ status: number }>(`/v1/projects/${id}`, { method: 'DELETE' });
+        } catch (err) {
+          // 이미 지워진 것(404)은 지운 것으로 본다
+          if (!(err instanceof NapdaApiError && err.status === 404)) failed.push(id);
+        }
+      }
+      if (projectId && ids.includes(projectId) && !failed.includes(projectId)) {
+        setProjectId(null);
+      }
+      void queryClient.invalidateQueries({ queryKey: getListProjectsV1ProjectsGetQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_VIDEOS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: getGetWalletV1BillingWalletGetQueryKey() });
+      if (failed.length > 0) {
+        window.alert(`영상 ${failed.length}개를 지우지 못했어요. 잠시 후 다시 시도해 주세요.`);
+      }
+    },
+    [projectId, queryClient],
+  );
+
   const handleTogglePublish = useCallback(
     async (nextIsPublic: boolean, caption?: string) => {
       if (!projectId) return;
@@ -2281,6 +2306,9 @@ export function App() {
           }}
           onDownloadAgain={(id) => {
             void openExistingProject(id, 'download');
+          }}
+          onDelete={(ids) => {
+            void handleDeleteProjects(ids);
           }}
           onNavigate={handleNavigate}
         />
