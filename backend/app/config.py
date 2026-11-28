@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     gcp_vertex_cooldown_sec: float = 300.0
     api_bearer_token: Optional[str] = None
     admin_emails: str = ""
+    internal_test_emails: str = ""
     usage_pricing_overrides_json: Optional[str] = None
     usd_krw_rate: Optional[float] = None
 

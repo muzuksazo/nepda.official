@@ -9,12 +9,13 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import unquote
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 from .auth import SESSION_COOKIE_NAME, AuthenticatedUser, AuthenticationError, verify_session_token
 from .config import Settings
-from .project_store import ProjectStore
+from .project_store import ProjectStore, persist_internal_accounts_to_storage
 from .track_a_templates import (
     MAX_TEMPLATE_VIDEO_BYTES,
     TrackATemplateError,
@@ -88,10 +89,21 @@ def _raise_template_http_error(exc: TrackATemplateError) -> None:
     ) from exc
 
 
-def build_admin_router(settings: Settings, project_store: ProjectStore) -> APIRouter:
-    """Create `/v1/admin/usage/*` routes gated by `ADMIN_EMAILS` or `API_BEARER_TOKEN`."""
+class SetInternalAccountRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+    is_internal: bool = True
+    note: Optional[str] = Field(default=None, max_length=200)
+
+
+def build_admin_router(
+    settings: Settings,
+    project_store: ProjectStore,
+    storage: Optional[Any] = None,
+) -> APIRouter:
+    """Create `/v1/admin/*` routes gated by `ADMIN_EMAILS` or `API_BEARER_TOKEN`."""
     router = APIRouter(prefix="/v1/admin", tags=["Admin"])
     allowed_emails = {e.strip().lower() for e in (settings.admin_emails or "").split(",") if e.strip()}
+    env_internal_emails = {e.strip().lower() for e in (settings.internal_test_emails or "").split(",") if e.strip()}
 
     def require_admin(
         request: Request,
@@ -312,5 +324,60 @@ def build_admin_router(settings: Settings, project_store: ProjectStore) -> APIRo
             return delete_track_a_template(settings, template_id)
         except TrackATemplateError as exc:
             _raise_template_http_error(exc)
+
+    def _accounts_payload(actor: str) -> Dict[str, Any]:
+        accounts = project_store.list_admin_accounts(env_internal_emails=env_internal_emails)
+        return {
+            "accounts": accounts,
+            "internal_count": sum(1 for a in accounts if a.get("is_internal")),
+            "total_count": len(accounts),
+            "admin_actor": actor,
+        }
+
+    @router.get("/accounts")
+    def admin_list_accounts(
+        admin: Dict[str, Any] = Depends(require_admin),
+    ) -> Dict[str, Any]:
+        return _accounts_payload(admin["actor"])
+
+    @router.post("/accounts/internal")
+    def admin_set_internal_account(
+        body: SetInternalAccountRequest = Body(...),
+        admin: Dict[str, Any] = Depends(require_admin),
+    ) -> Dict[str, Any]:
+        try:
+            updated = project_store.set_internal_account(
+                body.email,
+                is_internal=body.is_internal,
+                note=body.note,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": {"code": "INVALID_EMAIL", "message": str(exc)}},
+            ) from exc
+        persist_internal_accounts_to_storage(project_store, storage)
+        return {
+            "updated": updated,
+            **_accounts_payload(admin["actor"]),
+        }
+
+    @router.delete("/accounts/internal/{email}")
+    def admin_remove_internal_account(
+        email: str,
+        admin: Dict[str, Any] = Depends(require_admin),
+    ) -> Dict[str, Any]:
+        try:
+            updated = project_store.set_internal_account(email, is_internal=False)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": {"code": "INVALID_EMAIL", "message": str(exc)}},
+            ) from exc
+        persist_internal_accounts_to_storage(project_store, storage)
+        return {
+            "updated": updated,
+            **_accounts_payload(admin["actor"]),
+        }
 
     return router

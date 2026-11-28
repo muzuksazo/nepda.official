@@ -28,7 +28,7 @@ from .media_delivery import issue_media_token, sanitize_object_key
 from .paddle_billing import PaddleApiClient
 from .pipeline import CampaignRequest, ProductionPipeline
 from .pipeline_extras_router import build_pipeline_extras_router
-from .project_store import ProjectStore
+from .project_store import ProjectStore, hydrate_internal_accounts_from_storage
 from .projects_router import (
     GoogleTokenVerifier,
     ScenarioGenerator,
@@ -89,6 +89,7 @@ def create_app(
     job_store = store or JobStore(cfg.db_path)
     proj_store = project_store or ProjectStore(cfg.db_path)
     storage_backend = storage or build_storage(cfg)
+    hydrate_internal_accounts_from_storage(proj_store, storage_backend)
     hook_a_storage_backend = build_hook_a_storage(cfg, fallback=storage_backend)
     pipeline = ProductionPipeline(
         cfg,
@@ -333,7 +334,7 @@ def create_app(
             tts_provider=tts_provider,
         )
     )
-    app.include_router(build_admin_router(cfg, proj_store))
+    app.include_router(build_admin_router(cfg, proj_store, storage=storage_backend))
 
     return app
 

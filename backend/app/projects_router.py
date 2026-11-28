@@ -17,7 +17,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header, HTTPException, Query, Request, Response, status
+from pydantic import BaseModel, Field
 
 from .auth import (
     SESSION_COOKIE_NAME,
@@ -905,6 +906,10 @@ def _selfhosted_storyboard_generator(settings: Settings, storage: StorageBackend
     return _generate
 
 
+class CancelRenderRequest(BaseModel):
+    job_id: Optional[str] = None
+
+
 def build_projects_router(
     settings: Settings,
     project_store: ProjectStore,
@@ -933,11 +938,32 @@ def build_projects_router(
     else:
         gen_storyboard = _default_storyboard_generator(settings, storage, project_store=project_store)
     paddle = paddle_client or HttpxPaddleApiClient(settings)
+    env_internal_emails = {
+        e.strip().lower() for e in (settings.internal_test_emails or "").split(",") if e.strip()
+    }
 
-    def _quota(user_id: str) -> QuotaStatus:
+    def _is_internal_email(email: Optional[str]) -> bool:
+        norm = str(email or "").strip().lower()
+        if not norm:
+            return False
+        if norm in env_internal_emails:
+            return True
+        return project_store.is_internal_email(norm)
+
+    def _is_internal_user(user: AuthenticatedUser) -> bool:
+        return _is_internal_email(user.email)
+
+    def _quota(user_id: str, *, email: Optional[str] = None) -> QuotaStatus:
         now = datetime.now(timezone.utc)
         used = project_store.count_user_renders_today(user_id, now=now)
         resets = (now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)).isoformat()
+        if _is_internal_email(email):
+            return QuotaStatus(
+                daily_limit=9999,
+                used_today=used,
+                remaining_today=9999,
+                resets_at=resets,
+            )
         limit = max(1, int(settings.daily_render_limit))
         return QuotaStatus(
             daily_limit=limit,
@@ -1282,16 +1308,18 @@ def build_projects_router(
         spec["vo_audio"] = str(vo_wav)
         return spec, str(staged_src)
 
-    def _charge_render_credits(user_id: str) -> int:
+    def _charge_render_credits(user: AuthenticatedUser) -> int:
+        if _is_internal_user(user):
+            return 0
         cost = int(settings.credits_per_video or 0)
         if cost <= 0:
             return 0
         wallet = project_store.get_or_create_wallet(
-            user_id, default_free_videos=settings.initial_free_videos
+            user.user_id, default_free_videos=settings.initial_free_videos
         )
-        if wallet["credits"] < cost or not project_store.deduct_wallet_credits(user_id, cost):
+        if wallet["credits"] < cost or not project_store.deduct_wallet_credits(user.user_id, cost):
             latest_wallet = project_store.get_or_create_wallet(
-                user_id, default_free_videos=settings.initial_free_videos
+                user.user_id, default_free_videos=settings.initial_free_videos
             )
             raise _api_error(
                 status.HTTP_402_PAYMENT_REQUIRED,
@@ -1305,11 +1333,23 @@ def build_projects_router(
             )
         return cost
 
-    def _refund_if_failed(jid: str, *, user_id: Optional[str], deducted_credits: int) -> None:
+    def _refund_job_credits_once(
+        jid: str, *, user_id: Optional[str], deducted_credits: Optional[int] = None
+    ) -> int:
         job = job_store.get_job(jid)
-        if job and job.get("status") == "FAILED" and user_id and deducted_credits > 0:
-            project_store.refund_wallet_credits(user_id, deducted_credits)
-            job_store.update_job(jid, refunded_credits=deducted_credits)
+        if not job or job.get("status") not in {"FAILED", "CANCELED"} or not user_id:
+            return 0
+        already_refunded = int(job.get("refunded_credits") or 0)
+        if already_refunded > 0:
+            return 0
+        amount = int(
+            deducted_credits if deducted_credits is not None else (job.get("deducted_credits") or 0)
+        )
+        if amount <= 0:
+            return 0
+        project_store.refund_wallet_credits(user_id, amount)
+        job_store.update_job(jid, refunded_credits=amount)
+        return amount
 
     def _resign_media_ref(raw_ref: Optional[str]) -> Optional[str]:
         if not raw_ref or not isinstance(raw_ref, str):
@@ -1372,10 +1412,15 @@ def build_projects_router(
             hooks.process_render(project_id, jid, user_id, scn, voice_id)
         except Exception as exc:
             job = job_store.get_job(jid)
-            if job and job.get("status") != "FAILED":
+            if hooks.is_cancelled(jid) or (job and job.get("status") == "CANCELED"):
+                if job and job.get("status") != "CANCELED":
+                    job_store.update_job(
+                        jid, status="CANCELED", stage="CANCELED", error="사용자가 생성을 중단했어요."
+                    )
+            elif job and job.get("status") not in {"FAILED", "CANCELED"}:
                 job_store.update_job(jid, status="FAILED", error=str(exc))
         finally:
-            _refund_if_failed(jid, user_id=user_id, deducted_credits=deducted_credits)
+            _refund_job_credits_once(jid, user_id=user_id, deducted_credits=deducted_credits)
 
     def _run_job_bg(
         req: CampaignRequest,
@@ -1388,10 +1433,10 @@ def build_projects_router(
             pipeline.run_campaign(req, job_id=jid)
         except Exception as exc:
             job = job_store.get_job(jid)
-            if job and job.get("status") != "FAILED":
+            if job and job.get("status") not in {"FAILED", "CANCELED"}:
                 job_store.update_job(jid, status="FAILED", error=str(exc))
         finally:
-            _refund_if_failed(jid, user_id=user_id, deducted_credits=refunded_credits)
+            _refund_job_credits_once(jid, user_id=user_id, deducted_credits=refunded_credits)
 
     def _run_track_a_template_bg(
         req: CampaignRequest,
@@ -1428,10 +1473,10 @@ def build_projects_router(
             pipeline.run_campaign(req, job_id=jid)
         except Exception as exc:
             job = job_store.get_job(jid)
-            if job and job.get("status") != "FAILED":
+            if job and job.get("status") not in {"FAILED", "CANCELED"}:
                 job_store.update_job(jid, status="FAILED", error=str(exc))
         finally:
-            _refund_if_failed(jid, user_id=user_id, deducted_credits=refunded_credits)
+            _refund_job_credits_once(jid, user_id=user_id, deducted_credits=refunded_credits)
 
     @router.post("/v1/auth/google", response_model=GoogleAuthResponse, tags=["Auth"])
     def auth_google(body: GoogleAuthRequest, response: Response) -> GoogleAuthResponse:
@@ -1457,7 +1502,7 @@ def build_projects_router(
             user=AuthUserResponse(**user.__dict__),
             access_token=token,
             expires_at=expires_at,
-            quota=_quota(user.user_id),
+            quota=_quota(user.user_id, email=user.email),
         )
 
     @router.post("/v1/auth/logout", status_code=status.HTTP_204_NO_CONTENT, tags=["Auth"])
@@ -1474,7 +1519,7 @@ def build_projects_router(
 
     @router.get("/v1/auth/me", response_model=AuthMeResponse, tags=["Auth"])
     def auth_me(user: AuthenticatedUser = Depends(require_user)) -> AuthMeResponse:
-        return AuthMeResponse(user=AuthUserResponse(**user.__dict__), quota=_quota(user.user_id))
+        return AuthMeResponse(user=AuthUserResponse(**user.__dict__), quota=_quota(user.user_id, email=user.email))
 
     @router.get("/v1/hook-types", response_model=HookTypesResponse, tags=["Planning"])
     def list_hook_types() -> HookTypesResponse:
@@ -1585,7 +1630,7 @@ def build_projects_router(
         next_offset = (offset + len(rows)) if has_more else None
         return ProjectListResponse(
             projects=summaries,
-            quota=_quota(user.user_id),
+            quota=_quota(user.user_id, email=user.email),
             total=total,
             offset=offset,
             limit=limit,
@@ -1617,7 +1662,7 @@ def build_projects_router(
             latest_job=latest_job,
             is_public=bool(proj.get("is_public", False)),
             public_caption=proj.get("public_caption"),
-            quota=_quota(user.user_id),
+            quota=_quota(user.user_id, email=user.email),
             expires_at=proj["expires_at"],
             created_at=proj["created_at"],
             updated_at=proj["updated_at"],
@@ -1856,7 +1901,7 @@ def build_projects_router(
             resolution=body.resolution,
             total_estimated_credits=sum(s.estimated_credits for s in stages),
             stages=stages,
-            quota=_quota(user.user_id),
+            quota=_quota(user.user_id, email=user.email),
         )
 
     @router.post(
@@ -1891,7 +1936,7 @@ def build_projects_router(
         user: AuthenticatedUser = Depends(require_user),
     ) -> CreateRenderResponse:
         proj = _get_owned_project(project_id, user)
-        quota_before = _quota(user.user_id)
+        quota_before = _quota(user.user_id, email=user.email)
         if quota_before.remaining_today <= 0:
             raise _api_error(
                 status.HTTP_429_TOO_MANY_REQUESTS,
@@ -1936,7 +1981,7 @@ def build_projects_router(
             if is_worker_scenario(scn):
                 # A·B·C 작업자 시나리오: 영상 모델 훅을 만들고(이미 있으면 재사용) 올린 본편을 뒤에 붙인다
                 is_dry = bool(body.dry_run or hooks.is_dry_run())
-                deducted_credits = 0 if is_dry else _charge_render_credits(user.user_id)
+                deducted_credits = 0 if is_dry else _charge_render_credits(user)
                 jid = f"job_{uuid.uuid4().hex[:12]}"
                 job_store.create_job(
                     jid,
@@ -1976,7 +2021,7 @@ def build_projects_router(
                     selected_type=chosen_type,
                     estimated_credits=12 if body.resolution == "360p" else 32,
                     deducted_credits=deducted_credits,
-                    quota=_quota(user.user_id),
+                    quota=_quota(user.user_id, email=user.email),
                     expires_at=proj["expires_at"],
                 )
             spec_data = dict(scn.get("ad_spec") or {})
@@ -2003,7 +2048,7 @@ def build_projects_router(
             if (chosen_type == "A" and not body.dry_run)
             else None
         )
-        deducted_credits = 0 if body.dry_run else _charge_render_credits(user.user_id)
+        deducted_credits = 0 if body.dry_run else _charge_render_credits(user)
 
         jid = f"job_{uuid.uuid4().hex[:12]}"
         req = CampaignRequest(
@@ -2058,9 +2103,67 @@ def build_projects_router(
             selected_type=chosen_type,
             estimated_credits=est_cr,
             deducted_credits=deducted_credits,
-            quota=_quota(user.user_id),
+            quota=_quota(user.user_id, email=user.email),
             expires_at=proj["expires_at"],
         )
+
+    @router.post(
+        "/v1/projects/{project_id}/renders/cancel",
+        tags=["Generation"],
+    )
+    def cancel_render(
+        project_id: str,
+        body: Optional[CancelRenderRequest] = Body(default=None),
+        user: AuthenticatedUser = Depends(require_user),
+    ) -> Dict[str, Any]:
+        proj = _get_owned_project(project_id, user)
+        jid = (body.job_id if body else None) or proj.get("latest_job_id")
+        refunded = 0
+        was_active = False
+        final_status = "CANCELED"
+
+        if jid:
+            job = job_store.get_job(jid)
+            hooks.cancel_job(jid)
+            if job:
+                cur_status = str(job.get("status") or "")
+                if cur_status in {"QUEUED", "RUNNING"}:
+                    was_active = True
+                    job_store.update_job(
+                        jid,
+                        status="CANCELED",
+                        stage="CANCELED",
+                        error="사용자가 생성을 중단했어요.",
+                    )
+                    refunded = _refund_job_credits_once(jid, user_id=user.user_id)
+                    final_status = "CANCELED"
+                elif cur_status == "CANCELED":
+                    refunded = _refund_job_credits_once(jid, user_id=user.user_id)
+                    final_status = "CANCELED"
+                else:
+                    final_status = cur_status
+
+        for hk in project_store.list_hooks_for_project(project_id):
+            if hk.get("status") in {"queued", "running"} and (not jid or hk.get("job_id") == jid):
+                project_store.update_hook(
+                    hk["hook_id"], status="canceled", error="사용자가 생성을 중단했어요."
+                )
+
+        if proj.get("status") in {"RENDERING", "HOOK_RENDERING"}:
+            next_status = "UPLOADS_READY" if (proj.get("uploads") or {}).get("clips") else "STORYBOARD_READY"
+            project_store.update_project(project_id, status=next_status)
+
+        wallet = project_store.get_or_create_wallet(
+            user.user_id, default_free_videos=settings.initial_free_videos
+        )
+        return {
+            "project_id": project_id,
+            "job_id": jid,
+            "status": final_status,
+            "canceled": was_active,
+            "refunded_credits": refunded,
+            "credits": wallet["credits"],
+        }
 
     @router.get(
         "/v1/projects/{project_id}/deliverables",
@@ -2241,7 +2344,7 @@ def build_projects_router(
                 return CreateHookResponse(
                     hook_id=existing["hook_id"], job_id=existing["job_id"], status=existing["status"]
                 )
-            quota_before = _quota(user.user_id)
+            quota_before = _quota(user.user_id, email=user.email)
             if quota_before.remaining_today <= 0:
                 raise _api_error(
                     status.HTTP_429_TOO_MANY_REQUESTS,
@@ -2314,14 +2417,15 @@ def build_projects_router(
         ]
         return OutputsResponse(project_id=project_id, outputs=items)
 
-    def _wallet_response(user_id: str) -> WalletResponse:
+    def _wallet_response(user: AuthenticatedUser) -> WalletResponse:
         wallet = project_store.get_or_create_wallet(
-            user_id, default_free_videos=settings.initial_free_videos
+            user.user_id, default_free_videos=settings.initial_free_videos
         )
         return WalletResponse(
             credits=wallet["credits"],
             has_free_video=wallet["has_free_video"],
             free_videos_remaining=wallet["free_videos_remaining"],
+            is_internal=_is_internal_user(user),
         )
 
     @router.get("/v1/billing/config", response_model=BillingConfigResponse, tags=["Billing"])
@@ -2352,7 +2456,7 @@ def build_projects_router(
 
     @router.get("/v1/billing/wallet", response_model=WalletResponse, tags=["Billing"])
     def get_wallet(user: AuthenticatedUser = Depends(require_user)) -> WalletResponse:
-        return _wallet_response(user.user_id)
+        return _wallet_response(user)
 
     @router.post("/v1/billing/checkout", response_model=CreateCheckoutResponse, tags=["Billing"])
     def create_billing_checkout(
@@ -2464,7 +2568,7 @@ def build_projects_router(
             amount_krw=order["amount_krw"],
             status=order["status"],
             paddle_transaction_id=order.get("paddle_transaction_id"),
-            wallet=_wallet_response(user.user_id),
+            wallet=_wallet_response(user),
             completed_at=order.get("completed_at"),
         )
 

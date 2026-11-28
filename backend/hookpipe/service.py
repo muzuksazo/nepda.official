@@ -26,7 +26,7 @@ from .body import attach_body
 from .media import MediaTools, find_tools
 from .body_edit import ScriptWriter, body_cache_key, make_body
 from .selfhosted import SelfHostedMedia
-from .render import HookRenderResult, _subtitle_style, extract_reference_frames, render_hook, write_scenario_and_srt
+from .render import HookRenderResult, JobCancelledError, _subtitle_style, extract_reference_frames, render_hook, write_scenario_and_srt
 from .tts import InworldTts, MediaWithTts
 
 logger = logging.getLogger("hookpipe.service")
@@ -76,6 +76,51 @@ class HookPipeline:
         self._selfhosted_media = selfhosted_media  # 테스트에서 가짜 FLUX·MiniMax 를 넣는다
         self._locks: Dict[Tuple[str, str], threading.Lock] = {}
         self._locks_guard = threading.Lock()
+        self._cancel_lock = threading.Lock()
+        self._cancel_events: Dict[str, threading.Event] = {}
+        self._cancelled_jobs: set[str] = set()
+
+    def _begin_job_cancel_scope(self, job_id: Optional[str]) -> Optional[threading.Event]:
+        if not job_id:
+            return None
+        with self._cancel_lock:
+            ev = self._cancel_events.get(job_id)
+            if ev is None:
+                ev = threading.Event()
+                self._cancel_events[job_id] = ev
+            if job_id in self._cancelled_jobs:
+                ev.set()
+            return ev
+
+    def _end_job_cancel_scope(self, job_id: Optional[str]) -> None:
+        if not job_id:
+            return
+        with self._cancel_lock:
+            self._cancel_events.pop(job_id, None)
+
+    def cancel_job(self, job_id: str) -> None:
+        if not job_id:
+            return
+        with self._cancel_lock:
+            self._cancelled_jobs.add(job_id)
+            ev = self._cancel_events.get(job_id)
+            if ev is None:
+                ev = threading.Event()
+                self._cancel_events[job_id] = ev
+            ev.set()
+
+    def is_cancelled(self, job_id: Optional[str]) -> bool:
+        if not job_id:
+            return False
+        with self._cancel_lock:
+            if job_id in self._cancelled_jobs:
+                return True
+            ev = self._cancel_events.get(job_id)
+            return bool(ev is not None and ev.is_set())
+
+    def _raise_if_cancelled(self, job_id: Optional[str]) -> None:
+        if self.is_cancelled(job_id):
+            raise JobCancelledError("사용자가 영상 생성을 중단했습니다.")
 
     # ---- 공통 도우미 -------------------------------------------------
 
@@ -235,7 +280,9 @@ class HookPipeline:
         clips: List[Path],
         progress: Optional[Callable[[str], None]] = None,
         job_id: Optional[str] = None,
+        cancel_event: Optional[threading.Event] = None,
     ) -> HookRenderResult:
+        self._raise_if_cancelled(job_id)
         media = self._media()
         enabled, voice = self._tts_key(tts)
         if self._selfhosted(scenario):
@@ -244,6 +291,7 @@ class HookPipeline:
             refs = []
         else:
             refs = extract_reference_frames(clips, out_dir / "_work" / "refs", media) if clips else []
+        self._raise_if_cancelled(job_id)
         return render_hook(
             scenario,
             project.get("product") or {},
@@ -262,6 +310,7 @@ class HookPipeline:
                 hook_type=str(scenario.get("type") or "") or None,
                 job_id=job_id,
             ),
+            cancel_event=cancel_event,
         )
 
     def _selfhosted(self, scenario: Dict[str, Any]) -> bool:
@@ -477,6 +526,8 @@ class HookPipeline:
                 shutil.rmtree(out_dir / "_work" / "uploads", ignore_errors=True)
             self.project_store.update_hook(hook_id, status="done", files=files)
             self.project_store.update_project(project_id, status="HOOK_READY")
+        except JobCancelledError:
+            self.project_store.update_hook(hook_id, status="canceled", error="사용자가 생성을 중단했습니다.")
         except Exception as exc:
             logger.exception("훅 생성 실패 (%s/%s)", project_id, hook_id)
             self.project_store.update_hook(hook_id, status="failed", error=str(exc) or type(exc).__name__)
@@ -495,7 +546,9 @@ class HookPipeline:
         """훅 + 본편 → 최종 영상. 결과는 기존 /deliverables 가 읽는 모양(artifacts.rendered[0])으로 남긴다."""
         store = self.job_store
         job_dir: Optional[Path] = None
+        cancel_event = self._begin_job_cancel_scope(job_id)
         try:
+            self._raise_if_cancelled(job_id)
             project = self.project_store.get_project(project_id)
             if not project:
                 raise RuntimeError("프로젝트를 찾을 수 없습니다.")
@@ -509,9 +562,11 @@ class HookPipeline:
             clips = self._upload_clip_paths(project, job_dir / "uploads")
             if not clips:
                 raise RuntimeError("붙일 본편 영상을 찾지 못했습니다. 영상을 다시 올려 주세요.")
+            self._raise_if_cancelled(job_id)
 
             store.update_job(job_id, status="RUNNING", stage="HOOK")
             with self._lock(project_id, scenario_id):
+                self._raise_if_cancelled(job_id)
                 hook = self.find_existing_hook(project_id, scenario_id, tts)
                 if hook:
                     hook_id, out_dir = hook["hook_id"], Path(hook["output_dir"])
@@ -537,16 +592,25 @@ class HookPipeline:
                             clips,
                             progress=lambda stage: store.update_job(job_id, stage=f"HOOK:{stage}"),
                             job_id=job_id,
+                            cancel_event=cancel_event,
                         )
+                    except JobCancelledError:
+                        self.project_store.update_hook(hook_id, status="canceled", error="사용자가 생성을 중단했습니다.")
+                        raise
                     except Exception as exc:
+                        if self.is_cancelled(job_id):
+                            self.project_store.update_hook(hook_id, status="canceled", error="사용자가 생성을 중단했습니다.")
+                            raise JobCancelledError("사용자가 영상 생성을 중단했습니다.") from exc
                         self.project_store.update_hook(hook_id, status="failed", error=str(exc) or type(exc).__name__)
                         raise
                     self.project_store.update_hook(hook_id, status="done", files={**EMPTY_FILES, **result.files})
                     self._publish_hook_files(project_id, hook_id, out_dir, result.files)
 
+            self._raise_if_cancelled(job_id)
             store.update_job(job_id, status="RUNNING", stage="BODY")
             # 본편: A·B·C 공용 10초 편집본 (나레이션·자막 포함). 같은 프로젝트의 다른 유형 훅도 같은 본편을 쓴다
             body_video, body_srt, body_warnings = self._shared_body(project, clips, voice, job_id)
+            self._raise_if_cancelled(job_id)
             # 최종 파일은 작업마다 다른 폴더에 쓴다 (같은 훅으로 겹쳐 만들어도 서로 덮어쓰지 않는다)
             final_path = job_dir / "final.mp4"
             joined = attach_body(
@@ -559,6 +623,7 @@ class HookPipeline:
                 body_srt=body_srt,
             )
             joined.warnings = [*body_warnings, *joined.warnings]
+            self._raise_if_cancelled(job_id)
 
             # 저장소 키 (팀 합의 2026-11-27): projects/{project_id}/renders/{job_id}/{master.mp4|clean.mp4|final.srt}
             # clean.mp4(자막 없는 판)는 아직 만들지 않는다. 그때까지는 master 를 같이 가리킨다.
@@ -579,6 +644,7 @@ class HookPipeline:
             if srt_path.is_file():
                 entry["srt_key"] = f"{prefix}/final.srt"
                 entry["srt"] = self.storage.upload_file(srt_path, entry["srt_key"])
+            self._raise_if_cancelled(job_id)
             store.update_job(
                 job_id,
                 status="QC_READY",
@@ -593,7 +659,32 @@ class HookPipeline:
                 },
             )
             self.project_store.update_project(project_id, status="DELIVERABLE_READY")
+        except JobCancelledError:
+            logger.info("최종 영상 생성 중단됨 (%s/%s)", project_id, job_id)
+            store.update_job(
+                job_id,
+                status="CANCELED",
+                stage="CANCELED",
+                error="사용자가 생성을 중단했어요.",
+            )
+            latest_proj = self.project_store.get_project(project_id)
+            if latest_proj and latest_proj.get("status") == "RENDERING":
+                next_status = "UPLOADS_READY" if (latest_proj.get("uploads") or {}).get("clips") else "STORYBOARD_READY"
+                self.project_store.update_project(project_id, status=next_status)
         except Exception as exc:
+            if self.is_cancelled(job_id):
+                logger.info("최종 영상 생성 중단 처리됨 (%s/%s): %s", project_id, job_id, exc)
+                store.update_job(
+                    job_id,
+                    status="CANCELED",
+                    stage="CANCELED",
+                    error="사용자가 생성을 중단했어요.",
+                )
+                latest_proj = self.project_store.get_project(project_id)
+                if latest_proj and latest_proj.get("status") == "RENDERING":
+                    next_status = "UPLOADS_READY" if (latest_proj.get("uploads") or {}).get("clips") else "STORYBOARD_READY"
+                    self.project_store.update_project(project_id, status=next_status)
+                return
             logger.exception("최종 영상 생성 실패 (%s/%s)", project_id, job_id)
             job = store.get_job(job_id)
             store.update_job(
@@ -604,6 +695,7 @@ class HookPipeline:
             )
             self.project_store.update_project(project_id, status="FAILED")
         finally:
+            self._end_job_cancel_scope(job_id)
             if job_dir is not None:
                 # 내려받은 업로드 사본과 중간 본편은 지운다 (최종 파일은 남긴다)
                 shutil.rmtree(job_dir / "uploads", ignore_errors=True)

@@ -32,6 +32,8 @@ export interface UploadVideoScreenProps {
   initialIsShort?: boolean;
   /** 예상 소요 시간(서버가 알려 주는 값). 없으면 기본 안내 값을 쓴다 */
   estimate?: { total: string; stages: TimeEstimateStage[] };
+  /** 내부 테스트 계정 여부 (크레딧·일일 한도 면제) */
+  isInternalAccount?: boolean;
 }
 
 const SAMPLE_ESTIMATE = {
@@ -55,12 +57,17 @@ export function UploadVideoScreen({
   credits,
   onCharge,
   initialIsShort = false,
+  isInternalAccount = false,
 }: UploadVideoScreenProps) {
   const [files, setFiles] = useState<File[]>(initialFiles);
   const file = files.length > 0;
   const [isShortOpen, setIsShortOpen] = useState(initialIsShort);
-  // 단가·잔액을 모르면 막지 않고 서버에 맡긴다
-  const shortfall = cost !== undefined && credits !== undefined ? Math.max(0, cost - credits) : 0;
+  // 단가·잔액을 모르면 막지 않고 서버에 맡긴다. 내부 테스트 계정은 크레딧 차감 면제.
+  const shortfall = isInternalAccount
+    ? 0
+    : cost !== undefined && credits !== undefined
+      ? Math.max(0, cost - credits)
+      : 0;
 
   const create = () => {
     if (!file) return;
@@ -72,6 +79,14 @@ export function UploadVideoScreen({
   let summary;
   if (!file) {
     summary = <span>영상부터 골라 주세요</span>;
+  } else if (isInternalAccount) {
+    summary = (
+      <span className="n-cost">
+        <CreditIcon />
+        <b>내부 테스트 계정</b>
+        <span className="n-cost__have">· 크레딧 차감 없음</span>
+      </span>
+    );
   } else if (cost === undefined) {
     summary = <span>{estimate.total}이면 나와요</span>;
   } else {

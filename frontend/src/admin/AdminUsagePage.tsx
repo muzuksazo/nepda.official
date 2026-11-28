@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { customFetch } from '../api/mutator';
 import type { ThemeSetting } from '../ui/NapdaProvider';
+import { AdminAccountsPanel } from './AdminAccountsPanel';
 import { AdminTemplatesPanel } from './AdminTemplatesPanel';
 import './AdminUsagePage.css';
 
@@ -122,12 +123,14 @@ interface ProjectUsageDetailResponse {
 }
 
 const BEARER_STORAGE_KEY = 'napda_admin_bearer';
-type AdminTab = 'usage' | 'templates';
+type AdminTab = 'usage' | 'templates' | 'accounts';
 
 function readAdminTabFromUrl(): AdminTab {
   try {
     const tab = new URLSearchParams(window.location.search).get('tab');
-    return tab === 'templates' ? 'templates' : 'usage';
+    if (tab === 'templates') return 'templates';
+    if (tab === 'accounts') return 'accounts';
+    return 'usage';
   } catch {
     return 'usage';
   }
@@ -297,7 +300,9 @@ export function AdminUsagePage({
             <h1 className="napda-admin-title">
               {activeTab === 'templates'
                 ? 'NAPDA A안 템플릿 관리'
-                : 'NAPDA 사용량 · 단가 · A/B 텔레메트리'}
+                : activeTab === 'accounts'
+                  ? 'NAPDA 계정 · 내부 테스트 관리'
+                  : 'NAPDA 사용량 · 단가 · A/B 텔레메트리'}
             </h1>
             <p className="napda-admin-sub">
               {summary
@@ -363,6 +368,15 @@ export function AdminUsagePage({
           >
             A안 템플릿 관리
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'accounts'}
+            className={`napda-admin-tab${activeTab === 'accounts' ? ' is-active' : ''}`}
+            onClick={() => handleSelectTab('accounts')}
+          >
+            계정 관리
+          </button>
         </nav>
 
         <div className="napda-admin-bearer">
@@ -383,6 +397,11 @@ export function AdminUsagePage({
 
         {activeTab === 'templates' ? (
           <AdminTemplatesPanel
+            bearerToken={appliedBearer}
+            reloadSignal={bearerRevision}
+          />
+        ) : activeTab === 'accounts' ? (
+          <AdminAccountsPanel
             bearerToken={appliedBearer}
             reloadSignal={bearerRevision}
           />

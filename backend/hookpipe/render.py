@@ -24,6 +24,7 @@ import logging
 import math
 import re
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -93,6 +94,15 @@ def _join_with_pause(first: Path, second: Path, out: Path, pause: float, after: 
 
 class HookRenderError(RuntimeError):
     """훅을 만들 수 없을 때 (입력 문제, 과금 상한, 생성 실패)."""
+
+
+class JobCancelledError(RuntimeError):
+    """사용자가 영상 생성을 중단했을 때."""
+
+
+def _check_cancelled(cancel_event: Optional[threading.Event]) -> None:
+    if cancel_event is not None and cancel_event.is_set():
+        raise JobCancelledError("사용자가 영상 생성을 중단했습니다.")
 
 
 @dataclass
@@ -226,6 +236,8 @@ def generate_clip_with_retries(
     resolution: str,
     reference_paths: Sequence[Path],
     first_frame_path: Optional[Path] = None,
+    cancel_event: Optional[threading.Event] = None,
+    timeout_sec: float = 600.0,
 ) -> tuple:
     """영상 모델로 클립 하나. INVALID_ARGUMENT 로 거절되면 (실패한 요청은 과금되지 않음) 조건을 낮춰 다시 보낸다:
     1) 그대로  2) 첫 프레임 없이  3) 참고 이미지 없이  4) 단면·해부 묘사를 바깥에서 본 장면으로 바꿔서.
@@ -242,16 +254,24 @@ def generate_clip_with_retries(
     if softened != prompt:
         attempts.append(("retried_outside_view", softened, [], None))
     for position, (tag, prompt_text, refs_to_send, first_frame) in enumerate(attempts):
+        _check_cancelled(cancel_event)
         try:
-            provider.generate_video_clip(
-                prompt_text,
-                clip,
-                aspect_ratio="9:16",
-                duration_sec=clip_sec,
-                resolution=resolution,
-                reference_paths=refs_to_send,
-                **({"first_frame_path": first_frame} if first_frame is not None else {}),
+            _call_with_deadline(
+                lambda pt=prompt_text, rts=refs_to_send, ff=first_frame: provider.generate_video_clip(
+                    pt,
+                    clip,
+                    aspect_ratio="9:16",
+                    duration_sec=clip_sec,
+                    resolution=resolution,
+                    reference_paths=rts,
+                    **({"first_frame_path": ff} if ff is not None else {}),
+                ),
+                timeout_sec,
+                "영상 클립",
+                cancel_event=cancel_event,
             )
+        except JobCancelledError:
+            raise
         except Exception as exc:
             if "INVALID_ARGUMENT" not in str(exc) or position == len(attempts) - 1:
                 raise
@@ -569,12 +589,18 @@ def _write_storyboards(plans: List[BeatPlan], out_dir: Path, tools: MediaTools) 
     return names
 
 
-def _call_with_deadline(fn: Callable[[], Any], seconds: float, label: str) -> Any:
+def _call_with_deadline(
+    fn: Callable[[], Any],
+    seconds: float,
+    label: str,
+    *,
+    cancel_event: Optional[threading.Event] = None,
+) -> Any:
     """fn 을 따로 돌리고 seconds 안에 안 끝나면 기다리지 않는다 (TimeoutError).
 
-    2026-11-27 Modal 에서 이미지 모델 호출이 응답 없이 멈추는 일이 반복됐고, SDK 의 시간 제한은 재시도와 겹쳐
-    지켜지지 않았다. 멈춘 호출은 뒤에서 SDK 시간 제한에 걸려 스스로 끝난다 (daemon 스레드라 종료도 막지 않는다).
+    cancel_event 가 set 되면 즉시 JobCancelledError 를 올려 기다림을 중단한다.
     """
+    _check_cancelled(cancel_event)
     box: Dict[str, Any] = {}
     done = threading.Event()
 
@@ -587,8 +613,18 @@ def _call_with_deadline(fn: Callable[[], Any], seconds: float, label: str) -> An
             done.set()
 
     threading.Thread(target=run, name=f"deadline:{label}", daemon=True).start()
-    if not done.wait(seconds):
-        raise TimeoutError(f"{label}: {seconds:.0f}초 안에 응답이 없었습니다.")
+    if cancel_event is None:
+        if not done.wait(seconds):
+            raise TimeoutError(f"{label}: {seconds:.0f}초 안에 응답이 없었습니다.")
+    else:
+        deadline = time.monotonic() + max(0.05, float(seconds))
+        while not done.is_set():
+            _check_cancelled(cancel_event)
+            rem = deadline - time.monotonic()
+            if rem <= 0:
+                raise TimeoutError(f"{label}: {seconds:.0f}초 안에 응답이 없었습니다.")
+            done.wait(min(0.25, rem))
+        _check_cancelled(cancel_event)
     if "error" in box:
         raise box["error"]
     return box.get("value")
@@ -609,13 +645,14 @@ def render_hook(
     resolve_asset: Optional[Callable[[str], Optional[Path]]] = None,
     progress: Optional[Callable[[str], None]] = None,
     on_usage: Optional[Callable[..., None]] = None,
+    cancel_event: Optional[threading.Event] = None,
 ) -> HookRenderResult:
     """훅 하나를 만든다. provider 는 `app.genai_provider.GenAIMediaProvider` (또는 같은 모양의 대역).
 
     cache_dir: 과금으로 받은 파일을 두는 곳. 같은 시나리오를 다시 만들 때 같은 곳을 주면 이미 받은 것은 다시 사지 않는다.
     resolve_asset: 장면의 `prebuilt_clip` / `prebuilt_narration` 값을 실제 파일 경로로 바꿔 주는 함수.
     """
-    import time
+    _check_cancelled(cancel_event)
 
     record_usage = on_usage if callable(on_usage) else (lambda **_kw: None)
     target = Path(out_dir)
@@ -714,6 +751,7 @@ def render_hook(
             return out_path
 
         def _narrate(plan: BeatPlan) -> Optional[Path]:
+            _check_cancelled(cancel_event)
             prebuilt = prebuilt_audio.get(plan.order)
             if prebuilt is not None:
                 plan.reused.append("prebuilt_narration")
@@ -729,10 +767,12 @@ def render_hook(
             if _ready(joined):
                 plan.reused.append("tts")
             else:
+                _check_cancelled(cancel_event)
                 _join_with_pause(_speak(head, plan), _speak(question, plan), joined, pause_before, pause_after, media)
             plan.reused.append("reveal_pause")
             return joined
 
+        _check_cancelled(cancel_event)
         # 장면별 나레이션은 서로 기다릴 필요가 없어 동시에 만든다
         with ThreadPoolExecutor(max_workers=TTS_PARALLEL, thread_name_prefix="tts") as pool:
             wavs = list(pool.map(_narrate, plans))
@@ -780,7 +820,11 @@ def render_hook(
                         ),
                         float(getattr(settings, "reference_image_timeout_sec", 90.0)),
                         "톤 참고 이미지",
+                        cancel_event=cancel_event,
                     )
+                except JobCancelledError:
+                    ref_status = "canceled"
+                    raise
                 except Exception:
                     ref_status = "error"
                     raise
@@ -802,9 +846,12 @@ def render_hook(
             warnings.append(f"톤 참고 이미지를 만들지 못해 참고 이미지 없이 진행했습니다: {exc}")
 
     # 3) 장면 클립
+    _check_cancelled(cancel_event)
     resolution = str(getattr(settings, "hook_clip_resolution", "720p"))
     video_model = getattr(settings, "video_model", "")
+    video_timeout = float(getattr(settings, "video_timeout_sec", 600.0))
     for index, plan in enumerate(plans, start=1):
+        _check_cancelled(cancel_event)
         if plan.hold:
             plan.prompt = "(클립 없음: 앞 장면의 마지막 화면에서 멈춤)"
             continue
@@ -863,7 +910,11 @@ def render_hook(
                 tag, used_prompt = generate_clip_with_retries(
                     provider, plan.prompt, clip, clip_sec=plan.clip_sec, resolution=resolution,
                     reference_paths=reference_paths, first_frame_path=first_frame,
+                    cancel_event=cancel_event, timeout_sec=video_timeout,
                 )
+            except JobCancelledError:
+                clip_status = "canceled"
+                raise
             except Exception:
                 clip_status = "error"
                 raise
@@ -890,10 +941,12 @@ def render_hook(
         plan.clip_path = clip
 
     # 4) 자막 → 조립 → 콘티 이미지
+    _check_cancelled(cancel_event)
     total = sum(p.duration for p in plans)
     cues = [(p.start, p.start + p.duration, p.caption or p.narration) for p in plans]
     (target / "hook.srt").write_text(build_srt(cues), encoding="utf-8")
     say("ASSEMBLE")
+    _check_cancelled(cancel_event)
     narration_mix = _mix_narration(plans, work, media, total)
     burned = _assemble(
         plans,

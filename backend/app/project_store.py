@@ -198,6 +198,13 @@ class ProjectStore:
                     ON api_usage_events(project_id, created_at ASC);
                 CREATE INDEX IF NOT EXISTS idx_api_usage_provider_model
                     ON api_usage_events(provider, model, created_at DESC);
+
+                CREATE TABLE IF NOT EXISTS internal_accounts (
+                    email TEXT PRIMARY KEY,
+                    note TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 """
             )
             cols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
@@ -1486,3 +1493,223 @@ class ProjectStore:
                 tuple(params),
             ).fetchall()
         return [self._row_to_usage_event(r) for r in rows]
+
+    @staticmethod
+    def _norm_email(email: Optional[str]) -> str:
+        return str(email or "").strip().lower()
+
+    def is_internal_email(self, email: Optional[str]) -> bool:
+        norm = self._norm_email(email)
+        if not norm:
+            return False
+        with self._lock, self._connect() as conn:
+            row = conn.execute("SELECT 1 FROM internal_accounts WHERE email = ?", (norm,)).fetchone()
+        return row is not None
+
+    def list_internal_accounts(self) -> List[Dict[str, Any]]:
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                "SELECT email, note, created_at, updated_at FROM internal_accounts ORDER BY updated_at DESC, email ASC"
+            ).fetchall()
+        return [
+            {
+                "email": row["email"],
+                "note": row["note"] or "",
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+
+    def set_internal_account(
+        self, email: str, *, is_internal: bool, note: Optional[str] = None
+    ) -> Dict[str, Any]:
+        norm = self._norm_email(email)
+        if not norm or "@" not in norm:
+            raise ValueError("올바른 이메일 주소를 입력해 주세요.")
+        now_iso = _now_utc().isoformat()
+        clean_note = (note or "").strip() or None
+        with self._lock, self._connect() as conn:
+            if is_internal:
+                conn.execute(
+                    """
+                    INSERT INTO internal_accounts (email, note, created_at, updated_at)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(email) DO UPDATE SET
+                        note = COALESCE(excluded.note, internal_accounts.note),
+                        updated_at = excluded.updated_at
+                    """,
+                    (norm, clean_note, now_iso, now_iso),
+                )
+            else:
+                conn.execute("DELETE FROM internal_accounts WHERE email = ?", (norm,))
+        return {"email": norm, "is_internal": bool(is_internal), "note": clean_note or ""}
+
+    def replace_internal_accounts_from_snapshot(self, items: List[Dict[str, Any]]) -> None:
+        now_iso = _now_utc().isoformat()
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM internal_accounts")
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                norm = self._norm_email(item.get("email"))
+                if not norm or "@" not in norm:
+                    continue
+                note = str(item.get("note") or "").strip() or None
+                created = str(item.get("created_at") or now_iso)
+                updated = str(item.get("updated_at") or now_iso)
+                conn.execute(
+                    "INSERT INTO internal_accounts (email, note, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                    (norm, note, created, updated),
+                )
+
+    def list_admin_accounts(
+        self,
+        *,
+        env_internal_emails: Optional[set[str]] = None,
+        now: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
+        cur = now or _now_utc()
+        today = _today_utc_str(cur)
+        env_set = {self._norm_email(e) for e in (env_internal_emails or set()) if self._norm_email(e)}
+        with self._lock, self._connect() as conn:
+            user_rows = conn.execute(
+                """
+                SELECT u.user_id, u.email, u.name, u.picture, u.created_at, u.last_login_at,
+                       COALESCE(w.balance, 0) AS credits,
+                       COALESCE(w.free_videos_remaining, 0) AS free_videos_remaining,
+                       (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.user_id) AS project_count,
+                       (SELECT COUNT(*) FROM render_usage r WHERE r.user_id = u.user_id AND r.day_utc = ?) AS renders_today
+                FROM users u
+                LEFT JOIN credit_wallets w ON w.user_id = u.user_id
+                ORDER BY u.last_login_at DESC
+                """,
+                (today,),
+            ).fetchall()
+            internal_rows = conn.execute(
+                "SELECT email, note, created_at, updated_at FROM internal_accounts"
+            ).fetchall()
+
+        db_internal: Dict[str, Dict[str, Any]] = {
+            self._norm_email(r["email"]): {
+                "note": r["note"] or "",
+                "created_at": r["created_at"],
+                "updated_at": r["updated_at"],
+            }
+            for r in internal_rows
+        }
+
+        accounts: List[Dict[str, Any]] = []
+        seen_emails: set[str] = set()
+        for r in user_rows:
+            norm_email = self._norm_email(r["email"])
+            seen_emails.add(norm_email)
+            in_db = norm_email in db_internal
+            in_env = norm_email in env_set
+            accounts.append(
+                {
+                    "user_id": r["user_id"],
+                    "email": r["email"],
+                    "name": r["name"],
+                    "picture": r["picture"],
+                    "credits": int(r["credits"] or 0),
+                    "free_videos_remaining": int(r["free_videos_remaining"] or 0),
+                    "project_count": int(r["project_count"] or 0),
+                    "renders_today": int(r["renders_today"] or 0),
+                    "is_internal": in_db or in_env,
+                    "internal_source": "env" if (in_env and not in_db) else ("db" if in_db else None),
+                    "note": db_internal.get(norm_email, {}).get("note") or ("환경변수 등록" if in_env else ""),
+                    "has_logged_in": True,
+                    "created_at": r["created_at"],
+                    "last_login_at": r["last_login_at"],
+                }
+            )
+
+        for norm_email, meta in db_internal.items():
+            if norm_email in seen_emails:
+                continue
+            seen_emails.add(norm_email)
+            accounts.append(
+                {
+                    "user_id": None,
+                    "email": norm_email,
+                    "name": None,
+                    "picture": None,
+                    "credits": 0,
+                    "free_videos_remaining": 0,
+                    "project_count": 0,
+                    "renders_today": 0,
+                    "is_internal": True,
+                    "internal_source": "db",
+                    "note": meta.get("note") or "",
+                    "has_logged_in": False,
+                    "created_at": meta.get("created_at"),
+                    "last_login_at": None,
+                }
+            )
+
+        for norm_email in sorted(env_set):
+            if norm_email in seen_emails:
+                continue
+            accounts.append(
+                {
+                    "user_id": None,
+                    "email": norm_email,
+                    "name": None,
+                    "picture": None,
+                    "credits": 0,
+                    "free_videos_remaining": 0,
+                    "project_count": 0,
+                    "renders_today": 0,
+                    "is_internal": True,
+                    "internal_source": "env",
+                    "note": "환경변수 등록",
+                    "has_logged_in": False,
+                    "created_at": None,
+                    "last_login_at": None,
+                }
+            )
+        return accounts
+
+
+_INTERNAL_ACCOUNTS_OBJECT_KEY = "_admin/internal_accounts.json"
+
+
+def hydrate_internal_accounts_from_storage(project_store: ProjectStore, storage: Any) -> bool:
+    """Restore saved internal test accounts snapshot from persistent object storage on startup."""
+    if storage is None or not hasattr(storage, "download_file"):
+        return False
+    import tempfile
+
+    try:
+        if hasattr(storage, "head_object") and storage.head_object(_INTERNAL_ACCOUNTS_OBJECT_KEY) is None:
+            return False
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "internal_accounts.json"
+            storage.download_file(_INTERNAL_ACCOUNTS_OBJECT_KEY, dest)
+            raw = json.loads(dest.read_text(encoding="utf-8"))
+        items = raw.get("accounts") if isinstance(raw, dict) else raw
+        if isinstance(items, list):
+            project_store.replace_internal_accounts_from_snapshot(items)
+            return True
+    except Exception:
+        return False
+    return False
+
+
+def persist_internal_accounts_to_storage(project_store: ProjectStore, storage: Any) -> bool:
+    """Persist internal test accounts snapshot to object storage so Cloud Run restarts keep it."""
+    if storage is None or not hasattr(storage, "upload_file"):
+        return False
+    import tempfile
+
+    try:
+        items = project_store.list_internal_accounts()
+        payload = {"version": 1, "accounts": items, "updated_at": _now_utc().isoformat()}
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "internal_accounts.json"
+            src.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            storage.upload_file(src, _INTERNAL_ACCOUNTS_OBJECT_KEY)
+        return True
+    except Exception:
+        return False

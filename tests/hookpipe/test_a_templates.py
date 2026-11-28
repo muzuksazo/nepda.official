@@ -182,7 +182,7 @@ class TemplateRender(unittest.TestCase):
 
 class DedicatedHookAR2Tests(unittest.TestCase):
     def test_build_hook_a_storage_returns_fallback_when_unset(self) -> None:
-        settings = Settings(storage_backend="local", gemini_api_key="test")
+        settings = Settings(_env_file=None, storage_backend="local", gemini_api_key="test")
         fallback = object()
         self.assertIs(build_hook_a_storage(settings, fallback), fallback)  # type: ignore[arg-type]
 
@@ -194,6 +194,7 @@ class DedicatedHookAR2Tests(unittest.TestCase):
             return object()
 
         settings = Settings(
+            _env_file=None,
             storage_backend="r2",
             s3_bucket="main-bucket",
             s3_endpoint_url="https://main.r2.cloudflarestorage.com",
@@ -269,6 +270,7 @@ class DedicatedHookAR2Tests(unittest.TestCase):
 
             fake_client = SimpleNamespace(models=FakeModels())
             bad_settings = Settings(
+                _env_file=None,
                 storage_backend="r2",
                 google_genai_use_vertexai=True,
                 hook_worker_llm="gemini-4-hydrogen",

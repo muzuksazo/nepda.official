@@ -475,6 +475,7 @@ class WalletResponse(BaseModel):
     credits: int
     has_free_video: bool
     free_videos_remaining: int
+    is_internal: bool = False
 
 
 class CreateCheckoutRequest(BaseModel):

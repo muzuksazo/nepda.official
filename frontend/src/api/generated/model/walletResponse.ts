@@ -10,4 +10,5 @@ export interface WalletResponse {
   credits: number;
   has_free_video: boolean;
   free_videos_remaining: number;
+  is_internal?: boolean;
 }

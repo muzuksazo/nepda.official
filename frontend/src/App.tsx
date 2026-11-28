@@ -376,7 +376,7 @@ interface ChargeFlowState {
 }
 
 interface GeneratingJobState {
-  status: 'queued' | 'running' | 'done' | 'failed';
+  status: 'queued' | 'running' | 'done' | 'failed' | 'canceled';
   progress: number;
   stageIndex: number;
   remainingSeconds?: number;
@@ -434,9 +434,12 @@ export function App() {
   const [isDownloadingThumb, setIsDownloadingThumb] = useState(false);
   const [thumbError, setThumbError] = useState<string | null>(null);
   const [genJob, setGenJob] = useState<GeneratingJobState | null>(null);
+  const [isCancelingRender, setIsCancelingRender] = useState(false);
 
   const pollCancelRef = useRef<(() => void) | null>(null);
   const renderPollCancelRef = useRef<(() => void) | null>(null);
+  const renderAbortRef = useRef<AbortController | null>(null);
+  const activeRenderJobIdRef = useRef<string | null>(null);
   const commentSeqRef = useRef(0);
   const notifSeqRef = useRef(0);
   const ledgerSeqRef = useRef(0);
@@ -449,6 +452,7 @@ export function App() {
     return () => {
       pollCancelRef.current?.();
       renderPollCancelRef.current?.();
+      renderAbortRef.current?.abort();
       if (nicknameTimerRef.current) {
         window.clearTimeout(nicknameTimerRef.current);
       }
@@ -518,6 +522,7 @@ export function App() {
     billingConfigQuery.data?.status === 200 ? billingConfigQuery.data.data : undefined;
   const wallet = walletQuery.data?.status === 200 ? walletQuery.data.data : undefined;
   const walletCredits = wallet?.credits ?? 0;
+  const isInternalAccount = Boolean(wallet?.is_internal);
   const creditsPerVideo = billingConfig?.credits_per_video ?? DEFAULT_CREDITS_PER_VIDEO;
 
   const creditPackages = useMemo<CreditPackage[]>(() => {
@@ -741,6 +746,10 @@ export function App() {
 
   const startNewCreation = useCallback((initialType: HookType = 'A') => {
     renderPollCancelRef.current?.();
+    renderAbortRef.current?.abort();
+    renderAbortRef.current = null;
+    activeRenderJobIdRef.current = null;
+    setIsCancelingRender(false);
     setChargeState(null);
     setOverlayScreen(null);
     setProjectId(null);
@@ -859,6 +868,34 @@ export function App() {
                     targetId: pid,
                   });
                 }
+                return;
+              }
+
+              if (jobObj?.status === 'CANCELED') {
+                const refunded =
+                  typeof jobObj?.refunded_credits === 'number' ? jobObj.refunded_credits : 0;
+                activeRenderJobIdRef.current = null;
+                setIsCancelingRender(false);
+                setGenJob((prev) => ({
+                  status: 'canceled',
+                  progress: prev?.progress ?? 30,
+                  stageIndex: prev?.stageIndex ?? 0,
+                  refundedCredits: refunded > 0 ? refunded : undefined,
+                }));
+                if (refunded > 0) {
+                  appendLedgerEntry({
+                    kind: 'refund',
+                    amount: refunded,
+                    balance: walletCredits + refunded,
+                    productName: nameForNotice || proj.product.name,
+                  });
+                }
+                void queryClient.invalidateQueries({
+                  queryKey: getListProjectsV1ProjectsGetQueryKey(),
+                });
+                void queryClient.invalidateQueries({
+                  queryKey: getGetWalletV1BillingWalletGetQueryKey(),
+                });
                 return;
               }
 
@@ -1004,6 +1041,8 @@ export function App() {
           }
         }
         if (proj.status === 'RENDERING') {
+          activeRenderJobIdRef.current = proj.latest_job_id ?? null;
+          setIsCancelingRender(false);
           setGenJob({ status: 'running', progress: 42, stageIndex: 0, remainingSeconds: 60 });
           setCreationStep('generating');
           pollRenderCompletion(pid, proj.product.name);
@@ -1161,6 +1200,13 @@ export function App() {
   const handleUploadAndRender = useCallback(
     async (files: File[]) => {
       if (!projectId || !auth.user || files.length === 0) return;
+      renderPollCancelRef.current?.();
+      renderAbortRef.current?.abort();
+      const abortController = new AbortController();
+      renderAbortRef.current = abortController;
+      activeRenderJobIdRef.current = null;
+      setIsCancelingRender(false);
+
       setUploadFiles(files);
       setVideoUrl(undefined);
       setVideoDownloadUrl(undefined);
@@ -1177,10 +1223,13 @@ export function App() {
             const shotNo = index + 1;
             const cleanName = (file.name || 'clip.mp4').replace(/[^a-zA-Z0-9._-]+/g, '_');
             const objKey = `uploads/${auth.user!.user_id}/${projectId}/shot_${String(shotNo).padStart(2, '0')}_${Date.now()}_${cleanName}`;
-            const presignRes = await presignUploadV1UploadsPresignPost({
-              object_key: objKey,
-              content_type: file.type || 'video/mp4',
-            });
+            const presignRes = await presignUploadV1UploadsPresignPost(
+              {
+                object_key: objKey,
+                content_type: file.type || 'video/mp4',
+              },
+              { signal: abortController.signal },
+            );
             if (presignRes.status !== 200) {
               throw new Error('업로드 주소를 발급받지 못했어요.');
             }
@@ -1189,6 +1238,7 @@ export function App() {
               headers: { 'Content-Type': file.type || 'video/mp4' },
               body: file,
               credentials: 'include',
+              signal: abortController.signal,
             });
             if (!putRes.ok) {
               throw new Error(`올린 영상을 전송하지 못했어요 (HTTP ${putRes.status})`);
@@ -1196,32 +1246,44 @@ export function App() {
             return { shot_no: shotNo, object_key: presignRes.data.object_key, file_size_bytes: file.size };
           }),
         );
+        if (abortController.signal.aborted) return;
 
-        const completeRes = await completeUploadsV1ProjectsProjectIdUploadsCompletePost(projectId, {
-          clips: uploaded,
-        });
+        const completeRes = await completeUploadsV1ProjectsProjectIdUploadsCompletePost(
+          projectId,
+          { clips: uploaded },
+          { signal: abortController.signal },
+        );
         if (completeRes.status !== 200) {
           throw new Error('올린 영상의 길이와 해상도를 확인할 수 없어요.');
         }
+        if (abortController.signal.aborted) return;
 
         failedAsVideoProblem = false;
         setGenJob({ status: 'running', progress: 20, stageIndex: 0, remainingSeconds: 90 });
 
-        const renderRes = await createRenderV1ProjectsProjectIdRendersPost(projectId, {
-          scenario_id: scenarioId,
-          selected_type: hookType as CreateRenderRequestSelectedType,
-          skip_drafts: !scenarioId,
-          resolution: '720p',
-          dry_run: false,
-        });
+        const renderRes = await createRenderV1ProjectsProjectIdRendersPost(
+          projectId,
+          {
+            scenario_id: scenarioId,
+            selected_type: hookType as CreateRenderRequestSelectedType,
+            skip_drafts: !scenarioId,
+            resolution: '720p',
+            dry_run: false,
+          },
+          { signal: abortController.signal },
+        );
         if (renderRes.status !== 202) {
           throw new Error('영상 제작 요청에 실패했어요.');
         }
+        activeRenderJobIdRef.current = renderRes.data.job_id ?? null;
+        if (abortController.signal.aborted) return;
 
         const deducted =
           typeof renderRes.data.deducted_credits === 'number'
             ? renderRes.data.deducted_credits
-            : creditsPerVideo;
+            : isInternalAccount
+              ? 0
+              : creditsPerVideo;
         if (deducted > 0) {
           const remaining = Math.max(0, walletCredits - deducted);
           appendLedgerEntry({
@@ -1234,6 +1296,12 @@ export function App() {
         void queryClient.invalidateQueries({ queryKey: getGetWalletV1BillingWalletGetQueryKey() });
         pollRenderCompletion(projectId, productInfo.name);
       } catch (err) {
+        if (
+          abortController.signal.aborted ||
+          (err instanceof DOMException && err.name === 'AbortError')
+        ) {
+          return;
+        }
         if (
           err instanceof NapdaApiError &&
           (err.status === 402 || err.code === 'INSUFFICIENT_CREDITS')
@@ -1266,6 +1334,7 @@ export function App() {
       auth.user,
       creditsPerVideo,
       hookType,
+      isInternalAccount,
       openCharge,
       pollRenderCompletion,
       productInfo.name,
@@ -1275,6 +1344,63 @@ export function App() {
       walletCredits,
     ],
   );
+
+  const handleCancelRender = useCallback(async () => {
+    setIsCancelingRender(true);
+    renderAbortRef.current?.abort();
+    renderPollCancelRef.current?.();
+    const jobIdToCancel = activeRenderJobIdRef.current;
+    try {
+      if (projectId) {
+        const res = await customFetch<{
+          status: number;
+          data: {
+            refunded_credits?: number;
+            credits?: number;
+          };
+        }>(`/v1/projects/${projectId}/renders/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(jobIdToCancel ? { job_id: jobIdToCancel } : {}),
+        });
+        const refunded =
+          typeof res.data?.refunded_credits === 'number' ? res.data.refunded_credits : 0;
+        if (refunded > 0) {
+          const nextBal =
+            typeof res.data?.credits === 'number' ? res.data.credits : walletCredits + refunded;
+          appendLedgerEntry({
+            kind: 'refund',
+            amount: refunded,
+            balance: nextBal,
+            productName: productInfo.name || '내 영상',
+          });
+        }
+        activeRenderJobIdRef.current = null;
+        setGenJob((prev) => ({
+          status: 'canceled',
+          progress: prev?.progress ?? 20,
+          stageIndex: prev?.stageIndex ?? 0,
+          refundedCredits: refunded > 0 ? refunded : undefined,
+        }));
+      } else {
+        setGenJob((prev) => ({
+          status: 'canceled',
+          progress: prev?.progress ?? 10,
+          stageIndex: prev?.stageIndex ?? 0,
+        }));
+      }
+      void queryClient.invalidateQueries({ queryKey: getListProjectsV1ProjectsGetQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetWalletV1BillingWalletGetQueryKey() });
+    } catch {
+      setGenJob((prev) => ({
+        status: 'canceled',
+        progress: prev?.progress ?? 20,
+        stageIndex: prev?.stageIndex ?? 0,
+      }));
+    } finally {
+      setIsCancelingRender(false);
+    }
+  }, [appendLedgerEntry, productInfo.name, projectId, queryClient, walletCredits]);
 
   const handleDownloadThumbnail = useCallback(
     async (templateId: string | null, caption: string) => {
@@ -1916,6 +2042,7 @@ export function App() {
           initialFiles={uploadFiles}
           cost={creditsPerVideo}
           credits={wallet?.credits}
+          isInternalAccount={isInternalAccount}
           onBack={() => setCreationStep(skippedDrafts ? 'hook' : 'guide')}
           onReviewGuide={skippedDrafts ? undefined : () => setCreationStep('guide')}
           onCreate={(files) => {
@@ -1940,6 +2067,11 @@ export function App() {
           refundedCredits={genJob?.refundedCredits}
           credits={wallet?.credits}
           retryCost={creditsPerVideo}
+          isInternalAccount={isInternalAccount}
+          isCanceling={isCancelingRender}
+          onCancel={() => {
+            void handleCancelRender();
+          }}
           onBack={() => {
             setCreationStep(null);
             setActiveTab('home');
@@ -1955,7 +2087,7 @@ export function App() {
               return;
             }
             const currentCredits = wallet?.credits ?? 0;
-            if (currentCredits < creditsPerVideo) {
+            if (!isInternalAccount && currentCredits < creditsPerVideo) {
               openCharge('upload', creditsPerVideo - currentCredits);
             } else {
               void handleUploadAndRender(uploadFiles);
