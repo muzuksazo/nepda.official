@@ -21,6 +21,7 @@ import { LoginScreen } from './LoginScreen';
 import { NicknameScreen } from './NicknameScreen';
 import { NotificationsScreen } from './NotificationsScreen';
 import { OnboardingScreen } from './OnboardingScreen';
+import { SplashScreen } from './SplashScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
 import { ProfileScreen, type ProfileScreenProps } from './ProfileScreen';
 import { MyVideosScreen } from './MyVideosScreen';
@@ -86,7 +87,6 @@ export const Home: Story = {
         unreadCount={SAMPLE_NOTIFICATIONS.filter((n) => !n.isRead).length}
         onNotificationsClick={fn()}
         profile={{ name: '냅다사장' }}
-        onProfileClick={fn()}
         onNavigate={fn()}
         feed={SAMPLE_COMMUNITY.slice(0, 4)}
         feedHasMore
@@ -239,25 +239,30 @@ export const HomeCommentsEmpty: Story = {
   ),
 };
 
+/** 내 영상: "선택" → 고르기 → "N개 지우기"를 누르면 이 스토리 안에서 실제로 목록에서 빠진다 */
+function MyVideosWithDelete({ initialTab }: { initialTab?: 'inProgress' | 'completed' }) {
+  const [deletedIds, setDeletedIds] = useState<ReadonlySet<string>>(() => new Set());
+  return (
+    <MyVideosScreen
+      inProgress={SAMPLE_IN_PROGRESS.filter((p) => !deletedIds.has(p.id))}
+      completed={SAMPLE_COMPLETED.filter((p) => !deletedIds.has(p.id))}
+      initialTab={initialTab}
+      onNavigate={fn()}
+      onContinue={fn()}
+      onDownloadAgain={fn()}
+      onDelete={(ids) => setDeletedIds((prev) => new Set([...prev, ...ids]))}
+    />
+  );
+}
+
 export const MyVideos: Story = {
   name: '안3-2 내 영상 · 진행 중 탭',
-  render: () => (
-    <MyVideosScreen inProgress={SAMPLE_IN_PROGRESS} completed={SAMPLE_COMPLETED} onNavigate={fn()} onContinue={fn()} onDownloadAgain={fn()} />
-  ),
+  render: () => <MyVideosWithDelete />,
 };
 
 export const MyVideosCompleted: Story = {
   name: '안3-2 내 영상 · 완료 탭',
-  render: () => (
-    <MyVideosScreen
-      inProgress={SAMPLE_IN_PROGRESS}
-      completed={SAMPLE_COMPLETED}
-      initialTab="completed"
-      onNavigate={fn()}
-      onContinue={fn()}
-      onDownloadAgain={fn()}
-    />
-  ),
+  render: () => <MyVideosWithDelete initialTab="completed" />,
 };
 
 /** 내 정보 스토리 공통 값. 화면 모드는 Storybook 툴바의 '모드'와 같은 값을 쓰고, 화면에서 바꾸면 바로 적용된다. */
@@ -429,7 +434,12 @@ export const CommunityViewerReport: Story = {
 
 export const HomeEmpty: Story = {
   name: '안3-1 홈 · 빈 상태',
-  render: () => <HomeScreen inProgress={[]} completed={[]} onCreate={fn()} credits={30} onCreditClick={fn()} onProfileClick={fn()} onNavigate={fn()} />,
+  render: () => <HomeScreen inProgress={[]} completed={[]} onCreate={fn()} credits={30} onCreditClick={fn()} onNavigate={fn()} />,
+};
+
+export const Splash: Story = {
+  name: '안0 스플래시',
+  render: () => <SplashScreen />,
 };
 
 export const Onboarding: Story = {

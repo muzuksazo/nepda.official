@@ -50,7 +50,7 @@ import {
   type ShareHandlers,
   type VideoComment,
 } from './ui/components';
-import event1 from './assets/events/event1.webp';
+import event5 from './assets/events/event5.webp';
 import event2 from './assets/events/event2.webp';
 import event3 from './assets/events/event3.webp';
 import showcase01 from './assets/samples/community/thumb-01.webp';
@@ -75,6 +75,7 @@ import {
   ProfileScreen,
   ScenarioScreen,
   ShootingGuideScreen,
+  SplashScreen,
   StoryboardScreen,
   ThumbnailDownloadScreen,
   UploadVideoScreen,
@@ -107,7 +108,7 @@ const DEFAULT_CREDIT_PACKAGES: readonly CreditPackage[] = [
 ];
 const COMMUNITY_VIDEOS_QUERY_KEY = ['community', 'videos'] as const;
 const HOME_BANNERS: BannerItem[] = [
-  { id: 'b1', imageUrl: event1, alt: '블랙 프라이데이 세일, 최대 70% 할인' },
+  { id: 'b1', imageUrl: event5, alt: '블랙 프라이데이' },
   {
     id: 'b2',
     imageUrl: event3,
@@ -233,6 +234,9 @@ const PROGRESS_COPY: Record<
   RENDERING: { completedSteps: 7, status: '영상을 만들고 있어요', nextStep: '잠시 후 확인하기' },
   FAILED: { completedSteps: 6, status: '생성에 실패했어요', nextStep: '다시 시도하기' },
 };
+
+/** 스플래시를 보여 주는 최소 시간 */
+const SPLASH_MIN_MS = 1200;
 
 function splitProjects(projects: ProjectSummary[]): {
   inProgress: InProgressProject[];
@@ -386,6 +390,12 @@ interface GeneratingJobState {
 
 export function App() {
   const auth = useAuth();
+  // 스플래시는 앱을 처음 열 때 로그인 확인이 끝나고도 최소 1.2초는 보여 준다 (그림이 번쩍하고 사라지지 않게)
+  const [isSplashMinDone, setIsSplashMinDone] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsSplashMinDone(true), SPLASH_MIN_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
   const queryClient = useQueryClient();
   const [themeMode, setThemeMode] = useState<ThemeSetting>('system');
   const [activeTab, setActiveTab] = useState<NavTab>('home');
@@ -1825,25 +1835,19 @@ export function App() {
   }
 
   let screen;
-  if (auth.status === 'loading') {
-    screen =
-      activeTab === 'profile' ? (
-        <ProfileScreen
-          isLoading
-          themeMode={themeMode}
-          onThemeModeChange={setThemeMode}
-          onNavigate={handleNavigate}
-          onOpenDoc={openInfoDocument}
-        />
-      ) : (
-        <OnboardingScreen
-          footer={
-            <p className="n-small n-muted" role="status" style={{ textAlign: 'center', margin: 0 }}>
-              로그인 상태를 확인하고 있어요...
-            </p>
-          }
-        />
-      );
+  if (!isSplashMinDone || (auth.status === 'loading' && activeTab !== 'profile')) {
+    screen = <SplashScreen />;
+  } else if (auth.status === 'loading') {
+    // 내 정보 탭에서 다시 확인하는 동안은 스플래시 대신 내 정보 스켈레톤을 보여 준다
+    screen = (
+      <ProfileScreen
+        isLoading
+        themeMode={themeMode}
+        onThemeModeChange={setThemeMode}
+        onNavigate={handleNavigate}
+        onOpenDoc={openInfoDocument}
+      />
+    );
   } else if (auth.status === 'unauthenticated' || !auth.user) {
     screen =
       activeTab === 'profile' ? (
@@ -2334,7 +2338,6 @@ export function App() {
           onNotificationsClick={() => setOverlayScreen({ type: 'notifications' })}
           onCreditClick={() => openCharge('home')}
           profile={profileUser}
-          onProfileClick={() => setActiveTab('profile')}
           onCreate={() => startNewCreation('A')}
           onContinue={(id) => {
             void openExistingProject(id, 'continue');

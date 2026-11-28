@@ -37,3 +37,4 @@ export { ThumbnailDownloadScreen } from './ThumbnailDownloadScreen';
 export { UploadVideoScreen } from './UploadVideoScreen';
 export type { UploadVideoScreenProps } from './UploadVideoScreen';
 export { VideoReviewScreen } from './VideoReviewScreen';
+export { SplashScreen } from './SplashScreen';

@@ -20,6 +20,7 @@ import { NicknameScreen } from './NicknameScreen';
 import { NotificationsScreen, type AppNotification } from './NotificationsScreen';
 import type { HookType } from './flowData';
 import { OnboardingScreen } from './OnboardingScreen';
+import { SplashScreen } from './SplashScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
 import { ProfileScreen } from './ProfileScreen';
 import { MyVideosScreen, type MyVideosTab } from './MyVideosScreen';
@@ -51,6 +52,7 @@ import { UploadVideoScreen } from './UploadVideoScreen';
 import { VideoReviewScreen } from './VideoReviewScreen';
 
 type Step =
+  | 'splash'
   | 'onboarding'
   | 'login'
   | 'nickname'
@@ -80,9 +82,12 @@ type ChargeFrom = 'home' | 'profile' | 'upload' | 'creditHistory';
 /** 흐름은 예시 내역에서 마지막 충전(100)을 빼고 시작한다 → 잔액이 적어 첫 영상에서 "모자람 → 충전"을 따라가 볼 수 있다 */
 const FLOW_START_LEDGER = SAMPLE_CREDIT_HISTORY.slice(1);
 
-/** 버튼을 눌러 온보딩 → 홈 → 8단계 흐름을 끝까지 따라가 보는 클릭 프로토타입 */
+/** 실제 앱처럼 스플래시를 보여 주는 시간 (App.tsx의 SPLASH_MIN_MS와 같다) */
+const FLOW_SPLASH_MS = 1200;
+
+/** 버튼을 눌러 스플래시 → 온보딩 → 홈 → 8단계 흐름을 끝까지 따라가 보는 클릭 프로토타입 */
 function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
-  const [step, setStep] = useState<Step>('onboarding');
+  const [step, setStep] = useState<Step>('splash');
   const [myTab, setMyTab] = useState<MyVideosTab>('inProgress');
   const [hookType, setHookType] = useState<HookType>('B');
   const [productName, setProductName] = useState('[제품 이름]');
@@ -222,9 +227,23 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
     if (tab === 'community') setStep('community');
     if (tab === 'profile') setStep('profile');
   };
-  const completed = [{ id: 'mine', productName, status: '영상과 썸네일을 만들었어요' }, ...SAMPLE_COMPLETED];
+  // 내 영상에서 지운 작업물 (프로토타입에서는 화면에서만 빠진다)
+  const [deletedIds, setDeletedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const inProgress = SAMPLE_IN_PROGRESS.filter((p) => !deletedIds.has(p.id));
+  const completed = [{ id: 'mine', productName, status: '영상과 썸네일을 만들었어요' }, ...SAMPLE_COMPLETED].filter(
+    (p) => !deletedIds.has(p.id),
+  );
+
+  // 스플래시: 잠깐 보여 준 뒤 온보딩으로 넘어간다 (실제 앱에서는 로그인 확인이 끝날 때까지)
+  useEffect(() => {
+    if (step !== 'splash') return;
+    const timer = window.setTimeout(() => setStep('onboarding'), FLOW_SPLASH_MS);
+    return () => window.clearTimeout(timer);
+  }, [step]);
 
   switch (step) {
+    case 'splash':
+      return <SplashScreen />;
     case 'onboarding':
       return <OnboardingScreen onStart={() => setStep('login')} />;
     case 'login':
@@ -296,10 +315,9 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
           onSeeAllFeed={() => setStep('community')}
           {...commentProps}
           profile={{ name: SAMPLE_USER.name }}
-          onProfileClick={() => setStep('profile')}
           onNavigate={navigate}
           banners={SAMPLE_BANNERS}
-          inProgress={SAMPLE_IN_PROGRESS}
+          inProgress={inProgress}
           completed={completed}
           onCreate={() => setStep('product')}
           onContinue={(id) => {
@@ -319,12 +337,13 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       return (
         <MyVideosScreen
           key={myTab}
-          inProgress={SAMPLE_IN_PROGRESS}
+          inProgress={inProgress}
           completed={completed}
           initialTab={myTab}
           onNavigate={navigate}
           onContinue={() => setStep('upload')}
           onDownloadAgain={() => setStep('thumbnail')}
+          onDelete={(ids) => setDeletedIds((prev) => new Set([...prev, ...ids]))}
         />
       );
     case 'community':
@@ -402,7 +421,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
             setHistoryFrom('profile');
             setStep('creditHistory');
           }}
-          videoCounts={{ inProgress: SAMPLE_IN_PROGRESS.length, completed: completed.length }}
+          videoCounts={{ inProgress: inProgress.length, completed: completed.length }}
           retentionDays={7}
           themeMode={themeMode}
           onThemeModeChange={setStorybookTheme}

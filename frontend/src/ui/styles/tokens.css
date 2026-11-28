@@ -1,6 +1,6 @@
 /*
  * 냅다 디자인 토큰 — 정본은 /DESIGN.md frontmatter.
- * 팔레트는 라임·블랙·그레이·화이트뿐이다. 블랙은 순검정 대신 #1A1A1A 한 가지만 쓴다(글자·1차 버튼·선·다크 바탕 모두). 그레이는 와이어프레임 같은 차가운 순회색 대신 아주 살짝 따뜻한 종이 톤을 쓴다. 빨강(danger)은 오류 표시에만 쓴다.
+ * 팔레트는 라임·블랙·그레이·화이트뿐이다. 블랙은 순검정 대신 #1A1A1A 한 가지만 쓴다(글자·1차 버튼·선·다크 바탕 모두). 그레이는 와이어프레임 같은 차가운 순회색 대신 아주 살짝 따뜻한 종이 톤을 쓴다. 빨강(danger, #FF0062)은 입력 오류, 안 읽은 알림 점, 누른 좋아요 하트에만 쓴다.
  * 라임은 면으로 크게 쓰지 않는다: 선택 체크, 브랜드 배지 글자, 화면당 강조 단어 하나에만.
  */
 :root,
@@ -15,7 +15,7 @@
   /* background / surface */
   --bg: #ffffff;
   --bg-weak: #faf9f6;
-  --surface-weak: #f4f3ef;
+  --surface-weak: #f6f6f6;
   --surface: #eae9e3;
   --surface-strong: #dcdad2;
 
@@ -49,7 +49,7 @@
   --tint: #f3fbd0;
   --on-tint: #4a5e00;
 
-  --danger: #d12a24;
+  --danger: #ff0062;
   --focus: #1a1a1a;
 
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.06);
@@ -89,7 +89,7 @@
   --tint: #292e1c;
   --on-tint: #c9e86a;
 
-  --danger: #ff6b61;
+  --danger: #ff0062;
   --focus: #ffffff;
 
   --shadow-card: none;

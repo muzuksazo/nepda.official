@@ -565,12 +565,36 @@ textarea.n-input {
   color: var(--text);
 }
 
+/* 홈 "영상 만들기" 버튼의 + 아이콘: 라임 선(1.67px) + 은은한 라임 빛 — 검정 버튼 위 작은 신호 */
+.n-create-plus {
+  color: var(--accent-fill);
+  filter: drop-shadow(0 0 4px rgb(214 255 63 / 0.4));
+}
+
+/* 홈 "영상 만들기" 버튼은 다크에서도 라이트처럼 어두운 버튼 + 흰 글자 + 라임 +.
+   바탕(#1A1A1A)과 같은 검정이면 모양이 사라지므로 면만 한 단계 밝힌다(테두리 없음) */
+[data-theme='dark'] .n-btn--primary:has(.n-create-plus) {
+  background: #2a2a28;
+  color: var(--napda-white);
+}
+
+[data-theme='dark'] .n-btn--primary:has(.n-create-plus):hover:not(:disabled) {
+  background: #353532;
+}
+
 .n-meter__track {
   display: block;
   height: 6px;
   overflow: hidden;
   border-radius: var(--radius-full);
-  background: var(--surface);
+  /* 빈 칸은 가장 옅은 회색(#F6F6F6) — 라임 채움만 눈에 들어오게 */
+  background: var(--surface-weak);
+}
+
+/* 다크에서는 카드 바탕(#262623)과 겹치지 않게 한 단계 밝은 회색 */
+[data-theme='dark'] .n-meter__track,
+[data-theme='dark'] .n-carousel__dot:not(.is-on) {
+  background: var(--surface-strong);
 }
 
 .n-meter__fill {
@@ -713,11 +737,10 @@ textarea.n-input {
   color: var(--text-2);
 }
 
-/* 브랜드 배지: 검정 면 + 라임 글자 */
+/* 브랜드 배지: 테두리 없는 라임 면 + 검정 글자 */
 .n-badge--brand {
   background: var(--accent-fill);
   color: var(--on-accent-fill);
-  box-shadow: inset 0 0 0 1px var(--accent-edge);
 }
 
 /* 미정 표시: 와이어프레임의 점선 주석을 그대로 잇는 회색 점선 (출시 전 모두 사라질 개발용 표시) */
@@ -1259,6 +1282,70 @@ textarea.n-input {
   background: var(--bg);
 }
 
+/* 하단 내비게이션 바로 위 오른쪽: 떠 있는 버튼 자리 (화면 여백 20px · 내비와 16px) */
+.n-screen__fab-slot {
+  position: absolute;
+  right: 20px;
+  bottom: calc(100% + 16px);
+  pointer-events: none;
+}
+
+/* 홈의 동그란 + 만들기: "영상 만들기"와 같은 검정 면 + 빛나는 라임 + (56px) */
+.n-fab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--napda-black);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.2);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  visibility: hidden;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    visibility 0s linear var(--dur-base);
+}
+
+.n-fab.is-visible {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    visibility 0s;
+}
+
+.n-fab:active {
+  transform: scale(0.94);
+}
+
+.n-fab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* 다크: "영상 만들기" 버튼과 같은 한 단계 밝은 검정, 그림자 대신 면 차이로 띄운다 */
+[data-theme='dark'] .n-fab {
+  background: #2a2a28;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .n-fab,
+  .n-fab.is-visible {
+    transform: none;
+    transition: opacity var(--dur-fast) linear, visibility 0s;
+  }
+}
+
 .n-screen__bottom .n-screen__footer {
   position: static;
   padding-bottom: 12px;
@@ -1340,8 +1427,10 @@ textarea.n-input {
   padding: 12px 20px 0;
 }
 
+/* 높이 32px = 오른쪽 크레딧 알약과 같은 높이 (40px은 본문보다 먼저 눈에 들어와 줄였다) */
 .n-wordmark {
-  height: 40px;
+  display: block;
+  height: 32px;
   width: auto;
 }
 
@@ -1444,22 +1533,16 @@ textarea.n-input {
   outline-offset: 0;
 }
 
-/* 안 읽은 알림 수: 테두리 없는 라임 점 + 검정 숫자. 종과는 바탕색 2px 틈으로 떼어 둔다 */
-.n-bell__count {
+/* 안 읽은 알림: 숫자 없는 8px 빨간 점(#FF0062). 종 오른쪽 위 끝에 걸치고, 종과는 바탕색 2px 틈으로 떼어 둔다 */
+.n-bell__dot {
   position: absolute;
-  top: 6px;
-  right: 4px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: var(--radius-full);
-  background: var(--accent-fill);
+  background: var(--danger);
   box-shadow: 0 0 0 2px var(--bg);
-  color: var(--on-accent-fill);
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 18px;
-  text-align: center;
 }
 
 /* 상단 GNB 크레딧 잔액: 회색 알약 + 작은 라임 번개 원(라임은 이 원에만) */
@@ -1609,14 +1692,8 @@ textarea.n-input {
   color: #fff;
   font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
-}
-
-/* 24px 뱃지의 터치 영역을 44px까지 넓힌다 */
-.n-banner__badge::before {
-  content: '';
-  position: absolute;
-  inset: -10px;
+  /* 위치 표시만 한다(누르는 버튼 아님) — 손가락 밀기를 막지 않게 */
+  pointer-events: none;
 }
 
 /* ---------- 탭 ---------- */
@@ -1655,7 +1732,7 @@ textarea.n-input {
   color: var(--text-3);
 }
 
-/* 고른 탭 아래 라임 막대 (작은 신호) */
+/* 고른 탭 아래 검정 막대 (글자색과 같아 다크에서는 흰 막대) */
 .n-tab.is-on::after {
   content: '';
   position: absolute;
@@ -1664,7 +1741,7 @@ textarea.n-input {
   bottom: -1px;
   height: 4px;
   border-radius: 2px 2px 0 0;
-  background: var(--accent-fill);
+  background: var(--text);
 }
 
 .n-tab:focus-visible {
@@ -1733,7 +1810,8 @@ textarea.n-input {
   width: 6px;
   height: 6px;
   border-radius: 3px;
-  background: var(--surface-strong);
+  /* 안 고른 점은 진행 막대 빈 칸과 같은 #F6F6F6 */
+  background: var(--surface-weak);
   transition:
     width var(--dur-base) var(--ease-out),
     background-color var(--dur-base) var(--ease-out);
@@ -1854,6 +1932,82 @@ button.n-list-row:active {
   flex-shrink: 0;
   margin-right: -4px;
   color: var(--text-weak);
+}
+
+/* 머리 오른쪽 글자 버튼: 내 영상 "선택" · "완료" (누르는 자리 44px) */
+.n-header-text-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.n-header-text-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* 내 영상 선택 모드: 카드 전체를 덮는 고르기 칸 + 오른쪽 위 체크 원 */
+.n-project-wrap {
+  position: relative;
+}
+
+.n-project-select {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: transparent;
+  cursor: pointer;
+}
+
+.n-project-select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.n-project-select__check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg);
+  color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+/* 고른 카드: 선택 카드와 같은 라임 틴트 테두리 + 라임 체크 */
+.n-project-wrap.is-selected .n-card {
+  border-color: var(--selected-border);
+  box-shadow: inset 0 0 0 1px var(--selected-border);
+}
+
+.n-project-wrap.is-selected .n-project-select__check {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent-fill);
+}
+
+/* 선택 중에는 행동 타일을 흐리게 해 누를 수 없다는 걸 보여 준다 */
+.n-project-wrap.is-selecting .n-project__action {
+  opacity: 0.45;
 }
 
 /* 글자 버튼: 탈퇴처럼 일부러 조용하게 두는 행동 */
@@ -2092,8 +2246,9 @@ button.n-list-row:active {
   border-radius: 50%;
 }
 
+/* 끝난 단계: 검정 테두리 없는 라임 원 + 검정 체크 */
 .n-gen__step.is-done .n-gen__dot {
-  border: 1.5px solid var(--accent-edge);
+  border-color: var(--accent-fill);
   background: var(--accent-fill);
   color: var(--on-accent-fill);
 }
@@ -2783,7 +2938,12 @@ button.n-list-row:active {
   transform: scale(0.88);
 }
 
-/* "(B) 만들기": 게시자 줄 오른쪽, 테두리 없이 꽉 찬 검정 알약 (다크에서는 흰 알약) — 한눈에 버튼으로 읽힌다 */
+/* 좋아요를 누르면 하트가 빨강(#FF0062)으로 찬다 */
+.n-post__action.is-on {
+  color: var(--danger);
+}
+
+/* "(B) 만들기": 게시자 줄 오른쪽, 테두리 없는 회색(#F6F6F6) 알약 + 검정 글자. 라임 유형 배지가 버튼임을 알린다 */
 .n-post__remix {
   display: inline-flex;
   flex-shrink: 0;
@@ -2795,8 +2955,8 @@ button.n-list-row:active {
   padding: 0 14px 0 5px;
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--inverse);
-  color: var(--on-inverse);
+  background: var(--surface-weak);
+  color: var(--text);
   font: inherit;
   font-size: 14px;
   font-weight: 700;
@@ -2808,7 +2968,7 @@ button.n-list-row:active {
 }
 
 .n-post__remix:hover {
-  background: var(--inverse-hover);
+  background: var(--surface);
 }
 
 .n-post__remix:active {
@@ -3651,14 +3811,13 @@ button.n-noti:focus-visible {
 }
 
 /* 켜짐: 라임 면 + 검정 손잡이(선택 체크와 같은 짝). 색뿐 아니라 손잡이 위치로도 구분된다 */
+/* 켜짐: 테두리 없는 라임 면 (흰 손잡이와 그림자가 경계를 만든다) */
 .n-switch[aria-checked='true'] {
   background: var(--accent-fill);
-  box-shadow: inset 0 0 0 1.5px var(--accent-edge);
 }
 
+/* 켜져도 손잡이는 꺼짐과 같은 흰 원 + 옅은 그림자, 오른쪽으로만 옮긴다 */
 .n-switch[aria-checked='true'] .n-switch__knob {
-  background: var(--on-accent-fill);
-  box-shadow: none;
   transform: translateX(20px);
 }
 
@@ -4064,9 +4223,9 @@ button.n-noti:focus-visible {
   line-height: 14px;
 }
 
-/* 좋아요를 누르면 하트가 라임으로 찬다(빨강은 쓰지 않는다) */
+/* 좋아요를 누르면 하트가 빨강(#FF0062)으로 찬다 — 피드 게시물과 같은 색 */
 .n-viewer__action.is-on svg {
-  color: var(--accent-fill);
+  color: var(--danger);
 }
 
 .n-viewer__panel {
@@ -4198,5 +4357,73 @@ button.n-noti:focus-visible {
 
   .n-device__home {
     display: none;
+  }
+}
+
+/* ---------- 스플래시 ---------- */
+/* 배경 그림 위에 로고를 따로 얹는다. 그림이 늦게 오면 하늘색 → 잔디색 그라데이션이 먼저 보인다 */
+.n-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  background: linear-gradient(180deg, #479cfd 0%, #8fc4ff 55%, #8db936 100%);
+  /* 로고 크기·위치를 화면이 아니라 스플래시 영역 비율에 맞춘다 (스토리북 휴대폰 틀 안에서도 맞게) */
+  container-type: size;
+}
+
+.n-splash picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 곰이 아래쪽 잔디 위에 서도록 아래 기준으로 채운다 */
+.n-splash__bg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center bottom;
+  animation: n-splash-fade 0.4s var(--ease-out) both;
+}
+
+/* 로고: 하늘 위쪽 1/4 지점, 화면 폭의 58%(최대 280px). 살짝 튀어나오듯 등장 */
+.n-splash__logo {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 18%);
+  left: 50%;
+  width: min(58%, 280px);
+  height: auto;
+  filter: drop-shadow(0 8px 18px rgb(0 40 120 / 0.22));
+  transform: translateX(-50%);
+  animation: n-splash-pop 0.5s 0.1s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* 가로로 넓은 영역: 로고를 조금 작게, 위로 */
+@container (min-aspect-ratio: 1/1) {
+  .n-splash__logo {
+    top: 12%;
+    width: min(22cqw, 320px);
+  }
+}
+
+@keyframes n-splash-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes n-splash-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.85);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .n-splash__bg,
+  .n-splash__logo {
+    animation: none;
   }
 }

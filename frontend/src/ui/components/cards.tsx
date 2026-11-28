@@ -40,78 +40,117 @@ export interface ProjectCardProps {
   thumbnailUrl?: string;
   actionLabel: string;
   onAction?: () => void;
+  /** 내 영상 "선택" 중: 카드 전체가 고르기 칸이 되고 행동 버튼은 잠긴다 */
+  isSelecting?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 /**
  * 홈·내 영상의 프로젝트 카드: 왼쪽 9:16 릴스 썸네일 + 오른쪽 정보 → 진행 → 행동.
  * 막대 옆에 "5/8"을 붙인다(근접성).
  */
-export function ProjectCard({ productName, status, completedSteps, nextStep, thumbnailUrl, actionLabel, onAction }: ProjectCardProps) {
+export function ProjectCard({
+  productName,
+  status,
+  completedSteps,
+  nextStep,
+  thumbnailUrl,
+  actionLabel,
+  onAction,
+  isSelecting = false,
+  isSelected = false,
+  onToggleSelect,
+}: ProjectCardProps) {
   const isDone = completedSteps === undefined;
   return (
-    <Card padding={12}>
-      <div className="n-project">
-        <div className={`n-project__thumb${thumbnailUrl ? '' : ' is-empty'}`} aria-hidden="true">
-          {thumbnailUrl ? <img src={thumbnailUrl} alt="" loading="lazy" decoding="async" /> : <Package size={24} />}
-          {isDone && thumbnailUrl ? (
-            <span className="n-project__play">
-              <Play size={12} fill="currentColor" />
-            </span>
-          ) : null}
-        </div>
+    <div className={`n-project-wrap${isSelecting ? ' is-selecting' : ''}${isSelected ? ' is-selected' : ''}`}>
+      <Card padding={12}>
+        <div className="n-project">
+          <div className={`n-project__thumb${thumbnailUrl ? '' : ' is-empty'}`} aria-hidden="true">
+            {thumbnailUrl ? <img src={thumbnailUrl} alt="" loading="lazy" decoding="async" /> : <Package size={24} />}
+            {isDone && thumbnailUrl ? (
+              <span className="n-project__play">
+                <Play size={12} fill="currentColor" />
+              </span>
+            ) : null}
+          </div>
 
-        <div className="n-project__body">
-          <Stack gap={2}>
-            <span className="n-project__name">{productName}</span>
-            <span className="n-small n-muted">{status}</span>
-          </Stack>
+          <div className="n-project__body">
+            <Stack gap={2}>
+              <span className="n-project__name">{productName}</span>
+              <span className="n-small n-muted">{status}</span>
+            </Stack>
 
-          {/* 완료는 막대 없이 "✓ 완료"만, 진행 중은 위에 "진행 단계 · 5 / 8" + 아래 이어진 한 줄 막대 */}
-          {isDone ? (
-            <span className="n-meter__label n-meter__label--done">
-              <Check size={14} strokeWidth={3} className="n-meter__check" aria-hidden="true" />
-              완료
-            </span>
-          ) : (
-            <div
-              className="n-meter"
-              role="progressbar"
-              aria-label={`${productName} 진행 단계`}
-              aria-valuemin={0}
-              aria-valuemax={FLOW_TOTAL_STEPS}
-              aria-valuenow={completedSteps}
-            >
-              <span className="n-meter__head" aria-hidden="true">
-                <span className="n-meter__label">진행 단계</span>
-                <span className="n-meter__count n-num">
-                  <b>{completedSteps}</b> / {FLOW_TOTAL_STEPS}
+            {/* 완료는 막대 없이 "✓ 완료"만, 진행 중은 위에 "진행 단계 · 5 / 8" + 아래 이어진 한 줄 막대 */}
+            {isDone ? (
+              <span className="n-meter__label n-meter__label--done">
+                <Check size={14} strokeWidth={3} className="n-meter__check" aria-hidden="true" />
+                완료
+              </span>
+            ) : (
+              <div
+                className="n-meter"
+                role="progressbar"
+                aria-label={`${productName} 진행 단계`}
+                aria-valuemin={0}
+                aria-valuemax={FLOW_TOTAL_STEPS}
+                aria-valuenow={completedSteps}
+              >
+                <span className="n-meter__head" aria-hidden="true">
+                  <span className="n-meter__label">진행 단계</span>
+                  <span className="n-meter__count n-num">
+                    <b>{completedSteps}</b> / {FLOW_TOTAL_STEPS}
+                  </span>
                 </span>
-              </span>
-              <span className="n-meter__track" aria-hidden="true">
-                <span className="n-meter__fill" style={{ width: `${(completedSteps / FLOW_TOTAL_STEPS) * 100}%` }} />
-              </span>
-            </div>
-          )}
+                <span className="n-meter__track" aria-hidden="true">
+                  <span className="n-meter__fill" style={{ width: `${(completedSteps / FLOW_TOTAL_STEPS) * 100}%` }} />
+                </span>
+              </div>
+            )}
 
-          {/* 다음 할 일(왼쪽)과 원형 아이콘 버튼(오른쪽)을 한 타일로 묶어 카드 아래에 붙인다 */}
-          <div className="n-card-action n-project__action">
-            <span className="n-card-action__info">
-              {isDone ? (
-                <span className="n-small n-semibold">영상 + 썸네일</span>
-              ) : (
-                <>
-                  <span className="n-caption n-muted">다음 단계</span>
-                  <span className="n-small n-semibold n-project__next">{nextStep}</span>
-                </>
-              )}
-            </span>
-            <button type="button" className="n-round-btn" aria-label={`${productName} ${actionLabel}`} onClick={onAction}>
-              {isDone ? <Download size={18} aria-hidden="true" /> : <ArrowRight size={18} aria-hidden="true" />}
-            </button>
+            {/* 다음 할 일(왼쪽)과 원형 아이콘 버튼(오른쪽)을 한 타일로 묶어 카드 아래에 붙인다 */}
+            <div className="n-card-action n-project__action">
+              <span className="n-card-action__info">
+                {isDone ? (
+                  <span className="n-small n-semibold">영상 + 썸네일</span>
+                ) : (
+                  <>
+                    <span className="n-caption n-muted">다음 단계</span>
+                    <span className="n-small n-semibold n-project__next">{nextStep}</span>
+                  </>
+                )}
+              </span>
+              <button
+                type="button"
+                className="n-round-btn"
+                aria-label={`${productName} ${actionLabel}`}
+                onClick={onAction}
+                tabIndex={isSelecting ? -1 : undefined}
+                aria-hidden={isSelecting || undefined}
+              >
+                {isDone ? <Download size={18} aria-hidden="true" /> : <ArrowRight size={18} aria-hidden="true" />}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+      {/* 선택 중에는 카드 전체를 덮는 고르기 칸을 얹는다 (오른쪽 위 체크 원) */}
+      {isSelecting ? (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={isSelected}
+          aria-label={`${productName} 고르기`}
+          className="n-project-select"
+          onClick={onToggleSelect}
+        >
+          <span className="n-project-select__check" aria-hidden="true">
+            <Check size={16} strokeWidth={3} />
+          </span>
+        </button>
+      ) : null}
+    </div>
   );
 }
 

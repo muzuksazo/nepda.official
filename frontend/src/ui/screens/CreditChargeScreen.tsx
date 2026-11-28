@@ -35,7 +35,7 @@ export interface CreditChargeScreenProps {
   onOpenPolicy?: () => void;
 }
 
-/** 처음 골라 둘 묶음: 모자란 만큼을 채우는 가장 작은 묶음 → "많이 골라요" → 첫 묶음 */
+/** 처음 골라 둘 묶음: 모자란 만큼을 채우는 가장 작은 묶음 → "인기" → 첫 묶음 */
 function pickInitial(packages: readonly CreditPackage[], shortfall?: number): string | null {
   if (shortfall) {
     const enough = [...packages].sort((a, b) => a.credits - b.credits).find((pkg) => pkg.credits >= shortfall);
