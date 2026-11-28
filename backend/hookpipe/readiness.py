@@ -118,22 +118,42 @@ def _deep(settings: Any, storage: Any, problems: List[str], warnings: List[str])
         except TemplateError as exc:
             result["a_templates"] = 0
             warnings.append(f"A 템플릿을 쓸 수 없어 A 는 실시간 생성으로 갑니다: {exc}")
-    # 모델 이름 (models.list 는 무료)
+    # 모델 이름 (models.list / Vertex models.get 는 무료 메타데이터 조회)
     try:
         from app.genai_provider import build_genai_client
 
         client = build_genai_client(settings)
-        names = {m.name.replace("models/", "") for m in client.models.list()}
-        wanted = {
-            "video_model": getattr(settings, "video_model", ""),
-            "image_model": getattr(settings, "image_model", ""),
-            "body_llm": getattr(settings, "body_llm", ""),
-        }
-        if str(getattr(settings, "hook_worker_llm", "") or "").startswith("gemini"):
-            wanted["hook_worker_llm"] = settings.hook_worker_llm
+        wanted: Dict[str, str] = {}
+        for attr in ("video_model", "image_model", "body_llm", "hook_worker_llm"):
+            val = str(getattr(settings, attr, "") or "").strip()
+            if val.startswith("gemini"):
+                wanted[attr] = val
         if getattr(settings, "tts_provider", "gemini") == "gemini":
-            wanted["tts_model"] = getattr(settings, "tts_model", "")
-        missing = {k: v for k, v in wanted.items() if v and v not in names}
+            tts_val = str(getattr(settings, "tts_model", "") or "").strip()
+            if tts_val:
+                wanted["tts_model"] = tts_val
+
+        if getattr(settings, "google_genai_use_vertexai", False):
+            # Vertex AI 에서는 client.models.list() 가 커스텀 모델만 반환하므로 publisher 모델을 get 으로 확인한다.
+            missing_models: set[str] = set()
+            checked: set[str] = set()
+            for model_name in wanted.values():
+                if model_name in checked:
+                    continue
+                checked.add(model_name)
+                try:
+                    client.models.get(model=model_name)
+                except Exception as exc:
+                    msg = str(exc)
+                    if getattr(exc, "code", None) == 404 or "404" in msg or "NOT_FOUND" in msg:
+                        missing_models.add(model_name)
+                    else:
+                        raise
+            missing = {k: v for k, v in wanted.items() if v in missing_models}
+        else:
+            names = {m.name.replace("models/", "") for m in client.models.list()}
+            missing = {k: v for k, v in wanted.items() if v and v not in names}
+
         result["models_missing"] = missing
         for k, v in missing.items():
             problems.append(f"{k}={v} 를 이 키의 모델 목록에서 찾지 못했습니다.")

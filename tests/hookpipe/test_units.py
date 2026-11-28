@@ -2,7 +2,7 @@
 
 import unittest
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 
@@ -627,6 +627,84 @@ class WorkerConnection(unittest.TestCase):
         self.assertEqual(a1, a2)
         seen = {_resolve_ab_request(s_half, req_default, user_id=f"u{i}", project_id="p1")[0] for i in range(40)}
         self.assertEqual(seen, {"anthropic", "google"})
+
+    def test_readiness_deep_vertex_uses_models_get_and_skips_non_gemini(self) -> None:
+        import os
+        from unittest.mock import patch
+
+        from hookpipe.readiness import check as check_readiness
+
+        queried: List[str] = []
+
+        class _FakeModels:
+            def __init__(self, missing: Optional[set[str]] = None, fail_exc: Optional[Exception] = None) -> None:
+                self._missing = missing or set()
+                self._fail_exc = fail_exc
+
+            def get(self, *, model: str) -> Any:
+                queried.append(model)
+                if self._fail_exc is not None:
+                    raise self._fail_exc
+                if model in self._missing:
+                    err = RuntimeError("404 NOT_FOUND")
+                    setattr(err, "code", 404)
+                    raise err
+                return SimpleNamespace(name=f"publishers/google/models/{model}")
+
+            def list(self) -> List[Any]:
+                raise AssertionError("Vertex AI readiness should use models.get(), not models.list()")
+
+        settings = _settings(
+            google_genai_use_vertexai=True,
+            video_model="gemini-omni-flash-preview",
+            image_model="gemini-nano-banana-2.1",
+            body_llm="claude-opus-5-5",
+            hook_worker_llm="gemini-4-hydrogen",
+            tts_provider="inworld",
+            inworld_api_key="iw-test",
+            inworld_voice_id="voice-1",
+            session_secret="prod-secret-value",
+            hook_a_mode="realtime",
+        )
+
+        fake_tools = SimpleNamespace(
+            ffmpeg="/usr/bin/ffmpeg",
+            ffprobe="/usr/bin/ffprobe",
+            has_filter=lambda _name: True,
+            has_encoder=lambda _name: True,
+        )
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}, clear=False):
+            with patch("hookpipe.readiness.find_tools", return_value=fake_tools):
+                with patch("app.genai_provider.build_genai_client", return_value=SimpleNamespace(models=_FakeModels())):
+                    res = check_readiness(settings, storage=None, deep=True)
+        self.assertTrue(res["ready"], res)
+        self.assertEqual(res["deep"]["models_missing"], {})
+        self.assertEqual(
+            set(queried),
+            {"gemini-omni-flash-preview", "gemini-nano-banana-2.1", "gemini-4-hydrogen"},
+        )
+        self.assertNotIn("claude-opus-5-5", queried)
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}, clear=False):
+            with patch("hookpipe.readiness.find_tools", return_value=fake_tools):
+                with patch(
+                    "app.genai_provider.build_genai_client",
+                    return_value=SimpleNamespace(models=_FakeModels(missing={"gemini-nano-banana-2.1"})),
+                ):
+                    res_missing = check_readiness(settings, storage=None, deep=True)
+        self.assertFalse(res_missing["ready"])
+        self.assertEqual(res_missing["deep"]["models_missing"], {"image_model": "gemini-nano-banana-2.1"})
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}, clear=False):
+            with patch("hookpipe.readiness.find_tools", return_value=fake_tools):
+                with patch(
+                    "app.genai_provider.build_genai_client",
+                    return_value=SimpleNamespace(models=_FakeModels(fail_exc=PermissionError("403 forbidden"))),
+                ):
+                    res_err = check_readiness(settings, storage=None, deep=True)
+        self.assertFalse(res_err["ready"])
+        self.assertIsNone(res_err["deep"]["models_missing"])
 
 
 if __name__ == "__main__":

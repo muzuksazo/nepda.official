@@ -1,0 +1,109 @@
+name: CD Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "libraries/media-tools/**"
+      - "scripts/hookpipe_smoke.py"
+      - ".github/workflows/cd-cloudrun.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cd-cloudrun-production
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gentle-voltage-464223-h6
+  GCP_REGION: asia-northeast3
+  CLOUD_RUN_SERVICE: napda-backend
+  AR_REPO: napda
+
+jobs:
+  verify:
+    name: Verify Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/requirements.txt
+
+      - name: Install ffmpeg and CJK fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
+
+      - name: Setup Python 3.12 environment
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv/bin/python -r backend/requirements.txt
+
+      - name: Run Python regression & OpenAPI parity suite
+        run: .venv/bin/python scripts/test-python.py
+
+  deploy:
+    name: Deploy napda-backend to Cloud Run
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud via WIF
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/94766443061/locations/global/workloadIdentityPools/vercel-napda-pool/providers/github-napda
+          service_account: napda-cloudrun-deployer@gentle-voltage-464223-h6.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build & push container image via Cloud Build
+        env:
+          SHORT_SHA: ${{ github.sha }}
+        run: |
+          TAG="${SHORT_SHA:0:7}"
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/${CLOUD_RUN_SERVICE}:${TAG}"
+          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+          gcloud builds submit \
+            --project="$GCP_PROJECT_ID" \
+            --region="$GCP_REGION" \
+            --config=backend/cloudbuild.yaml \
+            --substitutions=_IMAGE="$IMAGE" \
+            --quiet .
+
+      - name: Deploy service to Cloud Run
+        run: |
+          gcloud run deploy "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" \
+            --region="$GCP_REGION" \
+            --platform=managed \
+            --image="$IMAGE" \
+            --quiet
+          URL="$(gcloud run services describe "$CLOUD_RUN_SERVICE" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format='value(status.url)' --quiet)"
+          echo "CLOUD_RUN_URL=${URL}" >> "$GITHUB_ENV"
+          echo "Deployed Cloud Run service: ${URL} (commit ${GITHUB_SHA::7})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post-deploy smoke check
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            HEALTH_JSON="$(curl -fsS --max-time 60 "${CLOUD_RUN_URL%/}/health" || true)"
+            BILLING_JSON="$(curl -fsS --max-time 30 "${CLOUD_RUN_URL%/}/v1/billing/config" || true)"
+            AUTH_CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "${CLOUD_RUN_URL%/}/v1/auth/me" || true)"
+            if [ -n "$HEALTH_JSON" ] && [ -n "$BILLING_JSON" ] && [ "$AUTH_CODE" = "401" ]; then
+              if python3 -c "import json, sys; h = json.loads(sys.argv[1]); b = json.loads(sys.argv[2]); assert h.get('status') == 'ok' and h.get('hookpipe', {}).get('ready') is True, h; assert isinstance(b.get('packages'), list), b" "$HEALTH_JSON" "$BILLING_JSON"; then
+                echo "Smoke check passed on attempt $attempt" >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+            fi
+            echo "Smoke check attempt $attempt failed; retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::Post-deploy smoke check failed against ${CLOUD_RUN_URL}"
+          exit 1
