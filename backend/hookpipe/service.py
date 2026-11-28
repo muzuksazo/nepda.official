@@ -13,6 +13,7 @@ DB 갱신과 파일 올리기는 코어의 저장소 객체(project_store, job_s
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import random
 import shutil
@@ -627,6 +628,15 @@ class HookPipeline:
             self._raise_if_cancelled(job_id)
 
             try:
+                clip_audio_preserved = False
+                render_meta_path = out_dir / "render_meta.json"
+                if render_meta_path.is_file():
+                    try:
+                        clip_audio_preserved = bool(
+                            json.loads(render_meta_path.read_text(encoding="utf-8")).get("clip_audio_preserved")
+                        )
+                    except Exception:
+                        clip_audio_preserved = False
                 audio_pack = resolve_audio_pack(
                     self.settings,
                     self.template_storage,
@@ -639,6 +649,7 @@ class HookPipeline:
                     tools=self._media(),
                     pack=audio_pack,
                     tmp_dir=job_dir / "_audio_mix",
+                    hook_bgm_db=-21.0 if clip_audio_preserved else -17.0,
                 )
                 if mixed_lufs is not None:
                     joined.lufs = mixed_lufs

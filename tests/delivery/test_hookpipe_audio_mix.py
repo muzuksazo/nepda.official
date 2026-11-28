@@ -206,3 +206,107 @@ class TestHookpipeAudioMix(unittest.TestCase):
                 db_path=str(root / "napda.db"),
             )
             self.assertTrue(resolve_audio_pack(disabled, storage, hook_type="A", cache_dir=cache_dir).is_empty())
+
+    def test_assemble_preserves_clip_audio_with_narration_and_without_narration(self) -> None:
+        from hookpipe.render import BeatPlan, _assemble
+
+        tools = find_tools()
+        with temporary_directory() as td:
+            root = Path(td)
+            clip_with_audio = root / "omni_clip.mp4"
+            subprocess.run(
+                [
+                    tools.ffmpeg,
+                    "-y",
+                    "-v",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "color=c=0x109940:s=360x640:d=3:r=30",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=260:sample_rate=48000:duration=3",
+                    "-filter_complex",
+                    "[1:a]aformat=channel_layouts=stereo,volume=6dB[a]",
+                    "-map",
+                    "0:v",
+                    "-map",
+                    "[a]",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c:a",
+                    "aac",
+                    "-b:a",
+                    "128k",
+                    "-t",
+                    "3",
+                    str(clip_with_audio),
+                ],
+                check=True,
+            )
+
+            # Narration burst ONLY in [0.0..1.0], silent in [1.5..2.8]
+            narr_mp3 = root / "narr.mp3"
+            subprocess.run(
+                [
+                    tools.ffmpeg,
+                    "-y",
+                    "-v",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=520:sample_rate=48000:duration=1.0",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "anullsrc=r=48000:cl=stereo",
+                    "-filter_complex",
+                    "[0:a]aformat=channel_layouts=stereo,volume=-8dB[v];"
+                    "[1:a]atrim=0:2.0[s];"
+                    "[v][s]concat=n=2:v=0:a=1[a]",
+                    "-map",
+                    "[a]",
+                    "-c:a",
+                    "libmp3lame",
+                    "-b:a",
+                    "128k",
+                    "-t",
+                    "3.0",
+                    str(narr_mp3),
+                ],
+                check=True,
+            )
+
+            plan = BeatPlan(
+                order=1,
+                beat={},
+                role="hook",
+                caption="테스트",
+                narration="테스트",
+                scenario_sec=3.0,
+                duration=3.0,
+                clip_path=clip_with_audio,
+                hold=False,
+            )
+
+            out_with_vo = root / "with_vo"
+            out_with_vo.mkdir(parents=True, exist_ok=True)
+            _assemble([plan], out_with_vo, tools, burn_captions=False, narration_mix=narr_mp3)
+            hook_vo_mp4 = out_with_vo / "hook.mp4"
+            tts_mp3 = out_with_vo / "tts.mp3"
+            self.assertTrue(hook_vo_mp4.is_file())
+            self.assertTrue(tts_mp3.is_file())
+            self.assertGreater(_mean_volume_db(tools.ffmpeg, hook_vo_mp4, 1.5, 1.2), -35.0)
+            self.assertLess(_mean_volume_db(tools.ffmpeg, tts_mp3, 1.5, 1.2), -55.0)
+
+            out_no_vo = root / "no_vo"
+            out_no_vo.mkdir(parents=True, exist_ok=True)
+            _assemble([plan], out_no_vo, tools, burn_captions=False, narration_mix=None)
+            hook_raw_mp4 = out_no_vo / "hook.mp4"
+            self.assertTrue(hook_raw_mp4.is_file())
+            self.assertGreater(_mean_volume_db(tools.ffmpeg, hook_raw_mp4, 0.5, 2.0), -30.0)

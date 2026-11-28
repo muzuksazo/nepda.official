@@ -118,6 +118,7 @@ def mix_bgm_and_sfx(
     tools: MediaTools,
     pack: AudioPack,
     tmp_dir: Path,
+    hook_bgm_db: float = -17.0,
 ) -> Optional[float]:
     """Mix 2-stage BGM (with twist dead-stop), transition SFX, and VO-keyed sidechain ducking onto `video_mp4`.
 
@@ -175,7 +176,7 @@ def mix_bgm_and_sfx(
 
         filters.append(
             f"[{idx_h}:a]atrim=0:{act1_end:.3f},asetpts=PTS-STARTPTS,"
-            f"volume=-17dB,afade=t=in:st=0:d=0.08,afade=t=out:st={act1_fade_out_st:.3f}:d=0.06,"
+            f"volume={hook_bgm_db:.1f}dB,afade=t=in:st=0:d=0.08,afade=t=out:st={act1_fade_out_st:.3f}:d=0.06,"
             f"aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
             f"apad=whole_dur={total:.3f},atrim=0:{total:.3f}[abgm1]"
         )

@@ -17,7 +17,8 @@ COMMON_RULES = """RULES (apply to every shot):
 - Camera: one continuous shot with gentle movement. No cuts inside the clip.
 - FORBIDDEN: any readable text, letters, words, numbers or digits anywhere in the frame (no subtitles, captions, speech bubbles, signs, labels, title cards); watermarks; logos; real brand marks. Subtitles are added later by the editor.
 - Keep the same look, palette and main character across all shots of this story.
-- Never show blood, wounds, organs, bones inside the body or anatomical cutaways; show the outside of the body or an everyday analogy instead."""
+- Never show blood, wounds, organs, bones inside the body or anatomical cutaways; show the outside of the body or an everyday analogy instead.
+- Audio: rich natural sound effects and ambient foley matching the on-screen action; NO speech, NO human voice, NO narration, NO singing."""
 
 STYLE_BY_TYPE: Dict[str, str] = {
     "A": "LOOK: cinematic genre short film, strong mood lighting, shallow depth of field. Commit fully to the genre of the story.",

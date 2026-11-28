@@ -503,6 +503,7 @@ def _assemble(
     args: List[str] = []
     filters: List[str] = []
     shots = [p for p in plans if not p.hold]
+    shot_slots: List[Tuple[int, BeatPlan, float, bool]] = []
     for index, plan in enumerate(shots):
         # 바로 뒤에 이어지는 '멈춤' 장면만큼 이 클립의 마지막 화면을 더 붙잡아 둔다
         position = plans.index(plan)
@@ -513,6 +514,7 @@ def _assemble(
             freeze += later.duration
         args += ["-i", str(plan.clip_path)]
         info = probe(tools, plan.clip_path)  # type: ignore[arg-type]
+        shot_slots.append((index, plan, freeze, bool(info.has_audio)))
         short = plan.duration - info.duration
         steps: List[str] = []
         if short > 0.02:
@@ -534,6 +536,23 @@ def _assemble(
     concat_in = "".join(f"[v{i}]" for i in range(len(shots)))
     filters.append(f"{concat_in}concat=n={len(shots)}:v=1:a=0[vcat]")
 
+    any_clip_audio = any(has_aud for _, _, _, has_aud in shot_slots)
+    if any_clip_audio:
+        for index, plan, freeze, has_aud in shot_slots:
+            slot_dur = plan.duration + freeze
+            if has_aud:
+                fade_out_st = max(0.0, plan.duration - 0.04)
+                filters.append(
+                    f"[{index}:a]atrim=0:{plan.duration:.3f},asetpts=PTS-STARTPTS,"
+                    f"afade=t=in:st=0:d=0.03,afade=t=out:st={fade_out_st:.3f}:d=0.04,"
+                    f"aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
+                    f"apad=whole_dur={slot_dur:.3f},atrim=0:{slot_dur:.3f}[ca{index}]"
+                )
+            else:
+                filters.append(f"anullsrc=r={AUDIO_RATE}:cl=stereo,atrim=0:{slot_dur:.3f}[ca{index}]")
+        clip_concat_in = "".join(f"[ca{i}]" for i in range(len(shot_slots)))
+        filters.append(f"{clip_concat_in}concat=n={len(shot_slots)}:v=0:a=1[aclip_raw]")
+
     burned = False
     video_label = "vcat"
     if burn_captions and (out_dir / "hook.srt").stat().st_size > 0:
@@ -550,8 +569,30 @@ def _assemble(
         # 한 번 재고 그 차이만큼만 올린다: 나레이션이 일부 장면에만 있어도 -14 LUFS 에 맞는다
         gain = gain_to_target(measure_lufs(tools, narration_mix))
         args += ["-i", str(narration_mix)]
-        filters.append(f"[{audio_index}:a]{gain_filter(tools, gain)},aresample={AUDIO_RATE},asplit=2[aout][narr_b]")
+        if any_clip_audio:
+            if tools.has_filter("sidechaincompress"):
+                filters.append(
+                    f"[{audio_index}:a]{gain_filter(tools, gain)},aresample={AUDIO_RATE},"
+                    f"aformat=channel_layouts=stereo,asplit=3[anarr][anarr_key][narr_b]"
+                )
+                filters.append("[aclip_raw]volume=-7dB[aclip_lvl]")
+                filters.append(
+                    "[aclip_lvl][anarr_key]sidechaincompress="
+                    "threshold=0.025:ratio=3.5:attack=15:release=240:makeup=1[aclip_duck]"
+                )
+                filters.append("[anarr][aclip_duck]amix=inputs=2:duration=first:normalize=0[aout]")
+            else:
+                filters.append(
+                    f"[{audio_index}:a]{gain_filter(tools, gain)},aresample={AUDIO_RATE},"
+                    f"aformat=channel_layouts=stereo,asplit=2[anarr][narr_b]"
+                )
+                filters.append("[aclip_raw]volume=-9dB[aclip_lvl]")
+                filters.append("[anarr][aclip_lvl]amix=inputs=2:duration=first:normalize=0[aout]")
+        else:
+            filters.append(f"[{audio_index}:a]{gain_filter(tools, gain)},aresample={AUDIO_RATE},asplit=2[aout][narr_b]")
         audio_map = "[aout]"
+    elif any_clip_audio:
+        audio_map = "[aclip_raw]"
     else:
         args += ["-f", "lavfi", "-t", f"{total:.3f}", "-i", f"anullsrc=r={AUDIO_RATE}:cl=stereo"]
         audio_map = f"{audio_index}:a"
@@ -1020,6 +1061,10 @@ def render_hook(
         "duration_sec": round(final.duration, 3),
         "lufs": lufs,
         "captions_burned": burned,
+        "clip_audio_preserved": any(
+            not p.hold and p.clip_path is not None and p.clip_path.is_file() and probe(media, p.clip_path).has_audio
+            for p in plans
+        ),
         "product_refs": [p.name for p in refs],
         "style_ref": bool(style_ref),
         "requested_clip_sec": requested,
