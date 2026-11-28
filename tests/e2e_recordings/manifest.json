@@ -413,10 +413,30 @@
       "title": "C안 풀스택 E2E (C 유형 선택 → 촬영/업로드/조립 → 결과 확인)",
       "owner": "sangyoon",
       "env": "local",
-      "status": "todo",
+      "status": "pass",
       "fr": "C안",
-      "expectedVideo": "abc_C_hook_e2e.mp4",
-      "checks": ["C 유형 훅 선택부터 업로드·TTS·본편 조립·썸네일까지 로컬 풀스택 녹화"]
+      "durationSec": 74.8,
+      "sizeKb": 1027,
+      "video": "./recordings/abc_C_hook_e2e.mp4",
+      "poster": "./recordings/shots/abc_C_hook_e2e/09_review.webp",
+      "screenshots": [
+        { "label": "1/8 제품 정보", "src": "./recordings/shots/abc_C_hook_e2e/01_product.webp" },
+        { "label": "2/8 유형 선택 (C)", "src": "./recordings/shots/abc_C_hook_e2e/02_hook.webp" },
+        { "label": "3/8 시나리오 글", "src": "./recordings/shots/abc_C_hook_e2e/03_scenario.webp" },
+        { "label": "4/8 그림 콘티", "src": "./recordings/shots/abc_C_hook_e2e/04_storyboard.webp" },
+        { "label": "5/8 촬영 가이드", "src": "./recordings/shots/abc_C_hook_e2e/05_guide.webp" },
+        { "label": "6/8 영상 올리기", "src": "./recordings/shots/abc_C_hook_e2e/06_upload.webp" },
+        { "label": "영상 만드는 중", "src": "./recordings/shots/abc_C_hook_e2e/07_generating.webp" },
+        { "label": "영상 완성", "src": "./recordings/shots/abc_C_hook_e2e/08_done.webp" },
+        { "label": "7/8 영상 확인", "src": "./recordings/shots/abc_C_hook_e2e/09_review.webp" },
+        { "label": "8/8 썸네일·내려받기", "src": "./recordings/shots/abc_C_hook_e2e/10_thumbnail.webp" }
+      ],
+      "checks": [
+        "제품 정보(60분 비주얼 타이머) → C 유형 → 시나리오 글 → 그림 콘티 6장 → 촬영 가이드 → 영상 올리기 → 만드는 중 → 영상 확인 → 썸네일까지 진행 (자동 점검 15/15)",
+        "첫 장면: Blender 블록아웃 → Nano Banana 실사 첫 프레임 → Gemini Omni 영상. 이후 장면은 올린 촬영 영상",
+        "완성 영상 1080×1920 · 22초(훅 10초 + 본편 12초) 재생 확인, 실패한 API 0건(52건 중), 페이지 오류 0건",
+        "백엔드는 상윤 브랜치의 C 작업자 로컬 서버(bridge-dev/c, 개발용 로그인·크레딧). main 의 hookpipe 경로와 나레이션(TTS)은 포함하지 않음"
+      ]
     },
     {
       "id": "E2E-L08",
