@@ -1,6 +1,7 @@
 """C 유형(C_direct_proof) 시나리오 프롬프트."""
 from __future__ import annotations
 
+from .blockouts import load_catalog, prompt_lines
 from .schema import MAX_BEATS, MAX_HOOK_SEC, MIN_BEATS, MIN_HOOK_SEC, fact_ids
 
 SYSTEM = f"""당신은 한국어 숏폼 광고의 C 유형 훅(C_direct_proof: 제품과 직접 연결된 훅) 시나리오 작가입니다.
@@ -26,7 +27,8 @@ C 유형이 지켜야 하는 것과 그 이유:
 - claim_ids 에는 이 시나리오가 실제로 쓴 사실 ID 를 2~3개 넣습니다.
 - pov_label 은 첫 장면의 상황을 한 줄로 쓴 것입니다 (예: 퇴근하고 현관에 들어선 나).
 - replacement_test_note 는 왜 다른 제품에 옮겨 붙일 수 없는지 한 줄로 씁니다.
-- cta_text 는 최종 영상 맨 끝에 붙일 댓글 유도 질문 하나입니다. 판매, 공동구매, 구매 링크 표기는 넣지 않습니다."""
+- cta_text 는 최종 영상 맨 끝에 붙일 댓글 유도 질문 하나입니다. 판매, 공동구매, 구매 링크 표기는 넣지 않습니다.
+- problem_blockout 은 첫 장면의 구도 참고 id 입니다. 사용자 메시지의 구도 참고 목록에서 첫 장면과 같은 상황인 것이 있을 때만 그 id 를 적고, 없으면 빈 문자열로 둡니다."""
 
 
 def build_user_prompt(inp: dict, violations: list[str] | None = None) -> str:
@@ -55,6 +57,7 @@ def build_user_prompt(inp: dict, violations: list[str] | None = None) -> str:
         for s in prev[-8:]:
             first = (s.get("beats") or [{}])[0]
             lines.append(f"- {s.get('hook_title', '')} / 문제 훅: {first.get('narration', '')}")
+    lines += ["", *prompt_lines(load_catalog())]
     lines += ["", f"{inp['round']}회차입니다. 서로 다른 문제 상황으로 시나리오 {inp['count']}개를 만들어 주세요."]
     if violations:
         lines += ["", "직전 결과가 아래 규칙을 어겼습니다. 이 부분을 고쳐서 전체를 다시 써 주세요:", *[f"- {v}" for v in violations]]

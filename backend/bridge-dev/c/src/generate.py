@@ -36,6 +36,7 @@ def offline_drafts(inp: dict) -> list[dict]:
             "pov_label": "또 같은 일이 생긴 나",
             "claim_ids": sorted({proof[0], benefit[0]}),
             "cta_text": "여러분은 어떻게 쓰고 계세요?",
+            "problem_blockout": "",
             "beats": [
                 {"order": 1, "role": "문제", "duration_sec": 4.0, "visual": "밝은 실내 POV 문제 상황",
                  "narration": "이거, 또 이렇게 됐어요.", "caption": "또 이렇게 됐어요"},

@@ -79,9 +79,11 @@ SCENARIO_SCHEMA = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["hook_title", "selling_point", "replacement_test_note", "pov_label", "beats", "claim_ids", "cta_text"],
+                "required": ["hook_title", "selling_point", "replacement_test_note", "pov_label", "beats", "claim_ids", "cta_text",
+                             "problem_blockout"],
                 "properties": {
                     "hook_title": {"type": "string"},
+                    "problem_blockout": {"type": "string"},      # 첫 장면의 구도 참고 id (blockouts/catalog.json). 없으면 ""
                     "selling_point": {"type": "string"},
                     "replacement_test_note": {"type": "string"},
                     "pov_label": {"type": "string"},
@@ -110,8 +112,14 @@ SCENARIO_SCHEMA = {
 }
 
 
-def to_scenario_item(draft: dict, *, scenario_id: str, round_no: int, body_duration_sec: float = 0.0) -> dict:
-    """모델(또는 오프라인 초안)이 준 초안을 ScenarioItem 으로 만든다."""
+def to_scenario_item(draft: dict, *, scenario_id: str, round_no: int, body_duration_sec: float = 0.0,
+                     blockouts: list[dict] | None = None) -> dict:
+    """모델(또는 오프라인 초안)이 준 초안을 ScenarioItem 으로 만든다.
+
+    blockouts: 구도 참고 목록. None 이면 blockouts/catalog.json 을 읽는다. 초안의 problem_blockout 이 목록에 있으면 첫 장면에 붙인다.
+    """
+    from .blockouts import attach
+
     beats = []
     for i, b in enumerate(sorted(draft["beats"], key=lambda x: x.get("order", 0)), 1):
         beats.append({
@@ -123,7 +131,7 @@ def to_scenario_item(draft: dict, *, scenario_id: str, round_no: int, body_durat
             "caption": str(b["caption"]).strip(),
         })
     selling_point = str(draft.get("selling_point", "")).strip()
-    return {
+    return attach({
         "scenario_id": scenario_id,
         "round": round_no,
         "type": HOOK_TYPE,
@@ -142,4 +150,4 @@ def to_scenario_item(draft: dict, *, scenario_id: str, round_no: int, body_durat
             "pov_label": str(draft.get("pov_label", "")).strip(),
             **({"selling_point": selling_point} if selling_point else {}),      # 이 시나리오가 겨냥한 소구포인트
         },
-    }
+    }, str(draft.get("problem_blockout", "")), blockouts)

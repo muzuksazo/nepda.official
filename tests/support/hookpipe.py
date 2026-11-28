@@ -82,6 +82,7 @@ class FakeMediaProvider:
         duration_sec: int = 5,
         resolution: str = "720p",
         reference_paths: Any = None,
+        first_frame_path: Any = None,
         **_: Any,
     ) -> None:
         self.video_calls.append(
@@ -91,6 +92,7 @@ class FakeMediaProvider:
                 "duration_sec": duration_sec,
                 "resolution": resolution,
                 "reference_paths": [str(p) for p in (reference_paths or [])],
+                "first_frame_path": str(first_frame_path) if first_frame_path else None,
             }
         )
         make_video(self.tools, Path(out_path), seconds=float(duration_sec), audio=False)
