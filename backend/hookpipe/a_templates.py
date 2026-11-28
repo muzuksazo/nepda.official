@@ -1131,7 +1131,10 @@ def make_template_scenario(
     max_attempts: int = 2,
     max_revisions: int = MAX_CRITIC_REVISIONS,
 ) -> Dict[str, Any]:
-    """제품 → (Neon 기획 → Neon 5축 비평 → 필요 시 Hydrogen 수정, 최대 2회) → {scenarios: [ScenarioItem]}."""
+    """제품 → Neon 기획 → 규칙 검사 → (걸렸을 때만) Neon 5축 비평 + Hydrogen 수정, 최대 2회 → {scenarios: [ScenarioItem]}.
+
+    규칙 검사를 통과한 기획은 비평 없이 바로 쓴다. 끝까지 규칙에 걸릴 때만 TemplateError (→ 실시간 생성).
+    """
     catalog = load_catalog(settings, storage, work_dir)
     templates = {t["template_id"]: t for t in catalog["templates"]}
     product = worker_input["product_info"]
@@ -1220,6 +1223,7 @@ def make_template_scenario(
 
         if template is None:
             det_errors = [f"목록에 없는 template_id 입니다: {tid!r}"]
+            last_errors = list(det_errors)
         else:
             scenario = _assemble(worker_input, catalog["location"], template, current_plan, ai_landing=ai_landing)
             taboo = [str(w) for w in current_plan.get("product_taboo_keywords") or []] + [str(product.get("name", ""))]
@@ -1232,8 +1236,21 @@ def make_template_scenario(
             )
             _, overlapping_words = _split_taboo_keywords(product, taboo, template)
             overlap_leaks = _overlapping_leaks_in_front(scenario, overlapping_words)
+            needs_paraphrase = bool(overlap_leaks) and rev < revisions_cap
 
-            # Stage 2: Critic Gate (Neon)
+            # 규칙 검사를 통과하면 비평 게이트 없이 바로 쓴다 (시나리오 대기 시간 단축, 2026-11-29).
+            # 마지막 수정 차례에서는 겹치는 단어가 남아 있어도 규칙만 통과하면 실시간 생성으로 넘기지 않고 이 기획을 쓴다
+            if not det_errors and not needs_paraphrase:
+                scenario["ad_spec"]["critic_verdict"] = {
+                    "passed": True,
+                    "skipped": True,
+                    "scores": {},
+                    "defects": [],
+                    "revisions": rev,
+                }
+                return {"scenarios": [scenario]}
+
+            # Stage 2: Critic Gate (Neon) — 규칙에 걸렸을 때만 불러서 고칠 점을 받는다
             verdict = critic_fn(
                 CRITIC_SYSTEM,
                 _critic_prompt(
@@ -1255,14 +1272,7 @@ def make_template_scenario(
                 "defects": defects,
                 "revisions": rev,
             }
-            if not critic_passed:
-                last_errors = [*det_errors, *(defects or [str(verdict.get("fix_instructions") or "비평 게이트 불합격")])]
-            else:
-                last_errors = list(det_errors)
-
-        needs_paraphrase = bool(overlap_leaks) and rev < revisions_cap
-        if template is not None and not det_errors and critic_passed and not needs_paraphrase:
-            return {"scenarios": [scenario]}
+            last_errors = [*det_errors, *overlap_leaks, *defects]
 
         if rev >= revisions_cap:
             break
