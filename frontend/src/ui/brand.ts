@@ -4,12 +4,18 @@ import mascotClapboard from '../assets/brand/mascot-clapboard.webp';
 import mascotHappy from '../assets/brand/mascot-happy.webp';
 import mascotLying from '../assets/brand/mascot-lying.webp';
 import mascotSurprised from '../assets/brand/mascot-surprised.webp';
+import splashBgWide from '../assets/brand/splash-bg-wide.webp';
+import splashBg from '../assets/brand/splash-bg.webp';
+import splashLogo from '../assets/brand/splash-logo.webp';
 import wordmarkBlack from '../assets/brand/wordmark-black.png';
 import wordmarkWhite from '../assets/brand/wordmark-white.png';
 
 export const brand = {
   wordmarkBlack,
   wordmarkWhite,
+  // 스플래시: asset/Splash/의 배경(splash.png, 1672×941)과 로고(splash_logo.png)를 따로 두고 화면에서 겹친다.
+  // 로고를 배경에 박지 않아 어떤 화면에서도 또렷하다. 배경 세로판은 곰을 가운데 두고 9:16으로 자른 뒤 2배로 키웠다(1058×1882)
+  splash: { background: splashBg, backgroundWide: splashBgWide, logo: splashLogo },
   // 냅다곰: asset/Character/의 고화질 원본(1200×896 투명 PNG)을 잘라 WebP로 줄인 것.
   // 서 있는 곰(클래퍼보드·놀람·신남)은 가슴선까지 잘랐다 (배꼽까지 자르면 어정쩡해 보여서)
   mascot: {

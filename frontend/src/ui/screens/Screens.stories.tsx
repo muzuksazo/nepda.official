@@ -21,6 +21,7 @@ import { LoginScreen } from './LoginScreen';
 import { NicknameScreen } from './NicknameScreen';
 import { NotificationsScreen } from './NotificationsScreen';
 import { OnboardingScreen } from './OnboardingScreen';
+import { SplashScreen } from './SplashScreen';
 import { ProductInfoScreen } from './ProductInfoScreen';
 import { ProfileScreen, type ProfileScreenProps } from './ProfileScreen';
 import { MyVideosScreen } from './MyVideosScreen';
@@ -430,6 +431,11 @@ export const CommunityViewerReport: Story = {
 export const HomeEmpty: Story = {
   name: '안3-1 홈 · 빈 상태',
   render: () => <HomeScreen inProgress={[]} completed={[]} onCreate={fn()} credits={30} onCreditClick={fn()} onProfileClick={fn()} onNavigate={fn()} />,
+};
+
+export const Splash: Story = {
+  name: '안0 스플래시',
+  render: () => <SplashScreen />,
 };
 
 export const Onboarding: Story = {
