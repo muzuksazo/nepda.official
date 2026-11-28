@@ -304,16 +304,21 @@ def _entries_from_catalog_payload(catalog: Dict[str, Any]) -> List[Dict[str, Any
         )
         dur = sum(float(b.get("duration_sec") or 0.0) for b in beats if b.get("clip"))
         title = str(tpl.get("hook_title") or tid).strip()
+        beat_cues: List[str] = []
+        for b in beats:
+            raw_cues = b.get("caption_cues")
+            if isinstance(raw_cues, list) and raw_cues:
+                beat_cues.extend(str(c).strip() for c in raw_cues if str(c or "").strip())
+            elif str(b.get("caption") or "").strip():
+                beat_cues.append(str(b.get("caption")).strip())
         rec: Dict[str, Any] = {
             "id": tid,
             "filename": f"{tid}.mp4",
             "title": title,
             "a_genre_archetype": str(tpl.get("genre") or DEFAULT_GENRE_ARCHETYPE).strip() or DEFAULT_GENRE_ARCHETYPE,
-            "tags": [],
+            "tags": parse_tags_input(tpl.get("tags")),
             "visual_summary": str(tpl.get("abstract_law") or title).strip(),
-            "default_hook_captions": [
-                str(b.get("caption")).strip() for b in beats if str(b.get("caption") or "").strip()
-            ],
+            "default_hook_captions": beat_cues,
             "enabled": True,
             "_clip_rel": first_clip.lstrip("/"),
         }
@@ -384,38 +389,65 @@ def _hydrate_from_storage(
     return True
 
 
+def _clean_caption_cue(raw: str, fallback: str) -> str:
+    cleaned = str(raw or "").replace("**", "").strip()
+    lines = [ln.strip()[:22] for ln in cleaned.splitlines() if ln.strip()][:2]
+    return "\n".join(lines) or fallback[:22]
+
+
+def _captions_to_narration(captions: List[str], fallback: str) -> str:
+    parts: List[str] = []
+    for raw in captions:
+        text = re.sub(r"\s+", " ", str(raw or "").replace("**", "")).strip()
+        if not text:
+            continue
+        if text[-1] not in {",", ".", "?", "!", "…"}:
+            text = f"{text}."
+        parts.append(text)
+    if parts:
+        return " ".join(parts)
+    clean_fallback = re.sub(r"\s+", " ", str(fallback or "").replace("**", "")).strip()
+    return clean_fallback
+
+
 def _build_catalog_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
     tid = str(entry.get("id") or "").strip()
     dur = round(float(entry.get("duration_sec") or 0.0), 2)
     title = str(entry.get("title") or tid).strip()
     summary = str(entry.get("visual_summary") or title).strip()
     genre = str(entry.get("a_genre_archetype") or DEFAULT_GENRE_ARCHETYPE).strip() or DEFAULT_GENRE_ARCHETYPE
+    tags = parse_tags_input(entry.get("tags"))
     captions = parse_captions_input(entry.get("default_hook_captions"))
-    raw_caption = (captions[0] if captions else title).replace("**", "").strip()
-    cap_lines = [ln.strip()[:22] for ln in raw_caption.splitlines() if ln.strip()][:2]
-    caption = "\n".join(cap_lines) or title[:22]
+    caption_cues = [_clean_caption_cue(c, title) for c in captions] if captions else [_clean_caption_cue(title, title)]
+    caption = caption_cues[0]
+    narration = _captions_to_narration(captions, title)
     return {
         "template_id": tid,
         "abstract_law": summary,
         "genre": genre,
         "hook_title": title,
+        "tags": tags,
         "beats": [
             {
                 "order": 1,
                 "role": "어긋난 시작",
                 "duration_sec": dur,
                 "visual": summary,
-                "narration": "",
+                "narration": narration,
                 "caption": caption,
+                "caption_cues": caption_cues,
+                "shows_product": False,
                 "clip": f"{tid}/beat_01.mp4",
             },
             {
                 "order": 2,
                 "role": "패턴 인터럽트",
                 "duration_sec": 0.3,
+                "hold": True,
                 "visual": "정지",
                 "narration": "",
                 "caption": "",
+                "shows_product": False,
                 "clip": None,
             },
         ],
@@ -483,7 +515,7 @@ def _sync_to_storage(
                 continue
             is_enabled = parse_bool_input(entry.get("enabled"), default=True)
             dur = round(float(entry.get("duration_sec") or 0.0), 2)
-            # `hookpipe.a_templates` enforces total hook duration 15..20s with 3..7s landing + 0.3s pause.
+            # `hookpipe.a_templates` enforces total hook duration 8..12s (direct-cut) or 13..20s (AI landing) with 0.3s pause.
             if not is_enabled or dur < 7.7:
                 existing_by_id.pop(tid, None)
                 continue

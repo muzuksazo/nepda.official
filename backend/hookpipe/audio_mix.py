@@ -115,6 +115,7 @@ def mix_bgm_and_sfx(
     video_mp4: Path,
     *,
     hook_sec: float,
+    twist_sec: Optional[float] = None,
     tools: MediaTools,
     pack: AudioPack,
     tmp_dir: Path,
@@ -132,6 +133,8 @@ def mix_bgm_and_sfx(
     if total <= 0.5:
         return None
 
+    pivot_sec = float(twist_sec) if (twist_sec is not None and float(twist_sec) > 0.0) else float(hook_sec)
+
     tmp_dir.mkdir(parents=True, exist_ok=True)
     pre_mix = tmp_dir / "pre_mix.mp4"
     mastered = tmp_dir / "mastered.mp4"
@@ -142,13 +145,14 @@ def mix_bgm_and_sfx(
     idx = 1
 
     has_vo = bool(info.has_audio)
+    has_bgm = bool(pack.hook_bgm or pack.body_bgm)
     vo_key_lbl: Optional[str] = None
     if has_vo:
         vo_base = (
             f"[0:a]highpass=f=85,aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
             f"apad=whole_dur={total:.3f},atrim=0:{total:.3f}"
         )
-        if tools.has_filter("sidechaincompress"):
+        if has_bgm and tools.has_filter("sidechaincompress"):
             filters.append(f"{vo_base},asplit=2[avo][avokey]")
             vo_key_lbl = "[avokey]"
         else:
@@ -159,13 +163,13 @@ def mix_bgm_and_sfx(
 
     # Bus 2: 2-stage BGM (Act 1 -> 0.30s twist dead-stop -> Act 2 lift) or continuous single-loop fallback
     bgm_raw_lbl: Optional[str] = None
-    if pack.hook_bgm and pack.body_bgm and hook_sec >= 2.0 and total > hook_sec + 1.0:
+    if pack.hook_bgm and pack.body_bgm and pivot_sec >= 2.0 and total > pivot_sec + 1.0:
         gap_sec = 0.30
-        act1_end = max(0.5, hook_sec - gap_sec)
-        act2_dur = max(0.5, total - hook_sec)
+        act1_end = max(0.5, pivot_sec - gap_sec)
+        act2_dur = max(0.5, total - pivot_sec)
         act1_fade_out_st = max(0.0, act1_end - 0.06)
         act2_fade_out_st = max(0.0, act2_dur - 0.45)
-        hook_ms = int(round(hook_sec * 1000))
+        twist_ms = int(round(pivot_sec * 1000))
 
         cmd.extend(["-stream_loop", "-1", "-i", str(pack.hook_bgm)])
         idx_h = idx
@@ -184,7 +188,7 @@ def mix_bgm_and_sfx(
             f"[{idx_b}:a]atrim=0:{act2_dur:.3f},asetpts=PTS-STARTPTS,"
             f"volume=-15.5dB,afade=t=in:st=0:d=0.06,afade=t=out:st={act2_fade_out_st:.3f}:d=0.45,"
             f"aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
-            f"adelay={hook_ms}:all=1,apad=whole_dur={total:.3f},atrim=0:{total:.3f}[abgm2]"
+            f"adelay={twist_ms}:all=1,apad=whole_dur={total:.3f},atrim=0:{total:.3f}[abgm2]"
         )
         filters.append("[abgm1][abgm2]amix=inputs=2:duration=first:normalize=0[abgm_raw]")
         bgm_raw_lbl = "[abgm_raw]"
@@ -213,8 +217,8 @@ def mix_bgm_and_sfx(
             mix_labels.append(bgm_raw_lbl)
 
     # Bus 3: Transition SFX hit right at the twist dead-stop
-    if pack.transition_sfx and hook_sec >= 2.0 and total > hook_sec + 0.5:
-        sfx_ms = int(round(max(0.0, hook_sec - 0.30) * 1000))
+    if pack.transition_sfx and pivot_sec >= 2.0 and total > pivot_sec + 0.5:
+        sfx_ms = int(round(max(0.0, pivot_sec - 0.30) * 1000))
         cmd.extend(["-i", str(pack.transition_sfx)])
         idx_sfx = idx
         idx += 1

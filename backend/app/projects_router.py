@@ -317,9 +317,15 @@ def _load_track_a_manifest_entries(
     settings: Settings,
     *,
     enabled_only: bool = True,
+    template_storage: Optional[StorageBackend] = None,
 ) -> List[Dict[str, Any]]:
     """Load validated Track A visual template metadata entries from the persistent template store."""
-    return list_track_a_templates(settings, enabled_only=enabled_only, include_path=True)
+    return list_track_a_templates(
+        settings,
+        enabled_only=enabled_only,
+        include_path=True,
+        template_storage=template_storage,
+    )
 
 
 def _select_track_a_template(
@@ -599,11 +605,15 @@ def _resolve_ab_request(
     }
 
 
-def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
+def _default_scenario_generator(
+    settings: Settings,
+    *,
+    template_storage: Optional[StorageBackend] = None,
+) -> ScenarioGenerator:
     def _generate(project: Dict[str, Any], hook_types: List[str], provider: str) -> List[Dict[str, Any]]:
         product = project["product"]
         facts_md = _product_to_facts_md(product)
-        manifest_entries = _load_track_a_manifest_entries(settings)
+        manifest_entries = _load_track_a_manifest_entries(settings, template_storage=template_storage)
         tpl_entry = _select_track_a_template(manifest_entries, project)
         model_override = str((project.get("_ab_override") or {}).get("model") or "").strip() or None
         scenarios: List[Dict[str, Any]] = []
@@ -690,22 +700,62 @@ def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
     return _generate
 
 
+def _is_pause_or_empty_beat(beat: Dict[str, Any]) -> bool:
+    """Return True for silence/pattern-interrupt/sub-1s/empty-visual beats that must never hit image gen."""
+    role = str(beat.get("role") or "").strip()
+    if role.lower() == "silence_gap" or role in {"silence_gap", "패턴 인터럽트"}:
+        return True
+    if beat.get("duration_sec") is not None:
+        try:
+            if float(beat.get("duration_sec") or 0.0) < 1.0:
+                return True
+        except (TypeError, ValueError):
+            pass
+    visual = str(beat.get("visual") or "").strip()
+    if visual in {"", "정지"}:
+        return True
+    return False
+
+
 def _default_storyboard_generator(
-    settings: Settings, storage: StorageBackend, *, project_store: Optional[ProjectStore] = None
+    settings: Settings,
+    storage: StorageBackend,
+    *,
+    project_store: Optional[ProjectStore] = None,
+    template_storage: Optional[StorageBackend] = None,
 ) -> StoryboardGenerator:
     def _extract_track_a_storyboard(
         project: Dict[str, Any], scenario: Dict[str, Any]
     ) -> Optional[List[Dict[str, Any]]]:
-        all_entries = _load_track_a_manifest_entries(settings, enabled_only=False)
-        tpl_id = str((scenario.get("ad_spec") or {}).get("track_a_template_id") or "").strip()
-        tpl_entry = (
-            _select_track_a_template(all_entries, project, requested_template_id=tpl_id)
-            if tpl_id
-            else _select_track_a_template(
-                _load_track_a_manifest_entries(settings, enabled_only=True) or all_entries,
-                project,
-            )
+        ad_spec = scenario.get("ad_spec") or {}
+        tpl_id = str(ad_spec.get("template_id") or ad_spec.get("track_a_template_id") or "").strip()
+        enabled_entries = list_track_a_templates(
+            settings,
+            enabled_only=True,
+            include_path=True,
+            template_storage=template_storage,
         )
+        tpl_entry = (
+            _select_track_a_template(enabled_entries, project, requested_template_id=tpl_id)
+            if tpl_id and any(str(e.get("id") or "").strip() == tpl_id for e in enabled_entries)
+            else None
+        )
+        if tpl_entry is None:
+            all_entries = (
+                list_track_a_templates(
+                    settings,
+                    enabled_only=False,
+                    include_path=True,
+                    template_storage=template_storage,
+                )
+                if tpl_id or not enabled_entries
+                else enabled_entries
+            )
+            tpl_entry = (
+                _select_track_a_template(all_entries, project, requested_template_id=tpl_id)
+                if tpl_id
+                else _select_track_a_template(enabled_entries or all_entries, project)
+            )
         if not tpl_entry:
             return None
         tpl_path = Path(str(tpl_entry.get("path") or ""))
@@ -745,7 +795,11 @@ def _default_storyboard_generator(
 
         all_beats = [b for b in (scenario.get("beats") or []) if isinstance(b, dict)]
         gap_idx = next(
-            (i for i, b in enumerate(all_beats) if str(b.get("role") or "").lower() == "silence_gap"),
+            (
+                i
+                for i, b in enumerate(all_beats)
+                if _is_pause_or_empty_beat(b)
+            ),
             None,
         )
         if gap_idx is not None:
@@ -755,8 +809,20 @@ def _default_storyboard_generator(
                 b
                 for b in all_beats
                 if str(b.get("role") or "").lower() not in {"silence_gap", "source", "payoff", "cta"}
+                and not _is_pause_or_empty_beat(b)
             ]
-        raw_pre_caps = [_safe_beat_caption(b) for b in pre_gap_beats]
+        raw_pre_caps: List[str] = []
+        for b in pre_gap_beats:
+            cues_list = b.get("caption_cues")
+            if isinstance(cues_list, list) and any(str(c or "").strip() for c in cues_list):
+                for c in cues_list:
+                    cleaned = _clean_caption_display(c)
+                    if cleaned and not _is_internal_id(cleaned):
+                        raw_pre_caps.append(cleaned)
+            else:
+                cap = _safe_beat_caption(b)
+                if cap:
+                    raw_pre_caps.append(cap)
         default_hook_caps = [
             _clean_caption_display(x) for x in (tpl_entry.get("default_hook_captions") or []) if str(x).strip()
         ]
@@ -804,6 +870,7 @@ def _default_storyboard_generator(
                     "beat_order": idx,
                     "image_url": url,
                     "caption": cut_captions[idx - 1],
+                    "object_key": obj_key,
                 }
             )
         return frames
@@ -824,7 +891,11 @@ def _default_storyboard_generator(
             / scenario["scenario_id"]
         )
         frames: List[Dict[str, Any]] = []
-        hook_beats = [b for b in scenario.get("beats") or [] if b.get("role") != "silence_gap"][:3]
+        hook_beats = [
+            b
+            for b in (scenario.get("beats") or [])
+            if isinstance(b, dict) and not _is_pause_or_empty_beat(b)
+        ][:3]
         for beat in hook_beats:
             order = int(beat.get("order") or len(frames) + 1)
             img_path = out_dir / f"frame_{order:02d}.png"
@@ -920,6 +991,7 @@ def build_projects_router(
     pipeline: ProductionPipeline,
     executor: ThreadPoolExecutor,
     *,
+    template_storage: Optional[StorageBackend] = None,
     google_token_verifier: Optional[GoogleTokenVerifier] = None,
     scenario_generator: Optional[ScenarioGenerator] = None,
     storyboard_generator: Optional[StoryboardGenerator] = None,
@@ -928,17 +1000,33 @@ def build_projects_router(
 ) -> APIRouter:
     """Build `/v1/auth/*`, `/v1/billing/*`, `/v1/hook-types`, and `/v1/projects/*` routes."""
     router = APIRouter()
-    hooks = hook_pipeline or HookPipeline(settings, project_store, job_store, storage)
+    hooks = hook_pipeline or HookPipeline(
+        settings, project_store, job_store, storage, template_storage=template_storage
+    )
     verify_google = google_token_verifier or verify_google_id_token
-    gen_scenarios = scenario_generator or _default_scenario_generator(settings)
+    gen_scenarios = scenario_generator or _default_scenario_generator(
+        settings, template_storage=template_storage
+    )
     if storyboard_generator is not None:
         gen_storyboard = storyboard_generator
     elif getattr(settings, "hook_media_engine", "gemini") == "selfhosted":
-        gen_storyboard = _selfhosted_storyboard_generator(settings, storage, _default_storyboard_generator(
-            settings, storage, project_store=project_store
-        ))
+        gen_storyboard = _selfhosted_storyboard_generator(
+            settings,
+            storage,
+            _default_storyboard_generator(
+                settings,
+                storage,
+                project_store=project_store,
+                template_storage=template_storage,
+            ),
+        )
     else:
-        gen_storyboard = _default_storyboard_generator(settings, storage, project_store=project_store)
+        gen_storyboard = _default_storyboard_generator(
+            settings,
+            storage,
+            project_store=project_store,
+            template_storage=template_storage,
+        )
     paddle = paddle_client or HttpxPaddleApiClient(settings)
     env_internal_emails = {
         e.strip().lower() for e in (settings.internal_test_emails or "").split(",") if e.strip()
@@ -1016,7 +1104,9 @@ def build_projects_router(
         project: Optional[Dict[str, Any]] = None,
     ) -> Optional[Path]:
         """Resolve a pre-prepared Track A opener MP4 from manifest, URLs, dir, or defaults."""
-        all_entries = _load_track_a_manifest_entries(settings, enabled_only=False)
+        all_entries = _load_track_a_manifest_entries(
+            settings, enabled_only=False, template_storage=template_storage
+        )
         if template_id:
             for entry in all_entries:
                 if entry.get("id") == template_id:
@@ -1212,7 +1302,7 @@ def build_projects_router(
                     remapped.append(item)
             spec["captions"] = remapped
 
-        manifest_entries = _load_track_a_manifest_entries(settings)
+        manifest_entries = _load_track_a_manifest_entries(settings, template_storage=template_storage)
         tpl_id = spec.get("track_a_template_id")
         matched_entry = next(
             (e for e in manifest_entries if tpl_id and e.get("id") == tpl_id),

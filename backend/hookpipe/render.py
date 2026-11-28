@@ -141,16 +141,100 @@ class HookRenderResult:
     warnings: List[str] = field(default_factory=list)
 
 
+def _beat_srt_cues(
+    beat: Dict[str, Any],
+    start: float,
+    duration: float,
+    fallback_text: str = "",
+) -> List[Tuple[float, float, str]]:
+    """장면 하나를 1개 또는 여러 개의 시간 분할 SRT 큐로 펼친다.
+
+    장면에 `caption_cues`(비어 있지 않은 문자열 목록)가 있으면 `[start, start + duration]` 구간을
+    균등 분할해 긴 장면(예: 9.9초 Track A 템플릿)에서도 자막이 자연스럽게 전환되게 한다.
+    """
+    if duration <= 0:
+        return []
+    raw_cues = beat.get("caption_cues")
+    if isinstance(raw_cues, list):
+        cleaned = [str(c or "").strip() for c in raw_cues if str(c or "").strip()]
+        if cleaned:
+            step = duration / len(cleaned)
+            cues: List[Tuple[float, float, str]] = []
+            for idx, text in enumerate(cleaned):
+                cue_start = round(start + idx * step, 3)
+                cue_end = round(start + duration if idx == len(cleaned) - 1 else start + (idx + 1) * step, 3)
+                cues.append((cue_start, cue_end, text))
+            return cues
+    text = str(fallback_text or beat.get("caption") or beat.get("narration") or "").strip()
+    return [(start, start + duration, text)] if text else []
+
+
+def _compute_twist_sec(plans: List[BeatPlan], final_duration: float) -> float:
+    """패턴 인터럽트 반전 시각(초): 마지막 hold(정지) 장면 끝, 없으면 선두 prebuilt 구간 끝, 없으면 훅 전체 길이."""
+    hold_end: Optional[float] = None
+    for p in plans:
+        if p.hold:
+            hold_end = round(p.start + p.duration, 3)
+    if hold_end is not None and hold_end > 0:
+        return min(hold_end, round(final_duration, 3)) if final_duration > 0 else hold_end
+    prefix_end: Optional[float] = None
+    for p in plans:
+        if p.prebuilt or p.hold:
+            prefix_end = round(p.start + p.duration, 3)
+        else:
+            break
+    if prefix_end is not None and prefix_end > 0:
+        return min(prefix_end, round(final_duration, 3)) if final_duration > 0 else prefix_end
+    return round(final_duration, 3)
+
+
+def is_usable_reference_frame(image_path: Path) -> Tuple[bool, Optional[str]]:
+    """참고 프레임이 단색(flat solid)이거나 컬러바/testsrc2 합성 테스트 패턴인지 가볍게 검사한다.
+
+    정상 카메라/3D 프레임은 통과시키고, 명백히 비정상인 단색·컬러바·testsrc2 프레임만 거부한다.
+    """
+    try:
+        import numpy as np
+        from PIL import Image
+    except ImportError:
+        return True, None
+    try:
+        with Image.open(image_path) as img:
+            rgb = img.convert("RGB")
+            rgb.thumbnail((320, 320))
+            arr = np.asarray(rgb, dtype=np.float32)
+    except Exception:
+        return True, None
+    if arr.ndim != 3 or arr.shape[0] < 8 or arr.shape[1] < 8:
+        return False, "invalid_frame_dimensions"
+    ch_std = float(arr.std(axis=(0, 1)).mean())
+    if ch_std < 4.0:
+        return False, "flat_solid_frame"
+    mx = arr.max(axis=2)
+    mn = arr.min(axis=2)
+    sat = np.where(mx > 0.0, (mx - mn) / np.maximum(mx, 1.0), 0.0)
+    high_sat = float((sat > 0.85).mean())
+    pure_vivid = float(((sat > 0.85) & (((arr < 35.0) | (arr > 220.0)).all(axis=2))).mean())
+    if (high_sat >= 0.88 and pure_vivid >= 0.80) or (high_sat >= 0.95 and ch_std >= 50.0):
+        return False, "synthetic_test_pattern"
+    h = arr.shape[0]
+    band50 = arr[: max(1, h // 2)]
+    flat_col50 = float((band50.std(axis=0).mean(axis=1) < 12.0).mean())
+    col_mean_std = float(band50.mean(axis=0).std())
+    if flat_col50 >= 0.80 and high_sat >= 0.35 and col_mean_std >= 35.0:
+        return False, "synthetic_color_bars"
+    return True, None
+
+
 def write_scenario_and_srt(scenario: Dict[str, Any], out_dir: Path) -> Dict[str, Any]:
     """과금 호출 없이 만들 수 있는 두 파일만 쓴다 (dry_run 모드와 planner-api 시나리오에서 사용)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "scenario.json").write_text(json.dumps(scenario, ensure_ascii=False, indent=2), encoding="utf-8")
-    cues = []
+    cues: List[Tuple[float, float, str]] = []
     cursor = 0.0
     for beat in ordered_beats(scenario):
         dur = float(beat.get("duration_sec") or 0.0)
-        text = str(beat.get("caption") or beat.get("narration") or "").strip()
-        cues.append((cursor, cursor + dur, text))
+        cues.extend(_beat_srt_cues(beat, cursor, dur))
         cursor += dur
     (out_dir / "hook.srt").write_text(build_srt(cues), encoding="utf-8")
     return {"scenario_json": "scenario.json", "subtitles_srt": "hook.srt"}
@@ -195,6 +279,11 @@ def extract_reference_frames(
             logger.warning("참고 이미지 추출 실패 (%s): %s", video.name, exc)
             continue
         if target.is_file() and target.stat().st_size > 0:
+            ok, reason = is_usable_reference_frame(target)
+            if not ok:
+                logger.warning("참고 이미지 품질 검사 제외 (%s @ %.2f: %s)", video.name, spot, reason)
+                target.unlink(missing_ok=True)
+                continue
             frames.append(target)
     return frames
 
@@ -896,7 +985,17 @@ def render_hook(
     _check_clip_budget(requested, clip_limit)
 
     # 2) 참고 이미지: 제품 장면은 촬영본에서 뽑은 컷, 나머지는 톤·주인공 참고 이미지 한 장
-    refs = [Path(p) for p in product_refs if Path(p).is_file()]
+    refs: List[Path] = []
+    for raw_ref in product_refs:
+        ref_path = Path(raw_ref)
+        if not ref_path.is_file():
+            continue
+        ok, reason = is_usable_reference_frame(ref_path)
+        if not ok:
+            logger.warning("비정상 제품 참고 이미지 제외 (%s: %s)", ref_path.name, reason)
+            warnings.append(f"참고 이미지({ref_path.name})가 비정상 패턴({reason})으로 감지되어 제외했습니다.")
+            continue
+        refs.append(ref_path)
     style_ref: Optional[Path] = None
     image_model_name = str(getattr(settings, "image_model", "") or "unknown")
     if any((not p.shows_product or not refs) and not p.hold and not p.prebuilt and p.first_frame_src is None for p in plans):
@@ -1080,7 +1179,9 @@ def render_hook(
     # 4) 자막 → 조립 → 콘티 이미지
     _check_cancelled(cancel_event)
     total = sum(p.duration for p in plans)
-    cues = [(p.start, p.start + p.duration, p.caption or p.narration) for p in plans]
+    cues: List[Tuple[float, float, str]] = []
+    for p in plans:
+        cues.extend(_beat_srt_cues(p.beat, p.start, p.duration, fallback_text=p.caption or p.narration))
     (target / "hook.srt").write_text(build_srt(cues), encoding="utf-8")
     say("ASSEMBLE")
     _check_cancelled(cancel_event)
@@ -1100,6 +1201,7 @@ def render_hook(
     lufs = measure_lufs(media, target / "hook.mp4") if has_tts else None
     if narration_mix is not None:
         narration_mix.unlink(missing_ok=True)
+    twist_sec = _compute_twist_sec(plans, final.duration)
     beats_meta = [
         {
             "order": p.order,
@@ -1122,6 +1224,7 @@ def render_hook(
         "video_model": video_model or None,
         "tts_model": getattr(settings, "tts_model", None) if has_tts else None,
         "duration_sec": round(final.duration, 3),
+        "twist_sec": twist_sec,
         "lufs": lufs,
         "captions_burned": burned,
         "clip_audio_preserved": any(

@@ -336,10 +336,10 @@
       "gift",
       "business"
     ],
-    "visual_summary": "Cinematic Korean office drama parody in a wood-paneled executive boardroom: a smug senior executive waves dismissively across the table, a sharp suited manager calmly holds up a golden card, and the executive's jaw drops in stunned disbelief as the manager walks out down the sunlit corridor with a white-suited rival leader. Strictly match these boardroom reversal visuals in the first 10.0s hook (zero product or category words before silence_gap), then cut after the 0.25s silence_gap.",
+    "visual_summary": "Cinematic Korean office drama parody in a wood-paneled executive boardroom: a smug senior executive waves dismissively across the table, a sharp suited manager calmly holds up a white document letter, and the executive's jaw drops in stunned disbelief as the manager walks out down the sunlit corridor with a white-suited rival leader. Strictly match these boardroom reversal visuals in the first 10.0s hook (zero product or category words before silence_gap), then cut after the 0.25s silence_gap.",
     "default_hook_captions": [
       "회의실에서 당연하다는 듯\n**무시하던** 순간,",
-      "조용히 꺼내 든 **한 장의 카드**가\n분위기를 단숨에 뒤집습니다",
+      "조용히 꺼내 든 **한 장의 서류**가\n분위기를 단숨에 뒤집습니다",
       "뒤늦게 붙잡아 보려 해도\n이미 **판세가** 끝난 뒤였습니다"
     ]
   }

@@ -12,8 +12,10 @@ _TAG_RE = re.compile(r"\[[^\[\]]{1,24}\]")
 def clean_visual(text: Any) -> str:
     return re.sub(r"\s{2,}", " ", _TAG_RE.sub(" ", str(text or ""))).strip()
 
+_KEEP_SAME_LOOK_RULE = "- Keep the same look, palette and main character across all shots of this story."
+
 COMMON_RULES = """RULES (apply to every shot):
-- Framing: vertical 9:16. Main subject in the UPPER two thirds of the frame. Keep the bottom third calm (subtitles go there).
+- Framing: vertical 9:16. Frame the main subject in the upper two-thirds with natural, continuous background extending cleanly to the bottom edge (no bars, borders, boxes, or overlays).
 - Camera: one continuous shot with gentle movement. No cuts inside the clip.
 - FORBIDDEN: any readable text, letters, words, numbers or digits anywhere in the frame (no subtitles, captions, speech bubbles, signs, labels, title cards); watermarks; logos; real brand marks. Subtitles are added later by the editor.
 - Keep the same look, palette and main character across all shots of this story.
@@ -36,9 +38,12 @@ STYLE_BY_TYPE: Dict[str, str] = {
 }
 
 
-def style_text(scenario: Dict[str, Any]) -> str:
+def style_text(scenario: Dict[str, Any], *, shows_product: bool = False) -> str:
     """유형 기본 톤 + 시나리오가 직접 정한 visual_style(있으면)."""
-    hook_type = str(scenario.get("type") or "C")
+    hook_type = str(scenario.get("type") or "C").upper()
+    if hook_type == "A" and shows_product:
+        rules = "\n".join(ln for ln in COMMON_RULES.splitlines() if ln.strip() != _KEEP_SAME_LOOK_RULE)
+        return f"{STYLE_BY_TYPE['C']}\n{rules}"
     base = STYLE_BY_TYPE.get(hook_type, STYLE_BY_TYPE["C"])
     own = str((scenario.get("ad_spec") or {}).get("visual_style") or "").strip()
     # blender_3d_physics 같은 렌더러 이름은 영상 모델에 뜻이 없어 넘기지 않는다
@@ -112,11 +117,11 @@ def beat_prompt(
     has_product_reference: bool = False,
     has_style_reference: bool = False,
 ) -> str:
-    lines = [
-        style_text(scenario),
-        f"STORY (told over {total} shots): {_story(scenario)}",
-        f"THIS SHOT ({index}/{total}): {clean_visual(beat.get('visual'))}",
-    ]
+    is_track_a_product = str(scenario.get("type") or "").upper() == "A" and shows_product
+    lines = [style_text(scenario, shows_product=shows_product)]
+    if not is_track_a_product:
+        lines.append(f"STORY (told over {total} shots): {_story(scenario)}")
+    lines.append(f"THIS SHOT ({index}/{total}): {clean_visual(beat.get('visual'))}")
     scene3d = beat.get("scene3d") or {}
     if isinstance(scene3d, dict):
         if scene3d.get("fact_shown"):
@@ -139,7 +144,7 @@ def beat_prompt(
             lines.append(
                 "Product facts (do not show anything that contradicts them):\n" + "\n".join(f"- {f}" for f in facts[:8])
             )
-    elif has_style_reference:
+    elif has_style_reference and not is_track_a_product:
         lines.append("Keep the same main character, look and palette as the reference image.")
     # 나레이션 문장은 넣지 않는다: '글자로 그리지 말라'고 해도 영상 모델이 문장을 깨진 한글 자막으로 그려 넣었다 (2026-11-27 실측)
     return "\n".join(lines)

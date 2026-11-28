@@ -100,8 +100,13 @@ class Settings(BaseSettings):
     hook_worker_mode: Literal["auto", "off"] = "auto"  # auto: 작업자 호출, 실패하면 planner-api
     hook_workers_dir: str = str(_PROD_ROOT / "bridge-dev")
     hook_assets_dir: str = str(_PROD_ROOT / "data" / "hook_assets")  # 미리 만든 훅 영상(prebuilt_clip)을 두는 곳
-    # A 유형: template(앞부분은 미리 만든 템플릿, 착지 장면만 생성. 템플릿이 없으면 realtime 으로) | realtime
+    # A 유형: template(앞부분은 미리 만든 템플릿. hook_a_ai_landing=False 면 바로 촬영본 본편으로 컷) | realtime
     hook_a_mode: Literal["template", "realtime"] = "template"
+    # False(기본): 템플릿(8~10초)+0.3초 정지 후 바로 실제 업로드 촬영본(body.mp4)으로 컷. True: 3.5~4.5초 AI 착지 클립 추가.
+    hook_a_ai_landing: bool = False
+    # Track A 3단계 오케스트레이터 모델: 기획/비평은 Neon, 포맷·수정·실행은 Hydrogen(hook_worker_llm)
+    hook_planner_llm: str = "gemini-4-neon"
+    hook_critic_llm: str = "gemini-4-neon"
     # A 템플릿 위치: "storage:<경로>" 면 서버 저장소(R2)의 그 경로, 아니면 로컬 폴더. 형식은 hookpipe/a_templates.py
     hook_a_templates: str = "storage:templates/a"
     # A 템플릿 전용 비공개 Cloudflare R2 (비우면 위 메인 STORAGE_BACKEND 를 그대로 사용)

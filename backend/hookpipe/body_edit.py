@@ -105,9 +105,18 @@ class BodyEditResult:
     warnings: List[str] = field(default_factory=list)
 
 
-def body_cache_key(clips: Sequence[Path], product: Dict[str, Any], settings: Any, voice: Optional[str] = None) -> str:
-    """같은 촬영본·제품 정보·설정·목소리면 같은 본편을 쓴다."""
+def body_cache_key(
+    clips: Sequence[Path],
+    product: Dict[str, Any],
+    settings: Any,
+    voice: Optional[str] = None,
+    opening_callback: Optional[str] = None,
+) -> str:
+    """같은 촬영본·제품 정보·설정·목소리·도입 콜백이면 같은 본편을 쓴다."""
     parts: List[str] = [f"voice:{voice}"] if voice else []
+    cb = str(opening_callback or "").strip()
+    if cb:
+        parts.append(f"callback:{cb}")
     for path in clips:
         stat = Path(path).stat()
         parts.append(f"{Path(path).name}:{stat.st_size}:{int(stat.st_mtime)}")
@@ -117,27 +126,49 @@ def body_cache_key(clips: Sequence[Path], product: Dict[str, Any], settings: Any
     return hashlib.sha1("\x1f".join(parts).encode("utf-8")).hexdigest()[:16]
 
 
-def _body_prompt(product: Dict[str, Any], clips: List[Clip], target: float) -> str:
+def _body_prompt(
+    product: Dict[str, Any],
+    clips: List[Clip],
+    target: float,
+    *,
+    opening_callback: Optional[str] = None,
+) -> str:
     name = product.get("call_name") or product.get("name") or "제품"
     facts = [str(f) for f in (product.get("verified_facts") or []) if str(f).strip()]
     syllables = int(round(target * 5.5))
     ranges = ", ".join(f"{c.index}번 0~{c.duration:.1f}초" for c in clips)
+    cb = str(opening_callback or "").strip()
+    if cb:
+        intro_clause = (
+            "이 본편은 A안 반전 훅 직후 바로 이어집니다. 첫 문장(lines[0].narration)은 아래 반전 전환 콜백 문구로 "
+            f"자연스럽게 열어 제품 이름(\"{name}\")과 바로 연결하세요.\n"
+            f"반전 전환 콜백 오프닝: \"{cb}\"\n"
+        )
+        first_line_rule = (
+            f"- 2~3문장, 나레이션 전체 {syllables}음절 이내. 짧고 또렷하게, '~습니다'체. "
+            f"첫 문장은 위 반전 전환 콜백(\"{cb}\")을 자연스럽게 살려 제품 이름(\"{name}\")을 부르고 무엇인지 말합니다.\n"
+        )
+    else:
+        intro_clause = "이 본편은 어떤 훅 영상 뒤에도 붙으므로, 훅 내용과 상관없이 제품만 설명합니다.\n"
+        first_line_rule = (
+            f"- 2~3문장, 나레이션 전체 {syllables}음절 이내. 짧고 또렷하게, '~습니다'체. "
+            f"첫 문장에 제품 이름(\"{name}\")을 부르고 무엇인지 말합니다.\n"
+        )
     return (
         f"판매자가 직접 찍은 제품 촬영 영상으로 {target:g}초짜리 제품 설명 영상(본편)을 만듭니다. "
-        "이 본편은 어떤 훅 영상 뒤에도 붙으므로, 훅 내용과 상관없이 제품만 설명합니다.\n"
-        f"제품: {product.get('name', '')} (나레이션에서 부르는 이름: \"{name}\")\n"
-        "제품 사실(이것만 말합니다):\n" + "\n".join(f"- {f}" for f in facts) + "\n\n"
-        "대본 규칙:\n"
-        f"- 2~3문장, 나레이션 전체 {syllables}음절 이내. 짧고 또렷하게, '~습니다'체. "
-        f"첫 문장에 제품 이름(\"{name}\")을 부르고 무엇인지 말합니다.\n"
-        "- 핵심 특징 1~2개를 사실 목록에 있는 것만 말합니다. 과장·없는 기능·가격·할인 금지.\n"
-        "- 마지막 문장은 쓰는 방법이나 쓰는 장면으로 끝냅니다. 질문이나 댓글 유도는 넣지 않습니다.\n"
-        "- caption: 짧은 구어 자막, 한 줄 12자 안팎, 최대 2줄(\\n).\n"
-        "컷 규칙:\n"
-        "- 아래 프레임에는 클립 번호와 시각(초)이 붙어 있습니다. 문장마다 그 말과 가장 잘 맞는 장면을 "
-        "클립 번호와 시작·끝 초로 고릅니다(문장당 1~2개, 한 컷 1.5초 이상).\n"
-        "- 흔들리거나 흐린 부분, 손이 제품을 가리는 부분, 제품이 안 보이는 부분은 피합니다. 같은 장면을 반복하지 않습니다.\n"
-        f"- 시작·끝은 그 클립 길이 안에서: {ranges}."
+        + intro_clause
+        + f"제품: {product.get('name', '')} (나레이션에서 부르는 이름: \"{name}\")\n"
+        + "제품 사실(이것만 말합니다):\n" + "\n".join(f"- {f}" for f in facts) + "\n\n"
+        + "대본 규칙:\n"
+        + first_line_rule
+        + "- 핵심 특징 1~2개를 사실 목록에 있는 것만 말합니다. 과장·없는 기능·가격·할인 금지.\n"
+        + "- 마지막 문장은 쓰는 방법이나 쓰는 장면으로 끝냅니다. 질문이나 댓글 유도는 넣지 않습니다.\n"
+        + "- caption: 짧은 구어 자막, 한 줄 12자 안팎, 최대 2줄(\\n).\n"
+        + "컷 규칙:\n"
+        + "- 아래 프레임에는 클립 번호와 시각(초)이 붙어 있습니다. 문장마다 그 말과 가장 잘 맞는 장면을 "
+        + "클립 번호와 시작·끝 초로 고릅니다(문장당 1~2개, 한 컷 1.5초 이상).\n"
+        + "- 흔들리거나 흐린 부분, 손이 제품을 가리는 부분, 제품이 안 보이는 부분은 피합니다. 같은 장면을 반복하지 않습니다.\n"
+        + f"- 시작·끝은 그 클립 길이 안에서: {ranges}."
     )
 
 
@@ -363,6 +394,7 @@ def make_body(
     writer: Optional[ScriptWriter] = None,
     voice: Optional[str] = None,
     subtitle_style: str = "",
+    opening_callback: Optional[str] = None,
 ) -> BodyEditResult:
     """촬영 영상들 → body.mp4 + body.srt (out_dir 에). 이미 같은 결과가 있으면 그대로 돌려준다."""
     target = float(getattr(settings, "body_target_sec", 10.0) or 10.0)
@@ -396,7 +428,10 @@ def make_body(
             frames.append({"clip": clip.index, "t": t, "path": str(target_jpg)})
 
     # 2) 대본·컷
-    script_raw = (writer or default_script_writer(settings))(_body_prompt(product, clips, target), frames)
+    script_raw = (writer or default_script_writer(settings))(
+        _body_prompt(product, clips, target, opening_callback=opening_callback),
+        frames,
+    )
     lines = _clean_script(script_raw, clips)
 
     # 3) 문장별 나레이션 → 길이 맞추기
@@ -493,6 +528,8 @@ def make_body(
     meta = {"duration_sec": round(info.duration, 3), "lufs": lufs, "captions_burned": burned, "script": script,
             "clips": [{"index": c.index, "file": c.path.name, "seconds": round(c.duration, 2)} for c in clips],
             "warnings": warnings}
+    if str(opening_callback or "").strip():
+        meta["opening_callback"] = str(opening_callback).strip()
     done.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     return BodyEditResult(video=out / "body.mp4", srt=out / "body.srt", duration_sec=round(info.duration, 3),
                           lufs=lufs, script=script, warnings=warnings)

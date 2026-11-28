@@ -108,7 +108,10 @@ def create_app(
     if scenario_generator is None:
         # 유형별 작업자(bridge-dev/a·b·c)로 시나리오를 만들고, 작업자를 못 쓰면 기존 planner-api 로 넘어간다
         scenario_generator = make_scenario_generator(
-            cfg, proj_store, fallback=_default_scenario_generator(cfg), storage=hook_a_storage_backend
+            cfg,
+            proj_store,
+            fallback=_default_scenario_generator(cfg, template_storage=hook_a_storage_backend),
+            storage=hook_a_storage_backend,
         )
     hook_pipeline = HookPipeline(
         cfg,
@@ -336,6 +339,7 @@ def create_app(
             storage_backend,
             pipeline,
             executor,
+            template_storage=hook_a_storage_backend,
             google_token_verifier=google_token_verifier,
             scenario_generator=scenario_generator,
             storyboard_generator=storyboard_generator,

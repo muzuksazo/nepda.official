@@ -53,6 +53,27 @@ def is_worker_scenario(scenario: Optional[Dict[str, Any]]) -> bool:
     return bool(scenario.get("beats")) and not spec.get("timeline")
 
 
+def _opening_callback_for_scenario(scenario: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Track A 직결 컷(AI 착지 장면 없음)일 때 본편 첫 문장에 넘길 반전 콜백 문구를 꺼낸다."""
+    if not scenario or str(scenario.get("type") or "").upper() != "A":
+        return None
+    spec = scenario.get("ad_spec") or {}
+    cb = str(spec.get("twist_callback_line") or "").strip()
+    if not cb:
+        return None
+    beats = [b for b in (scenario.get("beats") or []) if isinstance(b, dict)]
+    has_ai_landing = any(
+        not str(b.get("prebuilt_clip") or "").strip()
+        and not (
+            b.get("duration_sec") is not None
+            and float(b.get("duration_sec") or 0.0) < 1.0
+            and not str(b.get("narration") or "").strip()
+        )
+        for b in beats
+    )
+    return None if has_ai_landing else cb
+
+
 class HookPipeline:
     def __init__(
         self,
@@ -424,16 +445,29 @@ class HookPipeline:
                 logger.warning("훅 파일을 저장소에 올리지 못했습니다 (%s): %s", key, exc)
         return keys
 
-    def _shared_body(self, project: Dict[str, Any], clips: List[Path], voice: Optional[str], job_id: str) -> Tuple[Path, Optional[Path], List[str]]:
-        """A·B·C 공용 본편. FR-009 결과(project.body)가 있으면 그것을, 없으면 촬영본으로 10초 본편을 만든다(한 번만)."""
+    def _shared_body(
+        self,
+        project: Dict[str, Any],
+        clips: List[Path],
+        voice: Optional[str],
+        job_id: str,
+        *,
+        opening_callback: Optional[str] = None,
+    ) -> Tuple[Path, Optional[Path], List[str]]:
+        """A·B·C 공용 본편. FR-009 결과(project.body)가 있으면 그것을, 없으면 촬영본으로 10초 본편을 만든다(한 번만).
+
+        Track A 직결 컷처럼 반전 콜백(opening_callback)이 지정된 경우에는 콜백별 캐시 키로 별도 본편을 만든다.
+        """
+        clean_cb = str(opening_callback or "").strip() or None
         body = project.get("body") or {}
         # FR-009 본편 (app/body_pipeline.py, POST /v1/projects/{id}/body) 의 manifest: object_keys.body_video / body_srt
         keys = body.get("object_keys") or {}
         body = {**body, "video_key": body.get("video_key") or keys.get("body_video"),
                 "srt_key": body.get("srt_key") or keys.get("body_srt")}
         project = {**project, "body": body}
-        given = body.get("video_path")
-        if not given and body.get("video_key"):
+        reuse_project_body = clean_cb is None or str(body.get("opening_callback") or "").strip() == clean_cb
+        given = body.get("video_path") if reuse_project_body else None
+        if reuse_project_body and not given and body.get("video_key"):
             dest = Path(self.settings.output_dir).resolve() / str(project["project_id"]) / "_renders" / job_id / "body_in.mp4"
             dest.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -444,7 +478,13 @@ class HookPipeline:
         if given and Path(given).is_file():
             return Path(given), self._body_srt(project, Path(given).parent), []
         project_id = str(project["project_id"])
-        key = body_cache_key(clips, project.get("product") or {}, self.settings, voice)
+        key = body_cache_key(
+            clips,
+            project.get("product") or {},
+            self.settings,
+            voice,
+            opening_callback=clean_cb,
+        )
         body_dir = Path(self.settings.output_dir).resolve() / project_id / "_body" / key
         body_settings = self.settings
         usage_cb = self._usage_cb(project, job_id=job_id)
@@ -458,7 +498,7 @@ class HookPipeline:
                     project_id, stage, step, path
                 ),
             )
-        with self._lock(project_id, "_body"):
+        with self._lock(project_id, f"_body:{key}" if clean_cb else "_body"):
             made = make_body(
                 clips,
                 project.get("product") or {},
@@ -469,6 +509,7 @@ class HookPipeline:
                 writer=self._body_writer,
                 voice=voice,
                 subtitle_style=_subtitle_style(),
+                opening_callback=clean_cb,
             )
         uploaded_keys: Dict[str, str] = {}
         for field_name, file_name in (("body_video", "body.mp4"), ("body_srt", "body.srt")):
@@ -478,7 +519,7 @@ class HookPipeline:
                 uploaded_keys[field_name] = key_path
             except Exception as exc:
                 logger.warning("본편 파일을 저장소에 올리지 못했습니다 (%s): %s", file_name, exc)
-        if uploaded_keys and not (project.get("body") or {}).get("object_keys"):
+        if clean_cb is None and uploaded_keys and not (project.get("body") or {}).get("object_keys"):
             try:
                 self.project_store.update_project(
                     project_id,
@@ -656,8 +697,11 @@ class HookPipeline:
 
             self._raise_if_cancelled(job_id)
             store.update_job(job_id, status="RUNNING", stage="BODY")
-            # 본편: A·B·C 공용 10초 편집본 (나레이션·자막 포함). 같은 프로젝트의 다른 유형 훅도 같은 본편을 쓴다
-            body_video, body_srt, body_warnings = self._shared_body(project, clips, voice, job_id)
+            # 본편: A·B·C 공용 10초 편집본 (나레이션·자막 포함). Track A 직결 컷이면 반전 콜백으로 시작한다
+            opening_callback = _opening_callback_for_scenario(scenario)
+            body_video, body_srt, body_warnings = self._shared_body(
+                project, clips, voice, job_id, opening_callback=opening_callback
+            )
             self._raise_if_cancelled(job_id)
             # 최종 파일은 작업마다 다른 폴더에 쓴다 (같은 훅으로 겹쳐 만들어도 서로 덮어쓰지 않는다)
             final_path = job_dir / "final.mp4"
@@ -675,14 +719,20 @@ class HookPipeline:
 
             try:
                 clip_audio_preserved = False
+                twist_sec: Optional[float] = None
                 render_meta_path = out_dir / "render_meta.json"
                 if render_meta_path.is_file():
                     try:
-                        clip_audio_preserved = bool(
-                            json.loads(render_meta_path.read_text(encoding="utf-8")).get("clip_audio_preserved")
-                        )
+                        render_meta = json.loads(render_meta_path.read_text(encoding="utf-8"))
+                        clip_audio_preserved = bool(render_meta.get("clip_audio_preserved"))
+                        raw_twist = render_meta.get("twist_sec")
+                        if raw_twist is not None:
+                            parsed_twist = float(raw_twist)
+                            if parsed_twist > 0.0:
+                                twist_sec = parsed_twist
                     except Exception:
                         clip_audio_preserved = False
+                        twist_sec = None
                 audio_pack = resolve_audio_pack(
                     self.settings,
                     self.template_storage,
@@ -692,6 +742,7 @@ class HookPipeline:
                 mixed_lufs = mix_bgm_and_sfx(
                     final_path,
                     hook_sec=joined.hook_sec,
+                    twist_sec=twist_sec if twist_sec is not None else joined.hook_sec,
                     tools=self._media(),
                     pack=audio_pack,
                     tmp_dir=job_dir / "_audio_mix",
