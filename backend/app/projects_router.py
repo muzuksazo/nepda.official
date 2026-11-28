@@ -828,6 +828,10 @@ def _default_storyboard_generator(
         for beat in hook_beats:
             order = int(beat.get("order") or len(frames) + 1)
             img_path = out_dir / f"frame_{order:02d}.png"
+            obj_key = (
+                f"projects/{project['project_id']}/storyboards/"
+                f"{scenario['scenario_id']}/frame_{order:02d}.png"
+            )
             prompt = (
                 f"{beat.get('visual', 'Clean storyboard scene')}. "
                 f"Style: {visual_style}. Zero readable text, no subtitles, no watermarks."
@@ -852,10 +856,6 @@ def _default_storyboard_generator(
                     latency_ms=int(float(getattr(res, "elapsed_sec", 0.0) or 0.0) * 1000),
                     metadata={"prompt": prompt[:500], "object_key": obj_key},
                 )
-            obj_key = (
-                f"projects/{project['project_id']}/storyboards/"
-                f"{scenario['scenario_id']}/frame_{order:02d}.png"
-            )
             storage.upload_file(img_path, obj_key)
             url = resolve_media_url(obj_key, storage=storage, settings=settings) or obj_key
             frames.append(
