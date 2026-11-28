@@ -135,6 +135,47 @@ class RenderStageTest(unittest.TestCase):
         self.assertFalse(self.pipe._selfhosted(worker_scenario("B")))
 
 
+class StoryboardFirstFrameTest(unittest.TestCase):
+    """구글 모델 엔진: 콘티 스틸컷이 장면 클립의 구도 참고로 붙는다."""
+
+    def _pipe(self, **settings: Any) -> HookPipeline:
+        return HookPipeline(SimpleNamespace(hook_media_engine="gemini", **settings), None, None, None)
+
+    def _scenario(self, kind: str = "C") -> Dict[str, Any]:
+        sc = worker_scenario(kind)
+        sc["storyboard_frames"] = [
+            {"beat_order": order, "object_key": f"projects/p1/storyboards/s1/frame_{order:02d}.png"} for order in (1, 2)
+        ]
+        return sc
+
+    def test_stills_become_layout_references(self) -> None:
+        sc = self._scenario()
+        out = self._pipe()._with_storyboard_first_frames(sc)
+        self.assertEqual(out["beats"][0]["first_frame_ref"], "projects/p1/storyboards/s1/frame_01.png")
+        self.assertEqual(out["beats"][1]["first_frame_ref"], "projects/p1/storyboards/s1/frame_02.png")
+        self.assertIn("photorealistic", out["beats"][0]["first_frame_prompt"])
+        self.assertNotIn("first_frame_refine", out["beats"][0])  # 콘티 화풍을 그대로 쓰지 않고 실사로 바꾼다
+        self.assertNotIn("first_frame_ref", out["beats"][2])  # 콘티가 없는 장면은 그대로
+        self.assertNotIn("first_frame_ref", sc["beats"][0])  # 원본은 그대로
+
+    def test_keeps_existing_layout_reference_and_prebuilt_clips(self) -> None:
+        sc = self._scenario()
+        sc["beats"][0].update({"first_frame_ref": "c/blockouts/phone_distract.png", "first_frame_prompt": "blockout"})
+        sc["beats"][1]["prebuilt_clip"] = "sh/clip2.mp4"
+        out = self._pipe()._with_storyboard_first_frames(sc)
+        self.assertEqual(out["beats"][0]["first_frame_ref"], "c/blockouts/phone_distract.png")  # C 블록아웃이 우선
+        self.assertEqual(out["beats"][0]["first_frame_prompt"], "blockout")
+        self.assertNotIn("first_frame_ref", out["beats"][1])
+
+    def test_skips_type_a_and_can_be_turned_off(self) -> None:
+        a = self._scenario("A")
+        self.assertIs(self._pipe()._with_storyboard_first_frames(a), a)
+        c = self._scenario()
+        self.assertIs(self._pipe(hook_storyboard_first_frame=False)._with_storyboard_first_frames(c), c)
+        plain = worker_scenario("C")
+        self.assertIs(self._pipe()._with_storyboard_first_frames(plain), plain)
+
+
 class StoryboardApiTest(unittest.TestCase):
     def test_frames_keep_object_key_and_motion_and_warm_minimax(self) -> None:
         from app import projects_router

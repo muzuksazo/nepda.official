@@ -135,6 +135,8 @@ class Settings(BaseSettings):
     hook_max_sec: float = 20.0
     # 콘티 그림·장면 클립을 만드는 곳. selfhosted: FLUX(스틸컷) + MiniMax 터보(클립), Modal 앱 napda-flux3-klein·napda-minimax
     hook_media_engine: Literal["gemini", "selfhosted"] = "gemini"
+    # 구글 모델 엔진에서 콘티 스틸컷을 각 장면 클립의 첫 프레임 참고로 쓴다 (끄면 클립을 글만으로 만든다)
+    hook_storyboard_first_frame: bool = True
     # B 반전 장면 끝 "그래서 ~가 뭐냐고요?" 앞뒤 뜸 (초). 0 이면 끈다
     hook_reveal_pause_sec: float = 0.8
     hook_reveal_pause_after_sec: float = 0.6

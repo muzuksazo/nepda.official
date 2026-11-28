@@ -435,6 +435,13 @@ DEFAULT_FIRST_FRAME_PROMPT = (
     "camera angle, framing and layout of objects. Replace the blocky shapes with real objects and a real human hand, "
     "realistic materials, natural daylight and soft shadows. No text overlays, no logos, no faces."
 )
+# 콘티 스틸컷(클레이·3D 화풍)을 구도 참고로 쓸 때의 지시. 구도와 내용은 콘티 그대로, 겉모습만 실사로 바꾼다
+STORYBOARD_FIRST_FRAME_PROMPT = (
+    "Redraw this storyboard frame as a photorealistic vertical photo taken with a smartphone. Keep exactly the same "
+    "camera angle, framing, subjects, objects and their positions. Replace the illustrated, clay or 3D-render look with "
+    "real materials, natural light and soft shadows. If more images follow, they show the real product: wherever the "
+    "product appears, match its real shape, colors and details from those images. No text overlays, no logos, no watermarks."
+)
 FIRST_FRAME_NOTE = (
     "The clip starts from the provided first frame: keep its camera angle, layout, objects and lighting, and let the action begin from it."
 )
@@ -465,8 +472,10 @@ def _first_frame_from_layout(
     warnings: List[str],
     image_model_name: str,
     publish_artifact: Optional[Callable[[str, str, Path], Optional[str]]] = None,
+    product_refs: Sequence[Path] = (),
 ) -> Optional[Path]:
     """구도 참고 이미지 → 같은 구도의 실사 첫 프레임. 장면에 `first_frame_refine: false` 가 있으면 고치지 않고 그대로 쓴다.
+    product_refs(제품이 나오는 장면의 실제 제품 사진)가 있으면 함께 보내 제품의 겉모습을 지어내지 않게 한다.
     실패하면 None 을 돌려주고(경고만 남김) 그 장면은 보통 방식으로 만든다."""
     import time
 
@@ -476,7 +485,8 @@ def _first_frame_from_layout(
     if plan.beat.get("first_frame_refine") is False:
         return _normalize_reference(source, media)
     prompt = str(plan.beat.get("first_frame_prompt") or "").strip() or DEFAULT_FIRST_FRAME_PROMPT
-    candidate = cache / f"first_{_digest(prompt, getattr(settings, 'image_model', ''), _file_digest(source))}.jpg"
+    anchors = [source, *list(product_refs)[:2]]
+    candidate = cache / f"first_{_digest(prompt, getattr(settings, 'image_model', ''), *[_file_digest(p) for p in anchors])}.jpg"
     usage = dict(stage="ref_image", step_name=f"first_frame_{plan.order}", provider="google", model=image_model_name,
                  media_unit="image", media_qty=1.0)
     try:
@@ -493,7 +503,7 @@ def _first_frame_from_layout(
             try:
                 _call_with_deadline(
                     lambda: provider.generate_reference_image(
-                        prompt, candidate, aspect_ratio="9:16", mime_type="image/jpeg", anchor_paths=[source]
+                        prompt, candidate, aspect_ratio="9:16", mime_type="image/jpeg", anchor_paths=anchors
                     ),
                     float(getattr(settings, "reference_image_timeout_sec", 90.0)),
                     "첫 프레임 이미지",
@@ -1093,6 +1103,7 @@ def render_hook(
             first_frame = _first_frame_from_layout(
                 plan, provider, settings, cache, media, record_usage, warnings, image_model_name,
                 publish_artifact=publish_artifact,
+                product_refs=refs if use_product_refs else (),
             )
         if first_frame is not None:
             plan.prompt += "\n" + FIRST_FRAME_NOTE

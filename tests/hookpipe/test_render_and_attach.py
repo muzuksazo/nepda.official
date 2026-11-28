@@ -112,6 +112,26 @@ class RenderHook(unittest.TestCase):
                         cache_dir=root / "hook" / "_work" / "cache")
             self.assertEqual((len(provider.image_calls), len(provider.video_calls)), (images, clips))
 
+    def test_product_photos_go_with_the_layout_on_product_beats(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            layout = self._layout_image(root / "workers")
+            photo = root / "product.png"
+            run_ffmpeg(TOOLS, ["-f", "lavfi", "-i", "mandelbrot=s=360x640", "-frames:v", "1", str(photo)])
+            provider = FakeMediaProvider(TOOLS)
+            scenario = worker_scenario("B")
+            for beat in scenario["beats"]:
+                beat["first_frame_ref"] = "c/blockouts/desk.png"
+            render_hook(
+                scenario, PRODUCT, root / "hook", provider=provider,
+                settings=_settings(hook_workers_dir=str(root / "workers")), tools=TOOLS, product_refs=[photo],
+            )
+            refined = [c for c in provider.image_calls if c.get("anchor_paths")]
+            # 장면 1·2(제품 없음)는 같은 구도라 한 번만 사고, 장면 3(제품 등장)은 실제 제품 사진을 함께 보낸다
+            self.assertEqual([len(c["anchor_paths"]) for c in refined], [1, 2])
+            self.assertEqual(len({c["first_frame_path"] for c in provider.video_calls}), 2)
+            self.assertTrue(all(str(c["anchor_paths"][0]) == str(layout.resolve()) for c in refined))
+
     def test_layout_reference_can_be_used_without_refining(self) -> None:
         with temporary_directory() as td:
             root = Path(td)

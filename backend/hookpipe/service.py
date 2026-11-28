@@ -363,6 +363,7 @@ class HookPipeline:
             scenario = self._selfhosted_clips(project, scenario, job_id or out_dir.name, progress)
             refs = []
         else:
+            scenario = self._with_storyboard_first_frames(scenario)
             refs = extract_reference_frames(clips, out_dir / "_work" / "refs", media) if clips else []
         self._raise_if_cancelled(job_id)
         return render_hook(
@@ -388,6 +389,44 @@ class HookPipeline:
             ),
             cancel_event=cancel_event,
         )
+
+    def _with_storyboard_first_frames(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
+        """구글 모델 엔진: 콘티 스틸컷(저장소)을 각 장면의 구도 참고(`first_frame_ref`)로 붙인 시나리오 사본을 돌려준다.
+
+        사용자가 본 콘티와 같은 구도에서 클립이 시작하게 한다. 콘티는 클레이·3D 화풍이라 그대로 쓰지 않고,
+        이미지 모델이 같은 구도의 실사 화면으로 바꾼다 (hookpipe.render 의 구도 참고 단계).
+        이미 구도 참고(C 블록아웃 등)나 미리 만든 영상이 있는 장면, A 유형(템플릿 클립)은 건드리지 않는다.
+        """
+        if not getattr(self.settings, "hook_storyboard_first_frame", True):
+            return scenario
+        if str(scenario.get("type") or "").upper() == "A":
+            return scenario
+        keys: Dict[int, str] = {}
+        for frame in scenario.get("storyboard_frames") or []:
+            if not isinstance(frame, dict) or not frame.get("object_key"):
+                continue
+            try:
+                keys[int(frame.get("beat_order") or 0)] = str(frame["object_key"])
+            except (TypeError, ValueError):
+                continue
+        if not keys:
+            return scenario
+        import copy
+
+        from .render import STORYBOARD_FIRST_FRAME_PROMPT
+
+        sc = copy.deepcopy(scenario)
+        for beat in sc.get("beats") or []:
+            if not isinstance(beat, dict) or beat.get("first_frame_ref") or beat.get("prebuilt_clip"):
+                continue
+            try:
+                key = keys.get(int(beat.get("order") or 0))
+            except (TypeError, ValueError):
+                key = None
+            if key:
+                beat["first_frame_ref"] = key
+                beat["first_frame_prompt"] = STORYBOARD_FIRST_FRAME_PROMPT
+        return sc
 
     def _selfhosted(self, scenario: Dict[str, Any]) -> bool:
         if getattr(self.settings, "hook_media_engine", "gemini") != "selfhosted":
