@@ -289,13 +289,20 @@ function parseFactsFromIntro(name: string, intro: string): string[] {
   return [`${name.trim()} 핵심 특징`];
 }
 
+/** 시나리오 화면 글: 장면마다 실제로 읽히는 나레이션(TTS 대사)을 보여 준다. 대사가 없는 장면만 자막·장면 설명으로. */
 function formatScenarioText(scn: ScenarioItem): string {
-  const lines = scn.beats.map((b) => {
-    const body = (b.caption || b.narration || b.visual || '')
+  const clean = (text: string | null | undefined) =>
+    (text || '')
       .replace(/\\n|\n/g, ' ')
       .replace(/\*\*/g, '')
       .trim();
-    return `${b.order}. ${body} (${b.duration_sec}초)`;
+  const lines = scn.beats.map((b) => {
+    const narration = clean(b.narration);
+    if (narration) {
+      return `${b.order}. "${narration}" (${b.duration_sec}초)`;
+    }
+    const silent = clean(b.caption) || clean(b.visual);
+    return `${b.order}. (대사 없음${silent ? ` · ${silent}` : ''}) (${b.duration_sec}초)`;
   });
   return [`[${scn.hook_title}]`, ...lines].join('\n');
 }
