@@ -196,6 +196,9 @@ class VoicePickTest(unittest.TestCase):
         s = SimpleNamespace()
         self.assertNotEqual(body_cache_key([clip], {}, s, "a"), body_cache_key([clip], {}, s, "b"))
         self.assertEqual(body_cache_key([clip], {}, s), body_cache_key([clip], {}, s, None))
+        # 앞 훅의 말이 다르면 다른 본편 (빈 줄만 있으면 훅 없음과 같다)
+        self.assertNotEqual(body_cache_key([clip], {}, s, hook_lines=["가"]), body_cache_key([clip], {}, s, hook_lines=["나"]))
+        self.assertEqual(body_cache_key([clip], {}, s), body_cache_key([clip], {}, s, hook_lines=["", " "]))
 
 
 if __name__ == "__main__":

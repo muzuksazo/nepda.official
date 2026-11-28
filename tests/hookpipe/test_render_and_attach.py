@@ -439,14 +439,48 @@ class SharedBody(unittest.TestCase):
             self.assertTrue(again.reused)
             self.assertEqual((len(prompts), len(provider.tts_calls)), (1, 2))
 
-    def test_b_and_c_hooks_of_one_project_share_one_body(self) -> None:
+    def test_body_length_follows_narration_between_min_and_max(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            clips = [make_video(TOOLS, root / "a.mp4", seconds=6.0, width=360, height=640)]
+            settings = _settings(body_target_sec=10.0, body_max_target_sec=15.0)
+            cases = ((0.09, 10.0), (0.22, None), (0.5, 15.0))  # 짧으면 10초, 중간이면 나레이션대로, 길면 15초
+            for index, (per_char, expected) in enumerate(cases):
+                provider = FakeMediaProvider(TOOLS, seconds_per_char=per_char)
+                made = make_body(clips, PRODUCT, root / f"body{index}", provider=provider, settings=settings,
+                                 tools=TOOLS, writer=fake_body_writer)
+                info = probe(TOOLS, made.video)
+                if expected is None:
+                    self.assertGreater(info.duration, 10.5)
+                    self.assertLess(info.duration, 14.5)
+                    self.assertEqual(made.script["tempo"], 1.0)
+                else:
+                    self.assertAlmostEqual(info.duration, expected, delta=0.15)
+
+    def test_body_prompt_picks_up_the_hook_and_flows(self) -> None:
+        from hookpipe.body_edit import Clip, _body_prompt
+
+        clips = [Clip(1, Path("a.mp4"), 6.0, 1080, 1920)]
+        hook = ["물 한 방울 안 남기는 법?", "그래서 이걸 씁니다"]
+        prompt = _body_prompt(PRODUCT, clips, 10.0, hook_lines=hook, max_sec=15.0)
+        self.assertIn("10~15초", prompt)
+        self.assertIn("82음절(15초) 이내", prompt)
+        for line in hook:
+            self.assertIn(line, prompt)
+        self.assertIn("훅의 마지막 말을 이어받아", prompt)
+        self.assertIn("한 이야기로 이어집니다", prompt)
+        self.assertNotIn("훅 내용과 상관없이", prompt)
+        # 훅이 없으면 예전처럼 제품만 설명한다
+        self.assertIn("훅 내용과 상관없이", _body_prompt(PRODUCT, clips, 10.0))
+
+    def test_each_hook_gets_a_body_that_picks_up_its_narration(self) -> None:
         with temporary_directory() as td:
             root = Path(td)
             provider = FakeMediaProvider(TOOLS)
-            calls: List[int] = []
+            calls: List[str] = []
 
             def counting_writer(prompt: str, frames: Any) -> Dict[str, Any]:
-                calls.append(1)
+                calls.append(prompt)
                 return fake_body_writer(prompt, frames)
 
             settings = Settings(
@@ -476,8 +510,12 @@ class SharedBody(unittest.TestCase):
                              lambda d: d.get("job_id") == jid and d.get("status") in ("QC_READY", "FAILED"))
                 self.assertEqual(done["status"], "QC_READY", done)
                 durations.append(done["video"]["duration_sec"])
-            self.assertEqual(len(calls), 1)  # 본편 대본은 한 번만 만들었다 (B·C 공용)
-            self.assertTrue(all(abs(d - 21.0) < 0.6 for d in durations), durations)  # 훅 9초 + 공용 본편 10초 + 엔드카드 2초
+            # 본편 첫 문장이 훅의 말을 이어받으므로 훅마다 대본을 쓴다 (영상 모델은 쓰지 않는다)
+            self.assertEqual(len(calls), 2)
+            for scenario, prompt in zip(scenarios, calls):
+                first = next(b["narration"] for b in scenario["beats"] if b.get("narration"))
+                self.assertIn(first, prompt)
+            self.assertTrue(all(abs(d - 21.0) < 0.6 for d in durations), durations)  # 훅 9초 + 본편 10초 + 엔드카드 2초
 
 
 @unittest.skipUnless(TOOLS, "ffmpeg (testsrc·loudnorm 필터 포함)가 필요합니다")
