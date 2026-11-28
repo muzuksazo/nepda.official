@@ -51,6 +51,7 @@ class TestDailyQuotaAPI(unittest.TestCase):
             )
 
             # Submit 3 renders (allowed) -> 4th render returns 429 DAILY_QUOTA_EXCEEDED
+            job_ids = []
             for expected_used in (1, 2, 3):
                 r = client.post(
                     f"/v1/projects/{pid}/renders",
@@ -58,6 +59,7 @@ class TestDailyQuotaAPI(unittest.TestCase):
                 )
                 self.assertEqual(r.status_code, 202, r.text)
                 self.assertEqual(r.json()["quota"]["used_today"], expected_used)
+                job_ids.append(r.json()["job_id"])
 
             blocked = client.post(
                 f"/v1/projects/{pid}/renders",
@@ -65,6 +67,13 @@ class TestDailyQuotaAPI(unittest.TestCase):
             )
             self.assertEqual(blocked.status_code, 429)
             self.assertEqual(blocked.json()["detail"]["error"]["code"], "DAILY_QUOTA_EXCEEDED")
+
+            for jid in job_ids:
+                for _ in range(50):
+                    j = client.get(f"/v1/jobs/{jid}").json()
+                    if j["status"] in {"DRY_RUN_READY", "QC_READY", "FAILED"}:
+                        break
+                    time.sleep(0.05)
 
     def test_paid_render_enforces_credits_with_402_and_refunds_on_failure(self) -> None:
         with temporary_directory() as td:
