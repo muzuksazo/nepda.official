@@ -1,5 +1,17 @@
-import { useState } from 'react';
-import { BottomNav, Button, ConfirmSheet, Mascot, MobileScreen, PageHeader, ProjectCard, Stack, Tabs, type NavTab } from '../components';
+import { useId, useRef, useState } from 'react';
+import {
+  BottomNav,
+  Button,
+  ConfirmSheet,
+  Mascot,
+  MobileScreen,
+  PageHeader,
+  ProjectCard,
+  Stack,
+  TabList,
+  TabPanel,
+  type NavTab,
+} from '../components';
 import { brand } from '../brand';
 import type { CompletedProject, InProgressProject } from './HomeScreen';
 
@@ -40,6 +52,8 @@ export function MyVideosScreen({
   onNavigate,
 }: MyVideosScreenProps) {
   const [tab, setTab] = useState<MyVideosTab>(initialTab);
+  const tabsId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -63,6 +77,13 @@ export function MyVideosScreen({
     // 탭을 바꾸면 고른 것을 비운다(보이지 않는 카드가 함께 지워지지 않게)
     setTab(next);
     setSelected(new Set());
+    // 목록이 통째로 바뀌므로 아래로 내려가 있었다면 맨 위부터 다시 보여 준다 (탭 줄은 위에 붙어 있다)
+    const body = panelRef.current?.closest<HTMLElement>('.n-screen__body');
+    if (body && body.scrollHeight > body.clientHeight) {
+      body.scrollTo({ top: 0 });
+    } else {
+      panelRef.current?.closest('.n-screen')?.scrollIntoView({ block: 'start' });
+    }
   };
 
   const empty = (text: string) => (
@@ -83,22 +104,35 @@ export function MyVideosScreen({
       <MobileScreen
         isInert={isConfirmOpen}
         header={
-          <PageHeader
-            title="내 영상"
-            onBack={onBack}
-            isTabRoot={Boolean(onNavigate)}
-            endContent={
-              isSelecting ? (
-                <button type="button" className="n-header-text-btn" onClick={stopSelecting}>
-                  완료
-                </button>
-              ) : canSelect ? (
-                <button type="button" className="n-header-text-btn" onClick={() => setIsSelecting(true)}>
-                  선택
-                </button>
-              ) : undefined
-            }
-          />
+          <>
+            <PageHeader
+              title="내 영상"
+              onBack={onBack}
+              isTabRoot={Boolean(onNavigate)}
+              endContent={
+                isSelecting ? (
+                  <button type="button" className="n-header-text-btn" onClick={stopSelecting}>
+                    완료
+                  </button>
+                ) : canSelect ? (
+                  <button type="button" className="n-header-text-btn" onClick={() => setIsSelecting(true)}>
+                    선택
+                  </button>
+                ) : undefined
+              }
+            />
+            {/* 탭 줄은 제목과 함께 화면 위에 붙어 있어 내려도 따라온다 */}
+            <TabList<MyVideosTab>
+              idBase={tabsId}
+              label="내 영상 구분"
+              value={tab}
+              onChange={changeTab}
+              items={[
+                { value: 'inProgress', label: '진행 중', count: inProgress.length },
+                { value: 'completed', label: '완료', count: completed.length },
+              ]}
+            />
+          </>
         }
         footer={
           isSelecting ? (
@@ -112,61 +146,51 @@ export function MyVideosScreen({
         }
         bottomNav={onNavigate && !isSelecting ? <BottomNav active="myVideos" onNavigate={onNavigate} /> : undefined}
       >
-        <div style={{ marginTop: -16 }}>
-          <Tabs<MyVideosTab>
-            label="내 영상 구분"
-            value={tab}
-            onChange={changeTab}
-            items={[
-              { value: 'inProgress', label: '진행 중', count: inProgress.length },
-              { value: 'completed', label: '완료', count: completed.length },
-            ]}
-          >
-            <div style={{ paddingTop: 20 }} className="n-stack">
-              <p className="napda-visually-hidden" role="status">
-                {isSelecting ? `${selectedCount}개 골랐어요` : ''}
-              </p>
-              {tab === 'inProgress' ? (
-                inProgress.length === 0 ? (
-                  empty('진행 중인 영상이 없어요.')
-                ) : (
-                  <Stack gap={12}>
-                    {inProgress.map((p) => (
-                      <ProjectCard
-                        key={p.id}
-                        productName={p.productName}
-                        status={p.status}
-                        completedSteps={p.completedSteps}
-                        nextStep={p.nextStep}
-                        thumbnailUrl={p.thumbnailUrl}
-                        actionLabel="이어하기"
-                        onAction={() => onContinue?.(p.id)}
-                        {...selectionProps(p.id)}
-                      />
-                    ))}
-                  </Stack>
-                )
-              ) : completed.length === 0 ? (
-                empty('아직 완료한 영상이 없어요.')
+        <TabPanel ref={panelRef} idBase={tabsId} value={tab}>
+          <div style={{ paddingTop: 4 }} className="n-stack">
+            <p className="napda-visually-hidden" role="status">
+              {isSelecting ? `${selectedCount}개 골랐어요` : ''}
+            </p>
+            {tab === 'inProgress' ? (
+              inProgress.length === 0 ? (
+                empty('진행 중인 영상이 없어요.')
               ) : (
                 <Stack gap={12}>
-                  <p className="n-small n-muted">만든 날부터 {retentionDays}일 동안 보관돼요.</p>
-                  {completed.map((p) => (
+                  {inProgress.map((p) => (
                     <ProjectCard
                       key={p.id}
                       productName={p.productName}
                       status={p.status}
+                      completedSteps={p.completedSteps}
+                      nextStep={p.nextStep}
                       thumbnailUrl={p.thumbnailUrl}
-                      actionLabel="다시 받기"
-                      onAction={() => onDownloadAgain?.(p.id)}
+                      actionLabel="이어하기"
+                      onAction={() => onContinue?.(p.id)}
                       {...selectionProps(p.id)}
                     />
                   ))}
                 </Stack>
-              )}
-            </div>
-          </Tabs>
-        </div>
+              )
+            ) : completed.length === 0 ? (
+              empty('아직 완료한 영상이 없어요.')
+            ) : (
+              <Stack gap={12}>
+                <p className="n-small n-muted">만든 날부터 {retentionDays}일 동안 보관돼요.</p>
+                {completed.map((p) => (
+                  <ProjectCard
+                    key={p.id}
+                    productName={p.productName}
+                    status={p.status}
+                    thumbnailUrl={p.thumbnailUrl}
+                    actionLabel="다시 받기"
+                    onAction={() => onDownloadAgain?.(p.id)}
+                    {...selectionProps(p.id)}
+                  />
+                ))}
+              </Stack>
+            )}
+          </div>
+        </TabPanel>
       </MobileScreen>
 
       <ConfirmSheet
