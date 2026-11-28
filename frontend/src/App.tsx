@@ -379,6 +379,10 @@ interface ChargeFlowState {
   hasPaymentError: boolean;
 }
 
+/** 렌더 완료를 묻는 시간: 처음 5분은 자주, 30분이 지나면 묻기를 멈춘다 (pollRenderCompletion) */
+const RENDER_POLL_FAST_MS = 5 * 60 * 1000;
+const RENDER_POLL_LIMIT_MS = 30 * 60 * 1000;
+
 interface GeneratingJobState {
   status: 'queued' | 'running' | 'done' | 'failed' | 'canceled';
   progress: number;
@@ -792,9 +796,13 @@ export function App() {
       };
 
       const run = async () => {
-        // 1.5초 간격으로 약 10분. 렌더(특히 Gemini 경로)가 4분 반을 넘기는 일이 잦아,
-        // 서버는 아직 만드는 중인데 화면만 실패로 바뀌던 문제(2026-11-28)를 막는다.
-        for (let attempt = 0; attempt < 400; attempt += 1) {
+        // 서버가 "만드는 중"이라고 하는 동안은 계속 기다린다. 실패 화면은 서버가 FAILED 라고 할 때만.
+        // 시간을 정해 두고 실패로 바꾸면, Gemini 경로처럼 오래 걸리는 렌더가 서버에선 도는데
+        // 화면만 "본편에 이어 붙이기에서 멈췄어요"가 됐다(2026-11-28).
+        // 처음 5분은 1.5초마다, 그 뒤는 서버 부담을 줄이려 5초마다 묻는다.
+        // 30분이 지나면 묻기만 멈추고 화면은 "만드는 중"으로 둔다(완성되면 홈의 내 영상에 뜬다).
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < RENDER_POLL_LIMIT_MS) {
           if (cancelled) return;
           try {
             const projRes = await getProjectV1ProjectsProjectIdGet(pid);
@@ -937,18 +945,8 @@ export function App() {
           } catch {
             // Keep polling across transient network errors.
           }
-          await new Promise((resolve) => window.setTimeout(resolve, 1500));
-        }
-        if (!cancelled) {
-          setGenJob({
-            status: 'failed',
-            progress: 78,
-            stageIndex: 1,
-            failure: {
-              kind: 'temporary',
-              detail: '렌더링 확인 시간이 초과되었어요. 잠시 후 다시 확인해 주세요.',
-            },
-          });
+          const waitMs = Date.now() - startedAt < RENDER_POLL_FAST_MS ? 1500 : 5000;
+          await new Promise((resolve) => window.setTimeout(resolve, waitMs));
         }
       };
 
