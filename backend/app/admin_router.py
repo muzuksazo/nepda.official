@@ -99,6 +99,7 @@ def build_admin_router(
     settings: Settings,
     project_store: ProjectStore,
     storage: Optional[Any] = None,
+    template_storage: Optional[Any] = None,
 ) -> APIRouter:
     """Create `/v1/admin/*` routes gated by `ADMIN_EMAILS` or `API_BEARER_TOKEN`."""
     router = APIRouter(prefix="/v1/admin", tags=["Admin"])
@@ -212,7 +213,12 @@ def build_admin_router(
     def admin_list_track_a_templates(
         admin: Dict[str, Any] = Depends(require_admin),
     ) -> Dict[str, Any]:
-        templates = list_track_a_templates(settings, enabled_only=False, include_path=False)
+        templates = list_track_a_templates(
+            settings,
+            enabled_only=False,
+            include_path=False,
+            template_storage=template_storage,
+        )
         return {
             "templates": templates,
             "admin_actor": admin["actor"],
@@ -224,7 +230,12 @@ def build_admin_router(
         _admin: Dict[str, Any] = Depends(require_admin),
     ) -> FileResponse:
         try:
-            entry = get_track_a_template(settings, template_id, include_path=True)
+            entry = get_track_a_template(
+                settings,
+                template_id,
+                include_path=True,
+                template_storage=template_storage,
+            )
         except TrackATemplateError as exc:
             _raise_template_http_error(exc)
         if not entry:
@@ -273,6 +284,7 @@ def build_admin_router(
                 visual_summary=fields.get("visual_summary", ""),
                 default_hook_captions=fields.get("default_hook_captions"),
                 enabled=fields.get("enabled", True),
+                template_storage=template_storage,
             )
         except TrackATemplateError as exc:
             _raise_template_http_error(exc)
@@ -311,6 +323,7 @@ def build_admin_router(
                 template_id,
                 updates=updates,
                 file_bytes=file_bytes,
+                template_storage=template_storage,
             )
         except TrackATemplateError as exc:
             _raise_template_http_error(exc)
@@ -321,7 +334,11 @@ def build_admin_router(
         _admin: Dict[str, Any] = Depends(require_admin),
     ) -> Dict[str, Any]:
         try:
-            return delete_track_a_template(settings, template_id)
+            return delete_track_a_template(
+                settings,
+                template_id,
+                template_storage=template_storage,
+            )
         except TrackATemplateError as exc:
             _raise_template_http_error(exc)
 

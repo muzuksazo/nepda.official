@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -14,6 +15,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .config import Settings
+from .storage import LocalStorageBackend
+
+logger = logging.getLogger("app.track_a_templates")
 
 TEMPLATE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,63}$")
 MAX_TEMPLATE_VIDEO_BYTES = 50 * 1024 * 1024
@@ -276,9 +280,200 @@ def _ensure_seeded(managed_dir: Path) -> None:
     _write_manifest_atomic(managed_dir, copied_entries)
 
 
-def _read_raw_manifest(managed_dir: Path) -> List[Dict[str, Any]]:
-    _ensure_seeded(managed_dir)
+def _storage_prefix(settings: Settings, template_storage: Optional[Any]) -> Optional[str]:
+    if template_storage is None or isinstance(template_storage, LocalStorageBackend):
+        return None
+    location = str(getattr(settings, "hook_a_templates", "") or "").strip()
+    if not location.startswith("storage:"):
+        return None
+    return location[len("storage:") :].strip("/")
+
+
+def _hydrate_from_storage(
+    managed_dir: Path,
+    settings: Settings,
+    template_storage: Optional[Any],
+) -> bool:
+    """Hydrate managed_dir from remote R2 (`manifest.json` + clips) on cold start if available."""
+    prefix = _storage_prefix(settings, template_storage)
+    if prefix is None:
+        return False
+    manifest_key = f"{prefix}/manifest.json" if prefix else "manifest.json"
+    managed_dir.mkdir(parents=True, exist_ok=True)
+    fd, tmp_str = tempfile.mkstemp(prefix=".hydrate_", suffix=".json", dir=str(managed_dir))
+    os.close(fd)
+    tmp_path = Path(tmp_str)
+    try:
+        template_storage.download_file(manifest_key, tmp_path)
+        raw = json.loads(tmp_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.debug("Track A remote manifest hydration skipped (%s): %s", manifest_key, exc)
+        return False
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    if not isinstance(raw, list):
+        return False
+
+    hydrated: List[Dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        tid = str(item.get("id") or "").strip()
+        fname = Path(str(item.get("filename") or (f"{tid}.mp4" if tid else ""))).name
+        if not tid or not fname:
+            continue
+        dst_mp4 = (managed_dir / fname).resolve()
+        if not dst_mp4.is_file():
+            clip_key = f"{prefix}/{tid}/beat_01.mp4" if prefix else f"{tid}/beat_01.mp4"
+            try:
+                template_storage.download_file(clip_key, dst_mp4)
+            except Exception as exc:
+                logger.warning("Failed to hydrate Track A clip %s: %s", clip_key, exc)
+        rec = dict(item)
+        rec["filename"] = fname
+        rec.setdefault("enabled", True)
+        hydrated.append(rec)
+    _write_manifest_atomic(managed_dir, hydrated)
+    return True
+
+
+def _build_catalog_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+    tid = str(entry.get("id") or "").strip()
+    dur = round(float(entry.get("duration_sec") or 0.0), 2)
+    title = str(entry.get("title") or tid).strip()
+    summary = str(entry.get("visual_summary") or title).strip()
+    genre = str(entry.get("a_genre_archetype") or DEFAULT_GENRE_ARCHETYPE).strip() or DEFAULT_GENRE_ARCHETYPE
+    captions = parse_captions_input(entry.get("default_hook_captions"))
+    raw_caption = (captions[0] if captions else title).replace("**", "").strip()
+    cap_lines = [ln.strip()[:22] for ln in raw_caption.splitlines() if ln.strip()][:2]
+    caption = "\n".join(cap_lines) or title[:22]
+    return {
+        "template_id": tid,
+        "abstract_law": summary,
+        "genre": genre,
+        "hook_title": title,
+        "beats": [
+            {
+                "order": 1,
+                "role": "어긋난 시작",
+                "duration_sec": dur,
+                "visual": summary,
+                "narration": "",
+                "caption": caption,
+                "clip": f"{tid}/beat_01.mp4",
+            },
+            {
+                "order": 2,
+                "role": "패턴 인터럽트",
+                "duration_sec": 0.3,
+                "visual": "정지",
+                "narration": "",
+                "caption": "",
+                "clip": None,
+            },
+        ],
+    }
+
+
+def _sync_to_storage(
+    managed_dir: Path,
+    raw_entries: List[Dict[str, Any]],
+    settings: Settings,
+    template_storage: Optional[Any],
+    *,
+    upload_tid: Optional[str] = None,
+    deleted_tid: Optional[str] = None,
+) -> None:
+    """Mirror managed Track A manifest, clip, and `catalog.json` to dedicated R2 when configured."""
+    prefix = _storage_prefix(settings, template_storage)
+    if prefix is None:
+        return
+    try:
+        if upload_tid:
+            match = next((e for e in raw_entries if str(e.get("id") or "").strip() == upload_tid), None)
+            if match:
+                fname = Path(str(match.get("filename") or f"{upload_tid}.mp4")).name
+                local_mp4 = (managed_dir / fname).resolve()
+                if local_mp4.is_file():
+                    clip_key = f"{prefix}/{upload_tid}/beat_01.mp4" if prefix else f"{upload_tid}/beat_01.mp4"
+                    template_storage.upload_file(local_mp4, clip_key)
+
+        if deleted_tid:
+            del_key = f"{prefix}/{deleted_tid}/beat_01.mp4" if prefix else f"{deleted_tid}/beat_01.mp4"
+            template_storage.delete_object(del_key)
+
+        manifest_path = managed_dir / "manifest.json"
+        if manifest_path.is_file():
+            manifest_key = f"{prefix}/manifest.json" if prefix else "manifest.json"
+            template_storage.upload_file(manifest_path, manifest_key)
+
+        catalog_key = f"{prefix}/catalog.json" if prefix else "catalog.json"
+        existing_catalog: Dict[str, Any] = {"version": 1, "templates": []}
+        fd_in, tmp_in_str = tempfile.mkstemp(prefix=".cat_in_", suffix=".json", dir=str(managed_dir))
+        os.close(fd_in)
+        tmp_in = Path(tmp_in_str)
+        try:
+            template_storage.download_file(catalog_key, tmp_in)
+            parsed = json.loads(tmp_in.read_text(encoding="utf-8-sig"))
+            if isinstance(parsed, dict):
+                existing_catalog = parsed
+        except Exception:
+            pass
+        finally:
+            tmp_in.unlink(missing_ok=True)
+
+        existing_by_id: Dict[str, Dict[str, Any]] = {}
+        for tpl in existing_catalog.get("templates") or []:
+            if isinstance(tpl, dict) and tpl.get("template_id"):
+                existing_by_id[str(tpl["template_id"]).strip()] = dict(tpl)
+
+        if deleted_tid:
+            existing_by_id.pop(deleted_tid, None)
+
+        for entry in raw_entries:
+            tid = str(entry.get("id") or "").strip()
+            if not tid:
+                continue
+            is_enabled = parse_bool_input(entry.get("enabled"), default=True)
+            dur = round(float(entry.get("duration_sec") or 0.0), 2)
+            # `hookpipe.a_templates` enforces total hook duration 15..20s with 3..7s landing + 0.3s pause.
+            if not is_enabled or dur < 7.7:
+                existing_by_id.pop(tid, None)
+                continue
+            if tid in existing_by_id:
+                existing_tpl = existing_by_id[tid]
+                if upload_tid == tid and isinstance(existing_tpl.get("beats"), list) and existing_tpl["beats"]:
+                    existing_tpl["beats"][0]["duration_sec"] = dur
+            else:
+                existing_by_id[tid] = _build_catalog_entry(entry)
+
+        updated_catalog = {
+            "version": int(existing_catalog.get("version") or 1),
+            "templates": list(existing_by_id.values()),
+        }
+        fd_out, tmp_out_str = tempfile.mkstemp(prefix=".cat_out_", suffix=".json", dir=str(managed_dir))
+        os.close(fd_out)
+        tmp_out = Path(tmp_out_str)
+        try:
+            tmp_out.write_text(json.dumps(updated_catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            template_storage.upload_file(tmp_out, catalog_key)
+        finally:
+            tmp_out.unlink(missing_ok=True)
+    except Exception as exc:
+        logger.warning("Failed to sync Track A templates to storage (%s): %s", prefix, exc)
+
+
+def _read_raw_manifest(
+    managed_dir: Path,
+    *,
+    settings: Optional[Settings] = None,
+    template_storage: Optional[Any] = None,
+) -> List[Dict[str, Any]]:
     manifest_path = managed_dir / "manifest.json"
+    if not manifest_path.is_file() and settings is not None:
+        _hydrate_from_storage(managed_dir, settings, template_storage)
+    _ensure_seeded(managed_dir)
     if not manifest_path.is_file():
         return []
     try:
@@ -340,11 +535,16 @@ def list_track_a_templates(
     *,
     enabled_only: bool = False,
     include_path: bool = True,
+    template_storage: Optional[Any] = None,
 ) -> List[Dict[str, Any]]:
     """List normalized Track A templates from the persistent managed directory."""
     managed_dir = resolve_managed_track_a_dir(settings)
     with _MANIFEST_LOCK:
-        raw_entries = _read_raw_manifest(managed_dir)
+        raw_entries = _read_raw_manifest(
+            managed_dir,
+            settings=settings,
+            template_storage=template_storage,
+        )
         out: List[Dict[str, Any]] = []
         for raw in raw_entries:
             enriched = _enrich_entry(raw, managed_dir)
@@ -361,11 +561,16 @@ def get_track_a_template(
     template_id: str,
     *,
     include_path: bool = True,
+    template_storage: Optional[Any] = None,
 ) -> Optional[Dict[str, Any]]:
     tid = validate_template_id(template_id)
     managed_dir = resolve_managed_track_a_dir(settings)
     with _MANIFEST_LOCK:
-        for raw in _read_raw_manifest(managed_dir):
+        for raw in _read_raw_manifest(
+            managed_dir,
+            settings=settings,
+            template_storage=template_storage,
+        ):
             if str(raw.get("id") or "").strip() == tid:
                 enriched = _enrich_entry(raw, managed_dir)
                 if not enriched:
@@ -386,6 +591,7 @@ def create_track_a_template(
     visual_summary: str,
     default_hook_captions: Any = None,
     enabled: Any = True,
+    template_storage: Optional[Any] = None,
 ) -> Dict[str, Any]:
     clean_title = str(title or "").strip()
     if not clean_title:
@@ -411,7 +617,11 @@ def create_track_a_template(
 
     managed_dir = resolve_managed_track_a_dir(settings)
     with _MANIFEST_LOCK:
-        raw_entries = _read_raw_manifest(managed_dir)
+        raw_entries = _read_raw_manifest(
+            managed_dir,
+            settings=settings,
+            template_storage=template_storage,
+        )
         if any(str(e.get("id") or "").strip() == tid for e in raw_entries):
             raise TrackATemplateError(
                 409,
@@ -454,6 +664,13 @@ def create_track_a_template(
         }
         raw_entries.append(new_raw)
         _write_manifest_atomic(managed_dir, raw_entries)
+        _sync_to_storage(
+            managed_dir,
+            raw_entries,
+            settings,
+            template_storage,
+            upload_tid=tid,
+        )
         enriched = _enrich_entry(new_raw, managed_dir)
         assert enriched is not None
         return _to_public_dict(enriched)
@@ -465,11 +682,16 @@ def update_track_a_template(
     *,
     updates: Dict[str, Any],
     file_bytes: Optional[bytes] = None,
+    template_storage: Optional[Any] = None,
 ) -> Dict[str, Any]:
     tid = validate_template_id(template_id)
     managed_dir = resolve_managed_track_a_dir(settings)
     with _MANIFEST_LOCK:
-        raw_entries = _read_raw_manifest(managed_dir)
+        raw_entries = _read_raw_manifest(
+            managed_dir,
+            settings=settings,
+            template_storage=template_storage,
+        )
         idx = next((i for i, e in enumerate(raw_entries) if str(e.get("id") or "").strip() == tid), None)
         if idx is None:
             raise TrackATemplateError(404, "TEMPLATE_NOT_FOUND", f"템플릿을 찾을 수 없습니다: {tid}")
@@ -531,22 +753,45 @@ def update_track_a_template(
 
         raw_entries[idx] = entry
         _write_manifest_atomic(managed_dir, raw_entries)
+        _sync_to_storage(
+            managed_dir,
+            raw_entries,
+            settings,
+            template_storage,
+            upload_tid=tid if file_bytes is not None else None,
+        )
         enriched = _enrich_entry(entry, managed_dir)
         assert enriched is not None
         return _to_public_dict(enriched)
 
 
-def delete_track_a_template(settings: Settings, template_id: str) -> Dict[str, Any]:
+def delete_track_a_template(
+    settings: Settings,
+    template_id: str,
+    *,
+    template_storage: Optional[Any] = None,
+) -> Dict[str, Any]:
     tid = validate_template_id(template_id)
     managed_dir = resolve_managed_track_a_dir(settings)
     with _MANIFEST_LOCK:
-        raw_entries = _read_raw_manifest(managed_dir)
+        raw_entries = _read_raw_manifest(
+            managed_dir,
+            settings=settings,
+            template_storage=template_storage,
+        )
         idx = next((i for i, e in enumerate(raw_entries) if str(e.get("id") or "").strip() == tid), None)
         if idx is None:
             raise TrackATemplateError(404, "TEMPLATE_NOT_FOUND", f"템플릿을 찾을 수 없습니다: {tid}")
 
         removed = raw_entries.pop(idx)
         _write_manifest_atomic(managed_dir, raw_entries)
+        _sync_to_storage(
+            managed_dir,
+            raw_entries,
+            settings,
+            template_storage,
+            deleted_tid=tid,
+        )
         fname = str(removed.get("filename") or "").strip()
         if fname:
             target = (managed_dir / Path(fname).name).resolve()

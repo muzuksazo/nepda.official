@@ -40,8 +40,11 @@ app = modal.App("napda-backend")
     image=image,
     # 뒤의 Secret 이 같은 이름을 덮는다: 시나리오·본편 글 모델은 승인된 구성(Claude)으로 (Secret 에는 gemini 가 들어 있다).
     # 요청별 A/B(provider 지정)는 그대로 동작한다
-    secrets=[modal.Secret.from_name("napda-backend"),
-             modal.Secret.from_dict({"HOOK_WORKER_LLM": "claude-opus-5-5", "BODY_LLM": "claude-opus-5-5"})],
+    secrets=[
+        modal.Secret.from_name("napda-backend"),
+        modal.Secret.from_name("napda-hook-a-r2"),
+        modal.Secret.from_dict({"HOOK_WORKER_LLM": "claude-opus-5-5", "BODY_LLM": "claude-opus-5-5"}),
+    ],
     volumes={"/app/data": data},
     cpu=2.0,
     memory=4096,

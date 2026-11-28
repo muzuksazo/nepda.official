@@ -334,7 +334,14 @@ def create_app(
             tts_provider=tts_provider,
         )
     )
-    app.include_router(build_admin_router(cfg, proj_store, storage=storage_backend))
+    app.include_router(
+        build_admin_router(
+            cfg,
+            proj_store,
+            storage=storage_backend,
+            template_storage=hook_a_storage_backend,
+        )
+    )
 
     return app
 

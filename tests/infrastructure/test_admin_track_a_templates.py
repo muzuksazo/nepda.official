@@ -217,6 +217,106 @@ class TestAdminTrackATemplatesAPI(unittest.TestCase):
                 404,
             )
 
+    def test_admin_crud_mirrors_to_remote_template_storage_preserving_catalog(self) -> None:
+        from app.track_a_templates import (
+            create_track_a_template,
+            delete_track_a_template,
+            update_track_a_template,
+        )
+
+        class FakeRemoteStorage:
+            def __init__(self, initial: dict[str, bytes]) -> None:
+                self.objects = dict(initial)
+
+            def upload_file(self, local_path: str | Path, object_key: str) -> str:
+                self.objects[object_key] = Path(local_path).read_bytes()
+                return f"https://r2.example/{object_key}"
+
+            def download_file(self, object_key: str, local_path: str | Path) -> str:
+                if object_key not in self.objects:
+                    raise FileNotFoundError(object_key)
+                dest = Path(local_path)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(self.objects[object_key])
+                return str(dest)
+
+            def delete_object(self, object_key: str) -> bool:
+                return self.objects.pop(object_key, None) is not None
+
+        curated_catalog = {
+            "version": 1,
+            "templates": [
+                {
+                    "template_id": "a_dam_tape_3d",
+                    "abstract_law": "curated law preserved",
+                    "genre": "mock_documentary",
+                    "hook_title": "Curated dam title",
+                    "beats": [
+                        {
+                            "order": 1,
+                            "role": "어긋난 시작",
+                            "duration_sec": 10.0,
+                            "visual": "dam",
+                            "narration": "curated narration",
+                            "caption": "curated caption",
+                            "clip": "a_dam_tape_3d/beat_01.mp4",
+                        },
+                        {"order": 2, "role": "패턴 인터럽트", "duration_sec": 0.3, "visual": "정지", "narration": "", "caption": "", "clip": None},
+                    ],
+                }
+            ],
+        }
+        remote = FakeRemoteStorage(
+            {
+                "templates/a/catalog.json": json.dumps(curated_catalog, ensure_ascii=False).encode("utf-8"),
+            }
+        )
+        with temporary_directory() as td:
+            root = Path(td)
+            settings = Settings(
+                _env_file=None,
+                gemini_api_key="dummy-key",
+                hook_a_templates="storage:templates/a",
+                work_root=str(root / "data" / "jobs"),
+                output_dir=str(root / "data" / "outputs"),
+                db_path=str(root / "data" / "napda.db"),
+            )
+            eligible_mp4 = _make_sample_mp4_bytes(duration=9.0, w=720, h=1280)
+            created = create_track_a_template(
+                settings,
+                file_bytes=eligible_mp4,
+                template_id="a_r2_sync_demo",
+                title="R2 동기화 데모",
+                visual_summary="Synced 3D physics test",
+                default_hook_captions=["테스트 자막 첫 줄"],
+                template_storage=remote,
+            )
+            self.assertEqual(created["id"], "a_r2_sync_demo")
+            self.assertIn("templates/a/a_r2_sync_demo/beat_01.mp4", remote.objects)
+            self.assertIn("templates/a/manifest.json", remote.objects)
+
+            cat_after_create = json.loads(remote.objects["templates/a/catalog.json"].decode("utf-8"))
+            by_id = {t["template_id"]: t for t in cat_after_create["templates"]}
+            self.assertIn("a_dam_tape_3d", by_id)
+            self.assertEqual(by_id["a_dam_tape_3d"]["abstract_law"], "curated law preserved")
+            self.assertEqual(by_id["a_r2_sync_demo"]["beats"][0]["clip"], "a_r2_sync_demo/beat_01.mp4")
+
+            # Disabling removes from catalog.json
+            update_track_a_template(
+                settings,
+                "a_r2_sync_demo",
+                updates={"enabled": False},
+                template_storage=remote,
+            )
+            cat_after_disable = json.loads(remote.objects["templates/a/catalog.json"].decode("utf-8"))
+            self.assertNotIn("a_r2_sync_demo", {t["template_id"] for t in cat_after_disable["templates"]})
+
+            # Deleting removes clip and keeps curated entries intact
+            delete_track_a_template(settings, "a_r2_sync_demo", template_storage=remote)
+            self.assertNotIn("templates/a/a_r2_sync_demo/beat_01.mp4", remote.objects)
+            cat_after_delete = json.loads(remote.objects["templates/a/catalog.json"].decode("utf-8"))
+            self.assertIn("a_dam_tape_3d", {t["template_id"] for t in cat_after_delete["templates"]})
+
 
 if __name__ == "__main__":
     unittest.main()

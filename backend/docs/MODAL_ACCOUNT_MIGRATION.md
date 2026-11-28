@@ -14,6 +14,7 @@
 | 볼륨 | `minimax-models` | MiniMax 모델 약 42GB (터보 LoRA 포함) |
 | 볼륨 | `flux-models` | FLUX 가중치 약 52GB |
 | Secret | `napda-backend` | 아래 키 목록 |
+| Secret | `napda-hook-a-r2` | Track A 템플릿 전용 R2 (`HOOK_A_R2_*`) |
 | Secret | `flux3-klein-secrets` | `MODAL_API_TOKEN` (FLUX 서비스 호출 인증) |
 
 ## 1. 새 계정 로그인
@@ -30,6 +31,7 @@ modal profile current    # 새 계정인지 확인
 
 - 인증·세션: `SESSION_SECRET`, `GOOGLE_CLIENT_ID`, `SESSION_TTL_DAYS`, `API_BEARER_TOKEN`
 - 저장소(R2): `STORAGE_BACKEND`(=r2), `R2_BUCKET`, `R2_ENDPOINT_URL`, `R2_REGION`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PREFIX`(=`/`)
+- **`napda-hook-a-r2`** — A안 템플릿 전용 R2 키: `HOOK_A_R2_BUCKET`(=`napda-track-a`), `HOOK_A_R2_ENDPOINT_URL`, `HOOK_A_R2_REGION`(=auto), `HOOK_A_R2_ACCESS_KEY_ID`, `HOOK_A_R2_SECRET_ACCESS_KEY`
 - 글 모델: `ANTHROPIC_API_KEY`, `HOOK_WORKER_LLM`, `BODY_LLM`
 - 음성: `TTS_PROVIDER`(=inworld), `INWORLD_API_KEY`, `INWORLD_VOICE_ID`
 - 이미지·영상 모델 이름: `IMAGE_MODEL`, `VIDEO_MODEL`

@@ -1233,11 +1233,14 @@ export function App() {
             if (presignRes.status !== 200) {
               throw new Error('업로드 주소를 발급받지 못했어요.');
             }
-            const putRes = await fetch(presignRes.data.upload_url, {
+            const uploadUrl = presignRes.data.upload_url;
+            const isExternalPresign =
+              /^https?:\/\//i.test(uploadUrl) && !uploadUrl.startsWith(window.location.origin);
+            const putRes = await fetch(uploadUrl, {
               method: 'PUT',
               headers: { 'Content-Type': file.type || 'video/mp4' },
               body: file,
-              credentials: 'include',
+              credentials: isExternalPresign ? 'omit' : 'include',
               signal: abortController.signal,
             });
             if (!putRes.ok) {
