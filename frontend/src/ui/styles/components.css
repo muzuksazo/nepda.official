@@ -1282,6 +1282,70 @@ textarea.n-input {
   background: var(--bg);
 }
 
+/* 하단 내비게이션 바로 위 오른쪽: 떠 있는 버튼 자리 (화면 여백 20px · 내비와 16px) */
+.n-screen__fab-slot {
+  position: absolute;
+  right: 20px;
+  bottom: calc(100% + 16px);
+  pointer-events: none;
+}
+
+/* 홈의 동그란 + 만들기: "영상 만들기"와 같은 검정 면 + 빛나는 라임 + (56px) */
+.n-fab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--napda-black);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.2);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  visibility: hidden;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    visibility 0s linear var(--dur-base);
+}
+
+.n-fab.is-visible {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    visibility 0s;
+}
+
+.n-fab:active {
+  transform: scale(0.94);
+}
+
+.n-fab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* 다크: "영상 만들기" 버튼과 같은 한 단계 밝은 검정, 그림자 대신 면 차이로 띄운다 */
+[data-theme='dark'] .n-fab {
+  background: #2a2a28;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .n-fab,
+  .n-fab.is-visible {
+    transform: none;
+    transition: opacity var(--dur-fast) linear, visibility 0s;
+  }
+}
+
 .n-screen__bottom .n-screen__footer {
   position: static;
   padding-bottom: 12px;

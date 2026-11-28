@@ -139,6 +139,20 @@ export function HomeScreen({
     return () => observer.disconnect();
   }, [feedHasMore, isFeedLoadingMore, onLoadMoreFeed]);
 
+  // "영상 만들기" 버튼이 화면 위쪽으로 완전히 사라졌을 때만 떠 있는 + 버튼을 보여 준다
+  const createRef = useRef<HTMLDivElement>(null);
+  const [isFabVisible, setIsFabVisible] = useState(false);
+  useEffect(() => {
+    const target = createRef.current;
+    if (!target) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      const rootTop = entry.rootBounds?.top ?? 0;
+      setIsFabVisible(!entry.isIntersecting && entry.boundingClientRect.top < rootTop);
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+
   const hasMyVideos = inProgress.length > 0 || completed.length > 0;
   const isEmpty = !hasMyVideos && banners.length === 0 && feed.length === 0;
   const header = (
@@ -155,6 +169,19 @@ export function HomeScreen({
   );
   const bottomNav = <BottomNav active="home" onNavigate={onNavigate} />;
   const createButton = <Button label="영상 만들기" isBlock icon={<Plus size={20} className="n-create-plus" aria-hidden="true" />} onClick={onCreate} />;
+  // 스크롤해서 "영상 만들기" 버튼이 화면 위로 사라지면 오른쪽 아래에 동그란 + 버튼을 띄운다
+  const fab = (
+    <button
+      type="button"
+      className={`n-fab${isFabVisible ? ' is-visible' : ''}`}
+      aria-label="영상 만들기"
+      aria-hidden={!isFabVisible}
+      tabIndex={isFabVisible ? 0 : -1}
+      onClick={onCreate}
+    >
+      <Plus size={24} className="n-create-plus" aria-hidden="true" />
+    </button>
+  );
 
   if (isEmpty) {
     return (
@@ -174,13 +201,13 @@ export function HomeScreen({
 
   return (
     <>
-      <MobileScreen header={header} bottomNav={bottomNav} isInert={commentsFor !== null || shareVideo !== null}>
+      <MobileScreen header={header} bottomNav={bottomNav} floatingAction={fab} isInert={commentsFor !== null || shareVideo !== null}>
         {banners.length > 0 ? (
           <div style={{ marginBottom: -8 }}>
             <EventBanner items={banners} onSelect={onBannerSelect} />
           </div>
         ) : null}
-        {createButton}
+        <div ref={createRef}>{createButton}</div>
 
         {/* 내 영상: 진행 중(이어 할 것)을 앞에, 완료를 뒤에 한 줄로. 아직 없으면 안내 카드 */}
         {hasMyVideos ? (

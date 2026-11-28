@@ -14,11 +14,13 @@ export interface MobileScreenProps {
   footerSummary?: ReactNode;
   /** 하단 내비게이션 바 (탭 최상위 화면에서만) */
   bottomNav?: ReactNode;
+  /** 하단 내비게이션 바로 위 오른쪽에 떠 있는 버튼 (예: 홈의 동그란 + 만들기) */
+  floatingAction?: ReactNode;
   /** 확인 시트 같은 대화상자가 떠 있는 동안 화면 전체를 조작·읽기 대상에서 뺀다 */
   isInert?: boolean;
 }
 
-export function MobileScreen({ header, children, footer, footerSummary, bottomNav, isInert }: MobileScreenProps) {
+export function MobileScreen({ header, children, footer, footerSummary, bottomNav, floatingAction, isInert }: MobileScreenProps) {
   const footerEl = footer ? (
     <footer className="n-screen__footer">
       {footerSummary ? <div className="n-screen__summary">{footerSummary}</div> : null}
@@ -31,6 +33,7 @@ export function MobileScreen({ header, children, footer, footerSummary, bottomNa
       <main className="n-screen__body" tabIndex={0}>{children}</main>
       {bottomNav ? (
         <div className="n-screen__bottom">
+          {floatingAction ? <div className="n-screen__fab-slot">{floatingAction}</div> : null}
           {footerEl}
           {bottomNav}
         </div>
