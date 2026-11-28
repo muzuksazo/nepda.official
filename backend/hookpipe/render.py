@@ -613,7 +613,11 @@ def render_hook(
                 prebuilt_audio[plan.order] = Path(found)
         # 구도 참고 이미지: 없어도 훅은 만들 수 있으므로, 못 찾으면 알리고 보통 방식으로 간다
         layout_ref = str(plan.beat.get("first_frame_ref") or "").strip()
-        if layout_ref and not plan.prebuilt:
+        if layout_ref and plan.prebuilt:
+            # 미리 만든 영상이 있는 장면은 그 영상이 우선이다 (A 템플릿, 자체 모델 엔진이 장면마다 넣는 클립).
+            # 구도 참고를 조용히 버리지 않고, 쓰이지 않았다는 것을 남긴다
+            warnings.append(f"장면 {plan.order} 은 미리 만든 영상을 써서 구도 참고 이미지를 쓰지 않았습니다: {layout_ref}")
+        elif layout_ref:
             layout = resolve_layout_reference(layout_ref, settings, resolve_asset)
             if layout is None:
                 warnings.append(f"장면 {plan.order} 의 구도 참고 이미지를 찾지 못해 참고 없이 만들었습니다: {layout_ref}")

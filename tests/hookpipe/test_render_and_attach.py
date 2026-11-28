@@ -154,6 +154,27 @@ class RenderHook(unittest.TestCase):
             self.assertTrue([w for w in result.warnings if "첫 프레임 이미지를 만들지 못해" in w])
             self.assertTrue((root / "hook" / "hook.mp4").is_file())
 
+    def test_prebuilt_clip_wins_over_layout_reference_and_says_so(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            self._layout_image(root / "workers")
+            assets = root / "assets"
+            make_video(TOOLS, assets / "sh" / "clip1.mp4", seconds=3.0, audio=False)
+            provider = FakeMediaProvider(TOOLS)
+            scenario = worker_scenario("B")
+            # 자체 모델 엔진처럼 장면에 미리 만든 클립이 들어온 경우: 그 클립을 쓰고 구도 참고는 건너뛴다
+            scenario["beats"][0].update({"first_frame_ref": "c/blockouts/desk.png", "prebuilt_clip": "sh/clip1.mp4"})
+            result = render_hook(
+                scenario, PRODUCT, root / "hook", provider=provider,
+                settings=_settings(hook_workers_dir=str(root / "workers")), tools=TOOLS,
+                resolve_asset=lambda ref: (assets / ref) if (assets / ref).is_file() else None,
+            )
+            self.assertFalse([c for c in provider.image_calls if c.get("anchor_paths")])  # 첫 프레임 이미지를 사지 않는다
+            self.assertEqual(len(provider.video_calls), 2)  # 미리 만든 장면은 영상 모델을 부르지 않는다
+            self.assertTrue(all(c["first_frame_path"] is None for c in provider.video_calls))
+            self.assertTrue([w for w in result.warnings if "미리 만든 영상을 써서 구도 참고 이미지를 쓰지 않았습니다" in w])
+            self.assertTrue((root / "hook" / "hook.mp4").is_file())
+
     def test_long_narration_extends_the_beat_instead_of_cutting_speech(self) -> None:
         with temporary_directory() as td:
             provider = FakeMediaProvider(TOOLS, seconds_per_char=0.3)  # 15자 안팎 → 4~5초 음성
