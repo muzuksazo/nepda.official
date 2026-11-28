@@ -34,6 +34,8 @@ from .captions import build_srt
 from .media import (
     AUDIO_ENCODE_ARGS,
     AUDIO_RATE,
+    OUT_H,
+    OUT_W,
     VIDEO_ENCODE_ARGS,
     MediaError,
     MediaTools,
@@ -589,6 +591,31 @@ def _write_storyboards(plans: List[BeatPlan], out_dir: Path, tools: MediaTools) 
     return names
 
 
+def _write_clean_keyframes(plans: List[BeatPlan], out_dir: Path, tools: MediaTools) -> List[str]:
+    """자막 굽기 전 원본 클립에서 1080x1920 썸네일 후보 키프레임을 추출한다."""
+    names: List[str] = []
+    vf = f"scale={OUT_W}:{OUT_H}:force_original_aspect_ratio=increase,crop={OUT_W}:{OUT_H},setsar=1"
+    for plan in plans:
+        if plan.hold or not plan.clip_path or not plan.clip_path.is_file():
+            continue
+        name = f"clean_kf_{plan.order:02d}.png"
+        try:
+            clip_dur = probe(tools, plan.clip_path).duration
+            at = min(max(0.0, plan.duration * 0.5), max(0.0, clip_dur - 0.1)) if clip_dur > 0.2 else 0.0
+            run_ffmpeg(
+                tools,
+                ["-ss", f"{at:.3f}", "-i", str(plan.clip_path), "-vf", vf, "-frames:v", "1", name],
+                cwd=out_dir,
+                timeout=120.0,
+            )
+        except MediaError as exc:
+            logger.warning("자막 없는 키프레임 %s 추출 실패: %s", name, exc)
+            continue
+        if (out_dir / name).is_file():
+            names.append(name)
+    return names
+
+
 def _call_with_deadline(
     fn: Callable[[], Any],
     seconds: float,
@@ -962,6 +989,7 @@ def render_hook(
         narration_mix=narration_mix,
     )
     storyboards = _write_storyboards(plans, target, media)
+    clean_keyframes = _write_clean_keyframes(plans, target, media)
 
     final = probe(media, target / "hook.mp4")
     has_tts = narration_mix is not None
@@ -1006,6 +1034,7 @@ def render_hook(
         "subtitles_srt": "hook.srt",
         "scenario_json": "scenario.json",
         "storyboard_images": storyboards,
+        "clean_keyframes": clean_keyframes,
     }
     return HookRenderResult(
         out_dir=target,

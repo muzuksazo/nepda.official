@@ -626,3 +626,53 @@ class TestMediaDeliveryAndThumbnails(unittest.TestCase):
                 check=True,
             )
             self.assertAlmostEqual(float(ffprobe.stdout.strip()), 2.4, delta=0.15)
+
+    def test_write_clean_keyframes_reads_raw_clips_not_subtitled_hook(self) -> None:
+        from hookpipe.media import MediaTools
+        from hookpipe.render import BeatPlan, _write_clean_keyframes
+
+        with temporary_directory() as td:
+            root = Path(td)
+            out_dir = root / "hook_out"
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            raw_clip = root / "clip_01.mp4"
+            hook_mp4 = out_dir / "hook.mp4"
+            # Distinct colors: green for raw un-subtitled clip, red for subtitled hook.mp4
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=0x10C840:s=1080x1920:d=1.5:r=24",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", str(raw_clip),
+                ],
+                capture_output=True,
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=0xE02020:s=1080x1920:d=1.5:r=24",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", str(hook_mp4),
+                ],
+                capture_output=True,
+                check=True,
+            )
+
+            plan = BeatPlan(
+                order=1,
+                beat={},
+                role="hook",
+                caption="자막",
+                narration="",
+                scenario_sec=1.5,
+                duration=1.5,
+                clip_path=raw_clip,
+                hold=False,
+            )
+            tools = MediaTools(ffmpeg="ffmpeg", ffprobe="ffprobe")
+            names = _write_clean_keyframes([plan], out_dir, tools)
+            self.assertEqual(names, ["clean_kf_01.png"])
+            kf_path = out_dir / "clean_kf_01.png"
+            self.assertTrue(kf_path.is_file())
+            with Image.open(kf_path) as im:
+                self.assertEqual(im.size, (1080, 1920))
+                r, g, b = im.convert("RGB").getpixel((540, 960))
+                self.assertGreater(g, r + 60, f"Expected green raw-clip keyframe, got RGB=({r},{g},{b})")

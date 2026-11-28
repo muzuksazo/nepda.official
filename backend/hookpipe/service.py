@@ -641,7 +641,7 @@ class HookPipeline:
             entry["clean_key"] = entry["master_key"]
             entry["clean_mp4"] = entry["master_mp4"]
             clean_frame_keys: List[str] = []
-            for idx, kf_path in enumerate(sorted(out_dir.glob("storyboard_*.png"))[:4], start=1):
+            for idx, kf_path in enumerate(sorted(out_dir.glob("clean_kf_*.png"))[:4], start=1):
                 if not kf_path.is_file():
                     continue
                 kf_key = f"{prefix}/clean_kf_{idx:02d}.png"
