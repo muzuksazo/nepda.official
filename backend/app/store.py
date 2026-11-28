@@ -7,7 +7,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 def _now_iso() -> str:
@@ -17,11 +17,28 @@ def _now_iso() -> str:
 class JobStore:
     """Thread-safe SQLite WAL persistence for jobs and cross-campaign reskin history."""
 
-    def __init__(self, db_path: str | Path) -> None:
+    def __init__(
+        self,
+        db_path: str | Path,
+        *,
+        on_write: Optional[Callable[[], None]] = None,
+    ) -> None:
         self.db_path = Path(db_path).resolve()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
+        self._on_write: Optional[Callable[[], None]] = on_write
         self._init_schema()
+
+    def set_on_write(self, callback: Optional[Callable[[], None]]) -> None:
+        self._on_write = callback
+
+    def _notify_write(self) -> None:
+        cb = self._on_write
+        if cb is not None:
+            try:
+                cb()
+            except Exception:
+                pass
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path), timeout=30.0)
@@ -97,6 +114,7 @@ class JobStore:
                     now,
                 ),
             )
+        self._notify_write()
         return self.get_job(job_id)  # type: ignore[return-value]
 
     def update_job(
@@ -142,6 +160,7 @@ class JobStore:
 
         with self._lock, self._connect() as conn:
             conn.execute(f"UPDATE jobs SET {', '.join(fields)} WHERE id = ?", vals)
+        self._notify_write()
         return self.get_job(job_id)  # type: ignore[return-value]
 
     @staticmethod

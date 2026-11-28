@@ -9,7 +9,7 @@ import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .auth import AuthenticatedUser
 
@@ -25,11 +25,28 @@ def _today_utc_str(now: Optional[datetime] = None) -> str:
 class ProjectStore:
     """Thread-safe SQLite WAL store backing `/v1/auth/*` and `/v1/projects/*`."""
 
-    def __init__(self, db_path: str | Path) -> None:
+    def __init__(
+        self,
+        db_path: str | Path,
+        *,
+        on_write: Optional[Callable[[], None]] = None,
+    ) -> None:
         self.db_path = Path(db_path).resolve()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
+        self._on_write: Optional[Callable[[], None]] = on_write
         self._init_schema()
+
+    def set_on_write(self, callback: Optional[Callable[[], None]]) -> None:
+        self._on_write = callback
+
+    def _notify_write(self) -> None:
+        cb = self._on_write
+        if cb is not None:
+            try:
+                cb()
+            except Exception:
+                pass
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path), timeout=30.0)
@@ -295,6 +312,7 @@ class ProjectStore:
                     now_iso,
                 ),
             )
+        self._notify_write()
         return self.get_project(project_id, user_id=user_id)  # type: ignore[return-value]
 
     def get_project(
@@ -367,6 +385,7 @@ class ProjectStore:
 
         with self._lock, self._connect() as conn:
             conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id = ?", vals)
+        self._notify_write()
         return self.get_project(project_id)  # type: ignore[return-value]
 
     def set_project_public(
@@ -1218,6 +1237,7 @@ class ProjectStore:
                 ),
             )
             row = conn.execute("SELECT * FROM api_usage_events WHERE event_id = ?", (event_id,)).fetchone()
+        self._notify_write()
         return self._row_to_usage_event(row)  # type: ignore[arg-type]
 
     def get_usage_summary(self, *, days: int = 30, limit_projects: int = 50) -> Dict[str, Any]:

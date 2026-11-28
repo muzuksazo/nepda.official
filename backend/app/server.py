@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from .admin_router import build_admin_router
 from .auth import SESSION_COOKIE_NAME, AuthenticationError, verify_session_token
 from .config import Settings
+from .db_persistence import SqliteStorageSyncer, hydrate_sqlite_from_storage
 from .genai_provider import (
     GenAIMediaProvider,
     bind_vercel_oidc_token,
@@ -86,9 +87,15 @@ def create_app(
     tts_provider: Optional[TTSProvider] = None,
 ) -> FastAPI:
     cfg = settings or Settings()
+    storage_backend = storage or build_storage(cfg)
+    if store is None and project_store is None:
+        hydrate_sqlite_from_storage(cfg.db_path, storage_backend)
     job_store = store or JobStore(cfg.db_path)
     proj_store = project_store or ProjectStore(cfg.db_path)
-    storage_backend = storage or build_storage(cfg)
+    db_syncer = SqliteStorageSyncer(cfg.db_path, storage_backend)
+    if db_syncer.enabled:
+        proj_store.set_on_write(db_syncer.schedule_sync)
+        job_store.set_on_write(db_syncer.schedule_sync)
     hydrate_internal_accounts_from_storage(proj_store, storage_backend)
     hook_a_storage_backend = build_hook_a_storage(cfg, fallback=storage_backend)
     pipeline = ProductionPipeline(
@@ -116,7 +123,10 @@ def create_app(
     @asynccontextmanager
     async def _lifespan(_app: FastAPI):
         recover_orphaned_jobs(job_store, proj_store)
-        yield
+        try:
+            yield
+        finally:
+            db_syncer.flush()
 
     app = FastAPI(title="NAPDA Backend API", version="0.2.0", lifespan=_lifespan)
     allowed_origins = [o.strip() for o in cfg.cors_origins.split(",") if o.strip()]
@@ -128,6 +138,13 @@ def create_app(
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+    @app.middleware("http")
+    async def _sync_sqlite_after_mutation(request: Request, call_next):
+        response = await call_next(request)
+        if db_syncer.enabled and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            db_syncer.schedule_sync()
+        return response
 
     @app.middleware("http")
     async def _capture_vercel_oidc_token(request: Request, call_next):
@@ -146,6 +163,7 @@ def create_app(
     app.state.storage = storage_backend
     app.state.hook_a_storage = hook_a_storage_backend
     app.state.pipeline = pipeline
+    app.state.db_syncer = db_syncer
 
     def require_bearer(authorization: Optional[str] = Header(default=None)) -> None:
         expected = cfg.api_bearer_token
