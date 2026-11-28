@@ -362,8 +362,11 @@ class HookPipeline:
             # 자체 모델: 콘티 스틸컷을 첫 프레임으로 MiniMax 가 장면 클립을 만들고, 조립은 미리 만든 클립처럼 한다
             scenario = self._selfhosted_clips(project, scenario, job_id or out_dir.name, progress)
             refs = []
+            stills: Dict[int, Path] = {}
         else:
             refs = extract_reference_frames(clips, out_dir / "_work" / "refs", media) if clips else []
+            # Gemini 경로도 콘티 스틸컷에서 장면을 시작해, 사용자가 본 콘티와 최종 영상이 같게 한다
+            stills = self._storyboard_stills(scenario, out_dir / "_work" / "stills")
         self._raise_if_cancelled(job_id)
         return render_hook(
             scenario,
@@ -387,7 +390,36 @@ class HookPipeline:
                 str(project["project_id"]), stage, step, path
             ),
             cancel_event=cancel_event,
+            storyboard_stills=stills,
         )
+
+    def _storyboard_stills(self, scenario: Dict[str, Any], work_dir: Path) -> Dict[int, Path]:
+        """콘티 스틸컷을 내려받아 장면 번호 → 파일로 돌려준다. A 는 템플릿 클립을 쓰므로 비워 둔다.
+        못 받은 장면은 빠지고, 그 장면은 예전처럼 글과 참고 이미지로 만든다."""
+        if str(scenario.get("type") or "").upper() == "A":
+            return {}
+        stills: Dict[int, Path] = {}
+        for frame in scenario.get("storyboard_frames") or []:
+            if not isinstance(frame, dict) or not frame.get("object_key"):
+                continue
+            try:
+                order = int(frame.get("beat_order") or 0)
+            except (TypeError, ValueError):
+                continue
+            if order < 1:
+                continue
+            key = str(frame["object_key"])
+            dest = work_dir / f"still{order}{Path(key).suffix or '.png'}"
+            try:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.unlink(missing_ok=True)  # 콘티를 다시 그렸으면 새 그림을 쓴다
+                self.storage.download_file(key, dest)
+            except Exception as exc:
+                logger.warning("콘티 스틸컷을 받지 못했습니다 (%s): %s", key, exc)
+                continue
+            if dest.is_file() and dest.stat().st_size > 0:
+                stills[order] = dest
+        return stills
 
     def _selfhosted(self, scenario: Dict[str, Any]) -> bool:
         if getattr(self.settings, "hook_media_engine", "gemini") != "selfhosted":
