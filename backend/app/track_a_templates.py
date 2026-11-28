@@ -289,51 +289,97 @@ def _storage_prefix(settings: Settings, template_storage: Optional[Any]) -> Opti
     return location[len("storage:") :].strip("/")
 
 
+def _entries_from_catalog_payload(catalog: Dict[str, Any]) -> List[Dict[str, Any]]:
+    entries: List[Dict[str, Any]] = []
+    for tpl in catalog.get("templates") or []:
+        if not isinstance(tpl, dict):
+            continue
+        tid = str(tpl.get("template_id") or "").strip()
+        if not tid:
+            continue
+        beats = [b for b in (tpl.get("beats") or []) if isinstance(b, dict)]
+        first_clip = next(
+            (str(b.get("clip")).strip() for b in beats if str(b.get("clip") or "").strip()),
+            f"{tid}/beat_01.mp4",
+        )
+        dur = sum(float(b.get("duration_sec") or 0.0) for b in beats if b.get("clip"))
+        title = str(tpl.get("hook_title") or tid).strip()
+        rec: Dict[str, Any] = {
+            "id": tid,
+            "filename": f"{tid}.mp4",
+            "title": title,
+            "a_genre_archetype": str(tpl.get("genre") or DEFAULT_GENRE_ARCHETYPE).strip() or DEFAULT_GENRE_ARCHETYPE,
+            "tags": [],
+            "visual_summary": str(tpl.get("abstract_law") or title).strip(),
+            "default_hook_captions": [
+                str(b.get("caption")).strip() for b in beats if str(b.get("caption") or "").strip()
+            ],
+            "enabled": True,
+            "_clip_rel": first_clip.lstrip("/"),
+        }
+        if dur > 0:
+            rec["duration_sec"] = round(dur, 2)
+        entries.append(rec)
+    return entries
+
+
 def _hydrate_from_storage(
     managed_dir: Path,
     settings: Settings,
     template_storage: Optional[Any],
 ) -> bool:
-    """Hydrate managed_dir from remote R2 (`manifest.json` + clips) on cold start if available."""
+    """Hydrate managed_dir from remote R2 (`manifest.json` or `catalog.json` fallback + clips)."""
     prefix = _storage_prefix(settings, template_storage)
     if prefix is None:
         return False
-    manifest_key = f"{prefix}/manifest.json" if prefix else "manifest.json"
     managed_dir.mkdir(parents=True, exist_ok=True)
-    fd, tmp_str = tempfile.mkstemp(prefix=".hydrate_", suffix=".json", dir=str(managed_dir))
-    os.close(fd)
-    tmp_path = Path(tmp_str)
-    try:
-        template_storage.download_file(manifest_key, tmp_path)
-        raw = json.loads(tmp_path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        logger.debug("Track A remote manifest hydration skipped (%s): %s", manifest_key, exc)
-        return False
-    finally:
-        tmp_path.unlink(missing_ok=True)
 
-    if not isinstance(raw, list):
+    def _download_json(key: str) -> Any:
+        fd, tmp_str = tempfile.mkstemp(prefix=".hydrate_", suffix=".json", dir=str(managed_dir))
+        os.close(fd)
+        tmp_path = Path(tmp_str)
+        try:
+            template_storage.download_file(key, tmp_path)
+            return json.loads(tmp_path.read_text(encoding="utf-8-sig"))
+        except Exception as exc:
+            logger.debug("Track A remote hydration read skipped (%s): %s", key, exc)
+            return None
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    manifest_key = f"{prefix}/manifest.json" if prefix else "manifest.json"
+    raw = _download_json(manifest_key)
+    raw_list = raw if isinstance(raw, list) else None
+    if raw_list is None:
+        catalog_key = f"{prefix}/catalog.json" if prefix else "catalog.json"
+        cat = _download_json(catalog_key)
+        if isinstance(cat, dict):
+            raw_list = _entries_from_catalog_payload(cat)
+    if not raw_list:
         return False
 
     hydrated: List[Dict[str, Any]] = []
-    for item in raw:
+    for item in raw_list:
         if not isinstance(item, dict):
             continue
         tid = str(item.get("id") or "").strip()
         fname = Path(str(item.get("filename") or (f"{tid}.mp4" if tid else ""))).name
         if not tid or not fname:
             continue
+        clip_rel = str(item.get("_clip_rel") or f"{tid}/beat_01.mp4").lstrip("/")
         dst_mp4 = (managed_dir / fname).resolve()
         if not dst_mp4.is_file():
-            clip_key = f"{prefix}/{tid}/beat_01.mp4" if prefix else f"{tid}/beat_01.mp4"
+            clip_key = f"{prefix}/{clip_rel}" if prefix else clip_rel
             try:
                 template_storage.download_file(clip_key, dst_mp4)
             except Exception as exc:
                 logger.warning("Failed to hydrate Track A clip %s: %s", clip_key, exc)
-        rec = dict(item)
+        rec = {k: v for k, v in item.items() if k != "_clip_rel"}
         rec["filename"] = fname
         rec.setdefault("enabled", True)
         hydrated.append(rec)
+    if not hydrated:
+        return False
     _write_manifest_atomic(managed_dir, hydrated)
     return True
 

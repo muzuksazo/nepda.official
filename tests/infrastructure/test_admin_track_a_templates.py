@@ -317,6 +317,81 @@ class TestAdminTrackATemplatesAPI(unittest.TestCase):
             cat_after_delete = json.loads(remote.objects["templates/a/catalog.json"].decode("utf-8"))
             self.assertIn("a_dam_tape_3d", {t["template_id"] for t in cat_after_delete["templates"]})
 
+    def test_hydrates_from_remote_catalog_json_fallback_when_manifest_missing(self) -> None:
+        from app.track_a_templates import list_track_a_templates
+
+        class CatalogOnlyRemoteStorage:
+            def __init__(self, objects: dict[str, bytes]) -> None:
+                self.objects = dict(objects)
+
+            def download_file(self, object_key: str, local_path: str | Path) -> str:
+                if object_key not in self.objects:
+                    raise FileNotFoundError(object_key)
+                dest = Path(local_path)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(self.objects[object_key])
+                return str(dest)
+
+        clip_bytes = _make_sample_mp4_bytes(duration=9.5, w=720, h=1280)
+        catalog_only = {
+            "version": 1,
+            "templates": [
+                {
+                    "template_id": "a_fallback_demo",
+                    "abstract_law": "Pure physics law without product words",
+                    "genre": "mock_documentary",
+                    "hook_title": "카탈로그 폴백 테스트 제목",
+                    "beats": [
+                        {
+                            "order": 1,
+                            "role": "어긋난 시작",
+                            "duration_sec": 9.5,
+                            "visual": "physics scene",
+                            "narration": "",
+                            "caption": "첫 번째 자막",
+                            "clip": "a_fallback_demo/beat_01.mp4",
+                        },
+                        {
+                            "order": 2,
+                            "role": "패턴 인터럽트",
+                            "duration_sec": 0.3,
+                            "visual": "정지",
+                            "narration": "",
+                            "caption": "",
+                            "clip": None,
+                        },
+                    ],
+                }
+            ],
+        }
+        remote = CatalogOnlyRemoteStorage(
+            {
+                "templates/a/catalog.json": json.dumps(catalog_only, ensure_ascii=False).encode("utf-8"),
+                "templates/a/a_fallback_demo/beat_01.mp4": clip_bytes,
+            }
+        )
+        with temporary_directory() as td:
+            root = Path(td)
+            settings = Settings(
+                _env_file=None,
+                gemini_api_key="dummy-key",
+                hook_a_templates="storage:templates/a",
+                work_root=str(root / "data" / "jobs"),
+                output_dir=str(root / "data" / "outputs"),
+                db_path=str(root / "data" / "napda.db"),
+            )
+            listed = list_track_a_templates(settings, enabled_only=False, template_storage=remote)
+            self.assertEqual(len(listed), 1)
+            item = listed[0]
+            self.assertEqual(item["id"], "a_fallback_demo")
+            self.assertEqual(item["title"], "카탈로그 폴백 테스트 제목")
+            self.assertEqual(item["a_genre_archetype"], "mock_documentary")
+            self.assertEqual(item["default_hook_captions"], ["첫 번째 자막"])
+            self.assertAlmostEqual(item["duration_sec"], 9.5, delta=0.2)
+            self.assertTrue(item["enabled"])
+            self.assertTrue((root / "data" / "templates" / "track_a" / "manifest.json").is_file())
+            self.assertTrue((root / "data" / "templates" / "track_a" / "a_fallback_demo.mp4").is_file())
+
 
 if __name__ == "__main__":
     unittest.main()
