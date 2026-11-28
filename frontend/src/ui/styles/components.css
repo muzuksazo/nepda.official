@@ -1654,7 +1654,7 @@ textarea.n-input {
   color: var(--text-3);
 }
 
-/* 고른 탭 아래 라임 막대 (작은 신호) */
+/* 고른 탭 아래 검정 막대 (글자색과 같아 다크에서는 흰 막대) */
 .n-tab.is-on::after {
   content: '';
   position: absolute;
@@ -1663,7 +1663,7 @@ textarea.n-input {
   bottom: -1px;
   height: 4px;
   border-radius: 2px 2px 0 0;
-  background: var(--accent-fill);
+  background: var(--text);
 }
 
 .n-tab:focus-visible {
