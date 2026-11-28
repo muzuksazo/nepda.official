@@ -304,8 +304,10 @@ class TestMediaDeliveryAndThumbnails(unittest.TestCase):
                 },
             ).json()["project_id"]
 
-            master_uri = storage.upload_file(src_mp4, f"projects/{pid}/renders/job_cov1/master.mp4")
-            clean_uri = storage.upload_file(clean_mp4, f"projects/{pid}/renders/job_cov1/clean.mp4")
+            master_key = f"projects/{pid}/renders/job_cov1/master.mp4"
+            clean_key = f"projects/{pid}/renders/job_cov1/clean.mp4"
+            storage.upload_file(src_mp4, master_key)
+            storage.upload_file(clean_mp4, clean_key)
             job_store.create_job("job_cov1", pid, {}, status="QC_READY", stage="QC_READY")
             job_store.update_job(
                 "job_cov1",
@@ -316,8 +318,10 @@ class TestMediaDeliveryAndThumbnails(unittest.TestCase):
                         {
                             "variant": "A",
                             "duration": 2.0,
-                            "master_mp4": master_uri,
-                            "clean_mp4": clean_uri,
+                            "master_key": master_key,
+                            "clean_key": clean_key,
+                            "master_mp4": "https://r2.example.com/presigned/master.mp4?X-Amz-Signature=dummy",
+                            "clean_mp4": "https://r2.example.com/presigned/clean.mp4?X-Amz-Signature=dummy",
                             "lufs": {"final_lufs": -14.0},
                         }
                     ]

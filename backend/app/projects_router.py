@@ -2231,9 +2231,9 @@ def build_projects_router(
         video = None
         if first_r:
             lufs_obj = first_r.get("lufs") or {}
-            master_ref = first_r.get("master_mp4")
-            clean_ref = first_r.get("clean_mp4")
-            srt_ref = first_r.get("srt")
+            master_ref = first_r.get("master_key") or first_r.get("master_mp4")
+            clean_ref = first_r.get("clean_key") or first_r.get("clean_mp4")
+            srt_ref = first_r.get("srt_key") or first_r.get("srt")
             with_cover_ref = (
                 stored_thumb.get("video_with_cover_key")
                 if isinstance(stored_thumb, dict)

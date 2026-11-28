@@ -372,11 +372,11 @@ def generate_project_thumbnail(
         if explicit is not None:
             local_candidates.append(explicit)
 
-    # Prefer clean_mp4 (subtitle/watermark-free) BEFORE master_mp4 for crisp cover keyframes
+    # Prefer clean_key / clean_mp4 (subtitle/watermark-free) BEFORE master for crisp cover keyframes
     rendered = ((job or {}).get("artifacts") or {}).get("rendered") or []
     if rendered and isinstance(rendered[0], dict):
         v_local = None
-        for ref_key in ("clean_mp4", "master_mp4"):
+        for ref_key in ("clean_key", "master_key", "clean_mp4", "master_mp4"):
             cand_ref = rendered[0].get(ref_key)
             if cand_ref:
                 v_local = _resolve_local_from_ref(cand_ref, cand_dir / f"{ref_key}.mp4", storage)
@@ -510,7 +510,7 @@ def generate_project_thumbnail(
     video_with_cover_key: Optional[str] = None
     cover_intro_sec: Optional[float] = None
     if rendered and isinstance(rendered[0], dict):
-        master_ref = rendered[0].get("master_mp4")
+        master_ref = rendered[0].get("master_key") or rendered[0].get("master_mp4")
         if master_ref:
             master_local = _resolve_local_from_ref(master_ref, work_dir / "master_src.mp4", storage)
             if master_local is not None:
