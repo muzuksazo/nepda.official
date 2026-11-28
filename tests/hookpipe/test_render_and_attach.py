@@ -436,7 +436,7 @@ class SharedBody(unittest.TestCase):
                 self.assertEqual(done["status"], "QC_READY", done)
                 durations.append(done["video"]["duration_sec"])
             self.assertEqual(len(calls), 1)  # 본편 대본은 한 번만 만들었다 (B·C 공용)
-            self.assertTrue(all(abs(d - 19.0) < 0.5 for d in durations), durations)
+            self.assertTrue(all(abs(d - 21.0) < 0.6 for d in durations), durations)  # 훅 9초 + 공용 본편 10초 + 엔드카드 2초
 
 
 @unittest.skipUnless(TOOLS, "ffmpeg (testsrc·loudnorm 필터 포함)가 필요합니다")
@@ -574,7 +574,7 @@ class ApiFlow(unittest.TestCase):
                          lambda d: d.get("status") in ("QC_READY", "FAILED"))
             self.assertEqual(done["status"], "QC_READY", done)
             video = done["video"]
-            self.assertAlmostEqual(video["duration_sec"], 19.0, delta=0.5)  # 훅 9초 + 공용 본편 10초
+            self.assertAlmostEqual(video["duration_sec"], 21.0, delta=0.6)  # 훅 9초 + 공용 본편 10초 + 엔드카드 2초
             self.assertTrue(video["stream_url"] and video["srt_url"])
             self.assertEqual(client.get(f"/v1/projects/{pid}").json()["status"], "DELIVERABLE_READY")
 

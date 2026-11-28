@@ -328,7 +328,7 @@ def _is_explicit_override(settings: Any, model_override: Optional[str]) -> bool:
     override = str(model_override or "").strip()
     if not override:
         return False
-    if getattr(settings, "_resolved_llm_explicit", False):
+    if getattr(settings, "_resolved_llm_model_explicit", False):
         return True
     # Direct callers (tests/tools) passing model_override without workers.py overlay
     resolved_from_overlay = getattr(settings, "_resolved_llm_model", None)
@@ -371,15 +371,19 @@ def _make_gemini_json_caller(
         from app.genai_provider import build_genai_client
 
         client = build_genai_client(settings)  # 변수에 담아 둔다 (요청 도중 닫히지 않게)
+        budget = int(getattr(settings, "llm_thinking_budget", 1024) or 0)
+        config_kwargs: Dict[str, Any] = {
+            "system_instruction": system,
+            "response_mime_type": "application/json",
+            "response_json_schema": schema,
+        }
+        if budget > 0 and hasattr(types, "ThinkingConfig"):
+            config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=budget)
         t0 = time.monotonic()
         response = client.models.generate_content(
             model=model_id,
             contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                response_mime_type="application/json",
-                response_json_schema=schema,
-            ),
+            config=types.GenerateContentConfig(**config_kwargs),
         )
         elapsed_ms = int((time.monotonic() - t0) * 1000)
         text = getattr(response, "text", None) or ""

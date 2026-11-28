@@ -121,6 +121,7 @@ def _settings_with_llm(
     provider: str,
     model: Optional[str],
     explicit: bool,
+    model_explicit: bool = False,
     on_usage: Optional[Callable[..., None]] = None,
 ) -> Any:
     return _SettingsOverlay(
@@ -128,6 +129,7 @@ def _settings_with_llm(
         _resolved_llm_provider=provider,
         _resolved_llm_model=model,
         _resolved_llm_explicit=explicit,
+        _resolved_llm_model_explicit=model_explicit,
         _on_usage=on_usage,
     )
 
@@ -675,6 +677,7 @@ def make_scenario_generator(
         round_no = int(project.get("scenario_round") or 0) + 1
         ab_override = project.get("_ab_override") or {}
         explicit = bool(ab_override.get("explicit"))
+        model_explicit = bool(str(ab_override.get("model") or "").strip())
         resolved_provider, resolved_model = resolve_worker_llm(
             settings,
             provider=ab_override.get("provider") or provider,
@@ -704,6 +707,7 @@ def make_scenario_generator(
                 provider=resolved_provider,
                 model=resolved_model,
                 explicit=explicit,
+                model_explicit=model_explicit,
                 on_usage=_record_usage if hasattr(project_store, "record_api_usage") else None,
             )
             try:

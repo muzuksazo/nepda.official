@@ -204,6 +204,7 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
             hook_worker_llm="gemini-4-hydrogen",
             _resolved_llm_model="gemini-4-hydrogen",
             _resolved_llm_explicit=True,
+            _resolved_llm_model_explicit=True,
         )
         self.assertEqual(_resolve_planner_model(explicit_overlay, "gemini-4-hydrogen"), "gemini-4-hydrogen")
 
@@ -552,6 +553,218 @@ class TestTrackACriticOrchestrator(unittest.TestCase):
         captions_joined = " ".join(office["default_hook_captions"])
         self.assertNotIn("한 장의 카드", captions_joined)
         self.assertIn("한 장의 서류", captions_joined)
+
+    def test_provider_google_without_explicit_model_keeps_plan_template_on_neon(self) -> None:
+        from hookpipe.workers import make_scenario_generator
+
+        with temporary_directory() as td:
+            lib = _make_catalog_dir(Path(td))
+            settings = Settings(
+                _env_file=None,
+                gemini_api_key="test",
+                hook_a_templates=str(lib),
+                hook_a_ai_landing=False,
+                hook_planner_llm="gemini-4-neon",
+                hook_critic_llm="gemini-4-neon",
+                hook_worker_llm="gemini-4-hydrogen",
+            )
+            store = SimpleNamespace(list_scenarios=lambda _pid: [])
+            responses = [
+                json.dumps(_good_direct_plan(callback="물 새는 파이프에 딱 좋아요!"), ensure_ascii=False),
+                json.dumps(_fail_verdict("C안식 클리셰", "반전 콜백으로 수정"), ensure_ascii=False),
+                json.dumps(_good_direct_plan(), ensure_ascii=False),
+                json.dumps(_pass_verdict(), ensure_ascii=False),
+            ]
+            call_models: List[str] = []
+
+            class FakeModels:
+                def generate_content(self, *, model: str, contents: Any, config: Any) -> Any:
+                    idx = len(call_models) % len(responses)
+                    call_models.append(model)
+                    return SimpleNamespace(text=responses[idx], usage_metadata=None)
+
+            fake_client = SimpleNamespace(models=FakeModels())
+            gen = make_scenario_generator(settings, store, storage=object())
+            base_project = {
+                "project_id": "prj_google_ov",
+                "scenario_round": 0,
+                "product": TAPE_PRODUCT,
+            }
+
+            with patch("app.genai_provider.build_genai_client", return_value=fake_client):
+                # provider="google", explicit=True, model=None -> planner stays gemini-4-neon
+                gen(
+                    {**base_project, "_ab_override": {"provider": "google", "model": None, "explicit": True}},
+                    ["A"],
+                    "google",
+                )
+                self.assertEqual(
+                    call_models,
+                    ["gemini-4-neon", "gemini-4-neon", "gemini-4-hydrogen", "gemini-4-neon"],
+                )
+
+                # Explicit model="gemini-4-hydrogen" overrides plan_template (critic remains Neon)
+                call_models.clear()
+                gen(
+                    {
+                        **base_project,
+                        "_ab_override": {"provider": "google", "model": "gemini-4-hydrogen", "explicit": True},
+                    },
+                    ["A"],
+                    "google",
+                )
+                self.assertEqual(
+                    call_models,
+                    ["gemini-4-hydrogen", "gemini-4-neon", "gemini-4-hydrogen", "gemini-4-neon"],
+                )
+
+    def test_thinking_budget_forwarded_to_thinking_config(self) -> None:
+        from hookpipe.a_templates import PLAN_SCHEMA_DIRECT, _make_gemini_json_caller
+        from hookpipe.body_edit import gemini_script_writer
+
+        captured_configs: List[Any] = []
+
+        class FakeModels:
+            def generate_content(self, *, model: str, contents: Any, config: Any) -> Any:
+                captured_configs.append(config)
+                return SimpleNamespace(text='{"ok": true, "lines": []}', usage_metadata=None)
+
+        fake_client = SimpleNamespace(models=FakeModels())
+        with temporary_directory() as td:
+            frame_path = Path(td) / "f.jpg"
+            frame_path.write_bytes(b"jpg")
+
+            with patch("app.genai_provider.build_genai_client", return_value=fake_client):
+                settings_default = Settings(_env_file=None, gemini_api_key="test")
+                self.assertEqual(settings_default.llm_thinking_budget, 1024)
+                self.assertTrue(settings_default.hook_endcard_enabled)
+                self.assertAlmostEqual(settings_default.hook_endcard_sec, 2.0)
+
+                caller = _make_gemini_json_caller(
+                    settings_default,
+                    model_id="gemini-4-neon",
+                    step_name="plan_template",
+                    schema=PLAN_SCHEMA_DIRECT,
+                )
+                caller("sys", "prompt")
+
+                writer = gemini_script_writer(settings_default)
+                writer("body prompt", [{"clip": 1, "t": 0.5, "path": str(frame_path)}])
+
+                settings_zero = Settings(_env_file=None, gemini_api_key="test", llm_thinking_budget=0)
+                _make_gemini_json_caller(
+                    settings_zero,
+                    model_id="gemini-4-neon",
+                    step_name="plan_template",
+                    schema=PLAN_SCHEMA_DIRECT,
+                )("sys", "prompt")
+                gemini_script_writer(settings_zero)("body prompt", [{"clip": 1, "t": 0.5, "path": str(frame_path)}])
+
+        self.assertEqual(len(captured_configs), 4)
+        self.assertIsNotNone(captured_configs[0].thinking_config)
+        self.assertEqual(captured_configs[0].thinking_config.thinking_budget, 1024)
+        self.assertIsNotNone(captured_configs[1].thinking_config)
+        self.assertEqual(captured_configs[1].thinking_config.thinking_budget, 1024)
+        self.assertIsNone(captured_configs[2].thinking_config)
+        self.assertIsNone(captured_configs[3].thinking_config)
+
+    def test_body_prompt_commercial_cta_offer_and_cache_key(self) -> None:
+        from hookpipe.body_edit import BODY_SCRIPT_SCHEMA, Clip, _body_prompt, body_cache_key, make_body
+
+        # Schema has optional cta_badge
+        self.assertIn("cta_badge", BODY_SCRIPT_SCHEMA["properties"])
+        self.assertNotIn("cta_badge", BODY_SCRIPT_SCHEMA["required"])
+
+        clips = [Clip(index=1, path=Path("clip1.mp4"), duration=12.0, width=1080, height=1920)]
+        prompt_no_offer = _body_prompt(TAPE_PRODUCT, clips, 10.0, opening_callback="죄송해요, 댐에 100겹 감았습니다.")
+        self.assertNotIn("쓰는 장면으로 끝냅니다", prompt_no_offer)
+        self.assertNotIn("과장·없는 기능·가격·할인 금지", prompt_no_offer)
+        self.assertNotIn("가격/혜택(입력된 내용만 사용)", prompt_no_offer)
+        self.assertIn("cta_badge", prompt_no_offer)
+        self.assertIn("Line 1", prompt_no_offer)
+        self.assertIn("Line 2", prompt_no_offer)
+        self.assertIn("Line 3", prompt_no_offer)
+
+        product_with_offer = {**TAPE_PRODUCT, "price_or_offer": "오늘만 1+1 19,900원"}
+        prompt_with_offer = _body_prompt(product_with_offer, clips, 10.0)
+        self.assertIn("가격/혜택(입력된 내용만 사용): 오늘만 1+1 19,900원", prompt_with_offer)
+        self.assertIn("cta_badge", prompt_with_offer)
+
+        with temporary_directory() as td:
+            root = Path(td)
+            clip_file = root / "upload.mp4"
+            clip_file.write_bytes(b"fake-mp4-data")
+            settings = Settings(_env_file=None, gemini_api_key="test")
+
+            k1 = body_cache_key([clip_file], TAPE_PRODUCT, settings, "Kore")
+            k2 = body_cache_key([clip_file], {**TAPE_PRODUCT, "price_or_offer": ""}, settings, "Kore")
+            k3 = body_cache_key([clip_file], product_with_offer, settings, "Kore")
+            k4 = body_cache_key([clip_file], {**TAPE_PRODUCT, "price_or_offer": "무료배송 15,000원"}, settings, "Kore")
+            self.assertNotEqual(k1, k3)
+            self.assertNotEqual(k3, k4)
+            self.assertNotEqual(k2, k3)
+
+            # make_body persists cta_badge into body.json and BodyEditResult.script
+            out_dir = root / "body_out"
+            fake_tools = SimpleNamespace(ffmpeg="ffmpeg", ffprobe="ffprobe", has_filter=lambda _n: False)
+
+            class FakeProvider:
+                tts_extension = ".wav"
+                tts_label = "gemini-tts"
+
+                def generate_tts_beat(self, text: str, path: Path, voice_name: str | None = None) -> None:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(b"wav")
+
+            def fake_run_ffmpeg(_tools: Any, args: List[str], cwd: Path | None = None, timeout: float = 120.0) -> None:
+                target = Path(args[-1])
+                if cwd is not None and not target.is_absolute():
+                    target = cwd / target
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b"media")
+
+            def fake_probe(_tools: Any, path: Any) -> Any:
+                p = Path(path)
+                if p.suffix == ".wav":
+                    return SimpleNamespace(has_video=False, duration=2.5, width=0, height=0)
+                return SimpleNamespace(has_video=True, duration=10.0, width=1080, height=1920)
+
+            script_payload = {
+                "cta_badge": "1+1 19,900원 →",
+                "lines": [
+                    {"narration": "죄송해요, 초강력 방수 테이프입니다.", "caption": "초강력 방수 테이프", "shots": [{"clip": 1, "start": 0.0, "end": 3.0}]},
+                    {"narration": "물 새는 파이프를 즉시 밀봉합니다.", "caption": "파이프 즉시 밀봉", "shots": [{"clip": 1, "start": 3.0, "end": 6.0}]},
+                    {"narration": "초강력 방수 테이프, 오늘만 1+1 프로필 링크에서 확인하세요.", "caption": "프로필 링크 확인", "shots": [{"clip": 1, "start": 6.0, "end": 9.0}]},
+                ],
+            }
+            with (
+                patch("hookpipe.body_edit.probe", side_effect=fake_probe),
+                patch("hookpipe.body_edit.run_ffmpeg", side_effect=fake_run_ffmpeg),
+                patch("hookpipe.body_edit.measure_lufs", return_value=-14.0),
+            ):
+                res = make_body(
+                    [clip_file],
+                    product_with_offer,
+                    out_dir,
+                    provider=FakeProvider(),
+                    settings=settings,
+                    tools=fake_tools,
+                    writer=lambda _p, _f: script_payload,
+                )
+            self.assertEqual(res.script["cta_badge"], "1+1 19,900원 →")
+            saved = json.loads((out_dir / "body.json").read_text(encoding="utf-8"))
+            self.assertEqual(saved["script"]["cta_badge"], "1+1 19,900원 →")
+            res_cached = make_body(
+                [clip_file],
+                product_with_offer,
+                out_dir,
+                provider=FakeProvider(),
+                settings=settings,
+                tools=fake_tools,
+                writer=lambda _p, _f: (_ for _ in ()).throw(AssertionError("should use cache")),
+            )
+            self.assertTrue(res_cached.reused)
+            self.assertEqual(res_cached.script["cta_badge"], "1+1 19,900원 →")
 
 
 if __name__ == "__main__":

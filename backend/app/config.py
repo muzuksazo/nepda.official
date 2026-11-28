@@ -107,6 +107,7 @@ class Settings(BaseSettings):
     # Track A 3단계 오케스트레이터 모델: 기획/비평은 Neon, 포맷·수정·실행은 Hydrogen(hook_worker_llm)
     hook_planner_llm: str = "gemini-4-neon"
     hook_critic_llm: str = "gemini-4-neon"
+    llm_thinking_budget: int = 1024
     # A 템플릿 위치: "storage:<경로>" 면 서버 저장소(R2)의 그 경로, 아니면 로컬 폴더. 형식은 hookpipe/a_templates.py
     hook_a_templates: str = "storage:templates/a"
     # A 템플릿 전용 비공개 Cloudflare R2 (비우면 위 메인 STORAGE_BACKEND 를 그대로 사용)
@@ -117,6 +118,8 @@ class Settings(BaseSettings):
     hook_a_r2_secret_access_key: Optional[str] = None
     hook_a_r2_prefix: str = ""
     hook_bgm_enabled: bool = True
+    hook_endcard_enabled: bool = True
+    hook_endcard_sec: float = 2.0
     hook_audio_location: str = "storage:assets/audio"
     hook_worker_timeout_sec: float = 900.0
     # 시나리오 작업자의 글 모델을 Gemini 로 바꾼다 (예: gemini-4-hydrogen). 비우면 각 트랙 기본(Claude).
