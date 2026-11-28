@@ -30,6 +30,361 @@ from .track_a_templates import (
 from .usage_telemetry import PRICING_VERSION, parse_pricing_overrides, pricing_catalog
 
 
+STAGE_CATALOG: Dict[str, Dict[str, str]] = {
+    "a_template": {
+        "label": "A안 템플릿 매칭",
+        "output_description": "A안 템플릿 선택 · 컷별 대사/자막 기획",
+        "kind": "scenario",
+    },
+    "scenario_a": {
+        "label": "A안 시나리오 기획",
+        "output_description": "A안 시나리오 · 촬영가이드 텍스트",
+        "kind": "scenario",
+    },
+    "scenario_b": {
+        "label": "B안 시나리오 기획",
+        "output_description": "B안 시나리오 · 촬영가이드 텍스트",
+        "kind": "scenario",
+    },
+    "scenario_c": {
+        "label": "C안 시나리오 기획",
+        "output_description": "C안 시나리오 · 촬영가이드 텍스트",
+        "kind": "scenario",
+    },
+    "storyboard": {
+        "label": "콘티 이미지 생성",
+        "output_description": "장면별 9:16 콘티 스틸 이미지 (PNG)",
+        "kind": "image",
+    },
+    "ref_image": {
+        "label": "참고·첫 프레임 이미지",
+        "output_description": "톤·주인공 참고 또는 실사 첫 프레임 이미지 (JPG)",
+        "kind": "image",
+    },
+    "video_clip": {
+        "label": "훅 영상 클립 생성",
+        "output_description": "장면별 AI 생성 훅 영상 클립 (MP4)",
+        "kind": "video",
+    },
+    "tts": {
+        "label": "훅 나레이션 (TTS)",
+        "output_description": "장면별 훅 한국어 음성 오디오",
+        "kind": "audio",
+    },
+    "body_script": {
+        "label": "본편 대본·컷 기획",
+        "output_description": "본편 나레이션 대본 · 자막 · 컷 편집안",
+        "kind": "script",
+    },
+    "body_tts": {
+        "label": "본편 나레이션 (TTS)",
+        "output_description": "본편 줄별 한국어 음성 오디오",
+        "kind": "audio",
+    },
+}
+
+
+def _stage_meta(stage: str) -> Dict[str, str]:
+    info = STAGE_CATALOG.get(str(stage or "").strip())
+    if info:
+        return dict(info)
+    return {
+        "label": str(stage or "unknown"),
+        "output_description": "AI 호출 산출물",
+        "kind": "other",
+    }
+
+
+def _extract_step_number(step_name: Optional[str]) -> Optional[int]:
+    if not step_name:
+        return None
+    m = re.search(r"(\d+)$", str(step_name).strip())
+    return int(m.group(1)) if m else None
+
+
+def _match_event_to_artifact(
+    ev: Dict[str, Any],
+    artifacts: Optional[Dict[str, Any]],
+    *,
+    storage: Optional[Any],
+    settings: Settings,
+) -> Dict[str, Any]:
+    """Match a single API usage telemetry event to its produced output artifact."""
+    stage = str(ev.get("stage") or "").strip()
+    step_name = str(ev.get("step_name") or "").strip()
+    hook_type = (str(ev.get("hook_type") or "").strip().upper()) or None
+    meta = ev.get("metadata") if isinstance(ev.get("metadata"), dict) else {}
+    raw_obj_key = meta.get("object_key")
+    obj_key = raw_obj_key.strip() if isinstance(raw_obj_key, str) and raw_obj_key.strip() else None
+
+    resolved_preview = _resolve_admin_media(obj_key, storage=storage, settings=settings) if obj_key else None
+    resolved_dl = (
+        _resolve_admin_media(obj_key, storage=storage, settings=settings, download=True) if obj_key else None
+    )
+
+    step_num = _extract_step_number(step_name)
+    stage_info = _stage_meta(stage)
+    kind = stage_info["kind"]
+
+    all_scenarios = [s for s in ((artifacts or {}).get("scenarios") or []) if isinstance(s, dict)]
+    if hook_type:
+        cand_scenarios = [s for s in all_scenarios if str(s.get("type") or "").upper() == hook_type] or all_scenarios
+    else:
+        cand_scenarios = all_scenarios
+
+    all_hooks = [h for h in ((artifacts or {}).get("hooks") or []) if isinstance(h, dict)]
+    cand_scn_ids = {s.get("scenario_id") for s in cand_scenarios if s.get("scenario_id")}
+    matched_hooks = [h for h in all_hooks if h.get("scenario_id") in cand_scn_ids] or all_hooks
+    matched_hook = matched_hooks[0] if matched_hooks else None
+
+    def _result(
+        *,
+        label: str,
+        media_type: str,
+        preview_url: Optional[str] = None,
+        download_url: Optional[str] = None,
+        text_preview: Optional[str] = None,
+        is_exact: bool = False,
+    ) -> Dict[str, Any]:
+        return {
+            "kind": kind,
+            "label": label,
+            "media_type": media_type,
+            "preview_url": preview_url,
+            "download_url": download_url,
+            "text_preview": text_preview,
+            "object_key": obj_key,
+            "is_exact": is_exact,
+        }
+
+    if stage == "storyboard":
+        matched_frame: Optional[Dict[str, Any]] = None
+        for scn in cand_scenarios:
+            for fr in scn.get("storyboard_frames") or []:
+                if not isinstance(fr, dict):
+                    continue
+                if step_num is not None and fr.get("beat_order") == step_num:
+                    matched_frame = fr
+                    break
+            if matched_frame is not None:
+                break
+        label = f"{step_num}번 컷 콘티 이미지" if step_num is not None else "콘티 이미지"
+        caption = (
+            (matched_frame.get("caption") if matched_frame else None)
+            or (str(meta.get("prompt") or "").strip()[:240] or None)
+        )
+        if resolved_preview:
+            return _result(
+                label=label,
+                media_type="image",
+                preview_url=resolved_preview,
+                download_url=resolved_dl,
+                text_preview=caption,
+                is_exact=True,
+            )
+        if matched_frame and matched_frame.get("image_url"):
+            return _result(
+                label=label,
+                media_type="image",
+                preview_url=matched_frame.get("image_url"),
+                text_preview=caption,
+                is_exact=True,
+            )
+        return _result(label=label, media_type="text", text_preview=caption, is_exact=False)
+
+    if stage == "ref_image":
+        if step_name == "style_ref":
+            label = "톤·주인공 참고 이미지"
+        elif step_num is not None:
+            label = f"{step_num}번 장면 첫 프레임 참고 이미지"
+        else:
+            label = "참고 이미지"
+        prompt_text = str(meta.get("prompt") or "").strip()[:240] or None
+        if resolved_preview:
+            return _result(
+                label=label,
+                media_type="image",
+                preview_url=resolved_preview,
+                download_url=resolved_dl,
+                text_preview=prompt_text,
+                is_exact=True,
+            )
+        if matched_hook and matched_hook.get("video_url"):
+            return _result(
+                label="참고 이미지 (훅 영상 생성에 사용)",
+                media_type="video",
+                preview_url=matched_hook.get("video_url"),
+                text_preview=prompt_text,
+                is_exact=False,
+            )
+        return _result(label=label, media_type="text", text_preview=prompt_text, is_exact=False)
+
+    if stage == "video_clip":
+        base_label = f"{step_num}번 장면 AI 영상 클립" if step_num is not None else "훅 AI 영상 클립"
+        meta_parts = []
+        if meta.get("clip_sec") is not None:
+            meta_parts.append(f"{meta.get('clip_sec')}s")
+        if meta.get("resolution"):
+            meta_parts.append(str(meta.get("resolution")))
+        label = f"{base_label} ({' · '.join(meta_parts)})" if meta_parts else base_label
+        prompt_text = str(meta.get("prompt") or "").strip()[:240] or None
+        if resolved_preview:
+            return _result(
+                label=label,
+                media_type="video",
+                preview_url=resolved_preview,
+                download_url=resolved_dl,
+                text_preview=prompt_text,
+                is_exact=True,
+            )
+        fallback_video = (matched_hook or {}).get("video_url") or (
+            ((artifacts or {}).get("final_video") or {}).get("stream_url")
+        )
+        if fallback_video:
+            fb_label = (
+                f"{step_num}번 장면 AI 영상 (훅 영상에 합성됨)"
+                if step_num is not None
+                else "AI 영상 (훅 영상에 합성됨)"
+            )
+            return _result(
+                label=fb_label,
+                media_type="video",
+                preview_url=fallback_video,
+                text_preview=prompt_text,
+                is_exact=False,
+            )
+        return _result(label=label, media_type="text", text_preview=prompt_text, is_exact=False)
+
+    if stage == "tts":
+        label = f"{step_num}번 장면 훅 나레이션 TTS" if step_num is not None else "훅 나레이션 TTS"
+        voice = str(meta.get("voice") or "").strip()
+        txt = str(meta.get("text") or "").strip()
+        text_preview = f"[{voice}] {txt}" if (voice and txt) else (txt or None)
+        if resolved_preview:
+            return _result(
+                label=label,
+                media_type="audio",
+                preview_url=resolved_preview,
+                download_url=resolved_dl,
+                text_preview=text_preview,
+                is_exact=True,
+            )
+        if matched_hook and matched_hook.get("audio_url"):
+            fb_label = (
+                f"{step_num}번 장면 TTS (훅 통합 오디오)" if step_num is not None else "훅 통합 TTS 오디오"
+            )
+            return _result(
+                label=fb_label,
+                media_type="audio",
+                preview_url=matched_hook.get("audio_url"),
+                text_preview=text_preview,
+                is_exact=False,
+            )
+        return _result(label=label, media_type="text", text_preview=text_preview, is_exact=False)
+
+    if stage == "body_tts":
+        label = f"본편 {step_num}번 줄 나레이션 TTS" if step_num is not None else "본편 나레이션 TTS"
+        voice = str(meta.get("voice") or "").strip()
+        txt = str(meta.get("text") or "").strip()
+        text_preview = f"[{voice}] {txt}" if (voice and txt) else (txt or None)
+        if resolved_preview:
+            return _result(
+                label=label,
+                media_type="audio",
+                preview_url=resolved_preview,
+                download_url=resolved_dl,
+                text_preview=text_preview,
+                is_exact=True,
+            )
+        body_art = (artifacts or {}).get("body") or {}
+        if body_art.get("audio_url"):
+            return _result(
+                label=label,
+                media_type="audio",
+                preview_url=body_art.get("audio_url"),
+                text_preview=text_preview,
+                is_exact=False,
+            )
+        if body_art.get("video_url"):
+            return _result(
+                label=f"{label} (본편 영상에 합성)",
+                media_type="video",
+                preview_url=body_art.get("video_url"),
+                text_preview=text_preview,
+                is_exact=False,
+            )
+        return _result(label=label, media_type="text", text_preview=text_preview, is_exact=False)
+
+    if stage == "body_script":
+        body_art = (artifacts or {}).get("body") or {}
+        lines = (body_art.get("script") or {}).get("lines") or []
+        snippets = [
+            str(ln.get("narration") or ln.get("caption") or "").strip()
+            for ln in lines
+            if isinstance(ln, dict) and (ln.get("narration") or ln.get("caption"))
+        ][:3]
+        text_preview = (
+            " / ".join(snippets)
+            if snippets
+            else (str(meta.get("response_preview") or "").strip()[:300] or None)
+        )
+        vid_url = body_art.get("video_url")
+        srt_url = body_art.get("srt_url")
+        return _result(
+            label="본편 대본 · 컷 편집안",
+            media_type="video" if vid_url else "text",
+            preview_url=vid_url,
+            download_url=srt_url,
+            text_preview=text_preview,
+            is_exact=bool(body_art),
+        )
+
+    if stage in ("a_template", "scenario_a", "scenario_b", "scenario_c"):
+        letter = (
+            "A"
+            if stage in ("a_template", "scenario_a")
+            else ("B" if stage == "scenario_b" else ("C" if stage == "scenario_c" else hook_type))
+        )
+        letter_scns = (
+            [s for s in all_scenarios if str(s.get("type") or "").upper() == letter] if letter else cand_scenarios
+        ) or cand_scenarios
+        titles = [str(s.get("hook_title")) for s in letter_scns if s.get("hook_title")]
+        if not titles and isinstance(meta.get("hook_titles"), list):
+            titles = [str(t) for t in meta["hook_titles"] if t]
+        first_sc = letter_scns[0] if letter_scns else None
+        if letter and titles:
+            label = f"{letter}안 시나리오: {titles[0]}"
+        elif letter:
+            label = f"{letter}안 시나리오 기획"
+        else:
+            label = stage_info["label"]
+        parts = []
+        if titles and len(titles) > 1:
+            parts.append("후보: " + " / ".join(titles[:3]))
+        if first_sc and first_sc.get("hook_summary"):
+            parts.append(str(first_sc["hook_summary"]))
+        elif first_sc and first_sc.get("beats"):
+            parts.append(f"{len(first_sc['beats'])}컷 구성")
+        elif meta.get("response_preview"):
+            parts.append(str(meta["response_preview"])[:260])
+        return _result(
+            label=label,
+            media_type="text",
+            text_preview=" · ".join(parts) if parts else None,
+            is_exact=True,
+        )
+
+    fallback_text = str(meta.get("prompt") or meta.get("text") or meta.get("response_preview") or "").strip()[:260]
+    return _result(
+        label=stage_info["label"],
+        media_type="text",
+        text_preview=fallback_text or None,
+        is_exact=bool(resolved_preview),
+        preview_url=resolved_preview,
+        download_url=resolved_dl,
+    )
+
+
 def _parse_multipart_bytes(
     content_type: str,
     body: bytes,
@@ -374,6 +729,17 @@ def build_admin_router(
         admin: Dict[str, Any] = Depends(require_admin),
     ) -> Dict[str, Any]:
         summary = project_store.get_usage_summary(days=days, limit_projects=limit)
+        enriched_stages = []
+        for row in summary.get("by_stage") or []:
+            st_meta = _stage_meta(row.get("stage", ""))
+            enriched_stages.append(
+                {
+                    **row,
+                    "stage_label": st_meta["label"],
+                    "output_description": st_meta["output_description"],
+                }
+            )
+        summary = {**summary, "by_stage": enriched_stages}
         overrides = parse_pricing_overrides(settings.usage_pricing_overrides_json)
         return {
             **summary,
@@ -404,8 +770,53 @@ def build_admin_router(
             storage=storage,
             settings=settings,
         )
+        raw_events = detail.get("events") or []
+        enriched_events = []
+        stage_agg: Dict[str, Dict[str, Any]] = {}
+        for ev in raw_events:
+            st_key = str(ev.get("stage") or "")
+            st_meta = _stage_meta(st_key)
+            matched_artifact = _match_event_to_artifact(
+                ev,
+                artifacts,
+                storage=storage,
+                settings=settings,
+            )
+            enriched_events.append(
+                {
+                    **ev,
+                    "stage_label": st_meta["label"],
+                    "output_description": st_meta["output_description"],
+                    "matched_artifact": matched_artifact,
+                }
+            )
+            bucket = stage_agg.setdefault(
+                st_key,
+                {
+                    "stage": st_key,
+                    "stage_label": st_meta["label"],
+                    "output_description": st_meta["output_description"],
+                    "calls": 0,
+                    "cache_hits": 0,
+                    "estimated_cost_usd": 0.0,
+                },
+            )
+            bucket["calls"] += 1
+            if ev.get("cache_hit"):
+                bucket["cache_hits"] += 1
+            if ev.get("estimated_cost_usd") is not None:
+                bucket["estimated_cost_usd"] = round(
+                    bucket["estimated_cost_usd"] + float(ev["estimated_cost_usd"]), 6
+                )
+        stage_breakdown = sorted(
+            stage_agg.values(),
+            key=lambda row: (row["estimated_cost_usd"], row["calls"]),
+            reverse=True,
+        )
         return {
             **detail,
+            "events": enriched_events,
+            "stage_breakdown": stage_breakdown,
             "artifacts": artifacts,
             "usd_krw_rate": settings.usd_krw_rate,
             "admin_actor": admin["actor"],

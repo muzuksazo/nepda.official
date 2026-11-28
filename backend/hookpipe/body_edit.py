@@ -403,6 +403,7 @@ def make_body(
     tts_ext = getattr(provider, "tts_extension", ".wav")
     voice_name = voice or getattr(settings, "tts_default_voice", None)
     on_usage = getattr(settings, "_on_usage", None)
+    publish_artifact = getattr(settings, "_publish_artifact", None)
     tts_label = getattr(provider, "tts_label", "") or getattr(settings, "tts_model", "")
     tts_provider_name = "inworld" if str(tts_label).startswith("inworld:") else "google"
     tts_model_name = (
@@ -421,6 +422,15 @@ def make_body(
             raise
         finally:
             if callable(on_usage):
+                obj_key: Optional[str] = None
+                if tts_status == "ok" and callable(publish_artifact) and audio.is_file():
+                    try:
+                        obj_key = publish_artifact("body_tts", f"line_{index}", audio)
+                    except Exception:
+                        obj_key = None
+                ev_meta: Dict[str, Any] = {"text": str(line["narration"])[:300], "voice": str(voice_name or "")}
+                if obj_key:
+                    ev_meta["object_key"] = obj_key
                 on_usage(
                     stage="body_tts",
                     step_name=f"line_{index}",
@@ -431,7 +441,7 @@ def make_body(
                     cache_hit=False,
                     latency_ms=int((time.monotonic() - t_tts) * 1000),
                     status=tts_status,
-                    metadata={"text": str(line["narration"])[:300], "voice": str(voice_name or "")},
+                    metadata=ev_meta,
                 )
         line["audio"] = audio
         line["voice_sec"] = probe(tools, audio).duration

@@ -351,6 +351,21 @@ FIRST_FRAME_NOTE = (
 )
 
 
+def _publish_artifact_safe(
+    publish_artifact: Optional[Callable[[str, str, Path], Optional[str]]],
+    stage: str,
+    step_name: str,
+    path: Path,
+) -> Optional[str]:
+    if not callable(publish_artifact) or not _ready(path):
+        return None
+    try:
+        key = publish_artifact(stage, step_name, path)
+        return str(key) if key else None
+    except Exception:
+        return None
+
+
 def _first_frame_from_layout(
     plan: BeatPlan,
     provider: Any,
@@ -360,6 +375,7 @@ def _first_frame_from_layout(
     record_usage: Callable[..., None],
     warnings: List[str],
     image_model_name: str,
+    publish_artifact: Optional[Callable[[str, str, Path], Optional[str]]] = None,
 ) -> Optional[Path]:
     """구도 참고 이미지 → 같은 구도의 실사 첫 프레임. 장면에 `first_frame_refine: false` 가 있으면 고치지 않고 그대로 쓴다.
     실패하면 None 을 돌려주고(경고만 남김) 그 장면은 보통 방식으로 만든다."""
@@ -373,11 +389,15 @@ def _first_frame_from_layout(
     prompt = str(plan.beat.get("first_frame_prompt") or "").strip() or DEFAULT_FIRST_FRAME_PROMPT
     candidate = cache / f"first_{_digest(prompt, getattr(settings, 'image_model', ''), _file_digest(source))}.jpg"
     usage = dict(stage="ref_image", step_name=f"first_frame_{plan.order}", provider="google", model=image_model_name,
-                 media_unit="image", media_qty=1.0, metadata={"prompt": prompt[:500]})
+                 media_unit="image", media_qty=1.0)
     try:
         if _ready(candidate):
             plan.reused.append("first_frame")
-            record_usage(**usage, cache_hit=True, latency_ms=0)
+            meta: Dict[str, Any] = {"prompt": prompt[:500]}
+            obj_key = _publish_artifact_safe(publish_artifact, "ref_image", f"first_frame_{plan.order}", candidate)
+            if obj_key:
+                meta["object_key"] = obj_key
+            record_usage(**usage, cache_hit=True, latency_ms=0, metadata=meta)
         else:
             started = time.monotonic()
             status = "ok"
@@ -393,7 +413,15 @@ def _first_frame_from_layout(
                 status = "error"
                 raise
             finally:
-                record_usage(**usage, cache_hit=False, latency_ms=int((time.monotonic() - started) * 1000), status=status)
+                meta = {"prompt": prompt[:500]}
+                if status == "ok":
+                    obj_key = _publish_artifact_safe(
+                        publish_artifact, "ref_image", f"first_frame_{plan.order}", candidate
+                    )
+                    if obj_key:
+                        meta["object_key"] = obj_key
+                record_usage(**usage, cache_hit=False, latency_ms=int((time.monotonic() - started) * 1000),
+                             status=status, metadata=meta)
         if _ready(candidate):
             return _normalize_reference(candidate, media)
     except Exception as exc:  # 첫 프레임은 구도 보조라, 실패해도 클립 생성은 계속한다
@@ -713,6 +741,7 @@ def render_hook(
     resolve_asset: Optional[Callable[[str], Optional[Path]]] = None,
     progress: Optional[Callable[[str], None]] = None,
     on_usage: Optional[Callable[..., None]] = None,
+    publish_artifact: Optional[Callable[[str, str, Path], Optional[str]]] = None,
     cancel_event: Optional[threading.Event] = None,
 ) -> HookRenderResult:
     """훅 하나를 만든다. provider 는 `app.genai_provider.GenAIMediaProvider` (또는 같은 모양의 대역).
@@ -798,11 +827,14 @@ def render_hook(
             out_path = cache / f"tts_{_digest(text, voice_name, tts_label)}{tts_ext}"
             if _ready(out_path):
                 plan.reused.append("tts")
+                tts_meta: Dict[str, Any] = {"text": text[:300], "voice": str(voice_name or "")}
+                obj_key = _publish_artifact_safe(publish_artifact, "tts", f"beat_{order}", out_path)
+                if obj_key:
+                    tts_meta["object_key"] = obj_key
                 with usage_lock:
                     record_usage(stage="tts", step_name=f"beat_{order}", provider=tts_provider_name,
                                  model=tts_model_name, media_unit="char", media_qty=float(len(text)),
-                                 cache_hit=True, latency_ms=0,
-                                 metadata={"text": text[:300], "voice": str(voice_name or "")})
+                                 cache_hit=True, latency_ms=0, metadata=tts_meta)
                 return out_path
             t_tts = time.monotonic()
             tts_status = "ok"
@@ -812,12 +844,16 @@ def render_hook(
                 tts_status = "error"
                 raise
             finally:
+                tts_meta = {"text": text[:300], "voice": str(voice_name or "")}
+                if tts_status == "ok":
+                    obj_key = _publish_artifact_safe(publish_artifact, "tts", f"beat_{order}", out_path)
+                    if obj_key:
+                        tts_meta["object_key"] = obj_key
                 with usage_lock:
                     record_usage(stage="tts", step_name=f"beat_{order}", provider=tts_provider_name,
                                  model=tts_model_name, media_unit="char", media_qty=float(len(text)),
                                  cache_hit=False, latency_ms=int((time.monotonic() - t_tts) * 1000),
-                                 status=tts_status,
-                                 metadata={"text": text[:300], "voice": str(voice_name or "")})
+                                 status=tts_status, metadata=tts_meta)
             return out_path
 
         def _narrate(plan: BeatPlan) -> Optional[Path]:
@@ -870,6 +906,10 @@ def render_hook(
         candidate = cache / f"style_{_digest(ref_prompt, getattr(settings, 'image_model', ''))}.jpg"
         try:
             if _ready(candidate):
+                ref_meta: Dict[str, Any] = {"prompt": ref_prompt[:500]}
+                obj_key = _publish_artifact_safe(publish_artifact, "ref_image", "style_ref", candidate)
+                if obj_key:
+                    ref_meta["object_key"] = obj_key
                 record_usage(
                     stage="ref_image",
                     step_name="style_ref",
@@ -879,7 +919,7 @@ def render_hook(
                     media_qty=1.0,
                     cache_hit=True,
                     latency_ms=0,
-                    metadata={"prompt": ref_prompt[:500]},
+                    metadata=ref_meta,
                 )
             else:
                 t_ref = time.monotonic()
@@ -900,6 +940,11 @@ def render_hook(
                     ref_status = "error"
                     raise
                 finally:
+                    ref_meta = {"prompt": ref_prompt[:500]}
+                    if ref_status == "ok":
+                        obj_key = _publish_artifact_safe(publish_artifact, "ref_image", "style_ref", candidate)
+                        if obj_key:
+                            ref_meta["object_key"] = obj_key
                     record_usage(
                         stage="ref_image",
                         step_name="style_ref",
@@ -910,7 +955,7 @@ def render_hook(
                         cache_hit=False,
                         latency_ms=int((time.monotonic() - t_ref) * 1000),
                         status=ref_status,
-                        metadata={"prompt": ref_prompt[:500]},
+                        metadata=ref_meta,
                     )
             if _ready(candidate):
                 style_ref = _normalize_reference(candidate, media)
@@ -947,7 +992,8 @@ def render_hook(
         first_frame: Optional[Path] = None
         if plan.first_frame_src is not None:
             first_frame = _first_frame_from_layout(
-                plan, provider, settings, cache, media, record_usage, warnings, image_model_name
+                plan, provider, settings, cache, media, record_usage, warnings, image_model_name,
+                publish_artifact=publish_artifact,
             )
         if first_frame is not None:
             plan.prompt += "\n" + FIRST_FRAME_NOTE
@@ -965,6 +1011,14 @@ def render_hook(
         clip = cache / f"clip_{key}.mp4"
         if _ready(clip):
             plan.reused.append("clip")
+            clip_meta: Dict[str, Any] = {
+                "prompt": plan.prompt[:500],
+                "clip_sec": plan.clip_sec,
+                "resolution": resolution,
+            }
+            obj_key = _publish_artifact_safe(publish_artifact, "video_clip", f"beat_{plan.order}", clip)
+            if obj_key:
+                clip_meta["object_key"] = obj_key
             record_usage(
                 stage="video_clip",
                 step_name=f"beat_{plan.order}",
@@ -974,7 +1028,7 @@ def render_hook(
                 media_qty=float(plan.clip_sec),
                 cache_hit=True,
                 latency_ms=0,
-                metadata={"prompt": plan.prompt[:500], "clip_sec": plan.clip_sec, "resolution": resolution},
+                metadata=clip_meta,
             )
         else:
             t_clip = time.monotonic()
@@ -992,6 +1046,15 @@ def render_hook(
                 clip_status = "error"
                 raise
             finally:
+                clip_meta = {
+                    "prompt": plan.prompt[:500],
+                    "clip_sec": plan.clip_sec,
+                    "resolution": resolution,
+                }
+                if clip_status == "ok":
+                    obj_key = _publish_artifact_safe(publish_artifact, "video_clip", f"beat_{plan.order}", clip)
+                    if obj_key:
+                        clip_meta["object_key"] = obj_key
                 record_usage(
                     stage="video_clip",
                     step_name=f"beat_{plan.order}",
@@ -1002,7 +1065,7 @@ def render_hook(
                     cache_hit=False,
                     latency_ms=int((time.monotonic() - t_clip) * 1000),
                     status=clip_status,
-                    metadata={"prompt": plan.prompt[:500], "clip_sec": plan.clip_sec, "resolution": resolution},
+                    metadata=clip_meta,
                 )
             if tag:
                 plan.reused.append(tag)

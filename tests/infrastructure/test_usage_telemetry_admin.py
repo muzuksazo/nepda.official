@@ -23,6 +23,7 @@ from app.project_store import ProjectStore  # noqa: E402
 from app.server import create_app  # noqa: E402
 from app.usage_telemetry import estimate_cost_usd, parse_pricing_overrides, pricing_catalog  # noqa: E402
 from hookpipe.body_edit import make_body  # noqa: E402
+from hookpipe.render import render_hook  # noqa: E402
 from hookpipe.workers import _SettingsOverlay, make_scenario_generator, run_worker_c  # noqa: E402
 from tests.support.hookpipe import FakeMediaProvider, fake_body_writer, make_video, tools_or_none, worker_scenario  # noqa: E402
 from tests.support.tempdirs import temporary_directory  # noqa: E402
@@ -215,6 +216,81 @@ class TestUsageTelemetryAndAdmin(unittest.TestCase):
             self.assertAlmostEqual(summary["totals"]["estimated_cost_usd"], 0.022, places=6)
             self.assertEqual(summary["recent_projects"][0]["project_id"], pid)
             self.assertEqual(summary["usd_krw_rate"], 1400.0)
+            by_stage = {row["stage"]: row for row in summary["by_stage"]}
+            self.assertEqual(by_stage["scenario_c"]["stage_label"], "C안 시나리오 기획")
+            self.assertTrue(by_stage["scenario_c"]["output_description"])
+            self.assertEqual(by_stage["video_clip"]["stage_label"], "훅 영상 클립 생성")
+
+            # Add storyboard (with object_key), tts (with object_key), video_clip (with object_key),
+            # plus a hook artifact so video_clip without object_key exercises fallback matching.
+            store.create_hook(
+                hook_id="hook_match_01",
+                project_id=pid,
+                user_id=normal_user.user_id,
+                scenario_id=generated[0]["scenario_id"],
+                job_id="job_match_01",
+                tts={"enabled": True, "voice": "test"},
+                output_dir=str(root / "hook_out"),
+                status="done",
+            )
+            store.update_hook(
+                "hook_match_01",
+                files={"hook_video": f"projects/{pid}/hooks/hook_match_01/hook.mp4"},
+            )
+            store.record_api_usage(
+                project_id=pid,
+                user_id=normal_user.user_id,
+                hook_type="C",
+                stage="storyboard",
+                step_name="frame_01",
+                provider="google",
+                model="gemini-nano-banana-2.1",
+                media_unit="image",
+                media_qty=1.0,
+                estimated_cost_usd=0.0336,
+                unit_price_label="$0.0336 / image",
+                metadata={
+                    "prompt": "frame prompt",
+                    "object_key": f"projects/{pid}/storyboards/sc_tel_c/frame_01.png",
+                },
+            )
+            store.record_api_usage(
+                project_id=pid,
+                user_id=normal_user.user_id,
+                hook_type="C",
+                stage="video_clip",
+                step_name="beat_2",
+                provider="google",
+                model="gemini-omni-flash-preview",
+                media_unit="sec",
+                media_qty=4.0,
+                estimated_cost_usd=0.4,
+                unit_price_label="$0.1 / sec",
+                metadata={
+                    "prompt": "clip prompt",
+                    "clip_sec": 4,
+                    "resolution": "720p",
+                    "object_key": f"projects/{pid}/usage_artifacts/video_clip/beat_2_abc123.mp4",
+                },
+            )
+            store.record_api_usage(
+                project_id=pid,
+                user_id=normal_user.user_id,
+                hook_type="C",
+                stage="tts",
+                step_name="beat_1",
+                provider="inworld",
+                model="inworld-tts-2",
+                media_unit="char",
+                media_qty=20.0,
+                estimated_cost_usd=0.0005,
+                unit_price_label="$25 / 1M char",
+                metadata={
+                    "text": "이건 정말 신세계에요",
+                    "voice": "test",
+                    "object_key": f"projects/{pid}/usage_artifacts/tts/beat_1_abc123.mp3",
+                },
+            )
 
             # 4) API_BEARER_TOKEN also allowed for project drill-down
             det_res = client.get(
@@ -224,15 +300,92 @@ class TestUsageTelemetryAndAdmin(unittest.TestCase):
             self.assertEqual(det_res.status_code, 200, det_res.text)
             detail = det_res.json()
             self.assertEqual(detail["project"]["product_name"], "60분 비주얼 타이머")
-            self.assertEqual(len(detail["events"]), 2)
-            self.assertEqual(detail["events"][0]["stage"], "scenario_c")
-            self.assertEqual(detail["events"][0]["model"], "claude-sonnet-5-5")
-            self.assertIn("hook_titles", detail["events"][0]["metadata"])
+            self.assertEqual(len(detail["events"]), 5)
+            by_key = {(e["stage"], e.get("step_name")): e for e in detail["events"]}
+            self.assertEqual(by_key[("scenario_c", "scenarios")]["stage_label"], "C안 시나리오 기획")
+            self.assertIn("hook_titles", by_key[("scenario_c", "scenarios")]["metadata"])
+
+            scn_match = by_key[("scenario_c", "scenarios")]["matched_artifact"]
+            self.assertEqual(scn_match["media_type"], "text")
+            self.assertTrue(scn_match["is_exact"])
+            self.assertIn("C안 시나리오", scn_match["label"])
+
+            sb_match = by_key[("storyboard", "frame_01")]["matched_artifact"]
+            self.assertEqual(sb_match["media_type"], "image")
+            self.assertTrue(sb_match["is_exact"])
+            self.assertTrue(sb_match["preview_url"])
+
+            vc_exact = by_key[("video_clip", "beat_2")]["matched_artifact"]
+            self.assertEqual(vc_exact["media_type"], "video")
+            self.assertTrue(vc_exact["is_exact"])
+            self.assertIn("/v1/media", vc_exact["preview_url"])
+
+            vc_fb = by_key[("video_clip", "beat_1")]["matched_artifact"]
+            self.assertEqual(vc_fb["media_type"], "video")
+            self.assertFalse(vc_fb["is_exact"])
+            self.assertIn("/v1/media", vc_fb["preview_url"])
+
+            tts_match = by_key[("tts", "beat_1")]["matched_artifact"]
+            self.assertEqual(tts_match["media_type"], "audio")
+            self.assertTrue(tts_match["is_exact"])
+            self.assertIn("이건 정말 신세계에요", tts_match["text_preview"])
+
+            sb_chips = {s["stage"]: s for s in detail["stage_breakdown"]}
+            self.assertEqual(sb_chips["video_clip"]["calls"], 2)
+            self.assertEqual(sb_chips["video_clip"]["cache_hits"], 1)
+            self.assertAlmostEqual(sb_chips["video_clip"]["estimated_cost_usd"], 0.4, places=6)
+
             self.assertIsNotNone(detail["artifacts"])
             self.assertEqual(detail["artifacts"]["product"]["name"], "60분 비주얼 타이머")
             self.assertEqual(len(detail["artifacts"]["scenarios"]), 1)
             self.assertTrue(detail["artifacts"]["scenarios"][0]["scenario_id"].startswith("sc_tel_c"))
             self.assertGreaterEqual(len(detail["artifacts"]["scenarios"][0]["beats"]), 1)
+
+    @unittest.skipUnless(tools_or_none() is not None, "ffmpeg required")
+    def test_render_hook_publish_artifact_attaches_object_keys(self) -> None:
+        tools = tools_or_none()
+        assert tools is not None
+        with temporary_directory() as td:
+            root = Path(td)
+            provider = FakeMediaProvider(tools)
+            settings = Settings(
+                _env_file=None,
+                gemini_api_key="dummy-key",
+                work_root=str(root / "work"),
+                output_dir=str(root / "outputs"),
+                db_path=str(root / "napda.db"),
+                image_model="gemini-nano-banana-2.1",
+                video_model="gemini-omni-flash-preview",
+            )
+            scenario = worker_scenario("C", "sc_pub_01")
+            events: list[dict] = []
+            published: list[tuple[str, str, str]] = []
+
+            def _publish(stage: str, step_name: str, path: Path) -> str:
+                key = f"projects/prj_pub/usage_artifacts/{stage}/{step_name}{path.suffix}"
+                published.append((stage, step_name, key))
+                return key
+
+            render_hook(
+                scenario,
+                {"name": "60분 비주얼 타이머", "verified_facts": ["60분형 아날로그 타이머"]},
+                root / "hook_out",
+                provider=provider,
+                settings=settings,
+                tools=tools,
+                on_usage=lambda **kw: events.append(kw),
+                publish_artifact=_publish,
+            )
+            by_stage: dict[str, list[dict]] = {}
+            for ev in events:
+                by_stage.setdefault(ev["stage"], []).append(ev)
+            self.assertTrue(by_stage.get("tts"))
+            self.assertTrue(all((e.get("metadata") or {}).get("object_key") for e in by_stage["tts"]))
+            self.assertTrue(by_stage.get("ref_image"))
+            self.assertTrue(all((e.get("metadata") or {}).get("object_key") for e in by_stage["ref_image"]))
+            self.assertTrue(by_stage.get("video_clip"))
+            self.assertTrue(all((e.get("metadata") or {}).get("object_key") for e in by_stage["video_clip"]))
+            self.assertGreaterEqual(len(published), 3)
 
     @unittest.skipUnless(tools_or_none() is not None, "ffmpeg required")
     def test_make_body_records_body_tts_usage(self) -> None:

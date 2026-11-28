@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
-import { customFetch } from '../api/mutator';
+import { NapdaApiError, customFetch } from '../api/mutator';
 import type { ThemeSetting } from '../ui/NapdaProvider';
 import { AdminAccountsPanel } from './AdminAccountsPanel';
 import { AdminTemplatesPanel } from './AdminTemplatesPanel';
@@ -38,6 +38,8 @@ interface ProviderModelRow {
 
 interface StageRow {
   stage: string;
+  stage_label?: string;
+  output_description?: string;
   calls: number;
   cache_hits: number;
   input_tokens: number;
@@ -72,11 +74,33 @@ interface ProjectUsageRow {
   last_event_at: string;
 }
 
+interface MatchedArtifact {
+  kind: string;
+  label: string;
+  media_type: 'image' | 'video' | 'audio' | 'text' | string;
+  preview_url?: string | null;
+  download_url?: string | null;
+  text_preview?: string | null;
+  object_key?: string | null;
+  is_exact?: boolean;
+}
+
+interface StageBreakdownChip {
+  stage: string;
+  stage_label: string;
+  output_description: string;
+  calls: number;
+  cache_hits: number;
+  estimated_cost_usd: number;
+}
+
 interface UsageEventRow {
   event_id: string;
   created_at: string;
   hook_type: string | null;
   stage: string;
+  stage_label?: string;
+  output_description?: string;
   step_name: string | null;
   provider: string;
   model: string;
@@ -92,6 +116,7 @@ interface UsageEventRow {
   cache_hit: boolean;
   status: string;
   metadata?: Record<string, unknown>;
+  matched_artifact?: MatchedArtifact | null;
 }
 
 interface PricingRow {
@@ -211,8 +236,24 @@ interface AdminProjectArtifacts {
 interface ProjectUsageDetailResponse {
   project_id: string;
   events: UsageEventRow[];
+  stage_breakdown?: StageBreakdownChip[];
   totals: UsageTotals & { total_latency_ms: number };
   artifacts?: AdminProjectArtifacts | null;
+}
+
+interface AdminErrorState {
+  message: string;
+  status: number | null;
+}
+
+function toAdminErrorState(err: unknown, fallback: string): AdminErrorState {
+  if (err instanceof NapdaApiError) {
+    return { message: err.message || fallback, status: err.status };
+  }
+  if (err instanceof Error) {
+    return { message: err.message || fallback, status: null };
+  }
+  return { message: fallback, status: null };
 }
 
 const BEARER_STORAGE_KEY = 'napda_admin_bearer';
@@ -278,9 +319,10 @@ export function AdminUsagePage({
   const [bearerRevision, setBearerRevision] = useState<number>(0);
   const [summary, setSummary] = useState<AdminUsageSummaryResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<AdminErrorState | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailByProject, setDetailByProject] = useState<Record<string, ProjectUsageDetailResponse>>({});
+  const [detailErrorByProject, setDetailErrorByProject] = useState<Record<string, AdminErrorState>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null);
   const [showPricing, setShowPricing] = useState<boolean>(false);
 
@@ -289,21 +331,30 @@ export function AdminUsagePage({
     return trimmed ? { Authorization: `Bearer ${trimmed}` } : undefined;
   }, [appliedBearer]);
 
+  const applySummaryData = useCallback((next: AdminUsageSummaryResponse) => {
+    setSummary(next);
+    setDetailErrorByProject({});
+    setExpandedId((prev) => {
+      if (!prev) return prev;
+      return next.recent_projects.some((p) => p.project_id === prev) ? prev : null;
+    });
+  }, []);
+
   const loadSummary = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setErrorState(null);
     try {
       const res = await customFetch<{ data: AdminUsageSummaryResponse; status: number }>(
         `/v1/admin/usage/summary?days=${days}&limit=50`,
         { headers: authHeaders() },
       );
-      setSummary(res.data);
+      applySummaryData(res.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '사용량 데이터를 불러오지 못했습니다.');
+      setErrorState(toAdminErrorState(err, '사용량 데이터를 불러오지 못했습니다.'));
     } finally {
       setLoading(false);
     }
-  }, [authHeaders, days]);
+  }, [applySummaryData, authHeaders, days]);
 
   useEffect(() => {
     const onPopState = () => {
@@ -317,17 +368,17 @@ export function AdminUsagePage({
     let active = true;
     const run = async () => {
       setLoading(true);
-      setError(null);
+      setErrorState(null);
       try {
         const res = await customFetch<{ data: AdminUsageSummaryResponse; status: number }>(
           `/v1/admin/usage/summary?days=${days}&limit=50`,
           { headers: authHeaders() },
         );
         if (!active) return;
-        setSummary(res.data);
+        applySummaryData(res.data);
       } catch (err) {
         if (!active) return;
-        setError(err instanceof Error ? err.message : '사용량 데이터를 불러오지 못했습니다.');
+        setErrorState(toAdminErrorState(err, '사용량 데이터를 불러오지 못했습니다.'));
       } finally {
         if (active) setLoading(false);
       }
@@ -336,7 +387,7 @@ export function AdminUsagePage({
     return () => {
       active = false;
     };
-  }, [authHeaders, days, bearerRevision]);
+  }, [applySummaryData, authHeaders, days, bearerRevision]);
 
   const handleSelectTab = (next: AdminTab) => {
     setActiveTab(next);
@@ -361,6 +412,33 @@ export function AdminUsagePage({
     setBearerRevision((n) => n + 1);
   };
 
+  const fetchProjectDetail = useCallback(
+    async (projectId: string) => {
+      setLoadingDetailId(projectId);
+      setDetailErrorByProject((prev) => {
+        if (!(projectId in prev)) return prev;
+        const next = { ...prev };
+        delete next[projectId];
+        return next;
+      });
+      try {
+        const res = await customFetch<{ data: ProjectUsageDetailResponse; status: number }>(
+          `/v1/admin/usage/projects/${encodeURIComponent(projectId)}`,
+          { headers: authHeaders() },
+        );
+        setDetailByProject((prev) => ({ ...prev, [projectId]: res.data }));
+      } catch (err) {
+        setDetailErrorByProject((prev) => ({
+          ...prev,
+          [projectId]: toAdminErrorState(err, '상세 내역을 불러오지 못했습니다.'),
+        }));
+      } finally {
+        setLoadingDetailId(null);
+      }
+    },
+    [authHeaders],
+  );
+
   const handleToggleProject = async (projectId: string) => {
     if (expandedId === projectId) {
       setExpandedId(null);
@@ -368,18 +446,14 @@ export function AdminUsagePage({
     }
     setExpandedId(projectId);
     if (detailByProject[projectId]) return;
-    setLoadingDetailId(projectId);
-    try {
-      const res = await customFetch<{ data: ProjectUsageDetailResponse; status: number }>(
-        `/v1/admin/usage/projects/${encodeURIComponent(projectId)}`,
-        { headers: authHeaders() },
-      );
-      setDetailByProject((prev) => ({ ...prev, [projectId]: res.data }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '상세 내역을 불러오지 못했습니다.');
-    } finally {
-      setLoadingDetailId(null);
-    }
+    await fetchProjectDetail(projectId);
+  };
+
+  const handleRefreshAfterStale = () => {
+    setExpandedId(null);
+    setDetailByProject({});
+    setDetailErrorByProject({});
+    void loadSummary();
   };
 
   const totals = summary?.totals;
@@ -500,9 +574,11 @@ export function AdminUsagePage({
           />
         ) : (
           <>
-        {error && (
+        {errorState && (
           <div className="napda-admin-error">
-            오류: {error} (백엔드 `ADMIN_EMAILS`에 이메일 등록 또는 위 `API_BEARER_TOKEN`을 입력해 주세요.)
+            오류: {errorState.message}
+            {(errorState.status === 401 || errorState.status === 403) &&
+              ' (백엔드 `ADMIN_EMAILS`에 이메일 등록 또는 위 `API_BEARER_TOKEN`을 입력해 주세요.)'}
           </div>
         )}
 
@@ -614,6 +690,7 @@ export function AdminUsagePage({
                 <thead>
                   <tr>
                     <th>단계</th>
+                    <th>생성 산출물</th>
                     <th className="num">호출(캐시)</th>
                     <th className="num">입력 토큰</th>
                     <th className="num">출력(+생각) 토큰</th>
@@ -625,12 +702,16 @@ export function AdminUsagePage({
                 <tbody>
                   {summary.by_stage.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>데이터 없음</td>
+                      <td colSpan={8}>데이터 없음</td>
                     </tr>
                   ) : (
                     summary.by_stage.map((row) => (
                       <tr key={row.stage}>
-                        <td className="napda-admin-mono">{row.stage}</td>
+                        <td>
+                          <strong>{row.stage_label || row.stage}</strong>
+                          <div className="napda-admin-mono">{row.stage}</div>
+                        </td>
+                        <td className="wrap">{row.output_description || '-'}</td>
                         <td className="num">
                           {fmtNum(row.calls)} ({fmtNum(row.cache_hits)})
                         </td>
@@ -677,6 +758,7 @@ export function AdminUsagePage({
                     summary.recent_projects.map((p) => {
                       const isExpanded = expandedId === p.project_id;
                       const detail = detailByProject[p.project_id];
+                      const detailError = detailErrorByProject[p.project_id];
                       return (
                         <Fragment key={p.project_id}>
                           <tr
@@ -710,6 +792,39 @@ export function AdminUsagePage({
                               <td colSpan={9} className="napda-admin-detail">
                                 {loadingDetailId === p.project_id && !detail ? (
                                   <div>상세 이벤트 불러오는 중...</div>
+                                ) : detailError && !detail ? (
+                                  <div className="napda-admin-inline-error">
+                                    <div>
+                                      {detailError.status === 404 ? (
+                                        <>
+                                          해당 프로젝트(<span className="napda-admin-mono">{p.project_id}</span>)를 서버
+                                          DB에서 찾을 수 없습니다. 이전 배포로 초기화된 기록이거나 삭제된 프로젝트일 수
+                                          있습니다.
+                                        </>
+                                      ) : (
+                                        <>상세 조회 오류: {detailError.message}</>
+                                      )}
+                                    </div>
+                                    <div className="napda-admin-inline-error-actions">
+                                      {detailError.status === 404 ? (
+                                        <button
+                                          type="button"
+                                          className="napda-admin-btn"
+                                          onClick={handleRefreshAfterStale}
+                                        >
+                                          목록 새로고침
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className="napda-admin-btn"
+                                          onClick={() => void fetchProjectDetail(p.project_id)}
+                                        >
+                                          다시 시도
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
                                 ) : detail ? (
                                   <div className="napda-admin-artifacts">
                                     {detail.artifacts && (
@@ -1058,6 +1173,24 @@ export function AdminUsagePage({
                                       </>
                                     )}
 
+                                    {detail.stage_breakdown && detail.stage_breakdown.length > 0 && (
+                                      <div className="napda-admin-artifact-section">
+                                        <h3 className="napda-admin-artifact-title">단계별 비용 분포</h3>
+                                        <div className="napda-admin-stage-chips">
+                                          {detail.stage_breakdown.map((sb) => (
+                                            <div key={sb.stage} className="napda-admin-stage-chip">
+                                              <strong>{sb.stage_label}</strong>
+                                              <span>
+                                                {fmtNum(sb.calls)}회
+                                                {sb.cache_hits > 0 ? ` (캐시 ${fmtNum(sb.cache_hits)})` : ''} ·{' '}
+                                                {fmtUsd(sb.estimated_cost_usd, rate)}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
                                     <h3 className="napda-admin-artifact-title">단계별 AI 호출 · 비용 기록</h3>
                                     <table className="napda-admin-table">
                                       <thead>
@@ -1071,58 +1204,160 @@ export function AdminUsagePage({
                                           <th className="num">비용</th>
                                           <th className="num">지연</th>
                                           <th>상태</th>
-                                          <th>프롬프트 / 산물</th>
+                                          <th>매칭 산출물 (직접 확인)</th>
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {detail.events.map((ev) => (
-                                          <tr key={ev.event_id}>
-                                            <td className="napda-admin-mono">
-                                              {ev.stage}
-                                              {ev.step_name ? ` · ${ev.step_name}` : ''}
-                                              {ev.hook_type ? ` [${ev.hook_type}]` : ''}
-                                            </td>
-                                            <td>
-                                              <span className={`napda-admin-badge is-${ev.provider}`}>
-                                                {ev.provider}
-                                              </span>{' '}
-                                              <span className="napda-admin-mono">{ev.model}</span>
-                                            </td>
-                                            <td className="num">{fmtNum(ev.input_tokens)}</td>
-                                            <td className="num">
-                                              {fmtNum(ev.output_tokens + ev.thinking_tokens)}
-                                            </td>
-                                            <td>{fmtMedia(ev.media_unit, ev.media_qty)}</td>
-                                            <td className="napda-admin-mono">
-                                              {ev.unit_price_label || '-'}
-                                            </td>
-                                            <td className="num">{fmtUsd(ev.estimated_cost_usd, rate)}</td>
-                                            <td className="num">{fmtNum(ev.latency_ms)} ms</td>
-                                            <td>
-                                              {ev.cache_hit ? (
-                                                <span className="napda-admin-badge">CACHE</span>
-                                              ) : ev.status !== 'ok' ? (
-                                                <span className="napda-admin-badge is-error">
-                                                  {ev.status}
-                                                </span>
-                                              ) : (
-                                                'OK'
-                                              )}
-                                            </td>
-                                            <td className="wrap">
-                                              {ev.metadata && Object.keys(ev.metadata).length > 0 ? (
-                                                <details>
-                                                  <summary className="napda-admin-meta-summary">보기</summary>
-                                                  <pre className="napda-admin-meta-pre">
-                                                    {JSON.stringify(ev.metadata, null, 2)}
-                                                  </pre>
-                                                </details>
-                                              ) : (
-                                                '-'
-                                              )}
-                                            </td>
-                                          </tr>
-                                        ))}
+                                        {detail.events.map((ev) => {
+                                          const ma = ev.matched_artifact;
+                                          return (
+                                            <tr key={ev.event_id}>
+                                              <td>
+                                                <strong>{ev.stage_label || ev.stage}</strong>
+                                                <div className="napda-admin-mono">
+                                                  {ev.stage}
+                                                  {ev.step_name ? ` · ${ev.step_name}` : ''}
+                                                  {ev.hook_type ? ` [${ev.hook_type}]` : ''}
+                                                </div>
+                                              </td>
+                                              <td>
+                                                <span className={`napda-admin-badge is-${ev.provider}`}>
+                                                  {ev.provider}
+                                                </span>{' '}
+                                                <span className="napda-admin-mono">{ev.model}</span>
+                                              </td>
+                                              <td className="num">{fmtNum(ev.input_tokens)}</td>
+                                              <td className="num">
+                                                {fmtNum(ev.output_tokens + ev.thinking_tokens)}
+                                              </td>
+                                              <td>{fmtMedia(ev.media_unit, ev.media_qty)}</td>
+                                              <td className="napda-admin-mono">
+                                                {ev.unit_price_label || '-'}
+                                              </td>
+                                              <td className="num">{fmtUsd(ev.estimated_cost_usd, rate)}</td>
+                                              <td className="num">{fmtNum(ev.latency_ms)} ms</td>
+                                              <td>
+                                                {ev.cache_hit ? (
+                                                  <span className="napda-admin-badge">CACHE</span>
+                                                ) : ev.status !== 'ok' ? (
+                                                  <span className="napda-admin-badge is-error">
+                                                    {ev.status}
+                                                  </span>
+                                                ) : (
+                                                  'OK'
+                                                )}
+                                              </td>
+                                              <td className="wrap">
+                                                {ma ? (
+                                                  <div className="napda-admin-ev-artifact">
+                                                    <div className="napda-admin-ev-artifact-head">
+                                                      <strong>{ma.label}</strong>
+                                                      <span
+                                                        className={`napda-admin-badge ${
+                                                          ma.is_exact ? 'is-inworld' : ''
+                                                        }`}
+                                                      >
+                                                        {ma.is_exact ? '정확 매칭' : '연결 산물'}
+                                                      </span>
+                                                    </div>
+                                                    {ma.media_type === 'image' && ma.preview_url && (
+                                                      <a
+                                                        href={ma.preview_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                      >
+                                                        <img
+                                                          className="napda-admin-ev-thumb"
+                                                          src={ma.preview_url}
+                                                          alt={ma.label}
+                                                        />
+                                                      </a>
+                                                    )}
+                                                    {ma.media_type === 'video' && ma.preview_url && (
+                                                      <div className="napda-admin-ev-media-col">
+                                                        <video
+                                                          className="napda-admin-ev-video"
+                                                          controls
+                                                          playsInline
+                                                          preload="metadata"
+                                                          src={ma.preview_url}
+                                                        />
+                                                        <a
+                                                          className="napda-admin-link"
+                                                          href={ma.download_url || ma.preview_url}
+                                                          target="_blank"
+                                                          rel="noreferrer"
+                                                        >
+                                                          원본 열기
+                                                        </a>
+                                                      </div>
+                                                    )}
+                                                    {ma.media_type === 'audio' && ma.preview_url && (
+                                                      <div className="napda-admin-ev-media-col">
+                                                        <audio
+                                                          className="napda-admin-ev-audio"
+                                                          controls
+                                                          preload="none"
+                                                          src={ma.preview_url}
+                                                        />
+                                                        <a
+                                                          className="napda-admin-link"
+                                                          href={ma.download_url || ma.preview_url}
+                                                          target="_blank"
+                                                          rel="noreferrer"
+                                                        >
+                                                          오디오 열기
+                                                        </a>
+                                                      </div>
+                                                    )}
+                                                    {ma.media_type === 'text' &&
+                                                      (ma.preview_url || ma.download_url) && (
+                                                        <div className="napda-admin-media-links">
+                                                          {ma.preview_url && (
+                                                            <a
+                                                              className="napda-admin-link"
+                                                              href={ma.preview_url}
+                                                              target="_blank"
+                                                              rel="noreferrer"
+                                                            >
+                                                              영상 보기
+                                                            </a>
+                                                          )}
+                                                          {ma.download_url && (
+                                                            <a
+                                                              className="napda-admin-link"
+                                                              href={ma.download_url}
+                                                              target="_blank"
+                                                              rel="noreferrer"
+                                                            >
+                                                              SRT 다운로드
+                                                            </a>
+                                                          )}
+                                                        </div>
+                                                      )}
+                                                    {ma.text_preview && (
+                                                      <div className="napda-admin-ev-quote">
+                                                        {ma.text_preview}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                ) : null}
+                                                {ev.metadata && Object.keys(ev.metadata).length > 0 ? (
+                                                  <details>
+                                                    <summary className="napda-admin-meta-summary">
+                                                      프롬프트 / 원시 메타
+                                                    </summary>
+                                                    <pre className="napda-admin-meta-pre">
+                                                      {JSON.stringify(ev.metadata, null, 2)}
+                                                    </pre>
+                                                  </details>
+                                                ) : !ma ? (
+                                                  '-'
+                                                ) : null}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
                                       </tbody>
                                     </table>
                                   </div>

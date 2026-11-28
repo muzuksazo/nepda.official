@@ -273,6 +273,28 @@ class HookPipeline:
 
         return _cb
 
+    def _publish_usage_artifact(
+        self,
+        project_id: str,
+        stage: str,
+        step_name: str,
+        local_path: Path,
+    ) -> Optional[str]:
+        """중간 산출물(참고 이미지, 생성 클립, TTS 오디오)을 저장소에 올려 Admin 비용 매칭에서 바로 열 수 있게 한다."""
+        if not project_id or self.storage is None or not local_path.is_file():
+            return None
+        try:
+            digest = hashlib.sha256(local_path.read_bytes()).hexdigest()[:12]
+            safe_stage = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in str(stage or "artifact"))
+            safe_step = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in str(step_name or "step"))
+            suffix = local_path.suffix.lower() or ".bin"
+            key = f"projects/{project_id}/usage_artifacts/{safe_stage}/{safe_step}_{digest}{suffix}"
+            self.storage.upload_file(local_path, key)
+            return key
+        except Exception as exc:
+            logger.warning("비용 매칭 중간 산출물 업로드 실패 (%s/%s): %s", stage, step_name, exc)
+            return None
+
     def _render(
         self,
         project: Dict[str, Any],
@@ -311,6 +333,9 @@ class HookPipeline:
                 project,
                 hook_type=str(scenario.get("type") or "") or None,
                 job_id=job_id,
+            ),
+            publish_artifact=lambda stage, step, path: self._publish_usage_artifact(
+                str(project["project_id"]), stage, step, path
             ),
             cancel_event=cancel_event,
         )
@@ -423,10 +448,16 @@ class HookPipeline:
         body_dir = Path(self.settings.output_dir).resolve() / project_id / "_body" / key
         body_settings = self.settings
         usage_cb = self._usage_cb(project, job_id=job_id)
-        if usage_cb is not None:
+        if usage_cb is not None or self.storage is not None:
             from .workers import _SettingsOverlay
 
-            body_settings = _SettingsOverlay(self.settings, _on_usage=usage_cb)
+            body_settings = _SettingsOverlay(
+                self.settings,
+                _on_usage=usage_cb,
+                _publish_artifact=lambda stage, step, path: self._publish_usage_artifact(
+                    project_id, stage, step, path
+                ),
+            )
         with self._lock(project_id, "_body"):
             made = make_body(
                 clips,
@@ -439,11 +470,26 @@ class HookPipeline:
                 voice=voice,
                 subtitle_style=_subtitle_style(),
             )
-        for name in ("body.mp4", "body.srt"):
+        uploaded_keys: Dict[str, str] = {}
+        for field_name, file_name in (("body_video", "body.mp4"), ("body_srt", "body.srt")):
+            key_path = f"projects/{project_id}/body/{key}/{file_name}"
             try:
-                self.storage.upload_file(body_dir / name, f"projects/{project_id}/body/{key}/{name}")
+                self.storage.upload_file(body_dir / file_name, key_path)
+                uploaded_keys[field_name] = key_path
             except Exception as exc:
-                logger.warning("본편 파일을 저장소에 올리지 못했습니다 (%s): %s", name, exc)
+                logger.warning("본편 파일을 저장소에 올리지 못했습니다 (%s): %s", file_name, exc)
+        if uploaded_keys and not (project.get("body") or {}).get("object_keys"):
+            try:
+                self.project_store.update_project(
+                    project_id,
+                    body={
+                        "object_keys": uploaded_keys,
+                        "duration_sec": made.duration_sec,
+                        "script": made.script,
+                    },
+                )
+            except Exception as exc:
+                logger.warning("본편 메타데이터를 프로젝트에 저장하지 못했습니다 (%s): %s", project_id, exc)
         return made.video, made.srt, made.warnings
 
     def _body_srt(self, project: Dict[str, Any], work_dir: Path) -> Optional[Path]:
