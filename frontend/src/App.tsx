@@ -792,7 +792,9 @@ export function App() {
       };
 
       const run = async () => {
-        for (let attempt = 0; attempt < 180; attempt += 1) {
+        // 1.5초 간격으로 약 10분. 렌더(특히 Gemini 경로)가 4분 반을 넘기는 일이 잦아,
+        // 서버는 아직 만드는 중인데 화면만 실패로 바뀌던 문제(2026-11-28)를 막는다.
+        for (let attempt = 0; attempt < 400; attempt += 1) {
           if (cancelled) return;
           try {
             const projRes = await getProjectV1ProjectsProjectIdGet(pid);
