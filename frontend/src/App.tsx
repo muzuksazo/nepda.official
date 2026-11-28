@@ -50,7 +50,7 @@ import {
   type ShareHandlers,
   type VideoComment,
 } from './ui/components';
-import event5 from './assets/events/event5.webp';
+import event1 from './assets/events/event1.webp';
 import event2 from './assets/events/event2.webp';
 import event3 from './assets/events/event3.webp';
 import showcase01 from './assets/samples/community/thumb-01.webp';
@@ -108,7 +108,7 @@ const DEFAULT_CREDIT_PACKAGES: readonly CreditPackage[] = [
 ];
 const COMMUNITY_VIDEOS_QUERY_KEY = ['community', 'videos'] as const;
 const HOME_BANNERS: BannerItem[] = [
-  { id: 'b1', imageUrl: event5, alt: '블랙 프라이데이' },
+  { id: 'b1', imageUrl: event1, alt: '블랙 프라이데이 세일, 최대 70% 할인' },
   {
     id: 'b2',
     imageUrl: event3,

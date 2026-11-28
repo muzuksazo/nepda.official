@@ -18,7 +18,7 @@ import templateStroke from '../../assets/samples/thumbnail/template-stroke.webp'
 import loginInvertBox from '../../assets/samples/login/login-invert-box.webp';
 import loginPovBar from '../../assets/samples/login/login-pov-bar.webp';
 import loginSerifOutline from '../../assets/samples/login/login-serif-outline.webp';
-import event5 from '../../assets/events/event5.webp';
+import event1 from '../../assets/events/event1.webp';
 import event2 from '../../assets/events/event2.webp';
 import event3 from '../../assets/events/event3.webp';
 import type { BannerItem, CreditPackage, ThumbnailTemplate, VideoComment } from '../components';
@@ -47,7 +47,7 @@ export const SAMPLE_COMPLETED: CompletedProject[] = [
 
 /** 이벤트 배너 (이미지는 1050×500 @3x로 받아 imageUrl에 넣는다. 이미지가 없는 칸은 자리표시) */
 export const SAMPLE_BANNERS: BannerItem[] = [
-  { id: 'b1', imageUrl: event5, alt: '블랙 프라이데이' },
+  { id: 'b1', imageUrl: event1, alt: '블랙 프라이데이 세일, 최대 70% 할인' },
   {
     id: 'b2',
     imageUrl: event3,
