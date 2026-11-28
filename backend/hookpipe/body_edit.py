@@ -14,6 +14,7 @@ import hashlib
 import json
 import logging
 import math
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
@@ -399,9 +400,36 @@ def make_body(
     # 3) 문장별 나레이션 → 길이 맞추기
     tts_ext = getattr(provider, "tts_extension", ".wav")
     voice_name = voice or getattr(settings, "tts_default_voice", None)
+    on_usage = getattr(settings, "_on_usage", None)
+    tts_label = getattr(provider, "tts_label", "") or getattr(settings, "tts_model", "")
+    tts_provider_name = "inworld" if str(tts_label).startswith("inworld:") else "google"
+    tts_model_name = (
+        str(tts_label).split(":", 2)[1]
+        if str(tts_label).startswith("inworld:") and ":" in str(tts_label)
+        else str(tts_label or getattr(settings, "tts_model", "") or "gemini-tts")
+    )
     for index, line in enumerate(lines, start=1):
         audio = work / f"line_{index:02d}{tts_ext}"
-        provider.generate_tts_beat(line["narration"], audio, voice_name=voice_name)
+        t_tts = time.monotonic()
+        tts_status = "ok"
+        try:
+            provider.generate_tts_beat(line["narration"], audio, voice_name=voice_name)
+        except Exception:
+            tts_status = "error"
+            raise
+        finally:
+            if callable(on_usage):
+                on_usage(
+                    stage="body_tts",
+                    step_name=f"line_{index}",
+                    provider=tts_provider_name,
+                    model=tts_model_name,
+                    media_unit="char",
+                    media_qty=float(len(line["narration"])),
+                    cache_hit=False,
+                    latency_ms=int((time.monotonic() - t_tts) * 1000),
+                    status=tts_status,
+                )
         line["audio"] = audio
         line["voice_sec"] = probe(tools, audio).duration
     spoken = sum(line["voice_sec"] for line in lines) + LINE_GAP_SEC * len(lines)

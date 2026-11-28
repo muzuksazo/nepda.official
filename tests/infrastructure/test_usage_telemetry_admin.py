@@ -21,9 +21,10 @@ from app.auth import AuthenticatedUser, issue_session_token  # noqa: E402
 from app.config import Settings  # noqa: E402
 from app.project_store import ProjectStore  # noqa: E402
 from app.server import create_app  # noqa: E402
-from app.usage_telemetry import estimate_cost_usd, parse_pricing_overrides  # noqa: E402
-from hookpipe.workers import make_scenario_generator, run_worker_c  # noqa: E402
-from tests.support.hookpipe import worker_scenario  # noqa: E402
+from app.usage_telemetry import estimate_cost_usd, parse_pricing_overrides, pricing_catalog  # noqa: E402
+from hookpipe.body_edit import make_body  # noqa: E402
+from hookpipe.workers import _SettingsOverlay, make_scenario_generator, run_worker_c  # noqa: E402
+from tests.support.hookpipe import FakeMediaProvider, fake_body_writer, make_video, tools_or_none, worker_scenario  # noqa: E402
 from tests.support.tempdirs import temporary_directory  # noqa: E402
 
 
@@ -50,16 +51,41 @@ class TestUsageTelemetryAndAdmin(unittest.TestCase):
         self.assertEqual(usd_cached, 0.0)
         self.assertEqual(label_cached, "cache_hit ($0)")
 
-        # Unpriced media model returns None instead of fabricated pricing
-        usd_unknown, label_unknown = estimate_cost_usd(
+        # Built-in media pricing: image, video sec, and Inworld TTS char
+        usd_img, label_img = estimate_cost_usd(
+            "gemini-nano-banana-2.1",
+            media_unit="image",
+            media_qty=3.0,
+        )
+        self.assertAlmostEqual(usd_img or 0.0, 0.1008, places=6)
+        self.assertEqual(label_img, "$0.0336 / image")
+
+        usd_vid, label_vid = estimate_cost_usd(
             "gemini-omni-flash-preview",
+            media_unit="sec",
+            media_qty=12.0,
+        )
+        self.assertAlmostEqual(usd_vid or 0.0, 1.2, places=6)
+        self.assertEqual(label_vid, "$0.1 / sec")
+
+        usd_tts, label_tts = estimate_cost_usd(
+            "inworld-tts-2",
+            media_unit="char",
+            media_qty=1000.0,
+        )
+        self.assertAlmostEqual(usd_tts or 0.0, 0.025, places=6)
+        self.assertEqual(label_tts, "$25 / 1M char")
+
+        # Unknown model still returns None instead of fabricated pricing
+        usd_unknown, label_unknown = estimate_cost_usd(
+            "unknown-custom-video-model",
             media_unit="sec",
             media_qty=12.0,
         )
         self.assertIsNone(usd_unknown)
         self.assertEqual(label_unknown, "단가 미등록")
 
-        # Pricing overrides JSON supports per-unit media pricing
+        # Pricing overrides JSON supports per-unit media pricing override
         overrides = parse_pricing_overrides(
             json.dumps({"gemini-omni-flash-preview": {"per_unit": 0.05, "unit": "sec"}})
         )
@@ -71,6 +97,17 @@ class TestUsageTelemetryAndAdmin(unittest.TestCase):
         )
         self.assertAlmostEqual(usd_ov or 0.0, 0.6, places=6)
         self.assertEqual(label_ov, "$0.05 / sec")
+
+        catalog_by_model = {row["model"]: row for row in pricing_catalog()}
+        for expected_model, expected_unit in [
+            ("gemini-nano-banana-2.1", "image"),
+            ("gemini-omni-flash-preview", "sec"),
+            ("inworld-tts-2", "char"),
+        ]:
+            self.assertIn(expected_model, catalog_by_model)
+            self.assertEqual(catalog_by_model[expected_model]["kind"], "media_per_unit")
+            self.assertEqual(catalog_by_model[expected_model]["unit"], expected_unit)
+            self.assertEqual(catalog_by_model[expected_model]["source"], "builtin")
 
     def test_admin_auth_and_end_to_end_worker_usage_capture(self) -> None:
         with temporary_directory() as td:
@@ -189,6 +226,41 @@ class TestUsageTelemetryAndAdmin(unittest.TestCase):
             self.assertEqual(len(detail["events"]), 2)
             self.assertEqual(detail["events"][0]["stage"], "scenario_c")
             self.assertEqual(detail["events"][0]["model"], "claude-sonnet-5-5")
+
+    @unittest.skipUnless(tools_or_none() is not None, "ffmpeg required")
+    def test_make_body_records_body_tts_usage(self) -> None:
+        tools = tools_or_none()
+        assert tools is not None
+        with temporary_directory() as td:
+            root = Path(td)
+            clip = make_video(tools, root / "clip.mp4", seconds=6.0, width=360, height=640)
+            provider = FakeMediaProvider(tools)
+            provider.tts_label = "inworld:inworld-tts-2"
+            events: list[dict] = []
+            base_settings = Settings(
+                _env_file=None,
+                gemini_api_key="dummy-key",
+                work_root=str(root / "work"),
+                output_dir=str(root / "outputs"),
+                db_path=str(root / "napda.db"),
+                body_target_sec=10.0,
+            )
+            overlay = _SettingsOverlay(base_settings, _on_usage=lambda **kw: events.append(kw))
+            make_body(
+                [clip],
+                {"name": "60분 비주얼 타이머", "verified_facts": ["60분형 아날로그 타이머"]},
+                root / "body",
+                provider=provider,
+                settings=overlay,
+                tools=tools,
+                writer=fake_body_writer,
+            )
+            tts_events = [e for e in events if e.get("stage") == "body_tts"]
+            self.assertEqual(len(tts_events), 2)
+            self.assertEqual(tts_events[0]["provider"], "inworld")
+            self.assertEqual(tts_events[0]["model"], "inworld-tts-2")
+            self.assertEqual(tts_events[0]["media_unit"], "char")
+            self.assertGreater(tts_events[0]["media_qty"], 0.0)
 
 
 if __name__ == "__main__":

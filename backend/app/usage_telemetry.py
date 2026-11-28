@@ -27,6 +27,19 @@ LLM_PRICING_PER_1M_USD: Dict[str, Tuple[float, float]] = {
     "gemini-4-neon": (3.0, 15.0),
 }
 
+# Estimated per-unit list prices (USD per image / sec / char) for media generation models.
+# Override via USAGE_PRICING_OVERRIDES_JSON for exact contract/tier pricing.
+MEDIA_PRICING_PER_UNIT_USD: Dict[str, Tuple[float, str]] = {
+    "gemini-nano-banana-2.1": (0.0336, "image"),
+    "gemini-2.5-flash-image": (0.039, "image"),
+    "gemini-omni-flash-preview": (0.10, "sec"),
+    "gemini-omni-1.2-flash": (0.07, "sec"),
+    "gemini-omni-1.1-flash": (0.07, "sec"),
+    "inworld-tts-2": (0.000025, "char"),
+    "inworld-tts-2-flash": (0.000015, "char"),
+    "gemini-3.8-flash-tts": (0.000016, "char"),
+}
+
 
 def parse_pricing_overrides(raw_json: Optional[str]) -> Dict[str, Any]:
     """Parse optional `USAGE_PRICING_OVERRIDES_JSON` safely without throwing."""
@@ -65,6 +78,15 @@ def _match_token_pricing(
         if norm.startswith(known):
             in_p, out_p = LLM_PRICING_PER_1M_USD[known]
             return in_p, out_p, None, None
+
+    if norm in MEDIA_PRICING_PER_UNIT_USD:
+        per_u, unit_name = MEDIA_PRICING_PER_UNIT_USD[norm]
+        return None, None, per_u, unit_name
+
+    for known in sorted(MEDIA_PRICING_PER_UNIT_USD.keys(), key=len, reverse=True):
+        if norm.startswith(known):
+            per_u, unit_name = MEDIA_PRICING_PER_UNIT_USD[known]
+            return None, None, per_u, unit_name
     return None
 
 
@@ -93,7 +115,12 @@ def estimate_cost_usd(
     if per_unit is not None:
         qty = float(media_qty or 0.0)
         unit_label = ov_unit or media_unit or "unit"
-        return round(qty * per_unit, 6), f"${per_unit:g} / {unit_label}"
+        label = (
+            f"${per_unit * 1_000_000:g} / 1M char"
+            if unit_label == "char" and per_unit < 0.001
+            else f"${per_unit:g} / {unit_label}"
+        )
+        return round(qty * per_unit, 6), label
 
     if in_per_1m is not None and out_per_1m is not None:
         billable_in = max(0, int(input_tokens or 0))
@@ -125,6 +152,24 @@ def pricing_catalog(overrides: Optional[Dict[str, Any]] = None) -> List[Dict[str
             if str(k).strip().lower() == model_id.lower() and isinstance(v, dict) and "input" in v and "output" in v:
                 entry["input_usd_per_1m"] = float(v["input"])
                 entry["output_usd_per_1m"] = float(v["output"])
+                entry["source"] = "override"
+        rows.append(entry)
+
+    for model_id, (per_u, unit_name) in MEDIA_PRICING_PER_UNIT_USD.items():
+        seen.add(model_id.lower())
+        entry = {
+            "model": model_id,
+            "kind": "media_per_unit",
+            "input_usd_per_1m": None,
+            "output_usd_per_1m": None,
+            "per_unit_usd": per_u,
+            "unit": unit_name,
+            "source": "builtin",
+        }
+        for k, v in ov.items():
+            if str(k).strip().lower() == model_id.lower() and isinstance(v, dict) and v.get("per_unit") is not None:
+                entry["per_unit_usd"] = float(v["per_unit"])
+                entry["unit"] = str(v.get("unit") or unit_name)
                 entry["source"] = "override"
         rows.append(entry)
 
