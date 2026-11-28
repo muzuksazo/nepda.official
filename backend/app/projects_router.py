@@ -863,6 +863,7 @@ def _default_storyboard_generator(
                     "beat_order": order,
                     "image_url": url,
                     "caption": _safe_beat_caption(beat),
+                    "object_key": obj_key,
                 }
             )
         return frames

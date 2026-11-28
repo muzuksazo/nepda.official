@@ -640,6 +640,18 @@ class HookPipeline:
             }
             entry["clean_key"] = entry["master_key"]
             entry["clean_mp4"] = entry["master_mp4"]
+            clean_frame_keys: List[str] = []
+            for idx, kf_path in enumerate(sorted(out_dir.glob("storyboard_*.png"))[:4], start=1):
+                if not kf_path.is_file():
+                    continue
+                kf_key = f"{prefix}/clean_kf_{idx:02d}.png"
+                try:
+                    self.storage.upload_file(kf_path, kf_key)
+                    clean_frame_keys.append(kf_key)
+                except Exception as exc:
+                    logger.warning("자막 없는 훅 키프레임을 저장소에 올리지 못했습니다 (%s): %s", kf_key, exc)
+            if clean_frame_keys:
+                entry["clean_frame_keys"] = clean_frame_keys
             srt_path = final_path.with_suffix(".srt")
             if srt_path.is_file():
                 entry["srt_key"] = f"{prefix}/final.srt"

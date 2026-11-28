@@ -514,3 +514,115 @@ class TestMediaDeliveryAndThumbnails(unittest.TestCase):
             self.assertIn("master_mp4", uploaded[0])
             self.assertIn("clean_mp4", uploaded[0])
             self.assertTrue(uploaded[0]["clean_mp4"].endswith("napda_test_A_clean.mp4"))
+
+    def test_clean_frame_keys_used_when_clean_key_aliases_master_key(self) -> None:
+        with temporary_directory() as td:
+            root = Path(td)
+            settings = Settings(
+                _env_file=None,
+                gemini_api_key="dummy-key",
+                google_client_id="dummy-client-id.apps.googleusercontent.com",
+                session_secret="test-session-secret-32bytes-minimum",
+                work_root=str(root / "work"),
+                output_dir=str(root / "outputs"),
+                db_path=str(root / "napda.db"),
+            )
+            job_store = JobStore(settings.db_path)
+            proj_store = ProjectStore(settings.db_path)
+            storage = LocalStorageBackend(Path(settings.work_root) / "_objects")
+            app = create_app(
+                settings=settings,
+                store=job_store,
+                project_store=proj_store,
+                storage=storage,
+                google_token_verifier=fake_google_verifier,
+            )
+            client = TestClient(app)
+            login_client(client)
+
+            master_mp4 = root / "master_red.mp4"
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "color=c=0xE02020:s=1080x1920:d=2:r=24",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "anullsrc=r=44100:cl=stereo",
+                    "-t",
+                    "2",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c:a",
+                    "aac",
+                    "-shortest",
+                    str(master_mp4),
+                ],
+                capture_output=True,
+                check=True,
+            )
+            clean_png = root / "clean_kf_01.png"
+            Image.new("RGB", (1080, 1920), (16, 200, 64)).save(clean_png)
+
+            pid = client.post(
+                "/v1/projects",
+                json={
+                    "product": {"name": "자막 분리 테스트", "category": "living", "verified_facts": ["깨끗한 썸네일"]},
+                    "selected_types": ["A"],
+                },
+            ).json()["project_id"]
+
+            master_key = f"projects/{pid}/renders/job_alias/master.mp4"
+            clean_kf_key = f"projects/{pid}/renders/job_alias/clean_kf_01.png"
+            storage.upload_file(master_mp4, master_key)
+            storage.upload_file(clean_png, clean_kf_key)
+            job_store.create_job("job_alias", pid, {}, status="QC_READY", stage="QC_READY")
+            job_store.update_job(
+                "job_alias",
+                status="QC_READY",
+                stage="QC_READY",
+                artifacts={
+                    "rendered": [
+                        {
+                            "variant": "A",
+                            "duration": 2.0,
+                            "master_key": master_key,
+                            "clean_key": master_key,
+                            "master_mp4": "https://r2.example.com/presigned/master.mp4?X-Amz-Signature=dummy",
+                            "clean_mp4": "https://r2.example.com/presigned/master.mp4?X-Amz-Signature=dummy",
+                            "clean_frame_keys": [clean_kf_key],
+                            "lufs": {"final_lufs": -14.0},
+                        }
+                    ]
+                },
+            )
+            proj_store.update_project(pid, status="DELIVERABLE_READY", latest_job_id="job_alias")
+
+            deliv = client.get(f"/v1/projects/{pid}/deliverables")
+            self.assertEqual(deliv.status_code, 200, deliv.text)
+            dj = deliv.json()
+            self.assertAlmostEqual(dj["video"]["duration_sec"], 2.4, places=2)
+
+            cand_urls = dj["thumbnail"]["candidate_image_urls"]
+            self.assertGreaterEqual(len(cand_urls), 1)
+            kf_path = root / "picked_kf.png"
+            kf_path.write_bytes(client.get(cand_urls[0]).content)
+            with Image.open(kf_path) as im:
+                r, g, b = im.convert("RGB").getpixel((540, 960))
+                self.assertGreater(g, r + 60, f"Expected clean green keyframe, got RGB=({r},{g},{b})")
+
+            final_vid = root / "master_with_cover.mp4"
+            final_vid.write_bytes(client.get(dj["video"]["download_url"]).content)
+            ffprobe = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(final_vid)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertAlmostEqual(float(ffprobe.stdout.strip()), 2.4, delta=0.15)

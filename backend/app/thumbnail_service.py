@@ -372,18 +372,34 @@ def generate_project_thumbnail(
         if explicit is not None:
             local_candidates.append(explicit)
 
-    # Prefer clean_key / clean_mp4 (subtitle/watermark-free) BEFORE master for crisp cover keyframes
+    # Prefer subtitle-free sources BEFORE subtitled master.mp4
     rendered = ((job or {}).get("artifacts") or {}).get("rendered") or []
-    if rendered and isinstance(rendered[0], dict):
+    first_r = rendered[0] if rendered and isinstance(rendered[0], dict) else None
+    if first_r:
+        for idx, kf_ref in enumerate(first_r.get("clean_frame_keys") or [], start=1):
+            kf_local = _resolve_local_from_ref(kf_ref, cand_dir / f"clean_kf_{idx:02d}.png", storage)
+            if kf_local is not None:
+                local_candidates.append(kf_local)
+
+        master_refs = {first_r.get("master_key"), first_r.get("master_mp4")} - {None}
         v_local = None
-        for ref_key in ("clean_key", "master_key", "clean_mp4", "master_mp4"):
-            cand_ref = rendered[0].get(ref_key)
-            if cand_ref:
+        for ref_key in ("clean_key", "clean_mp4"):
+            cand_ref = first_r.get(ref_key)
+            if cand_ref and cand_ref not in master_refs:
                 v_local = _resolve_local_from_ref(cand_ref, cand_dir / f"{ref_key}.mp4", storage)
                 if v_local is not None:
                     break
         if v_local is not None:
-            local_candidates.extend(extract_video_keyframes(v_local, cand_dir / "master_kf"))
+            local_candidates.extend(extract_video_keyframes(v_local, cand_dir / "clean_kf"))
+
+    # Check storyboard frames (subtitle-free generated images)
+    for idx, frame in enumerate((scenario or {}).get("storyboard_frames") or []):
+        if not isinstance(frame, dict):
+            continue
+        f_ref = frame.get("object_key") or frame.get("image_url")
+        f_local = _resolve_local_from_ref(f_ref, cand_dir / f"sb_{idx + 1:02d}.png", storage)
+        if f_local is not None:
+            local_candidates.append(f_local)
 
     # Check standalone body.mp4 keyframes
     body_obj = project.get("body") or {}
@@ -402,13 +418,17 @@ def generate_project_thumbnail(
         if c_local is not None:
             local_candidates.extend(extract_video_keyframes(c_local, cand_dir / f"up_kf_{idx + 1:02d}", fractions=(0.25, 0.70)))
 
-    # Check storyboard frames if local/stored
-    for idx, frame in enumerate((scenario or {}).get("storyboard_frames") or []):
-        if not isinstance(frame, dict):
-            continue
-        f_local = _resolve_local_from_ref(frame.get("image_url"), cand_dir / f"sb_{idx + 1:02d}.png", storage)
-        if f_local is not None:
-            local_candidates.append(f_local)
+    # Last-resort fallback: extract from subtitled master only if no subtitle-free candidate existed
+    if not local_candidates and first_r:
+        m_local = None
+        for ref_key in ("master_key", "master_mp4"):
+            cand_ref = first_r.get(ref_key)
+            if cand_ref:
+                m_local = _resolve_local_from_ref(cand_ref, cand_dir / f"{ref_key}.mp4", storage)
+                if m_local is not None:
+                    break
+        if m_local is not None:
+            local_candidates.extend(extract_video_keyframes(m_local, cand_dir / "master_kf"))
 
     # Deduplicate candidate files and ensure at least 1 background exists
     unique_cands: List[Path] = []
