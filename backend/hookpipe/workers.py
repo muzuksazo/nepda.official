@@ -264,9 +264,17 @@ def run_worker_a(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
     return _mark_violation(data, proc)
 
 
-def _worker_vertex_env(settings: Any) -> Dict[str, str]:
-    """Settings(또는 .env)의 Vertex AI / WIF 설정을 Node 작업자 하위 프로세스에 넘긴다."""
+def _worker_vertex_env(settings: Any, profile: Any = None) -> Dict[str, str]:
+    """Settings(또는 지정된 VertexProfile)의 Vertex AI / WIF 설정을 Node 작업자 하위 프로세스에 넘긴다."""
     extra: Dict[str, str] = {}
+    if profile is not None:
+        extra["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
+        extra["GOOGLE_CLOUD_PROJECT"] = str(getattr(profile, "project", "") or "").strip()
+        extra["GOOGLE_CLOUD_LOCATION"] = str(getattr(profile, "location", "global") or "global").strip() or "global"
+        extra["GCP_WORKLOAD_IDENTITY_PROVIDER"] = str(getattr(profile, "wif_provider", "") or "").strip()
+        extra["GCP_SERVICE_ACCOUNT_EMAIL"] = str(getattr(profile, "service_account_email", "") or "").strip()
+        extra["GOOGLE_VERTEX_API_KEY"] = str(getattr(profile, "vertex_api_key", "") or "").strip()
+        return extra
     if getattr(settings, "google_genai_use_vertexai", False) and not os.environ.get("GOOGLE_GENAI_USE_VERTEXAI"):
         extra["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
     mappings = (
@@ -285,16 +293,12 @@ def _worker_vertex_env(settings: Any) -> Dict[str, str]:
     return extra
 
 
-def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
-    """B 는 결과를 `b/out/<project_id>/round-<n>.json` 에 회차 기록으로 남긴다 (response 키가 계약 응답)."""
-    worker_dir = Path(settings.hook_workers_dir) / "b"
-    cmd = _node_command(worker_dir)
-    record = worker_dir / "out" / str(worker_input["project_id"]) / f"round-{int(worker_input['round'])}.json"
+def _run_worker_b_once(worker_input: Dict[str, Any], settings: Any, worker_dir: Path, cmd: List[str], record: Path, *, profile: Any = None) -> Tuple[Any, Dict[str, Any]]:
     with tempfile.TemporaryDirectory(prefix="hookpipe_b_") as tmp:
         in_path = Path(tmp) / "worker_input.json"
         in_path.write_text(json.dumps(worker_input, ensure_ascii=False), encoding="utf-8")
         gemini = _gemini_llm(settings)
-        extra_env = _worker_vertex_env(settings)
+        extra_env = _worker_vertex_env(settings, profile=profile)
         if getattr(settings, "_resolved_llm_explicit", False):
             resolved_model = getattr(settings, "_resolved_llm_model", None)
             extra_env["B_LLM"] = str(resolved_model or "")  # 명시적 anthropic 요청 시 기존 B_LLM 해제 포함
@@ -308,6 +312,52 @@ def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
             extra_env=extra_env or None,
         )
     data = _read_json(record, "B")
+    return proc, data
+
+
+def run_worker_b(worker_input: Dict[str, Any], settings: Any) -> Dict[str, Any]:
+    """B 는 결과를 `b/out/<project_id>/round-<n>.json` 에 회차 기록으로 남긴다 (response 키가 계약 응답)."""
+    worker_dir = Path(settings.hook_workers_dir) / "b"
+    cmd = _node_command(worker_dir)
+    record = worker_dir / "out" / str(worker_input["project_id"]) / f"round-{int(worker_input['round'])}.json"
+
+    gemini = _gemini_llm(settings)
+    explicit = bool(getattr(settings, "_resolved_llm_explicit", False))
+    explicit_model = str(getattr(settings, "_resolved_llm_model", "") or "").strip()
+    using_gemini = (explicit_model.lower().startswith("gemini") if explicit else bool(gemini))
+
+    proc: Any = None
+    data: Any = None
+    if getattr(settings, "google_genai_use_vertexai", False) and using_gemini and getattr(settings, "gcp_vertex_profiles_json", None):
+        from app.genai_provider import (
+            get_vertex_profile_pool,
+            is_vertex_failover_error,
+            parse_vertex_profiles,
+        )
+
+        profiles = parse_vertex_profiles(settings)
+        if len(profiles) > 1:
+            pool = get_vertex_profile_pool()
+            mode = str(getattr(settings, "gcp_vertex_routing_mode", "round_robin") or "round_robin")
+            cooldown = float(getattr(settings, "gcp_vertex_cooldown_sec", 300.0) or 300.0)
+            candidates = pool.ordered_candidates(profiles, mode)
+            last_exc: Optional[Exception] = None
+            for idx, candidate in enumerate(candidates):
+                try:
+                    proc, data = _run_worker_b_once(worker_input, settings, worker_dir, cmd, record, profile=candidate)
+                    pool.mark_success(candidate)
+                    last_exc = None
+                    break
+                except WorkerError as exc:
+                    last_exc = exc
+                    if is_vertex_failover_error(exc) and idx + 1 < len(candidates):
+                        pool.mark_failure(candidate, exc, cooldown)
+                        continue
+                    raise
+            if last_exc is not None:
+                raise last_exc
+    if data is None:
+        proc, data = _run_worker_b_once(worker_input, settings, worker_dir, cmd, record)
     on_usage = getattr(settings, "_on_usage", None)
     if callable(on_usage) and isinstance(data, dict):
         for st in data.get("steps") or []:

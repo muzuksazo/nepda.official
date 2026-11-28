@@ -344,3 +344,58 @@ const resp = await fetch(url, {
 | `400 invalid_grant` / `iss` · `aud` 불일치 | Vercel OIDC Issuer Mode가 `Global`이거나 Modal 발급자/CEL 조건 불일치 | Vercel **Settings → Security → OIDC Federation**을 `Team`으로 설정; Modal Provider `iss=https://oidc.modal.com`, `aud=oidc.modal.com`, `workspace_id` 확인 |
 | `404 Publisher model ... not found` | 최신 Gemini 모델(`gemini-3.5-flash`, `gemini-4-hydrogen` 등)이 특정 리전(`us-central1`) 엔드포인트에 없음 | Vercel·Modal 환경변수 및 설정의 `GOOGLE_CLOUD_LOCATION`을 `global`로 지정 |
 | `invalid_request: The size of mapped attribute google.subject exceeds the 127 bytes limit` | Modal의 `assertion.sub` 전체 문자열이 GCP `google.subject` 상한(127바이트)을 초과 | GCP Provider 속성 매핑에서 `google.subject`를 `assertion.workspace_id + ':' + assertion.container_id`로 변경 |
+
+---
+
+## 9단계: 두 개발자 GCP 크레딧 번갈아/폴백 사용하기 (`GCP_VERTEX_PROFILES_JSON`)
+
+백엔드는 환경변수 `GCP_VERTEX_PROFILES_JSON`에 여러 GCP 프로필을 넣어 두면 요청마다 **번갈아 사용(`round_robin`)** 하거나, 한 프로젝트에서 **할당량 초과(`429 RESOURCE_EXHAUSTED`)·크레딧/결제 소진(`402`/`403 BILLING_DISABLED`·`PERMISSION_DENIED`)·일시 장애**가 날 때 자동으로 다음 프로젝트로 **폴백(`failover`) + 쿨다운** 처리합니다.
+
+- **적용 대상**: Python `google-genai` 파이프라인(C 시나리오, 참고 이미지, 영상 클립, TTS, 본편 대본/컷 선택) + Node B 시나리오 작업자(`run_worker_b`)
+- **폴백 동작**:
+  - `GCP_VERTEX_ROUTING_MODE=round_robin` (기본값): 정상인 프로필을 요청마다 번갈아 선택하고, 실패한 프로필은 `GCP_VERTEX_COOLDOWN_SEC`(기본 300초; `402`/`403`/결제 오류는 최소 1800초) 동안 자동 우회합니다.
+  - `GCP_VERTEX_ROUTING_MODE=failover`: 항상 1번 프로필을 우선 쓰고, 실패/쿨다운 시에만 2번 프로필을 씁니다.
+  - 비동기 `interactions.create()`로 받은 작업 ID는 생성한 동일 프로필로 `interactions.get()` 폴링이 고정됩니다.
+
+### 방법 A: Cloud Run(`napda-backend`)에서 크로스 프로젝트 사용 (WIF 추가 불필요)
+
+Cloud Run 서비스 계정(`napda-cloudrun@gentle-voltage-464223-h6.iam.gserviceaccount.com`)이 이미 GCP 내부 ADC로 동작하므로, 개발자 B의 GCP 프로젝트에서는 **Vertex AI 사용자 권한 1줄**만 추가하면 됩니다.
+
+```bash
+# 1) 개발자 B 프로젝트(<DEV2_GCP_PROJECT_ID>)에서 Cloud Run 런타임 계정에 Vertex AI 권한 부여
+gcloud projects add-iam-policy-binding <DEV2_GCP_PROJECT_ID> \
+  --member="serviceAccount:napda-cloudrun@gentle-voltage-464223-h6.iam.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
+
+# (선택) 개발자 B 프로젝트에 Vertex AI API가 아직 안 켜져 있다면 활성화
+gcloud services enable aiplatform.googleapis.com --project=<DEV2_GCP_PROJECT_ID>
+
+# 2) Cloud Run 서비스 환경변수에 두 프로젝트 등록 (예: ^@^ 커스텀 구분자 사용)
+gcloud run services update napda-backend \
+  --project=gentle-voltage-464223-h6 \
+  --region=asia-northeast3 \
+  --update-env-vars='^@^GCP_VERTEX_ROUTING_MODE=round_robin@GCP_VERTEX_PROFILES_JSON=[{"name":"dev1","project":"gentle-voltage-464223-h6","location":"global"},{"name":"dev2","project":"<DEV2_GCP_PROJECT_ID>","location":"global"}]'
+```
+
+### 방법 B: Modal / Vercel에서 서로 다른 두 GCP WIF를 묶어 쓰는 경우
+
+Modal/Vercel처럼 외부 WIF를 쓰는 환경에서는 각 프로필 객체에 `wif_provider`와 `service_account_email`까지 함께 적습니다. (같은 Modal 워크스페이스 OIDC 토큰을 양쪽 GCP의 WIF 풀 Provider가 모두 검증하도록 각 프로젝트에 WIF를 등록해 두면 됩니다.)
+
+```json
+[
+  {
+    "name": "dev1",
+    "project": "gentle-voltage-464223-h6",
+    "location": "global",
+    "wif_provider": "projects/94766443061/locations/global/workloadIdentityPools/vercel-napda-pool/providers/modal-dltldn333",
+    "service_account_email": "napda-vercel-wif@gentle-voltage-464223-h6.iam.gserviceaccount.com"
+  },
+  {
+    "name": "dev2",
+    "project": "<DEV2_GCP_PROJECT_ID>",
+    "location": "global",
+    "wif_provider": "projects/<DEV2_GCP_PROJECT_NUMBER>/locations/global/workloadIdentityPools/<DEV2_POOL>/providers/<DEV2_PROVIDER>",
+    "service_account_email": "<DEV2_SA>@<DEV2_GCP_PROJECT_ID>.iam.gserviceaccount.com"
+  }
+]
+```

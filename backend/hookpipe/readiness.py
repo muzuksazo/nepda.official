@@ -93,6 +93,16 @@ def check(settings: Any, storage: Any = None, *, deep: bool = False) -> Dict[str
         "hook_a_templates": getattr(settings, "hook_a_templates", None),
         "hook_render_mode": getattr(settings, "hook_render_mode", None),
     }
+    if getattr(settings, "google_genai_use_vertexai", False) and getattr(settings, "gcp_vertex_profiles_json", None):
+        try:
+            from app.genai_provider import get_vertex_profile_pool, parse_vertex_profiles
+
+            profiles = parse_vertex_profiles(settings)
+            if len(profiles) > 1:
+                out["config"]["vertex_routing_mode"] = getattr(settings, "gcp_vertex_routing_mode", "round_robin")
+                out["config"]["vertex_profiles"] = get_vertex_profile_pool().snapshot_status(profiles)
+        except Exception as exc:
+            problems.append(f"GCP_VERTEX_PROFILES_JSON 설정 오류: {exc}")
     if getattr(settings, "storage_backend", "local") == "local":
         warnings.append("STORAGE_BACKEND=local: 결과 주소가 file:// 라 브라우저에서 열 수 없고, 재배포하면 파일이 사라집니다.")
 

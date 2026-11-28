@@ -706,6 +706,68 @@ class WorkerConnection(unittest.TestCase):
         self.assertFalse(res_err["ready"])
         self.assertIsNone(res_err["deep"]["models_missing"])
 
+    def test_worker_b_rotates_and_fails_over_between_gcp_profiles(self) -> None:
+        import json
+        import os
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        from app.genai_provider import reset_vertex_profile_pool
+        from hookpipe.workers import run_worker_b
+
+        reset_vertex_profile_pool()
+        try:
+            inp = build_worker_input(PROJECT, "B", round_no=1, previous_scenarios=[])
+            seen_envs: List[Dict[str, str]] = []
+
+            with tempfile.TemporaryDirectory() as tmp:
+                workers_root = Path(tmp)
+                b_dir = workers_root / "b"
+                (b_dir / "node_modules").mkdir(parents=True)
+                rec = b_dir / "out" / PROJECT["project_id"] / "round-1.json"
+                rec.parent.mkdir(parents=True)
+                rec.write_text(json.dumps({"response": {"scenarios": [worker_scenario("B", "sc_b_multi")]}}), encoding="utf-8")
+
+                settings = _settings(
+                    hook_workers_dir=str(workers_root),
+                    hook_worker_llm="gemini-4-hydrogen",
+                    google_genai_use_vertexai=True,
+                    google_cloud_location="global",
+                    gcp_vertex_routing_mode="round_robin",
+                    gcp_vertex_cooldown_sec=300.0,
+                    gcp_vertex_profiles_json=json.dumps(
+                        [
+                            {"name": "dev1", "project": "proj-dev1", "location": "global"},
+                            {"name": "dev2", "project": "proj-dev2", "location": "global"},
+                        ]
+                    ),
+                )
+
+                def _fake_run_node(_cmd: List[str], _worker_dir: Path, _timeout: float, _label: str, extra_env: Any = None) -> Any:
+                    env_copy = dict(extra_env or {})
+                    seen_envs.append(env_copy)
+                    if env_copy.get("GOOGLE_CLOUD_PROJECT") == "proj-dev1":
+                        raise WorkerError("429 RESOURCE_EXHAUSTED quota exceeded on proj-dev1")
+                    return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+                with patch.dict(os.environ, {}, clear=True):
+                    with patch("shutil.which", return_value="/usr/local/bin/node"):
+                        with patch("hookpipe.workers._run_node", side_effect=_fake_run_node):
+                            resp = run_worker_b(inp, settings)
+                            # Second call should skip cooled-down dev1 and go straight to dev2
+                            resp2 = run_worker_b(inp, settings)
+
+            self.assertEqual(resp["scenarios"][0]["scenario_id"], "sc_b_multi")
+            self.assertEqual(resp2["scenarios"][0]["scenario_id"], "sc_b_multi")
+            self.assertEqual(
+                [e.get("GOOGLE_CLOUD_PROJECT") for e in seen_envs],
+                ["proj-dev1", "proj-dev2", "proj-dev2"],
+            )
+            self.assertEqual(seen_envs[1]["GCP_WORKLOAD_IDENTITY_PROVIDER"], "")
+        finally:
+            reset_vertex_profile_pool()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     gcp_workload_identity_provider: Optional[str] = None
     gcp_service_account_email: Optional[str] = None
     gcp_billing_app_label: str = "napda"
+    # 다중 GCP 프로젝트/WIF 번갈아·폴백 사용 (JSON 배열 문자열). 비우면 위 단일 설정을 그대로 사용한다.
+    gcp_vertex_profiles_json: Optional[str] = None
+    gcp_vertex_routing_mode: Literal["round_robin", "failover"] = "round_robin"
+    gcp_vertex_cooldown_sec: float = 300.0
     api_bearer_token: Optional[str] = None
     admin_emails: str = ""
     usage_pricing_overrides_json: Optional[str] = None
