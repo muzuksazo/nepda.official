@@ -347,6 +347,90 @@ def _load_track_a_manifest_entries(settings: Settings) -> List[Dict[str, Any]]:
     return entries
 
 
+def _select_track_a_template(
+    manifest_entries: List[Dict[str, Any]],
+    project: Optional[Dict[str, Any]] = None,
+    *,
+    requested_template_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Select a Track A template by explicit ID, product-keyword affinity, and stable project_id hash."""
+    if not manifest_entries:
+        return None
+
+    req_id = str(requested_template_id or "").strip()
+    if req_id:
+        for entry in manifest_entries:
+            if str(entry.get("id") or "").strip() == req_id:
+                return entry
+
+    proj = project or {}
+    product = proj.get("product") if isinstance(proj.get("product"), dict) else {}
+    name_text = str(product.get("name") or "").lower()
+    facts_text = " ".join(str(f) for f in (product.get("verified_facts") or []))
+    corpus = " ".join(
+        str(part or "")
+        for part in (
+            product.get("name"),
+            product.get("category"),
+            product.get("one_liner"),
+            product.get("target_audience"),
+            facts_text,
+        )
+    ).lower()
+
+    scores: List[int] = []
+    for entry in manifest_entries:
+        score = 0
+        raw_tags = entry.get("tags") or []
+        seen_tags: set[str] = set()
+        for raw_tag in raw_tags:
+            tag = str(raw_tag or "").strip().lower()
+            if len(tag) < 2 or tag in seen_tags:
+                continue
+            seen_tags.add(tag)
+            is_ascii = tag.isascii() and tag.replace("_", "").replace("-", "").isalnum()
+            if is_ascii:
+                pattern = rf"(?<![a-z0-9]){re.escape(tag)}(?![a-z0-9])"
+                in_name = bool(re.search(pattern, name_text))
+                in_corpus = in_name or bool(re.search(pattern, corpus))
+            else:
+                in_name = tag in name_text
+                in_corpus = in_name or (tag in corpus)
+            if in_name:
+                score += 2
+            elif in_corpus:
+                score += 1
+        scores.append(score)
+
+    max_score = max(scores) if scores else 0
+    if max_score > 0:
+        pool = [entry for entry, sc in zip(manifest_entries, scores) if sc == max_score]
+    else:
+        pool = list(manifest_entries)
+
+    pending = proj.get("pending_scenarios") or []
+    used_ids = {
+        str((s.get("ad_spec") or {}).get("track_a_template_id") or "").strip()
+        for s in pending
+        if isinstance(s, dict)
+    }
+    used_ids.discard("")
+    if used_ids:
+        fresh_pool = [e for e in pool if str(e.get("id") or "").strip() not in used_ids]
+        if fresh_pool:
+            pool = fresh_pool
+        elif max_score == 0:
+            fresh_all = [e for e in manifest_entries if str(e.get("id") or "").strip() not in used_ids]
+            if fresh_all:
+                pool = fresh_all
+
+    seed_base = str(proj.get("project_id") or product.get("name") or "napda")
+    seed_str = f"{seed_base}:{len(pending)}" if pending else seed_base
+    digest = hashlib.sha256(seed_str.encode("utf-8")).hexdigest()
+    idx = int(digest[:8], 16) % len(pool)
+    return pool[idx]
+
+
 def _unescape_newlines(text: Any) -> str:
     """Normalize double-escaped JSON newlines (`\\n`) into real newlines."""
     return str(text or "").replace("\\n", "\n")
@@ -545,7 +629,7 @@ def _default_scenario_generator(settings: Settings) -> ScenarioGenerator:
         product = project["product"]
         facts_md = _product_to_facts_md(product)
         manifest_entries = _load_track_a_manifest_entries(settings)
-        tpl_entry = manifest_entries[0] if manifest_entries else None
+        tpl_entry = _select_track_a_template(manifest_entries, project)
         model_override = str((project.get("_ab_override") or {}).get("model") or "").strip() or None
         scenarios: List[Dict[str, Any]] = []
         with httpx.Client(timeout=60.0) as client:
@@ -639,9 +723,10 @@ def _default_storyboard_generator(
     ) -> Optional[List[Dict[str, Any]]]:
         manifest_entries = _load_track_a_manifest_entries(settings)
         tpl_id = str((scenario.get("ad_spec") or {}).get("track_a_template_id") or "").strip()
-        tpl_entry = next(
-            (e for e in manifest_entries if tpl_id and e.get("id") == tpl_id),
-            manifest_entries[0] if manifest_entries else None,
+        tpl_entry = _select_track_a_template(
+            manifest_entries,
+            project,
+            requested_template_id=tpl_id or None,
         )
         if not tpl_entry:
             return None
@@ -878,7 +963,11 @@ def build_projects_router(
             )
         return proj
 
-    def _resolve_track_a_template(template_id: Optional[str] = None) -> Optional[Path]:
+    def _resolve_track_a_template(
+        template_id: Optional[str] = None,
+        *,
+        project: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Path]:
         """Resolve a pre-prepared Track A opener MP4 from manifest, URLs, dir, or defaults."""
         manifest_entries = _load_track_a_manifest_entries(settings)
         if template_id:
@@ -901,7 +990,9 @@ def build_projects_router(
             return cached
 
         if manifest_entries:
-            return Path(manifest_entries[0]["path"])
+            picked = _select_track_a_template(manifest_entries, project, requested_template_id=template_id)
+            if picked and picked.get("path"):
+                return Path(picked["path"])
 
         candidates: List[Path] = []
         if settings.track_a_template_dir and settings.track_a_template_dir.strip():
@@ -1879,7 +1970,7 @@ def build_projects_router(
             )
 
         tpl_path = (
-            _resolve_track_a_template(spec_data.get("track_a_template_id"))
+            _resolve_track_a_template(spec_data.get("track_a_template_id"), project=proj)
             if (chosen_type == "A" and not body.dry_run)
             else None
         )
