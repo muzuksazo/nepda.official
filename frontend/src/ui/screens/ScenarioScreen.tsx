@@ -36,7 +36,12 @@ export function ScenarioScreen({ hookType, scenario, onBack, onShootingGuide, on
             <Badge tone="brand">{hookType} 유형</Badge>
           </div>
           {scenario ? (
-            <p style={{ whiteSpace: 'pre-line' }}>{scenario}</p>
+            <>
+              <p style={{ whiteSpace: 'pre-line' }}>{scenario}</p>
+              <p className="n-small n-muted">
+                본편 나레이션(10~15초)은 촬영 영상을 올린 뒤, 이 훅의 마지막 말을 이어받아 만들어져요.
+              </p>
+            </>
           ) : (
             <Stack gap={16}>
               <div className="n-row" style={{ gap: 12 }} role="status">
