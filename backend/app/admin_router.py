@@ -739,7 +739,58 @@ def build_admin_router(
                     "output_description": st_meta["output_description"],
                 }
             )
-        summary = {**summary, "by_stage": enriched_stages}
+        enriched_projects = []
+        for row in summary.get("recent_projects") or []:
+            pid = str(row.get("project_id") or "")
+            preview_meta: Dict[str, Any] = {
+                "has_thumbnail": False,
+                "thumbnail_url": None,
+                "has_final_video": False,
+                "storyboard_count": 0,
+                "hook_count": 0,
+            }
+            if pid:
+                try:
+                    proj = project_store.get_project(pid)
+                    thumb = (proj or {}).get("thumbnail") if isinstance((proj or {}).get("thumbnail"), dict) else None
+                    thumb_key = thumb.get("object_key") if thumb else None
+                    if thumb_key:
+                        preview_meta["has_thumbnail"] = True
+                        preview_meta["thumbnail_url"] = _resolve_admin_media(
+                            thumb_key, storage=storage, settings=settings
+                        )
+
+                    scenarios = project_store.list_scenarios(pid)
+                    sb_count = 0
+                    first_sb_url: Optional[str] = None
+                    for scn in scenarios:
+                        for fr in scn.get("storyboard_frames") or []:
+                            if not isinstance(fr, dict):
+                                continue
+                            sb_count += 1
+                            if first_sb_url is None:
+                                raw_img = fr.get("object_key") or fr.get("image_url")
+                                first_sb_url = _resolve_admin_media(
+                                    raw_img, storage=storage, settings=settings
+                                )
+                    preview_meta["storyboard_count"] = sb_count
+                    if not preview_meta["thumbnail_url"] and first_sb_url:
+                        preview_meta["thumbnail_url"] = first_sb_url
+
+                    hooks = project_store.list_hooks_for_project(pid)
+                    done_hooks = [h for h in hooks if str(h.get("status") or "").lower() == "done"]
+                    preview_meta["hook_count"] = len(done_hooks) if done_hooks else len(hooks)
+
+                    latest_job_id = (proj or {}).get("latest_job_id")
+                    job = job_store.get_job(latest_job_id) if (job_store is not None and latest_job_id) else None
+                    rendered = ((job or {}).get("artifacts") or {}).get("rendered") or []
+                    first_r = rendered[0] if rendered and isinstance(rendered[0], dict) else None
+                    if first_r and (first_r.get("master_key") or first_r.get("master_mp4")):
+                        preview_meta["has_final_video"] = True
+                except Exception:
+                    pass
+            enriched_projects.append({**row, **preview_meta})
+        summary = {**summary, "by_stage": enriched_stages, "recent_projects": enriched_projects}
         overrides = parse_pricing_overrides(settings.usage_pricing_overrides_json)
         return {
             **summary,

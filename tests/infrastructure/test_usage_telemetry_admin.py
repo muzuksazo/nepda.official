@@ -21,6 +21,7 @@ from app.auth import AuthenticatedUser, issue_session_token  # noqa: E402
 from app.config import Settings  # noqa: E402
 from app.project_store import ProjectStore  # noqa: E402
 from app.server import create_app  # noqa: E402
+from app.storage import S3StorageBackend, _infer_content_type  # noqa: E402
 from app.usage_telemetry import estimate_cost_usd, parse_pricing_overrides, pricing_catalog  # noqa: E402
 from hookpipe.body_edit import make_body  # noqa: E402
 from hookpipe.render import render_hook  # noqa: E402
@@ -216,6 +217,12 @@ class TestUsageTelemetryAndAdmin(unittest.TestCase):
             self.assertAlmostEqual(summary["totals"]["estimated_cost_usd"], 0.022, places=6)
             self.assertEqual(summary["recent_projects"][0]["project_id"], pid)
             self.assertEqual(summary["usd_krw_rate"], 1400.0)
+            proj_row = summary["recent_projects"][0]
+            self.assertIn("has_final_video", proj_row)
+            self.assertIn("has_thumbnail", proj_row)
+            self.assertIn("thumbnail_url", proj_row)
+            self.assertIn("storyboard_count", proj_row)
+            self.assertIn("hook_count", proj_row)
             by_stage = {row["stage"]: row for row in summary["by_stage"]}
             self.assertEqual(by_stage["scenario_c"]["stage_label"], "C안 시나리오 기획")
             self.assertTrue(by_stage["scenario_c"]["output_description"])
@@ -386,6 +393,54 @@ class TestUsageTelemetryAndAdmin(unittest.TestCase):
             self.assertTrue(by_stage.get("video_clip"))
             self.assertTrue(all((e.get("metadata") or {}).get("object_key") for e in by_stage["video_clip"]))
             self.assertGreaterEqual(len(published), 3)
+
+    def test_s3_storage_sets_content_type_on_upload_and_presign(self) -> None:
+        self.assertEqual(_infer_content_type("renders/job_1/master.mp4"), "video/mp4")
+        self.assertEqual(_infer_content_type("thumbnails/t1/cover.png"), "image/png")
+        self.assertEqual(_infer_content_type("usage/tts/beat_1.mp3"), "audio/mpeg")
+        self.assertEqual(_infer_content_type("renders/job_1/final.srt"), "text/plain; charset=utf-8")
+
+        fake_client = SimpleNamespace(
+            upload_calls=[],
+            presign_calls=[],
+        )
+
+        def _upload_file(filename, bucket, key, **kwargs):
+            fake_client.upload_calls.append((filename, bucket, key, kwargs))
+
+        def _generate_presigned_url(op, Params=None, ExpiresIn=3600):
+            fake_client.presign_calls.append((op, Params, ExpiresIn))
+            return f"https://r2.example/{Params['Bucket']}/{Params['Key']}?ct={Params.get('ResponseContentType', '')}"
+
+        fake_client.upload_file = _upload_file
+        fake_client.generate_presigned_url = _generate_presigned_url
+
+        with temporary_directory() as td:
+            sample = Path(td) / "master_with_cover.mp4"
+            sample.write_bytes(b"ftypisom")
+            settings = Settings(
+                _env_file=None,
+                storage_backend="r2",
+                s3_bucket="napda",
+                s3_endpoint_url="https://example.r2.cloudflarestorage.com",
+                s3_access_key_id="k",
+                s3_secret_access_key="s",
+                gemini_api_key="dummy-key",
+            )
+            with patch("boto3.client", return_value=fake_client):
+                backend = S3StorageBackend(settings)
+            url = backend.upload_file(sample, "projects/p1/master_with_cover.mp4")
+
+        self.assertEqual(len(fake_client.upload_calls), 1)
+        self.assertEqual(
+            fake_client.upload_calls[0][3],
+            {"ExtraArgs": {"ContentType": "video/mp4"}},
+        )
+        self.assertEqual(
+            fake_client.presign_calls[0][1]["ResponseContentType"],
+            "video/mp4",
+        )
+        self.assertIn("ResponseContentType=video/mp4" if False else "ct=video/mp4", url)
 
     @unittest.skipUnless(tools_or_none() is not None, "ffmpeg required")
     def test_make_body_records_body_tts_usage(self) -> None:

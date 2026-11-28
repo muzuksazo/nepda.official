@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { NapdaApiError, customFetch } from '../api/mutator';
 import type { ThemeSetting } from '../ui/NapdaProvider';
 import { AdminAccountsPanel } from './AdminAccountsPanel';
@@ -72,6 +72,11 @@ interface ProjectUsageRow {
   unpriced_calls: number;
   total_latency_ms: number;
   last_event_at: string;
+  has_thumbnail?: boolean;
+  thumbnail_url?: string | null;
+  has_final_video?: boolean;
+  storyboard_count?: number;
+  hook_count?: number;
 }
 
 interface MatchedArtifact {
@@ -291,6 +296,21 @@ function fmtMedia(unit: string | null, qty: number | null): string {
   return `${qty} ${unit}`;
 }
 
+function detectAdminEnv(): { label: 'PROD' | 'STAGING' | 'LOCAL'; cls: string } {
+  try {
+    const host = window.location.hostname.toLowerCase();
+    if (host.includes('napda-staging') || host.includes('staging')) {
+      return { label: 'STAGING', cls: 'is-staging' };
+    }
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return { label: 'LOCAL', cls: 'is-local' };
+    }
+  } catch {
+    // ignore SSR/location errors
+  }
+  return { label: 'PROD', cls: 'is-prod' };
+}
+
 export function AdminUsagePage({
   themeMode,
   onThemeModeChange,
@@ -300,6 +320,8 @@ export function AdminUsagePage({
   onThemeModeChange: (next: ThemeSetting) => void;
   userEmail?: string;
 }) {
+  const adminEnv = detectAdminEnv();
+  const autoExpandedRef = useRef<boolean>(false);
   const [activeTab, setActiveTab] = useState<AdminTab>(() => readAdminTabFromUrl());
   const [days, setDays] = useState<number>(30);
   const [bearerInput, setBearerInput] = useState<string>(() => {
@@ -331,14 +353,52 @@ export function AdminUsagePage({
     return trimmed ? { Authorization: `Bearer ${trimmed}` } : undefined;
   }, [appliedBearer]);
 
-  const applySummaryData = useCallback((next: AdminUsageSummaryResponse) => {
-    setSummary(next);
-    setDetailErrorByProject({});
-    setExpandedId((prev) => {
-      if (!prev) return prev;
-      return next.recent_projects.some((p) => p.project_id === prev) ? prev : null;
-    });
-  }, []);
+  const fetchProjectDetail = useCallback(
+    async (projectId: string) => {
+      setLoadingDetailId(projectId);
+      setDetailErrorByProject((prev) => {
+        if (!(projectId in prev)) return prev;
+        const next = { ...prev };
+        delete next[projectId];
+        return next;
+      });
+      try {
+        const res = await customFetch<{ data: ProjectUsageDetailResponse; status: number }>(
+          `/v1/admin/usage/projects/${encodeURIComponent(projectId)}`,
+          { headers: authHeaders() },
+        );
+        setDetailByProject((prev) => ({ ...prev, [projectId]: res.data }));
+      } catch (err) {
+        setDetailErrorByProject((prev) => ({
+          ...prev,
+          [projectId]: toAdminErrorState(err, '상세 내역을 불러오지 못했습니다.'),
+        }));
+      } finally {
+        setLoadingDetailId(null);
+      }
+    },
+    [authHeaders],
+  );
+
+  const applySummaryData = useCallback(
+    (next: AdminUsageSummaryResponse) => {
+      setSummary(next);
+      setDetailErrorByProject({});
+      const projects = next.recent_projects || [];
+      if (!autoExpandedRef.current && projects.length > 0) {
+        const firstId = projects[0].project_id;
+        autoExpandedRef.current = true;
+        setExpandedId(firstId);
+        void fetchProjectDetail(firstId);
+        return;
+      }
+      setExpandedId((prev) => {
+        if (!prev) return null;
+        return projects.some((p) => p.project_id === prev) ? prev : null;
+      });
+    },
+    [fetchProjectDetail],
+  );
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -412,33 +472,6 @@ export function AdminUsagePage({
     setBearerRevision((n) => n + 1);
   };
 
-  const fetchProjectDetail = useCallback(
-    async (projectId: string) => {
-      setLoadingDetailId(projectId);
-      setDetailErrorByProject((prev) => {
-        if (!(projectId in prev)) return prev;
-        const next = { ...prev };
-        delete next[projectId];
-        return next;
-      });
-      try {
-        const res = await customFetch<{ data: ProjectUsageDetailResponse; status: number }>(
-          `/v1/admin/usage/projects/${encodeURIComponent(projectId)}`,
-          { headers: authHeaders() },
-        );
-        setDetailByProject((prev) => ({ ...prev, [projectId]: res.data }));
-      } catch (err) {
-        setDetailErrorByProject((prev) => ({
-          ...prev,
-          [projectId]: toAdminErrorState(err, '상세 내역을 불러오지 못했습니다.'),
-        }));
-      } finally {
-        setLoadingDetailId(null);
-      }
-    },
-    [authHeaders],
-  );
-
   const handleToggleProject = async (projectId: string) => {
     if (expandedId === projectId) {
       setExpandedId(null);
@@ -450,6 +483,7 @@ export function AdminUsagePage({
   };
 
   const handleRefreshAfterStale = () => {
+    autoExpandedRef.current = false;
     setExpandedId(null);
     setDetailByProject({});
     setDetailErrorByProject({});
@@ -464,13 +498,16 @@ export function AdminUsagePage({
       <div className="napda-admin-inner">
         <header className="napda-admin-header">
           <div>
-            <h1 className="napda-admin-title">
-              {activeTab === 'templates'
-                ? 'NAPDA A안 템플릿 관리'
-                : activeTab === 'accounts'
-                  ? 'NAPDA 계정 · 내부 테스트 관리'
-                  : 'NAPDA 사용량 · 단가 · A/B 텔레메트리'}
-            </h1>
+            <div className="napda-admin-title-row">
+              <h1 className="napda-admin-title">
+                {activeTab === 'templates'
+                  ? 'NAPDA A안 템플릿 관리'
+                  : activeTab === 'accounts'
+                    ? 'NAPDA 계정 · 내부 테스트 관리'
+                    : 'NAPDA 사용량 · 단가 · A/B 텔레메트리'}
+              </h1>
+              <span className={`napda-admin-env-badge ${adminEnv.cls}`}>{adminEnv.label}</span>
+            </div>
             <p className="napda-admin-sub">
               {summary
                 ? `접속: ${summary.admin_actor}${summary.dev_open_admin ? ' (로컬 오픈 모드 — 운영 시 ADMIN_EMAILS 설정 필요)' : ''} · 단가 기준 ${summary.pricing_version}`
@@ -627,118 +664,16 @@ export function AdminUsagePage({
         {summary && (
           <section className="napda-admin-card">
             <div className="napda-admin-card-head">
-              <h2 className="napda-admin-card-title">모델별 사용량 · A/B 단가 비교</h2>
-            </div>
-            <div className="napda-admin-table-wrap">
-              <table className="napda-admin-table">
-                <thead>
-                  <tr>
-                    <th>공급자</th>
-                    <th>모델</th>
-                    <th className="num">호출(캐시)</th>
-                    <th className="num">프로젝트</th>
-                    <th className="num">입력 토큰</th>
-                    <th className="num">출력(+생각) 토큰</th>
-                    <th>미디어</th>
-                    <th>적용 단가</th>
-                    <th className="num">건당 평균</th>
-                    <th className="num">합계(USD)</th>
-                    <th className="num">평균 지연</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summary.by_provider_model.length === 0 ? (
-                    <tr>
-                      <td colSpan={11}>아직 기록된 사용량이 없습니다.</td>
-                    </tr>
-                  ) : (
-                    summary.by_provider_model.map((row) => (
-                      <tr key={`${row.provider}:${row.model}`}>
-                        <td>
-                          <span className={`napda-admin-badge is-${row.provider}`}>{row.provider}</span>
-                        </td>
-                        <td className="napda-admin-mono">{row.model}</td>
-                        <td className="num">
-                          {fmtNum(row.calls)} ({fmtNum(row.cache_hits)})
-                        </td>
-                        <td className="num">{fmtNum(row.project_count)}</td>
-                        <td className="num">{fmtNum(row.input_tokens)}</td>
-                        <td className="num">
-                          {fmtNum(row.output_tokens + row.thinking_tokens)}
-                        </td>
-                        <td>{fmtMedia(row.media_unit, row.media_qty)}</td>
-                        <td className="napda-admin-mono">{row.unit_price_label}</td>
-                        <td className="num">{fmtUsd(row.avg_cost_per_project_usd, rate)}</td>
-                        <td className="num">{fmtUsd(row.estimated_cost_usd, rate)}</td>
-                        <td className="num">{fmtNum(row.avg_latency_ms)} ms</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        {summary && (
-          <section className="napda-admin-card">
-            <div className="napda-admin-card-head">
-              <h2 className="napda-admin-card-title">단계별 사용량 (Stage Breakdown)</h2>
-            </div>
-            <div className="napda-admin-table-wrap">
-              <table className="napda-admin-table">
-                <thead>
-                  <tr>
-                    <th>단계</th>
-                    <th>생성 산출물</th>
-                    <th className="num">호출(캐시)</th>
-                    <th className="num">입력 토큰</th>
-                    <th className="num">출력(+생각) 토큰</th>
-                    <th>미디어</th>
-                    <th className="num">추정 비용</th>
-                    <th className="num">평균 지연</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summary.by_stage.length === 0 ? (
-                    <tr>
-                      <td colSpan={8}>데이터 없음</td>
-                    </tr>
-                  ) : (
-                    summary.by_stage.map((row) => (
-                      <tr key={row.stage}>
-                        <td>
-                          <strong>{row.stage_label || row.stage}</strong>
-                          <div className="napda-admin-mono">{row.stage}</div>
-                        </td>
-                        <td className="wrap">{row.output_description || '-'}</td>
-                        <td className="num">
-                          {fmtNum(row.calls)} ({fmtNum(row.cache_hits)})
-                        </td>
-                        <td className="num">{fmtNum(row.input_tokens)}</td>
-                        <td className="num">{fmtNum(row.output_tokens + row.thinking_tokens)}</td>
-                        <td>{fmtMedia(row.media_unit, row.media_qty)}</td>
-                        <td className="num">{fmtUsd(row.estimated_cost_usd, rate)}</td>
-                        <td className="num">{fmtNum(row.avg_latency_ms)} ms</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        {summary && (
-          <section className="napda-admin-card">
-            <div className="napda-admin-card-head">
-              <h2 className="napda-admin-card-title">프로젝트(건당) 사용 내역 — 행 클릭 시 단계별 상세</h2>
+              <h2 className="napda-admin-card-title">
+                프로젝트(건당) 사용 내역 · 생성 산출물 — 행 클릭 시 영상·이미지·비용 매칭 확인
+              </h2>
             </div>
             <div className="napda-admin-table-wrap">
               <table className="napda-admin-table">
                 <thead>
                   <tr>
                     <th>프로젝트</th>
+                    <th>산출물</th>
                     <th>사용자</th>
                     <th>유형</th>
                     <th>사용 모델</th>
@@ -752,7 +687,7 @@ export function AdminUsagePage({
                 <tbody>
                   {summary.recent_projects.length === 0 ? (
                     <tr>
-                      <td colSpan={9}>최근 프로젝트 사용 기록이 없습니다.</td>
+                      <td colSpan={10}>최근 프로젝트 사용 기록이 없습니다.</td>
                     </tr>
                   ) : (
                     summary.recent_projects.map((p) => {
@@ -768,6 +703,36 @@ export function AdminUsagePage({
                             <td>
                               <strong>{p.product_name}</strong>
                               <div className="napda-admin-mono">{p.project_id}</div>
+                            </td>
+                            <td>
+                              <div className="napda-admin-row-art-cell">
+                                {p.thumbnail_url ? (
+                                  <img
+                                    className="napda-admin-row-thumb"
+                                    src={p.thumbnail_url}
+                                    alt={p.product_name}
+                                  />
+                                ) : null}
+                                <div className="napda-admin-row-art-meta">
+                                  <div className="napda-admin-row-art-badges">
+                                    {p.has_final_video && (
+                                      <span className="napda-admin-badge is-google">최종영상</span>
+                                    )}
+                                    {p.has_thumbnail && (
+                                      <span className="napda-admin-badge is-inworld">썸네일</span>
+                                    )}
+                                    {(p.storyboard_count ?? 0) > 0 && (
+                                      <span className="napda-admin-badge">콘티 {p.storyboard_count}장</span>
+                                    )}
+                                    {(p.hook_count ?? 0) > 0 && (
+                                      <span className="napda-admin-badge">훅 {p.hook_count}건</span>
+                                    )}
+                                  </div>
+                                  <span className="napda-admin-row-toggle">
+                                    {isExpanded ? '산출물 접기 ▲' : '산출물 보기 ▼'}
+                                  </span>
+                                </div>
+                              </div>
                             </td>
                             <td>{p.user_email || '-'}</td>
                             <td>{p.hook_types.join(', ') || '-'}</td>
@@ -789,7 +754,7 @@ export function AdminUsagePage({
                           </tr>
                           {isExpanded && (
                             <tr>
-                              <td colSpan={9} className="napda-admin-detail">
+                              <td colSpan={10} className="napda-admin-detail">
                                 {loadingDetailId === p.project_id && !detail ? (
                                   <div>상세 이벤트 불러오는 중...</div>
                                 ) : detailError && !detail ? (
@@ -1368,6 +1333,111 @@ export function AdminUsagePage({
                         </Fragment>
                       );
                     })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {summary && (
+          <section className="napda-admin-card">
+            <div className="napda-admin-card-head">
+              <h2 className="napda-admin-card-title">모델별 사용량 · A/B 단가 비교</h2>
+            </div>
+            <div className="napda-admin-table-wrap">
+              <table className="napda-admin-table">
+                <thead>
+                  <tr>
+                    <th>공급자</th>
+                    <th>모델</th>
+                    <th className="num">호출(캐시)</th>
+                    <th className="num">프로젝트</th>
+                    <th className="num">입력 토큰</th>
+                    <th className="num">출력(+생각) 토큰</th>
+                    <th>미디어</th>
+                    <th>적용 단가</th>
+                    <th className="num">건당 평균</th>
+                    <th className="num">합계(USD)</th>
+                    <th className="num">평균 지연</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.by_provider_model.length === 0 ? (
+                    <tr>
+                      <td colSpan={11}>아직 기록된 사용량이 없습니다.</td>
+                    </tr>
+                  ) : (
+                    summary.by_provider_model.map((row) => (
+                      <tr key={`${row.provider}:${row.model}`}>
+                        <td>
+                          <span className={`napda-admin-badge is-${row.provider}`}>{row.provider}</span>
+                        </td>
+                        <td className="napda-admin-mono">{row.model}</td>
+                        <td className="num">
+                          {fmtNum(row.calls)} ({fmtNum(row.cache_hits)})
+                        </td>
+                        <td className="num">{fmtNum(row.project_count)}</td>
+                        <td className="num">{fmtNum(row.input_tokens)}</td>
+                        <td className="num">
+                          {fmtNum(row.output_tokens + row.thinking_tokens)}
+                        </td>
+                        <td>{fmtMedia(row.media_unit, row.media_qty)}</td>
+                        <td className="napda-admin-mono">{row.unit_price_label}</td>
+                        <td className="num">{fmtUsd(row.avg_cost_per_project_usd, rate)}</td>
+                        <td className="num">{fmtUsd(row.estimated_cost_usd, rate)}</td>
+                        <td className="num">{fmtNum(row.avg_latency_ms)} ms</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {summary && (
+          <section className="napda-admin-card">
+            <div className="napda-admin-card-head">
+              <h2 className="napda-admin-card-title">단계별 사용량 (Stage Breakdown)</h2>
+            </div>
+            <div className="napda-admin-table-wrap">
+              <table className="napda-admin-table">
+                <thead>
+                  <tr>
+                    <th>단계</th>
+                    <th>생성 산출물</th>
+                    <th className="num">호출(캐시)</th>
+                    <th className="num">입력 토큰</th>
+                    <th className="num">출력(+생각) 토큰</th>
+                    <th>미디어</th>
+                    <th className="num">추정 비용</th>
+                    <th className="num">평균 지연</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.by_stage.length === 0 ? (
+                    <tr>
+                      <td colSpan={8}>데이터 없음</td>
+                    </tr>
+                  ) : (
+                    summary.by_stage.map((row) => (
+                      <tr key={row.stage}>
+                        <td>
+                          <strong>{row.stage_label || row.stage}</strong>
+                          <div className="napda-admin-mono">{row.stage}</div>
+                        </td>
+                        <td className="wrap">{row.output_description || '-'}</td>
+                        <td className="num">
+                          {fmtNum(row.calls)} ({fmtNum(row.cache_hits)})
+                        </td>
+                        <td className="num">{fmtNum(row.input_tokens)}</td>
+                        <td className="num">{fmtNum(row.output_tokens + row.thinking_tokens)}</td>
+                        <td>{fmtMedia(row.media_unit, row.media_qty)}</td>
+                        <td className="num">{fmtUsd(row.estimated_cost_usd, rate)}</td>
+                        <td className="num">{fmtNum(row.avg_latency_ms)} ms</td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>

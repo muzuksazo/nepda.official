@@ -11,6 +11,29 @@ from typing import Optional, Protocol
 from .config import Settings
 
 
+_EXT_CONTENT_TYPES = {
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".webm": "video/webm",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".srt": "text/plain; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+}
+
+
+def _infer_content_type(path_or_key: str | Path) -> Optional[str]:
+    ext = Path(str(path_or_key or "")).suffix.lower()
+    if ext in _EXT_CONTENT_TYPES:
+        return _EXT_CONTENT_TYPES[ext]
+    guessed, _ = mimetypes.guess_type(str(path_or_key))
+    return guessed
+
+
 @dataclass(frozen=True)
 class ObjectMetadata:
     """Minimal object metadata returned by StorageBackend.head_object."""
@@ -166,7 +189,11 @@ class S3StorageBackend:
 
     def upload_file(self, local_path: str | Path, object_key: str) -> str:
         key = self._full_key(object_key)
-        self.client.upload_file(str(local_path), self.bucket, key)
+        content_type = _infer_content_type(object_key) or _infer_content_type(local_path)
+        upload_kw: dict[str, object] = {}
+        if content_type:
+            upload_kw["ExtraArgs"] = {"ContentType": content_type}
+        self.client.upload_file(str(local_path), self.bucket, key, **upload_kw)
         return self.presign_download(object_key)
 
     def download_file(self, object_key: str, local_path: str | Path) -> str:
@@ -185,9 +212,13 @@ class S3StorageBackend:
         )
 
     def presign_download(self, object_key: str, expires_sec: int = 3600) -> str:
+        params: dict[str, str] = {"Bucket": self.bucket, "Key": self._full_key(object_key)}
+        content_type = _infer_content_type(object_key)
+        if content_type:
+            params["ResponseContentType"] = content_type
         return self.client.generate_presigned_url(
             "get_object",
-            Params={"Bucket": self.bucket, "Key": self._full_key(object_key)},
+            Params=params,
             ExpiresIn=expires_sec,
         )
 
