@@ -225,7 +225,6 @@ def _draw_figma_line_segments(
             continue
         seg_bb = draw.textbbox((0, 0), seg_text, font=font, stroke_width=stroke_w)
         seg_adv = float(draw.textlength(seg_text, font=font))
-        seg_w = max(seg_adv, float(seg_bb[2] - seg_bb[0]))
         x_int = int(round(cur_x))
         if is_hi and hi_bg_rgba is not None:
             pad_h = 6
@@ -253,7 +252,9 @@ def _draw_figma_line_segments(
         else:
             draw.text((x_int, anchor_y), seg_text, font=font, fill=fill_col)
         min_x = min(min_x, x_int + seg_bb[0])
-        max_x = max(max_x, int(round(cur_x + seg_w)) + stroke_w)
+        # seg_bb 는 이미 테두리(stroke)를 포함한다. 오른쪽 끝에 stroke_w 를 또 더하면 2배로 잡혀
+        # 안전 영역 안에 있는 글자를 벗어났다고 잘못 판정한다.
+        max_x = max(max_x, x_int + max(int(round(seg_adv)), int(seg_bb[2])))
         cur_x += seg_adv
     return min_x, min_y, max_x, max_y
 

@@ -141,6 +141,26 @@ npm --prefix frontend run lint && npm --prefix frontend run build
 | [`08_live_google_auth.mp4`](./e2e_recordings/08_live_google_auth.mp4) | 인증 · 온보딩 | Live (`https://napda.vercel.app`) | `9.20s` / 83 KB / 4장 | **PASS** | 실제 Google 계정 GIS 로그인(`POST /v1/auth/google` `200`, `432×932`) → 홈 진입 → 전체 새로고침 후 `napda_session` Secure HTTPS 쿠키 세션 유지 + 프로필(`구글 계정`·`크레딧 0`·개인 이메일 마스킹) 정상 |
 | [`10_live_paddle_checkout.mp4`](./e2e_recordings/10_live_paddle_checkout.mp4) | 결제 · 크레딧 (Paddle) | Live (`https://napda.vercel.app`) | `9.20s` / 132 KB / 4장 | **PASS** | Modal Secret(`napda-backend`) Paddle Sandbox 7종 활성화 → `GET /v1/billing/config` `enabled: true` → `c100`(12,900원) `POST /v1/billing/checkout` `200` → Paddle Sandbox(`Test Mode`) 테스트 카드(`4242…`) 결제 성공 → 홈 헤더 & `/v1/billing/wallet` **`0 → 100`** 실시간 적립(`432×932`, 개인 이메일 마스킹) |
 | `E2E-P06` (API 보안 검증) | 결제 · 크레딧 (Paddle) | Live (`https://napda-api.vercel.app`) | — | **PASS** | 무서명 `401`, 변조 서명 `401`, 정상 HMAC-SHA256 `200` (`received: true`, `credited: false`) |
+| [`08_local_wizard_8step.mp4`](./e2e_recordings/08_local_wizard_8step.mp4) (**`E2E-L08`**) | 영상 제작 · 8단계 위저드 | Local (`:15177` → `:18084`) | `71.64s` / 908 KB / 9장 | **PASS** | 빈 입력 시 `다음` 잠김·뒤로 가도 입력 유지 → 0 크레딧 `크레딧이 조금 모자라요`(필요 12 · 보유 0) 시트, `나중에` 시 `POST /renders` 0건 → `충전하고 만들기` → `c100` 체크아웃 `200` → Paddle Sandbox 테스트 카드 결제 → `충전 완료!` → `영상 만들러 가기` → 고른 영상 그대로 `6/8` 복귀(보유 100) → `POST /renders` `202`(12 차감) → `7/8` 영상 확인, 잔액 `88` |
+| [`10_local_upload_guide.mp4`](./e2e_recordings/10_local_upload_guide.mp4) (**`E2E-L10`**) | 영상 제작 · 8단계 위저드 | Local (`:15177` → `:18084`) | `54.56s` / 666 KB / 6장 | **PASS** | `POST /v1/product-info` `200` + 재요청 `cached: true` · `POST /filming-guide` `200` · Presign → 실제 `PUT` → `uploads/complete`: 2초 영상 `400 INVALID_UPLOAD_LIMIT`, 텍스트 위장 `.mp4` `400 INVALID_UPLOAD_MEDIA`, 8.5초 정상 영상 `UPLOADS_READY`(`VALIDATED`), 비로그인 presign `401` · UI `이 영상으론 못 굽겠어요`(현재 2.0초) → `다른 영상 올리기` → 통과 |
+| [`12_local_media_delivery.mp4`](./e2e_recordings/12_local_media_delivery.mp4) (**`E2E-L12`**) | 영상 제작 · 8단계 위저드 | Local (`:15177` → `:18084`) | `18.44s` / 318 KB / 4장 | **PASS** | 서명 URL 쿠키 없이 `200` · `Range: bytes=0-1023` → `206` + `Content-Range` · 접미 Range `206` · 범위 초과 `416` · 토큰 서명/본문 변조 `403` · 썸네일 4종 `safe_zone_1_1_ok: true` PNG · UI `안전 영역 보기` 토글 + `7/8` 영상 재생(`1080×1920`, `206`) |
 
 - **오프라인 테스트 현황 (`c11b5c0` 기준)**: Python `delivery` **7/7** · `integration` **2/2** · `infrastructure` **13/13** 통과 (24자 한글 자동 축소·4종 Figma SSOT 안전 영역 검증 포함), Node **7/7 통과**, Frontend `oxlint` 0 error & `vite build` 통과 (`SAMPLE_*` 누수 0건).
 - **실서버 대화형 QA 완료**: `E2E-P03` (실계정 Google 로그인/새로고침 세션 유지) **PASS** · `E2E-P05` (실서버 Paddle Sandbox 테스트 카드 결제 및 `+100` 크레딧 실시간 적립) **PASS** (나 담당 실서버 E2E 전 항목 완료).
+
+### 5-1. `E2E-L08` · `L10` · `L12` 실행 방법과 발견 사항 (2026-11-28, 상윤님 담당분 대리 녹화)
+
+```bash
+node tests/e2e_scripts/run_local_l08_l10_l12.mjs
+```
+
+- 과금 호출 없음: 목 플래너 + Track A 로컬 템플릿 + `HOOK_WORKER_MODE=off`. 결제는 Paddle Sandbox 결제창에서 Paddle 공개 테스트 카드로 진행.
+- `L10`·`L12` 는 `L08` 이 만든 충전 잔액·완료 영상을 이어서 씁니다(순서대로 한 번에 실행).
+
+| 구분 | 우선순위 | 내용 | 상태 |
+|---|---|---|---|
+| 결함 | P2 | `명조 임팩트`(serif-outline) 썸네일: 테두리 폭을 두 번 더해 오른쪽 끝을 22px 크게 계산 → 안전 영역 안의 정상 썸네일도 `safe_zone_1_1_ok: false` 로 응답 (`3초 만에`/`물기 순삭` 등 5자·10자 줄에서 재현) | **수정** (`libraries/media-tools/ad_thumbnail_builder.py`) + 회귀 테스트 `tests/delivery/test_thumbnails.py` |
+| 기획 | P1 | 결제 성공 후 Paddle 성공 창이 앱 화면 위에 그대로 남음. 뒤에는 이미 `충전 완료!` 가 떠 있지만 사용자가 창의 닫기(X)를 직접 눌러야 `영상 만들러 가기` 를 누를 수 있음 → 완료 이벤트에서 결제창을 닫는 것을 권장 | 미수정 (담당자 결정) |
+| 확인필요 | P1 | `POST /v1/uploads/presign` 의 타인 경로 차단이 `user-` 로 시작하는 ID 에만 적용됨. 실제 ID(Google `sub`)는 이 형태가 아니어서 `uploads/<다른 사용자 ID>/…` 로도 업로드 주소가 `200` 으로 발급됨 (`backend/app/server.py`) | 미수정 (담당자 결정) |
+| 확인필요 | P1 | `uploads/complete` 가 요청 본문의 `local_path` 를 그대로 믿고 서버 파일을 읽음 (`backend/app/upload_service.py`). 운영에서 외부 입력으로 받을 필요가 있는지 확인 필요 | 미수정 (코드 열람으로만 확인, 실행 검증 안 함) |
+| 기획 | P2 | `7/8 영상 확인` 의 `전체 30초 안팎` 문구가 실제 길이(이번 실행 17.9초)와 다름 | 미수정 |
