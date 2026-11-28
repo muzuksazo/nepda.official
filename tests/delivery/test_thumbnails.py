@@ -144,3 +144,45 @@ class TestThumbnailBuilder(ThumbnailBuilderCase):
             t1 = res["thumbnails"][1]
             self.assertFalse(t1["safe_zone_ok"])
             self.assertTrue(any("strict" in w for w in t1["warnings"]))
+
+    def test_serif_outline_short_lines_stay_inside_safe_zone(self) -> None:
+        """테두리 글자의 오른쪽 끝을 2배로 잡아 정상 썸네일을 안전 영역 밖이라고 판정하던 버그의 회귀 테스트."""
+        with temporary_directory() as td:
+            bg = os.path.join(td, "bg.png")
+            Image.new("RGB", (1080, 1920), (120, 140, 160)).save(bg)
+            cases = (["3초 만에", "물기 순삭"], ["3초 만에 물기 순삭"])
+            spec = {
+                "canvas": {"width": 1080, "height": 1920},
+                "strict_margin": True,
+                "thumbnails": [
+                    {
+                        "id": f"serif_{i}",
+                        "filename": f"serif_{i}.png",
+                        "layout": "figma",
+                        "figma_variant": "serif-outline",
+                        "image": "bg.png",
+                        "strict_margin": True,
+                        "headline": {"style": "serif-outline", "lines": [{"text": ln} for ln in lines]},
+                    }
+                    for i, lines in enumerate(cases)
+                ],
+            }
+            sp = os.path.join(td, "spec.json")
+            with open(sp, "w", encoding="utf-8") as f:
+                json.dump(spec, f, ensure_ascii=False)
+            res = ad_thumbnail_builder.build_from_spec(sp, os.path.join(td, "out"))
+            bg_rgb = (120, 140, 160)
+            for t in res["thumbnails"]:
+                self.assertTrue(t["safe_zone_ok"], t["warnings"])
+                # 보고된 경계가 실제 그려진 글자(테두리 포함)를 감싸야 한다
+                im = Image.open(t["path"]).convert("RGB")
+                px = im.load()
+                y0, y1 = t["bounds"]["headline"][1], t["bounds"]["headline"][3]
+                ink_right = max(
+                    x
+                    for y in range(y0, y1, 4)
+                    for x in range(im.width - 1, 0, -1)
+                    if max(abs(px[x, y][c] - bg_rgb[c]) for c in range(3)) > 90
+                    and not any(max(abs(px[x2, y][c] - bg_rgb[c]) for c in range(3)) > 90 for x2 in range(x + 1, im.width, 8))
+                )
+                self.assertLessEqual(ink_right, t["bounds"]["headline"][2])
