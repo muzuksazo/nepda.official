@@ -654,7 +654,7 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 
 ### 스플래시
 
-앱을 열고 로그인 상태를 확인하는 동안 화면 전체를 덮는 화면(`SplashScreen`). **배경과 로고를 따로 두고 화면에서 겹친다** — 원본은 `asset/Splash/`의 `splash.png`(배경: 하늘·잔디·클래퍼보드를 든 냅다곰, 1672×941)와 `splash_logo.png`(라임 별 모양 로고, 투명). 로고를 배경에 박으면 배경과 함께 늘어나 흐려지므로 따로 얹는다. 글자·버튼·로딩 표시는 따로 두지 않는다.
+앱을 열고 로그인 상태를 확인하는 동안 화면 전체를 덮는 화면(`SplashScreen`). **배경과 로고를 따로 두고 화면에서 겹친다** — 원본은 `asset/Splash/`의 `splash.png`(배경: 하늘·잔디·클래퍼보드를 든 냅다곰, 1672×941)와 `splashlogo.png`(라임 별 모양 로고, 투명). 로고를 배경에 박으면 배경과 함께 늘어나 흐려지므로 따로 얹는다. 글자·버튼·로딩 표시는 따로 두지 않는다.
 
 - 배경(세로 화면): 곰을 가운데 둔 9:16 조각을 2배로 키우고 살짝 선명하게 다듬은 `splash-bg.webp`(1058×1882)를 `object-fit: cover`, **아래 기준**(`center bottom`)으로 채운다 — 곰이 늘 잔디 위에 선다.
 - 배경(가로로 넓은 화면, 데스크톱): 전체 가로 그림 `splash-bg-wide.webp`(2560×1441).
@@ -894,5 +894,5 @@ UI에서는 **감정이 있는 순간에만, 한 화면에 한 마리** 쓴다. 
 ## References
 
 1. `asset/BrandConcept/brand.png` — 냅다 브랜드 보드. 로고(라임 버스트 + 손글씨 워드마크 + NAPDA + 클래퍼보드), 슬로건 "B급 감성 광고영상, 냅다 만들어보세요!", "아이디어만 있다면, 이제는 냅다.", 앱 아이콘, 로고 변형(흰 바탕·검정 바탕), Brand Color 4색(#D6FF3F, #000000, #E5E5E5, #FFFFFF), Typography "냅다체", 마스코트 냅다곰 다섯 포즈, Key Visual, Brand Application(영상 오버레이, 검정 타일, 슬로건 카드), Brand Pattern & Graphic Elements.
-2. `asset/logo/logo.png` — 국문 "냅다" + 영문 "NAPDA" 조합 워드마크(검정, 투명 배경). 헤더 워드마크의 원본. 같은 폴더의 `logoeng.png`(기울어진 영문)과 `logoeng2.png`(정자형 영문)는 지금 화면에서 쓰지 않는다.
+2. `asset/logo/logo.png` — 국문 "냅다" + 영문 "NAPDA" 조합 워드마크(검정, 투명 배경). 헤더 워드마크의 원본. 앱에는 높이 240px로 줄인 검정·흰색 두 장(`wordmark-black.png`·`wordmark-white.png`)을 만들어 쓴다.
 3. `asset/Character/charactersheet.png` — 냅다곰 캐릭터 시트(상태별 고화질 원본 `happy`·`surprised`·`lyingdown`·`holding_clapboard`·`cheer.png`도 같은 폴더). 이름·종·성격(엉뚱함, 장난기, 과감함), 컬러 팔레트(#D6FF3F, #000000, #E5B887, #F7F7F7), 4방향 모습, 표정 6개, 포즈 5개, 디테일(얼굴·발바닥·클래퍼보드).

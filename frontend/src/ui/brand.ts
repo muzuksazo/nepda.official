@@ -13,7 +13,7 @@ import wordmarkWhite from '../assets/brand/wordmark-white.png';
 export const brand = {
   wordmarkBlack,
   wordmarkWhite,
-  // 스플래시: asset/Splash/의 배경(splash.png, 1672×941)과 로고(splash_logo.png)를 따로 두고 화면에서 겹친다.
+  // 스플래시: asset/Splash/의 배경(splash.png, 1672×941)과 로고(splashlogo.png)를 따로 두고 화면에서 겹친다.
   // 로고를 배경에 박지 않아 어떤 화면에서도 또렷하다. 배경 세로판은 곰을 가운데 두고 9:16으로 자른 뒤 2배로 키웠다(1058×1882)
   splash: { background: splashBg, backgroundWide: splashBgWide, logo: splashLogo },
   // 냅다곰: asset/Character/의 고화질 원본(1200×896 투명 PNG)을 잘라 WebP로 줄인 것.

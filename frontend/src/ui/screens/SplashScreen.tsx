@@ -12,7 +12,7 @@ export function SplashScreen() {
         <source media="(min-aspect-ratio: 1/1)" srcSet={brand.splash.backgroundWide} />
         <img className="n-splash__bg" src={brand.splash.background} alt="" decoding="async" fetchPriority="high" />
       </picture>
-      <img className="n-splash__logo" src={brand.splash.logo} alt="" width={900} height={576} decoding="async" />
+      <img className="n-splash__logo" src={brand.splash.logo} alt="" width={1005} height={643} decoding="async" />
     </div>
   );
 }
