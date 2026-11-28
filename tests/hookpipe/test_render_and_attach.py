@@ -82,7 +82,7 @@ class RenderHook(unittest.TestCase):
             result = render_hook(scenario, PRODUCT, Path(td) / "hook", provider=provider,
                                  settings=_settings(hook_burn_captions=False), tools=TOOLS)
             first = result.beats[0]
-            spoken = provider.tts_calls[0]["seconds"]
+            spoken = next(c["seconds"] for c in provider.tts_calls if c["text"] == scenario["beats"][0]["narration"])
             self.assertGreater(first["duration"], 3.0)
             self.assertGreaterEqual(first["duration"] + 1e-6, spoken / first["tempo"])
             self.assertLessEqual(first["tempo"], 1.3 + 1e-6)
