@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from .audio_mix import mix_bgm_and_sfx, resolve_audio_pack
 from .body import attach_body
 from .media import MediaTools, find_tools
 from .body_edit import ScriptWriter, body_cache_key, make_body
@@ -623,6 +624,26 @@ class HookPipeline:
                 body_srt=body_srt,
             )
             joined.warnings = [*body_warnings, *joined.warnings]
+            self._raise_if_cancelled(job_id)
+
+            try:
+                audio_pack = resolve_audio_pack(
+                    self.settings,
+                    self.template_storage,
+                    hook_type=str(scenario.get("type") or "A"),
+                    cache_dir=Path(self.settings.work_root).resolve().parent / "audio_cache",
+                )
+                mixed_lufs = mix_bgm_and_sfx(
+                    final_path,
+                    hook_sec=joined.hook_sec,
+                    tools=self._media(),
+                    pack=audio_pack,
+                    tmp_dir=job_dir / "_audio_mix",
+                )
+                if mixed_lufs is not None:
+                    joined.lufs = mixed_lufs
+            except Exception as exc:
+                logger.warning("배경음·효과음 3-Bus 믹싱을 건너뛰고 나레이션 단독본을 사용합니다: %s", exc)
             self._raise_if_cancelled(job_id)
 
             # 저장소 키 (팀 합의 2026-11-27): projects/{project_id}/renders/{job_id}/{master.mp4|clean.mp4|final.srt}

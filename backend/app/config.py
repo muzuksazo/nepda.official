@@ -111,6 +111,8 @@ class Settings(BaseSettings):
     hook_a_r2_access_key_id: Optional[str] = None
     hook_a_r2_secret_access_key: Optional[str] = None
     hook_a_r2_prefix: str = ""
+    hook_bgm_enabled: bool = True
+    hook_audio_location: str = "storage:assets/audio"
     hook_worker_timeout_sec: float = 900.0
     # 시나리오 작업자의 글 모델을 Gemini 로 바꾼다 (예: gemini-4-hydrogen). 비우면 각 트랙 기본(Claude).
     # B 는 B_LLM 스위치로, C 는 hookpipe 가 같은 프롬프트·스키마로 Gemini 를 부른다. A 는 Claude 전용이라 그대로.
