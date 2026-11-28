@@ -96,11 +96,55 @@ def _strip_emojis(text: str) -> str:
     return EMOJI_RE.sub("", str(text or "")).strip()
 
 
+HOOK_HEADLINE_LINE_MAX = 14
+
+
+def _split_headline(text: str) -> List[str]:
+    """한 줄이 길면 가운데에 가까운 띄어쓰기에서 두 줄로 나눈다."""
+    if len(text) <= HOOK_HEADLINE_LINE_MAX or " " not in text:
+        return [text]
+    words = text.split()
+    best: Optional[List[str]] = None
+    for cut in range(1, len(words)):
+        first, second = " ".join(words[:cut]), " ".join(words[cut:])
+        if best is None or abs(len(first) - len(second)) < abs(len(best[0]) - len(best[1])):
+            best = [first, second]
+    return best or [text]
+
+
+def hook_headline_lines(scenario: Optional[Dict[str, Any]]) -> List[str]:
+    """훅의 첫 문구(장면 순서대로 첫 자막, 없으면 첫 나레이션)를 썸네일 2줄로. 없으면 빈 목록."""
+    beats = [b for b in ((scenario or {}).get("beats") or []) if isinstance(b, dict)]
+    beats.sort(key=lambda b: b["order"] if isinstance(b.get("order"), int) else 0)
+    for field in ("caption", "narration"):
+        for beat in beats:
+            raw = beat.get(field)
+            if field == "caption" and not str(raw or "").strip():
+                cues = beat.get("caption_cues") or []
+                raw = cues[0] if cues else ""
+            text = str(raw or "").replace("\\n", "\n").replace("**", "")
+            lines = [_strip_emojis(ln) for ln in text.split("\n")]
+            lines = [" ".join(ln.split()) for ln in lines if ln.strip()]
+            if not lines:
+                continue
+            if len(lines) == 1:
+                lines = _split_headline(lines[0])
+            return lines[:2]
+    return []
+
+
 def default_headline_lines(
     project: Dict[str, Any],
     scenario: Optional[Dict[str, Any]] = None,
 ) -> List[str]:
-    """Derive 2 concise Korean thumbnail headline lines without emojis."""
+    """Derive 2 concise Korean thumbnail headline lines without emojis.
+
+    훅 문구(첫 장면 자막 → 나레이션)를 먼저 쓴다. 썸네일은 영상의 훅을 보여 주는 자리라서다 (2026-11-29).
+    훅 문구가 없을 때만 예전처럼 제목·제품 정보로 만든다.
+    """
+    hook_lines = hook_headline_lines(scenario)
+    if hook_lines:
+        return hook_lines
     product = project.get("product") or {}
     name = _strip_emojis(str(product.get("name") or "제품 리뷰"))
     facts = [_strip_emojis(str(f)) for f in (product.get("verified_facts") or []) if _strip_emojis(str(f))]

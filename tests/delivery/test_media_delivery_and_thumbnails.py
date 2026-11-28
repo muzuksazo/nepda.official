@@ -262,6 +262,23 @@ class TestMediaDeliveryAndThumbnails(unittest.TestCase):
                 with Image.open(out_p) as im:
                     self.assertEqual(im.size, (1080, 1920))
 
+    def test_default_headline_uses_the_hook_line_not_the_product(self) -> None:
+        from app.thumbnail_service import default_headline_lines
+
+        project = {"product": {"name": "물기제거 스펀지", "verified_facts": ["한 손에 쥐는 크기"]}}
+        two_lines = {"beats": [
+            {"order": 2, "caption": "둘째 장면"},
+            {"order": 1, "caption": "댐 균열을 테이프 100겹으로\n막아두면 어떻게 될까요?"},
+        ]}
+        self.assertEqual(default_headline_lines(project, two_lines), ["댐 균열을 테이프 100겹으로", "막아두면 어떻게 될까요?"])
+        # 자막이 없으면 나레이션을 쓰고, 긴 한 줄은 두 줄로 나눈다
+        narration_only = {"beats": [{"order": 1, "caption": "", "narration": "물고기는 숨을 어떻게 쉴까요 아가미가 비밀입니다"}]}
+        lines = default_headline_lines(project, narration_only)
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(" ".join(lines), "물고기는 숨을 어떻게 쉴까요 아가미가 비밀입니다")
+        # 훅 문구가 없을 때만 제품 정보로
+        self.assertEqual(default_headline_lines(project, {"beats": []}), ["물기제거 스펀지", "한 손에 쥐는 크기"])
+
     def test_prepend_thumbnail_to_video_and_no_double_prepend(self) -> None:
         with temporary_directory() as td:
             root = Path(td)

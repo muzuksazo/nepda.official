@@ -109,8 +109,8 @@ export interface ThumbnailDownloadScreenProps {
   needsPublishConsent?: boolean;
   /** 처음부터 올리기 동의 시트를 열어 둔다 (스토리·테스트용) */
   initialIsConfirmingPublish?: boolean;
-  /** 제작 흐름을 마치고 내 영상 목록 등으로 빠져나간다 */
-  onComplete?: () => void;
+  /** 제작 흐름을 마치고 내 영상 목록 등으로 빠져나간다. changed: 썸네일 글자·시안을 고친 뒤 아직 서버에 반영하지 않았다 */
+  onComplete?: (templateId: string | null, caption: string, changed: boolean) => void;
 }
 
 const DEFAULT_AI_DISCLOSURE = "인스타그램 게시 시 'AI 정보' 라벨 활성화를 권장합니다.";
@@ -159,6 +159,10 @@ export function ThumbnailDownloadScreen({
           : (effectiveTemplates[0]?.id ?? null));
 
   const liveHeadline = formatThumbnailHeadline(caption || initialCaption);
+  // 서버 썸네일에 마지막으로 반영된 글자·시안 (내려받기를 누르면 반영된다)
+  const [applied, setApplied] = useState({ caption: initialCaption, templateId: initialTemplateId ?? null });
+  const isChanged =
+    (caption || initialCaption) !== applied.caption || effectiveTemplateId !== (applied.templateId ?? effectiveTemplateId);
 
   const chooseTemplate = (next: string) => {
     setTemplateId(next);
@@ -188,10 +192,20 @@ export function ThumbnailDownloadScreen({
               isBlock
               isDisabled={isDownloadingThumbnail}
               icon={<Download size={20} aria-hidden="true" />}
-              onClick={() => onDownloadThumbnail?.(effectiveTemplateId, caption)}
+              onClick={() => {
+                setApplied({ caption: caption || initialCaption, templateId: effectiveTemplateId });
+                onDownloadThumbnail?.(effectiveTemplateId, caption);
+              }}
             />
             {onComplete ? (
-              <Button label="완료 · 내 영상 보기" variant="ghost" size="md" isBlock onClick={onComplete} />
+              <Button
+                label="완료 · 내 영상 보기"
+                variant="ghost"
+                size="md"
+                isBlock
+                isDisabled={isDownloadingThumbnail}
+                onClick={() => onComplete(effectiveTemplateId, caption || initialCaption, isChanged)}
+              />
             ) : null}
           </>
         }

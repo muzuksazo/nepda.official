@@ -42,6 +42,7 @@ import { openPaddleCheckout } from './billing';
 import { NapdaProvider, type ThemeSetting } from './ui/NapdaProvider';
 import {
   formatThumbnailHeadline,
+  THUMBNAIL_CAPTION_MAX,
   InfoSheet,
   type AgreementDoc,
   type BannerItem,
@@ -307,6 +308,22 @@ function formatScenarioText(scn: ScenarioItem): string {
   return [`[${scn.hook_title}]`, ...lines].join('\n');
 }
 
+/** 썸네일 글자 기본값: 훅의 첫 자막(없으면 첫 나레이션). 썸네일은 제품이 아니라 훅을 보여 주는 자리다 */
+function hookHeadlineOf(scn: ScenarioItem): string {
+  const beats = [...scn.beats].sort((a, b) => a.order - b.order);
+  for (const field of ['caption', 'narration'] as const) {
+    for (const b of beats) {
+      const text = (b[field] || '')
+        .replace(/\\n|\n/g, ' ')
+        .replace(/\*\*/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (text) return [...text].slice(0, THUMBNAIL_CAPTION_MAX).join('');
+    }
+  }
+  return '';
+}
+
 function triggerFileDownload(url: string, filename: string): void {
   const a = document.createElement('a');
   a.href = url;
@@ -433,6 +450,7 @@ export function App() {
   const [creditLedger, setCreditLedger] = useState<CreditEntry[]>([]);
   const [publicProjectIds, setPublicProjectIds] = useState<Record<string, boolean>>({});
   const [publishedCaption, setPublishedCaption] = useState<string>('');
+  const [hookHeadline, setHookHeadline] = useState<string>('');
 
   // 8-step creation flow state
   const [creationStep, setCreationStep] = useState<CreationStep | null>(null);
@@ -780,6 +798,7 @@ export function App() {
     setSkippedDrafts(false);
     setScenarioId(null);
     setScenarioText(undefined);
+    setHookHeadline('');
     setStoryboardScenes(undefined);
     setStoryboardLoading(false);
     setStoryboardError(null);
@@ -998,6 +1017,7 @@ export function App() {
         if (selScn) {
           setScenarioId(selScn.scenario_id);
           setScenarioText(formatScenarioText(selScn));
+          setHookHeadline(hookHeadlineOf(selScn));
           setSkippedDrafts(false);
           if (selScn.storyboard_frames && selScn.storyboard_frames.length > 0) {
             setStoryboardScenes(
@@ -1012,6 +1032,7 @@ export function App() {
         } else {
           setScenarioId(null);
           setScenarioText(undefined);
+          setHookHeadline('');
           setStoryboardScenes(undefined);
           setSkippedDrafts(!proj.filming_guide?.shots?.length);
         }
@@ -1115,6 +1136,7 @@ export function App() {
       setHookType(primary);
       setSkippedDrafts(false);
       setScenarioText(undefined);
+      setHookHeadline('');
       setScenarioId(null);
       setStoryboardScenes(undefined);
       setStoryboardError(null);
@@ -1134,6 +1156,7 @@ export function App() {
             res.data.scenarios[res.data.scenarios.length - 1];
           setScenarioId(matched.scenario_id);
           setScenarioText(formatScenarioText(matched));
+          setHookHeadline(hookHeadlineOf(matched));
         }
       } catch (err) {
         setScenarioText(
@@ -1422,8 +1445,9 @@ export function App() {
     }
   }, [appendLedgerEntry, productInfo.name, projectId, queryClient, walletCredits]);
 
+  // download=false: 글자·시안만 서버에 반영한다 (내 영상 썸네일·영상 앞 표지). PNG 는 내려받지 않는다
   const handleDownloadThumbnail = useCallback(
-    async (templateId: string | null, caption: string) => {
+    async (templateId: string | null, caption: string, download = true) => {
       if (!projectId) return;
       const variant = normalizeFigmaVariant(templateId ?? deliverableThumb?.style);
       const formattedHeadline = formatThumbnailHeadline(
@@ -1498,6 +1522,7 @@ export function App() {
           // ignore deliverable refresh failure after thumbnail creation
         }
 
+        if (!download) return;
         const cleanBgUrl = nextCandidateUrls[0] || newImageUrl || deliverableThumb?.imageUrl;
         try {
           await exportThumbnailPng({
@@ -2012,6 +2037,7 @@ export function App() {
             setHookType(selected[0] ?? hookType);
             setScenarioId(null);
             setScenarioText(undefined);
+            setHookHeadline('');
             setStoryboardScenes(undefined);
             setStoryboardError(null);
             setGuideScenes(undefined);
@@ -2151,7 +2177,7 @@ export function App() {
           badge={deliverableThumb?.badge}
           highlightWord={deliverableThumb?.highlightWord}
           initialTemplateId={deliverableThumb?.style ?? 'invert-box'}
-          initialCaption={publishedCaption || productInfo.name || ''}
+          initialCaption={publishedCaption || hookHeadline || productInfo.name || ''}
           aiDisclosure={aiDisclosureGuide}
           isDownloadingThumbnail={isDownloadingThumb}
           thumbnailError={thumbError}
@@ -2169,7 +2195,11 @@ export function App() {
           onDownloadThumbnail={(tplId, caption) => {
             void handleDownloadThumbnail(tplId, caption);
           }}
-          onComplete={() => {
+          onComplete={async (tplId, caption, changed) => {
+            // 고친 글자·시안이 아직 서버에 없으면 먼저 반영하고 넘어간다 (내 영상 썸네일이 예전 글자로 남지 않게)
+            if (changed) {
+              await handleDownloadThumbnail(tplId, caption, false);
+            }
             setCreationStep(null);
             setMyTab('completed');
             setActiveTab('myVideos');
