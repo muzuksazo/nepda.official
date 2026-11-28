@@ -126,6 +126,7 @@ class BeatPlan:
     hold: bool = False  # 앞 장면의 마지막 화면에서 멈춤 (A 유형의 '패턴 인터럽트' 같은 아주 짧은 무음 장면)
     prebuilt: bool = False  # 미리 만들어 둔 영상을 쓰는 장면 (영상 모델을 부르지 않는다)
     first_frame_src: Optional[Path] = None  # 구도 참고 이미지 (Blender 블록아웃 등). 이 구도에서 시작하는 클립을 만든다
+    first_frame_is_still: bool = False  # first_frame_src 가 콘티 스틸컷: 이미 실사라 고치지 않고 그대로 첫 프레임으로 쓴다
     prompt: str = ""
     reused: List[str] = field(default_factory=list)
 
@@ -473,7 +474,7 @@ def _first_frame_from_layout(
     source = plan.first_frame_src
     if source is None:
         return None
-    if plan.beat.get("first_frame_refine") is False:
+    if plan.first_frame_is_still or plan.beat.get("first_frame_refine") is False:
         return _normalize_reference(source, media)
     prompt = str(plan.beat.get("first_frame_prompt") or "").strip() or DEFAULT_FIRST_FRAME_PROMPT
     candidate = cache / f"first_{_digest(prompt, getattr(settings, 'image_model', ''), _file_digest(source))}.jpg"
@@ -832,11 +833,13 @@ def render_hook(
     on_usage: Optional[Callable[..., None]] = None,
     publish_artifact: Optional[Callable[[str, str, Path], Optional[str]]] = None,
     cancel_event: Optional[threading.Event] = None,
+    storyboard_stills: Optional[Dict[int, Path]] = None,
 ) -> HookRenderResult:
     """훅 하나를 만든다. provider 는 `app.genai_provider.GenAIMediaProvider` (또는 같은 모양의 대역).
 
     cache_dir: 과금으로 받은 파일을 두는 곳. 같은 시나리오를 다시 만들 때 같은 곳을 주면 이미 받은 것은 다시 사지 않는다.
     resolve_asset: 장면의 `prebuilt_clip` / `prebuilt_narration` 값을 실제 파일 경로로 바꿔 주는 함수.
+    storyboard_stills: 장면 번호 → 콘티 스틸컷 파일. 그 장면 클립은 이 화면을 첫 프레임으로 시작한다 (콘티와 영상이 같게).
     """
     _check_cancelled(cancel_event)
 
@@ -884,6 +887,10 @@ def render_hook(
                 warnings.append(f"장면 {plan.order} 의 구도 참고 이미지를 찾지 못해 참고 없이 만들었습니다: {layout_ref}")
             else:
                 plan.first_frame_src = layout
+        # 콘티 스틸컷: 사용자가 콘티에서 본 그 화면에서 클립을 시작한다 (구도 참고 이미지보다 우선)
+        still = (storyboard_stills or {}).get(plan.order)
+        if still is not None and not plan.prebuilt and _ready(Path(still)):
+            plan.first_frame_src, plan.first_frame_is_still = Path(still), True
     # 과금 방어 1: 시나리오 길이만으로도 상한을 넘으면 나레이션을 사기 전에 멈춘다
     _check_clip_budget(
         sum(_clip_seconds(p.scenario_sec) for p in plans if not p.hold and not p.prebuilt), clip_limit

@@ -128,6 +128,22 @@ class RenderStageTest(unittest.TestCase):
         self.assertEqual(len(self.minimax.calls), 3)
         self.assertTrue(all(b.get("prebuilt_clip") for b in out["beats"]))
 
+    def test_gemini_path_downloads_storyboard_stills_by_beat(self) -> None:
+        sc = worker_scenario("B")
+        frames = []
+        for order in (1, 3):
+            key = f"projects/p1/storyboards/s1/frame_{order:02d}.png"
+            (self.tmp / "bucket" / key).parent.mkdir(parents=True, exist_ok=True)
+            (self.tmp / "bucket" / key).write_bytes(f"still{order}".encode())
+            frames.append({"beat_order": order, "object_key": key, "image_url": f"/v1/media/{key}"})
+        frames.append({"beat_order": 2, "object_key": "projects/p1/storyboards/s1/missing.png"})  # 못 받으면 빠진다
+        frames.append({"beat_order": 4, "image_url": "/only-url.png"})  # 저장소 키가 없으면 건너뛴다
+        sc["storyboard_frames"] = frames
+        stills = self.pipe._storyboard_stills(sc, self.tmp / "work" / "stills")
+        self.assertEqual(sorted(stills), [1, 3])
+        self.assertEqual(stills[3].read_bytes(), b"still3")
+        self.assertEqual(self.pipe._storyboard_stills({**sc, "type": "A"}, self.tmp / "work" / "a"), {})
+
     def test_type_a_and_gemini_engine_keep_old_path(self) -> None:
         self.assertFalse(self.pipe._selfhosted(worker_scenario("A")))
         self.assertTrue(self.pipe._selfhosted(worker_scenario("B")))
