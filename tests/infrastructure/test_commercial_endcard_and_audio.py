@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -33,9 +34,6 @@ from tests.support.hookpipe import make_video, tools_or_none  # noqa: E402
 from tests.support.tempdirs import temporary_directory  # noqa: E402
 
 TOOLS = tools_or_none()
-SAMPLE_AUDIT_PNG = Path(
-    "/Users/yun-yeowon/.gemini/antigravity-cli/brain/377cf567-80eb-45ca-adde-f2ecaafaeb6f/scratch/track_a_audit_v3/sample_endcard.png"
-)
 
 
 def _make_tone(tools: MediaTools, path: Path, *, freq: int, seconds: float, volume: float = 0.35) -> Path:
@@ -136,10 +134,12 @@ class PackshotEndcardImageTests(unittest.TestCase):
                 )
                 self.assertGreater(white_pixels, 1500, f"Expected title text pixels, got {white_pixels}")
 
-            # Write inspection sample PNG to scratch directory
-            SAMPLE_AUDIT_PNG.parent.mkdir(parents=True, exist_ok=True)
-            SAMPLE_AUDIT_PNG.write_bytes(rendered.read_bytes())
-            self.assertTrue(SAMPLE_AUDIT_PNG.is_file())
+            audit_out = os.environ.get("ENDCARD_AUDIT_PNG", "").strip()
+            if audit_out:
+                audit_path = Path(audit_out)
+                audit_path.parent.mkdir(parents=True, exist_ok=True)
+                audit_path.write_bytes(rendered.read_bytes())
+                self.assertTrue(audit_path.is_file())
 
     def test_render_packshot_png_without_bg_frame_and_long_korean_wrap(self) -> None:
         with temporary_directory() as td:
