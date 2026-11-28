@@ -14,7 +14,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header, HTTPException, Query, Request, Response, status
@@ -1062,6 +1062,8 @@ def build_projects_router(
             resets_at=resets,
         )
 
+    ensured_users: Set[str] = set()
+
     def require_user(
         request: Request,
         authorization: Optional[str] = Header(default=None),
@@ -1078,9 +1080,17 @@ def build_projects_router(
                 "로그인이 필요합니다. Google 계정으로 로그인해 주세요.",
             )
         try:
-            return verify_session_token(token, settings.session_secret)
+            user = verify_session_token(token, settings.session_secret)
         except AuthenticationError as exc:
             raise _api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHORIZED", str(exc)) from exc
+        # 세션만 있고 users 행이 없으면(로그인 유지 중 DB 가 새로 시작된 경우) 이름을 채운다. 프로세스당 사용자별 한 번
+        if user.user_id not in ensured_users:
+            try:
+                project_store.ensure_user(user)
+                ensured_users.add(user.user_id)
+            except Exception as exc:  # 이름 채우기 실패로 요청을 막지 않는다
+                logging.getLogger(__name__).warning("users 행을 채우지 못했습니다 (%s): %s", user.user_id, exc)
+        return user
 
     def _get_owned_project(project_id: str, user: AuthenticatedUser) -> Dict[str, Any]:
         proj = project_store.get_project(project_id, user_id=user.user_id)
