@@ -23,6 +23,12 @@ image = modal.Image.from_dockerfile(ROOT / "backend" / "Dockerfile", context_dir
         "OUTPUT_DIR": "/app/data/outputs",
         "DB_PATH": "/app/data/jobs.db",
         "HOOK_ASSETS_DIR": "/app/data/hook_assets",
+        # 콘티·장면 클립을 자체 모델(FLUX·MiniMax, 같은 워크스페이스 Modal 앱)로 만든다
+        "HOOK_MEDIA_ENGINE": "selfhosted",
+        # 크레딧 정책이 정해지기 전까지 렌더 무료 (결제 연결 뒤 이 줄을 뺀다)
+        "CREDITS_PER_VIDEO": "0",
+        # 렌더마다 이 중 하나를 같은 확률로 (목소리 선택 화면이 생기면 요청 값이 우선)
+        "INWORLD_VOICE_IDS": "crafty-mocha-3599__gangsangyun,crafty-mocha-3599__yunyeowon,crafty-mocha-3599__isiu,crafty-mocha-3599__heohyejeong",
     }
 )
 data = modal.Volume.from_name("napda-data", create_if_missing=True)
@@ -32,7 +38,10 @@ app = modal.App("napda-backend")
 
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name("napda-backend")],
+    # 뒤의 Secret 이 같은 이름을 덮는다: 시나리오·본편 글 모델은 승인된 구성(Claude)으로 (Secret 에는 gemini 가 들어 있다).
+    # 요청별 A/B(provider 지정)는 그대로 동작한다
+    secrets=[modal.Secret.from_name("napda-backend"),
+             modal.Secret.from_dict({"HOOK_WORKER_LLM": "claude-opus-5-5", "BODY_LLM": "claude-opus-5-5"})],
     volumes={"/app/data": data},
     cpu=2.0,
     memory=4096,

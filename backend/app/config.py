@@ -110,6 +110,8 @@ class Settings(BaseSettings):
     hook_worker_claude_model: Optional[str] = None
     hook_render_mode: Literal["video_model", "dry_run"] = "video_model"  # dry_run: 과금 호출 없이 scenario.json·hook.srt 만
     hook_max_sec: float = 20.0
+    # 콘티 그림·장면 클립을 만드는 곳. selfhosted: FLUX(스틸컷) + MiniMax 터보(클립), Modal 앱 napda-flux3-klein·napda-minimax
+    hook_media_engine: Literal["gemini", "selfhosted"] = "gemini"
     # B 반전 장면 끝 "그래서 ~가 뭐냐고요?" 앞뒤 뜸 (초). 0 이면 끈다
     hook_reveal_pause_sec: float = 0.8
     hook_reveal_pause_after_sec: float = 0.6
@@ -138,7 +140,10 @@ class Settings(BaseSettings):
     # Shared TTS, body pipeline, upload validation & media delivery
     tts_provider: Literal["inworld", "gemini"] = "inworld"
     inworld_api_key: Optional[str] = None
-    inworld_voice_id: str = "scarlet-mango-0605__gangsangyun"
+    inworld_voice_id: str = "crafty-mocha-3599__gangsangyun"
+    # 렌더마다 무작위로 고를 Inworld 목소리 ID (쉼표로 구분). 비우면 inworld_voice_id 하나.
+    # 요청에 목소리를 지정하면(나중에 선택 화면) 그 값을 쓴다.
+    inworld_voice_ids: str = ""
     inworld_model: str = "inworld-tts-2"
     inworld_speaking_rate: float = 1.1
     hook_burn_captions: bool = True

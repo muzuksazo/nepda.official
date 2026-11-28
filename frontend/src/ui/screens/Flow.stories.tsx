@@ -110,7 +110,7 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       ...prev,
     ]);
   const [historyFrom, setHistoryFrom] = useState<'profile' | 'notifications'>('profile');
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [isSigningIn, setIsSigningIn] = useState(false);
   // 처음 로그인하면 가입(약관 → 닉네임)을 거치고, 로그아웃 뒤 다시 들어오면 바로 홈으로 간다
   const [isMember, setIsMember] = useState(false);
@@ -456,18 +456,18 @@ function FlowPrototype({ themeMode }: { themeMode: ThemeSetting }) {
       return (
         <UploadVideoScreen
           hookType={hookType}
-          initialFile={uploadFile}
+          initialFiles={uploadFiles}
           cost={SAMPLE_CREDITS_PER_VIDEO}
           credits={credits}
           onBack={() => setStep('guide')}
           onReviewGuide={() => setStep('guide')}
           onCreate={() => {
-            setUploadFile(null);
+            setUploadFiles([]);
             startJob();
           }}
-          onCharge={(file, shortfall) => {
+          onCharge={(files, shortfall) => {
             // 충전하고 돌아오면 고른 영상이 그대로 남아 있게 들고 간다
-            setUploadFile(file);
+            setUploadFiles(files);
             openCharge('upload', shortfall);
           }}
         />

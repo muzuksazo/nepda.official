@@ -553,13 +553,13 @@ export const UploadVideo: Story = {
 
 export const UploadVideoSelected: Story = {
   name: '안1-7 영상 올리기 · 영상 고른 뒤',
-  render: () => <UploadVideoScreen {...uploadArgs} initialFile={sampleUpload()} cost={SAMPLE_CREDITS_PER_VIDEO} credits={120} />,
+  render: () => <UploadVideoScreen {...uploadArgs} initialFiles={[sampleUpload()]} cost={SAMPLE_CREDITS_PER_VIDEO} credits={120} />,
 };
 
 export const UploadVideoShort: Story = {
   name: '안1-7 영상 올리기 · 크레딧 모자람',
   render: () => (
-    <UploadVideoScreen {...uploadArgs} initialFile={sampleUpload()} cost={SAMPLE_CREDITS_PER_VIDEO} credits={5} initialIsShort />
+    <UploadVideoScreen {...uploadArgs} initialFiles={[sampleUpload()]} cost={SAMPLE_CREDITS_PER_VIDEO} credits={5} initialIsShort />
   ),
 };
 
